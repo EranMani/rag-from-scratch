@@ -46,3 +46,38 @@ rag-from-scratch/
 	- INGESTING DOCUMENTS
 	- RUNNING CONCEPT DEMOS
 	
+	
+PHASE 1
+
+* pyproject.toml => modern python equivalent of requirements.txt, but more powerful
+	- Defines what the project is (name, requires-python version)
+	- Dependencies are split intentionally
+		* production deps go under project, dev-only tools go under tool.uv
+		* running --no-dev means test libraries never end up in the production image
+	- Version control, gives freedom to resolve compatiable versions.
+	- UV.LOCK : a file uv generated that pins everything precisely, this file is what we commit in the end
+	
+* .env.example => goes to github with no real secrets, just placeholder values
+	- Documents every variable the system needs
+	- the .env file contains secrets (api keys) and is always gitignored
+	- Contract between the codebase and the environment
+	- When adding new var to .env, we must update the .env.example as well to be documented for other developers
+	
+* DockerFile => package the os layer, python version, all dependencies and config into a single unit called container
+	- Docker image is a recipe, a frozen snapshot of an environment
+	- Container is a running instance of that recipe, like process spawned from the image
+	- Can run 10 containers from one image simultaneously
+	- In this project, 9 services needs to talk to each other:
+		* app -> charoma db address
+		* grafana -> prometheus address
+		* logstash -> elasticsearch address
+	- Layer caching : each instruction (RUN, COPY, FROM) creates a layer.
+		* docker caches each layer and only rebuilds from the first changed layer downward
+		* dependencies change far less often than the source code
+		* COPY source code is last because this changes most often, so it belongs at the bottom
+		* EXPOSE is documentation, tells docker which port the container listens on
+		* CMD is default command when the container starts
+	- Order dockerfile instructions from least-likely-to-change to most-likely-to-change.
+		* maximizes cache hits and keeps rebuild times fast
+
+	
