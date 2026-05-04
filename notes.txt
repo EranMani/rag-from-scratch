@@ -122,5 +122,15 @@ PHASE 2
 	docker-compose down        # stop and remove containers
 	docker-compose down -v     # stop + delete all data (full reset)
 	docker-compose logs app    # view logs for a specific service
+	
+* what will happen when running docker compose up -d for the first time?
+	- parse the docker compose file and builds dependency graph from all the depends_on to determine startup order
+	- pull images from docker hub for every service that uses image:
+	- build the app image for the app service which uses build: .
+		* docker reads the docker file and builds a custom image layer by layer
+	- create volumes, docker creates all 6 named volumes (chroma_data, redis_data, etc) as empty storage buckets on your machine
+	- create the network. docker creates the rag-network bridge network that all containers will share
+	- start containers in order. Services with no depends_on start first
+	- return to the prompt. the -d flag means detached - all containers run in the background and you get your terminal back for work
 
 	
