@@ -10,7 +10,6 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     "python-multipart>=0.0.9",
     "nicegui>=2.0.0",
-
     # LangChain ecosystem
     "langchain>=0.3.0",
     "langchain-openai>=0.2.0",
@@ -18,29 +17,21 @@ dependencies = [
     "langchain-chroma>=0.1.0",
     "langchain-huggingface>=0.1.0",
     "langchain-text-splitters>=0.3.0",
-
     # Embeddings (local)
     "sentence-transformers>=3.0.0",
-
     # Vector DB client
     "chromadb>=0.5.0",
-
     # BM25 keyword search (graceful degradation fallback)
     "rank-bm25>=0.2.2",
-
     # Redis cache
     "redis>=5.0.0",
-
     # Monitoring
     "prometheus-client>=0.20.0",
-
     # Config & env
     "pydantic-settings>=2.4.0",
     "python-dotenv>=1.0.0",
-
     # Logging (structured JSON)
     "python-json-logger>=2.0.7",
-
     # Utilities
     "httpx>=0.27.0",
     "tiktoken>=0.7.0",
