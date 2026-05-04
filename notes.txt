@@ -5,8 +5,9 @@ PHASE 0 - Separation of concerts
 
 rag-from-scratch/
 │
-├── app/          ← HTTP + UI (presentation)
-├── rag/          ← Business logic (pipeline)
+├── src/
+│   ├── app/      ← HTTP + UI (presentation)
+│   └── rag/      ← Business logic (pipeline)
 ├── data/         ← Persistent content (state)
 ├── monitoring/   ← Infrastructure config (observability)
 └── scripts/      ← Operator tools (devops)
@@ -19,12 +20,18 @@ rag-from-scratch/
 * Nothing goes sideways or upward
 
 
-* /app => public face of the system. 
+* src/ layout => app/ and rag/ live inside src/, not at the root
+	- Follows modern Python packaging standards (PyPA recommendation)
+	- ENV PYTHONPATH=/app/src in Dockerfile tells Python where to find packages
+	- All imports stay unchanged (from app.core.config import settings)
+	- data/, monitoring/, scripts/ stay at root — they are not Python packages
+
+* src/app/ => public face of the system. 
 	- HTTP
 	- ROUTING : fastapi endpoints. thin, no business logic here
 	- UI : nicegui chat interface. A presentation concern, not pipeline
 	- CORE : config, logging and metrics. everything the app needs to run
-* /rag => brain of the system. Business logic with no HTTP concerns
+* src/rag/ => brain of the system. Business logic with no HTTP concerns
 	- pipeline : core RAG steps in sequence. each file is one steps
 	- embeddings : capability that multiple pipeline steps use
 	- providers : LLM abstraction (openai and ollama). switching providers is one line change
