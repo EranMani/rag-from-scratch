@@ -237,3 +237,57 @@ PHASE 3
 			- circuit breaker changes state → CIRCUIT_BREAKER_STATE.labels(service="chroma").set(1)
 		* think of this file as declaring the instruments in an orchestra
 		* the data (the music) comes when the instruments are played later in the code
+		
+		
+PHASE 4
+
+* Chunker => implement all three chunking strategies fixed/sentence/recursive
+
+* StrEnum => means the enum membmers are strings. created chunk strategy as enum with pre-defined choices
+
+* A module level of separators dict maps each strategy to its seprator list.
+  splitter is constructed once
+	- noticing the if-elif chain is doing the same thing in every bracn but with one different value
+	- a dict is almost always the cleaner tool
+  
+* Dependency injection via default parameter => caller was forced to always construct and pass a config
+	- now the function argument config has a sensible default, but the caller can override it
+	- dependency injection => the function doesnt control its own configuration, the caller provides it. benefits:
+		* testability - pass chunk config in a test without touching the function
+		* flexibility - an api endpoint, cli script, batch job can all call the same function with different configs
+		* sensible defaults - zero friction for the common case
+		
+* Dataclass VS pydantic basemodel
+	- use dataclass when:
+		* data is internal to application (not crossing a boundry like HTTP file or env)
+		* trust the caller to pass correct types - no runtime validation needed
+		* want something lightweight with zero dependencies
+		* the object is simple. just hold values, maybe has a few methods
+		
+	- use pydantic basemodel when:
+		* data comes from an untrusted external source (HTTP request body, json file, cli input)
+		* need runtime validation
+		* need serialization/deserialization - converting to/from JSON automatically
+		* wnat clear error messages when validation fails
+		
+	External world (HTTP, .env, files, user input)
+			│
+			▼
+	   [Pydantic]  ← validates and sanitizes here
+			│
+			▼
+	Internal Python code
+			│
+			▼
+	  [@dataclass]  ← just holds data, trust already established
+	  
+	- if you find yourself adding manual validation to a dataclass with __post_init__
+		@dataclass
+		class ChunkConfig:
+			chunk_size: int = 500
+
+			def __post_init__(self):
+				if self.chunk_size <= 0:
+					raise ValueError("chunk_size must be positive")
+		
+		thats a signal you should switch to pydantic.
