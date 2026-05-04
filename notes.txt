@@ -1,0 +1,48 @@
+PHASE 0 - Separation of concerts
+
+* Each folder owns excatly one responsibility
+* Never touch unrelated code
+
+rag-from-scratch/
+│
+├── app/          ← HTTP + UI (presentation)
+├── rag/          ← Business logic (pipeline)
+├── data/         ← Persistent content (state)
+├── monitoring/   ← Infrastructure config (observability)
+└── scripts/      ← Operator tools (devops)
+
+* Each layer only talks to the layer below it
+	- app => rag
+	- rag => data
+	- monitoring => observes app
+
+* Nothing goes sideways or upward
+
+
+* /app => public face of the system. 
+	- HTTP
+	- ROUTING : fastapi endpoints. thin, no business logic here
+	- UI : nicegui chat interface. A presentation concern, not pipeline
+	- CORE : config, logging and metrics. everything the app needs to run
+* /rag => brain of the system. Business logic with no HTTP concerns
+	- pipeline : core RAG steps in sequence. each file is one steps
+	- embeddings : capability that multiple pipeline steps use
+	- providers : LLM abstraction (openai and ollama). switching providers is one line change
+	- cache : redis, caching is a pipeline optimization. wraps retrieval and generation steps
+	- resilience : circuit breakers and bm25 fallback. pipeline concern
+	- memory : conversation state and user profiles. pipeline layer, feeds context into the generator
+	- chain : imports all the others and assembles the full pipeline. a conductor
+	
+* /data => persistent storage lives outside the code
+	- knowledge_base : content, the markdown files the system indexes
+	- chroma_db : on-disk persistence. generated at runtime. re-built by ingest.py
+	
+* /monitoring => config files for three monitoring tools, YAML & JSON
+	- PROMETHEUS
+	- GRAFANA
+	- LOGSTASH
+	
+* /scripts => commands that a developer or operator runs manually
+	- INGESTING DOCUMENTS
+	- RUNNING CONCEPT DEMOS
+	
