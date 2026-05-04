@@ -298,3 +298,36 @@ PHASE 4
 					raise ValueError("chunk_size must be positive")
 		
 		thats a signal you should switch to pydantic.
+		
+		
+		
+PHASE 5
+
+* Factory lives in __init__.py => __init__.py is the public API of the package
+	- when another module imports the embeddings it should get the embedder
+	- shouldnt need to know if its openai or local, an implementation detail
+	- Centeralizing it in __init__.py means changing the logic in exactly one place
+	- __init__.py is the front desk, it decidies which back room to use and hands you the result
+	- callers only talk to the front desk
+	
+* lru_cache => caches the return value of a function based on its arguments
+	- no arguments, only one possible cache key. makes each embedder effectively a singelton
+	- loading all-minilm-l6-v2 downloads the model weights and load them into memory, an expensive operation
+	- without lru cache, every call to get_local_embeddgins function would reload the model from disk
+	- maxsize=1 is explicit intent, i only want to cache one result.
+	- default maxsize is 128 which implies caching many different inputs, less readable for the embedding use case
+	
+	with lru_cache:
+		First call  → loads model weights into RAM (~seconds)
+		Second call → returns the exact same object instantly (cached)
+		Third call  → same cached object
+		
+* OpenAI vs Local embedder parameters => more control = more parameters
+	- OpenAI runs on their servers, you just send text over HTTP and get a vector back
+		* only needs: model name + api key to authenticate. everything else is their problem
+	- Local runs inside your process, you own the hardware and encoding decisions:
+		* model_name - which model to download from HuggingFace Hub
+		* model_kwargs: device - cpu or cuda (gpu). a hardware decision you now own
+		* encode_kwargs: normalize_embeddings=True - scales every output vector to length 1
+		  required for cosine similarity to work correctly. without it, vectors close in direction
+		  but different in magnitude would score incorrectly
