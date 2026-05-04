@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y \
 # Add uv to PATH
 ENV PATH="/root/.local/bin:$PATH"
 
+# Tell Python to look inside src/ for packages (src layout)
+ENV PYTHONPATH=/app/src
+
 # Copy dependency file first (layer caching)
 COPY pyproject.toml .
 
