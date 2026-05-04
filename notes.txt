@@ -1,6 +1,6 @@
-PHASE 0 - Separation of concerts
+PHASE 0 - Separation of concerns
 
-* Each folder owns excatly one responsibility
+* Each folder owns exactly one responsibility
 * Never touch unrelated code
 
 rag-from-scratch/
@@ -75,7 +75,7 @@ PHASE 1
 	- Container is a running instance of that recipe, like process spawned from the image
 	- Can run 10 containers from one image simultaneously
 	- In this project, 9 services needs to talk to each other:
-		* app -> charoma db address
+		* app -> chroma db address
 		* grafana -> prometheus address
 		* logstash -> elasticsearch address
 	- Layer caching : each instruction (RUN, COPY, FROM) creates a layer.
@@ -97,20 +97,20 @@ PHASE 2
 		* containers find each other by name (chroma, redis, elasticsearch) — no hardcoded IPs
 	- volumes : containers are ephemeral. when container stops or is deleted everything written inside it is lost
 		* use volume to store data on the host machine, outside the container
-		* each service that generates data we need to keep gets its own names volume
+		* each service that generates data we need to keep gets its own named volume
 			- chroma
 			- redis
 			- ollama
 			- prometheus
 			- grafana
-			- ealsticsearch
+			- elasticsearch
 	- services : every service follows the same pattern
 		* build: . -> docker builds an image from the local dockerfile (only the app service)
 		* image: redis:7-alpine pulls a pre builet image from docker hub
 		* ports - HOST:CONTAINER, maps a port on your machine to one inside the container
 			- 8001:8000 -> chroma db listens on port 8000 inside its container, reach it at localhost:8001 through your browser
 		* volumes:
-			- name volume (chroma_data:/chroma/chroma), docker managed persistent storage
+			- named volume (chroma_data:/chroma/chroma), docker managed persistent storage
 			- bind mount (./src:/app/src), local folder mounted directly into the container (no rebuild needed, essential for development)
 		* environment - env vars injected into the container at startup
 			- app service uses env_file: .env to pull secrets in from the .env file
@@ -142,7 +142,7 @@ PHASE 3
 	- it validates and coerces types automatically. it points out if there is a string instead of int, etc
 	
 	* Read the connection signature of each service and create a field for each parameter it requeirs
-		- charoma db needs host and port (connect via HTTP)
+		- chroma db needs host and port (connect via HTTP)
 		- redis needs redis_url (connects via a URL)
 		- openai is an api, needs api_key and model name
 		- ollama is local HTTP server, needs base_url and model name
@@ -177,7 +177,7 @@ PHASE 3
 * Logging => configures the python logging system step by step
 	- get logger gets a named logger called "rag"
 	- all log calls throught app will use this logger instance
-	- log level sets to debug. fallback is logging.INFO (if logging is invalid)
+	- log level sets to whatever settings.log_level says (from .env). fallback is logging.INFO (if value is invalid)
 	- handlers clear removes any handlers that might already be attached. prevents duplicate log lines
 	  if setup_logging is ever called twice
 	- stream handler sys.stdout sends log output to stdout, which docker captures and logstash can pick up
@@ -222,10 +222,18 @@ PHASE 3
 	- what is registry?
 		* prometheus client uses a global registry that includes python runtime metrics (memory, cpu, garbage collection)
 		* create a custom collector registry so your metrics are isolated - clean and only our app metrics
-		* this registry is what gets expoerted at the /matrics endpoint in app/main.py later
+		* this registry is what gets exported at the /metrics endpoint in app/main.py later
 		
 	- what are labels?
 		* dimensions that let you slice a metric. you have a counter with a layer label:
 			- CACHE_HITS.labels(layer="query").inc()
 			- CACHE_HITS.labels(layer="embedding").inc()
 		* in grafana you can then ask - show me cache hit rate broken down by layer
+		
+	- IMPORTANT: metrics.py only DEFINES the metrics (declares them into existence)
+		* the actual incrementing happens later in the pipeline code:
+			- request completes    → REQUEST_COUNT.labels(...).inc()
+			- cache returns a hit  → CACHE_HITS.labels(layer="query").inc()
+			- circuit breaker changes state → CIRCUIT_BREAKER_STATE.labels(service="chroma").set(1)
+		* think of this file as declaring the instruments in an orchestra
+		* the data (the music) comes when the instruments are played later in the code
