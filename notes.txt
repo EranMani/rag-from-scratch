@@ -86,5 +86,41 @@ PHASE 1
 		* CMD is default command when the container starts
 	- Order dockerfile instructions from least-likely-to-change to most-likely-to-change.
 		* maximizes cache hits and keeps rebuild times fast
+		
+		
+PHASE 2
+
+* Docker compose => tool that turns 9 separate docker run commands into one
+	- when running compose up, all services start, connect to each other and ready
+	- networks : connects containers so they can talk to each other by service name
+		* bridge driver creates a virtual private network only your containers can see
+		* containers find each other by name (chroma, redis, elasticsearch) — no hardcoded IPs
+	- volumes : containers are ephemeral. when container stops or is deleted everything written inside it is lost
+		* use volume to store data on the host machine, outside the container
+		* each service that generates data we need to keep gets its own names volume
+			- chroma
+			- redis
+			- ollama
+			- prometheus
+			- grafana
+			- ealsticsearch
+	- services : every service follows the same pattern
+		* build: . -> docker builds an image from the local dockerfile (only the app service)
+		* image: redis:7-alpine pulls a pre builet image from docker hub
+		* ports - HOST:CONTAINER, maps a port on your machine to one inside the container
+			- 8001:8000 -> chroma db listens on port 8000 inside its container, reach it at localhost:8001 through your browser
+		* volumes:
+			- name volume (chroma_data:/chroma/chroma), docker managed persistent storage
+			- bind mount (./src:/app/src), local folder mounted directly into the container (no rebuild needed, essential for development)
+		* environment - env vars injected into the container at startup
+			- app service uses env_file: .env to pull secrets in from the .env file
+		* depends_on - controls startup order. app service waits for chroma, redis and ollama to start before it launches
+		* restart: unless-stopped -> if container crashes, docker restarts it automatically.
+		
+* docker compose commands
+	docker-compose up -d       # start all services in background
+	docker-compose down        # stop and remove containers
+	docker-compose down -v     # stop + delete all data (full reset)
+	docker-compose logs app    # view logs for a specific service
 
 	
