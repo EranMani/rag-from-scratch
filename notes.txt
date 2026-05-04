@@ -133,4 +133,99 @@ PHASE 2
 	- start containers in order. Services with no depends_on start first
 	- return to the prompt. the -d flag means detached - all containers run in the background and you get your terminal back for work
 
+
+PHASE 3
+
+* Pydantic settings (Config)
+	- read .env for you and maps every variable to the matching field in the class
+	- OPENAI_API_KEY in .env becomes settings.openai_api_key in python
+	- it validates and coerces types automatically. it points out if there is a string instead of int, etc
 	
+	* Read the connection signature of each service and create a field for each parameter it requeirs
+		- charoma db needs host and port (connect via HTTP)
+		- redis needs redis_url (connects via a URL)
+		- openai is an api, needs api_key and model name
+		- ollama is local HTTP server, needs base_url and model name
+		- circuit breaker is pure logic, needs:
+			* failure threshold (how many failures before OPEN)
+			* recovery timeout (how many seconds before HALF-OPEN probe)
+		- RULE: any value that might differ between environments (local dev vs docker vs production) goes into settings
+		- Keep all these values in check inside the settings class
+		
+	* class Config is pydantic way of configuring the settings class itself, metadata about how it behaves
+
+	* @lru_cache => decorator that makes the settings a singleton 
+		- caches the return value of a funcion based on its arguments
+		- no arguments in get_settings, only one possible cache key - called once
+		- it is created the moment any file imports from config.py
+		- every other file share the same instance, one sourch of truth for all configuration
+		
+		
+* RAG JSON FORMATTER => json formatter knows how to convert a log record into a json string
+	- RAG JSON FORMATTER extends it to inject extra fields into every single log line automatically
+	- it will always include the service and level custom fields for every log
+	- service field is how to filter and search only this app logs
+	
+	* why super() and not __init__?
+		- add_fields is a method that json formatter calls internally every time it formats a log record
+		- not creating new object, rather intercepting the formatting process
+		- using super() will let the json formatter do all its normal work
+		- once done, add the custom fields (service, level)
+		- init would only run once when the formatter object is created.
+			* add_fields runs on every log call
+			
+* Logging => configures the python logging system step by step
+	- get logger gets a named logger called "rag"
+	- all log calls throught app will use this logger instance
+	- log level sets to debug. fallback is logging.INFO (if logging is invalid)
+	- handlers clear removes any handlers that might already be attached. prevents duplicate log lines
+	  if setup_logging is ever called twice
+	- stream handler sys.stdout sends log output to stdout, which docker captures and logstash can pick up
+	- logger propagate = false, stops the rag logger from passing messages up to the root python logger.
+		* without this, every log line would print twice - once from this handler, another from the default root handler
+	- no need for lru_cache here. when any file does import logger, python module system makes sure the module is 
+	  only executed once, setup_logging only runs once
+	  
+	  
+* PROMETHEUS => application processes requests. without metrics, you have no idea what is happening inside it
+	- is it fast or slow? are cache lookups working? is openai failing?
+	- prometheus solves this by having app count and measure things as they happen
+	- those numbers are stored in memory
+	- prometheus visits the /metrics endpoint every 15 seconds and collects them
+	- grafana reads from prometheus and draws graphs
+	- The flow is:
+		Your code increments a counter
+			   ↓
+		Prometheus scrapes /metrics every 15s
+			   ↓
+		Grafana reads Prometheus and draws graphs
+		
+	- three metric types:
+		* Counter: a number that only ever goes up. used for
+			- request count
+			- cache hits
+			- llm calls
+		  never reset a counter. its wrong if it stops rising
+		 
+		* Histogram: records individiaul measurements and groups them into buckets. used for:
+			- request latency (how long did each request take)
+			- chunks retrieved (how many chunks were retrieved per query)
+			
+		  the buckets [0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0] on request latency means prometheus counts how many
+		  requests completed within 0.1s, within 0.25s, etc
+		
+		* Gauge: a number that can go up or down. Used for current state
+			- circuit breaker state (what is the circuit breaker state right now?)
+			
+		  it is a snapshot of the current value, not a cumulative count
+		  
+	- what is registry?
+		* prometheus client uses a global registry that includes python runtime metrics (memory, cpu, garbage collection)
+		* create a custom collector registry so your metrics are isolated - clean and only our app metrics
+		* this registry is what gets expoerted at the /matrics endpoint in app/main.py later
+		
+	- what are labels?
+		* dimensions that let you slice a metric. you have a counter with a layer label:
+			- CACHE_HITS.labels(layer="query").inc()
+			- CACHE_HITS.labels(layer="embedding").inc()
+		* in grafana you can then ask - show me cache hit rate broken down by layer
