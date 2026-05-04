@@ -243,11 +243,11 @@ PHASE 4
 
 * Chunker => implement all three chunking strategies fixed/sentence/recursive
 
-* StrEnum => means the enum membmers are strings. created chunk strategy as enum with pre-defined choices
+* StrEnum => means the enum members are strings. created chunk strategy as enum with pre-defined choices
 
-* A module level of separators dict maps each strategy to its seprator list.
+* A module-level SEPARATORS dict maps each strategy to its separator list.
   splitter is constructed once
-	- noticing the if-elif chain is doing the same thing in every bracn but with one different value
+	- noticing the if-elif chain is doing the same thing in every branch but with one different value
 	- a dict is almost always the cleaner tool
   
 * Dependency injection via default parameter => caller was forced to always construct and pass a config
@@ -256,6 +256,13 @@ PHASE 4
 		* testability - pass chunk config in a test without touching the function
 		* flexibility - an api endpoint, cli script, batch job can all call the same function with different configs
 		* sensible defaults - zero friction for the common case
+		
+	- WARNING: mutable default arguments (like list = []) are shared across all calls.
+	  safe here because ChunkConfig only has primitive fields (int, StrEnum).
+	  if the default were a mutable object, each call would share and mutate the same instance:
+		def foo(items: list = []):  # BAD - same list object reused across every call
+			items.append(1)         # mutates the shared default silently
+	  rule of thumb: never use a mutable object (list, dict, set) as a default argument
 		
 * Dataclass VS pydantic basemodel
 	- use dataclass when:
@@ -268,7 +275,7 @@ PHASE 4
 		* data comes from an untrusted external source (HTTP request body, json file, cli input)
 		* need runtime validation
 		* need serialization/deserialization - converting to/from JSON automatically
-		* wnat clear error messages when validation fails
+		* want clear error messages when validation fails
 		
 	External world (HTTP, .env, files, user input)
 			│
