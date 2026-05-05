@@ -20,6 +20,7 @@ def retrieve(query: str, k: int = 4) -> list[Document]:
     Retrieve relevant chunks for a query
     Primary: ChromaDB semantic search
     Fallback: BM25 keyword search (when Chroma circuit breaker is OPEN)
+    BM25 must be ready before ChromaDB ever fails!
     """
     if chroma_cb.is_available():
         try:
