@@ -443,3 +443,31 @@ PHASE 8
 	- why sort indices and not scores? need the index to look up the actual document
 	  sorting scores directly loses track of which score belongs to which document
 	- results = [self.docs[i] for i in top_indices] — pulls documents in ranked order
+	
+	
+PHASE 9
+
+* Abstract base class (ABC) => python way of enforcing the contract
+	- the rest of the system needs to call an LLM
+	- which LLM should be swappable at runtime? openai when healthy, ollama as fallback
+	- without an interface the chain would have to know about both
+	- the LLMs are interchangeable because both are guaranteed to have get_llm and provider_name, because of the contract
+	- @abstractmethod enforcement: if a subclass forgets to implement get_llm(), Python raises TypeError
+	  at instantiation time - before any code runs. compile-time-style safety in a dynamic language
+
+* When interface is the right tool?
+	- i have multiple things that need to be interchangeable
+	- multiple implementations of the same concept. openai and ollama are both an llm you can call
+	- the caller shouldnt need to know which one it got, the chain just wants an LLM
+	- Liskov Substitution Principle (the L in SOLID): any subclass can stand in for the parent without breaking callers
+	- the implementation will change at runtime or per environment
+		* local dev uses ollama
+		* production uses openai
+		* fallback switches automatically
+	- you want to enforce a contract across a team/codebase
+		* when adding anthropic provider, abc forces them to implement get_llm to make it work
+	- the interface is great when substitutability is the goal
+		
+* When interface is not the right tool
+	- there is only ever going to be one implementation and no swap is needed
+	- abc adds complexity with no benefit, just use the class directly
