@@ -331,3 +331,38 @@ PHASE 5
 		* encode_kwargs: normalize_embeddings=True - scales every output vector to length 1
 		  required for cosine similarity to work correctly. without it, vectors close in direction
 		  but different in magnitude would score incorrectly
+
+
+PHASE 6
+
+* Redis Cache => three-layer cache (query, embedding, llm). each layer is a key-value store with a TTL
+
+* make_key => generates a Redis key using SHA-256 hash of the content
+	- SHA-256 is deterministic: same input always produces same output, regardless of who calls it
+	- two users asking "What is RAG?" produce the exact same hash => same Redis key => cache hit
+	- hexdigest() converts raw bytes into a hex string (0-9, a-f only) - always 64 characters, always safe
+	- key format: rag:layer:digest (e.g. rag:query:4c1f3b2a...)
+	  the prefix is a Redis namespace convention - lets you scan/filter by layer
+
+* safe_get / safe_set => graceful degradation for Redis failures
+	- Redis is an optional optimization, not a core requirement
+	- without try/except: Redis crash -> exception propagates -> user gets a 500 error
+	- with safe_get/safe_set: Redis crash -> warning logged -> returns None -> pipeline continues without cache
+	- setex = set + expiry in one atomic operation (key, ttl, value)
+
+* Cache-Aside Pattern (Lazy Loading) => the standard workflow for any cache:
+	1. generate cache key from input
+	2. check Redis (GET)
+	3. HIT  - return cached result immediately
+	4. MISS - do expensive work (LLM call / embedding / vector search)
+	5.      - store result in Redis (SET with TTL)
+	6.      - return result to caller
+
+	three rules that always apply:
+	- always check cache first
+	- always set after a miss (so the next caller benefits)
+	- always set a TTL (so stale data doesnt live forever)
+
+* metrics are updated inside get methods only (not set)
+	- a hit/miss only makes sense on a read. writing is always a write, nothing to measure
+	- cache owns its own observability - pipeline just calls get_query() without caring about metrics
