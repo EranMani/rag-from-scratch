@@ -471,3 +471,47 @@ PHASE 9
 * When interface is not the right tool
 	- there is only ever going to be one implementation and no swap is needed
 	- abc adds complexity with no benefit, just use the class directly
+
+
+PHASE 10
+
+* indexer.py => bridge between raw files and the vector database
+	- load_knowledge_base: walks the folder, loads .md files as Document objects
+	- ingest_documents: chunk -> embed -> store in one pipeline (3 lines)
+		chunks = chunk_documents(docs, config)   # split into small pieces
+		vectorstore = get_vectorstore()          # connect to ChromaDB
+		vectorstore.add_documents(chunks)        # embed each chunk and store
+
+* DirectoryLoader + TextLoader
+	- DirectoryLoader walks a folder and loads all files matching the glob pattern
+	- glob="**/*.md" => ** means any subdirectory at any depth, *.md means any markdown file
+	  "*.md" (no **) would only find files in the root folder, not subfolders
+	- loader_cls=TextLoader => reads each file as raw text, wraps it in a Document with file path as metadata
+	- output: one Document per .md file, containing full content + path metadata
+
+* Chroma and collection name
+	- chromadb.HttpClient connects to ChromaDB running in Docker as an independent HTTP server
+	- collection_name => ChromaDB organizes vectors into collections, like tables in SQL
+	  one server can hold many collections. specifying a name keeps this project isolated
+	  without it you risk mixing data from different projects
+	- embedding_function => must use the same embedding model for both storing and searching
+	  if you indexed with OpenAI but searched with local model, vectors would be in different
+	  spaces and similarity scores would be meaningless
+
+* add_documents => does two things in one call
+	- embeds each chunk using the embedding function provided
+	- stores (chunk text, vector, metadata) together in ChromaDB
+	- this is the moment .md files become searchable by meaning
+
+* functions vs class => use a class when you need to hold state between calls
+	- RAGRedisCache holds _client, CircuitBreaker holds _failure_count/_state - they need a class
+	- indexer functions are stateless: data goes in, data comes out, nothing persists between calls
+	- wrapping stateless functions in a class adds self and instantiation with no benefit
+	
+	| Use a class                              | Use functions                        |
+	| need to hold state between calls         | each call is self-contained          |
+	| need multiple instances with diff config | one shared behavior, no variation    |
+	| object has identity or lifecycle         | pure transformation of input/output  |
+	
+	- exception: if indexer needed a persistent vectorstore connection to avoid reconnecting on every
+	  call, a class would make sense. until that optimization is needed, functions keep it simpler.
