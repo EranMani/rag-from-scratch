@@ -1,9 +1,9 @@
 import time
 from enum import IntEnum
 from dataclasses import dataclass, field
-from src.app.core.config import settings
-from src.app.core.logging_config import logger
-from src.app.core.metrics import CIRCUIT_BREAKER_STATE
+from app.core.config import settings
+from app.core.logging_config import logger
+from app.core.metrics import CIRCUIT_BREAKER_STATE
 
 
 class CircuitState(IntEnum):
@@ -71,7 +71,7 @@ class CircuitBreaker:
         self._failure_count += 1
         self._last_failure_time = time.time()
 
-        # Log the service name that failed byeond current failure threshold
+        # Log the service name that failed beyond current failure threshold
         if self._failure_count >= self.failure_threshold:
             if self._state != CircuitState.OPEN:
                 logger.warning(
