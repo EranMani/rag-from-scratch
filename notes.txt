@@ -515,3 +515,41 @@ PHASE 10
 	
 	- exception: if indexer needed a persistent vectorstore connection to avoid reconnecting on every
 	  call, a class would make sense. until that optimization is needed, functions keep it simpler.
+
+
+PHASE 11
+
+* retriever.py => orchestrates primary (ChromaDB) and fallback (BM25) retrieval
+	- chroma available: similarity_search -> record_success -> return chunks
+	- chroma fails: record_failure -> fall back to BM25 -> return chunks
+	- no retriever available: log error, return empty list
+
+* _bm25_fallback is a module-level global (pre-loaded singleton)
+	- BM25FallbackRetriever holds state (bm25 index + full docs corpus) so it IS a class
+	- but the instance lives at module level, created ONCE at startup via set_bm25_fallback(docs)
+	- reason: BM25 needs the full corpus loaded into memory upfront, before the first failure
+	  you cant build it at query time when ChromaDB just failed - too late, no time
+	- underscore prefix (_bm25_fallback) signals it is private to this module
+
+* retrieve() is a function, not a class
+	- stateless coordination between two external things: ChromaDB call and BM25 singleton
+	- no state to hold between calls, functions are the right fit
+	
+* the pattern: stateful object, stored as module-level singleton, accessed by stateless functions
+	- you have seen this before: settings, logger, cache, circuit breakers - same pattern
+
+* record_success / record_failure => for the circuit breaker, not prometheus directly
+	- updates the circuit breaker state machine (chroma_cb) - counts failures to decide when to open
+	- prometheus does get updated as a side effect via _update_metric() inside those calls
+	- but the primary purpose is resilience logic, not metrics
+
+* CHUNKS_RETRIEVED.observe(len(docs)) => histogram measurement
+	- .observe(value) records one data point. each query call adds one measurement
+	- over time prometheus accumulates all observations to answer:
+	  "what is the average number of chunks retrieved?" or "how many queries returned fewer than 3 chunks?"
+	- this tells you about retrieval quality over time
+
+* metric method summary
+	- .inc()          Counter    increment by 1
+	- .set(value)     Gauge      set to this exact value right now
+	- .observe(value) Histogram  record one measurement of this value
