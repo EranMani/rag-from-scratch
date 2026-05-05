@@ -366,3 +366,80 @@ PHASE 6
 * metrics are updated inside get methods only (not set)
 	- a hit/miss only makes sense on a read. writing is always a write, nothing to measure
 	- cache owns its own observability - pipeline just calls get_query() without caring about metrics
+	
+	
+PHASE 7
+
+* circuit breaker state machine => this defines the data structure and transition logic for one service health status
+	- we define the instruments, in this case the service name, state. 
+	- later the pipeline plays them when needed
+	
+* One breaker per external service => one circuit breaker per independently failable external dependency
+	- if chroma db is down, you dont want to stop calling openai. they are unrealted failures
+	- each is assigned its own breaker so failures are isolated
+	- each breaker is a singelton, imported by pipeline code and shared across all requests
+	
+* @property in a dataclass => use when a value needs to be computed or evaluated at the moment it's read
+	- plain field: value stored, static until explicitly changed
+	- @property: computed fresh on every read, can run logic on access, you control get/set separately
+	
+	three scenarios:
+	1. derived values - computed from other fields, no need to store separately
+	   (e.g. word_count = len(content.split()) - storing it would require keeping it in sync manually)
+	2. side-effect on read - reading triggers a state transition or metric update (circuit breaker state)
+	3. controlled access - field is readable but not settable from outside (no setter defined = read-only)
+	
+	rule: if the value depends on something that changes over time (like time.time()) or is derived
+	      from other fields -> make it a property. if its just data being held -> plain field.
+
+* state property is a self-advancing state machine
+	- every time anything reads the state, it silently checks if the timeout expired
+	- auto-transitions OPEN -> HALF_OPEN without any external trigger
+	- is_available() returns True for CLOSED and HALF_OPEN (probe must get through), False for OPEN (fail fast)
+	
+	- two names, intentional:
+		* _state  => actual stored value, private, set directly with self._state = ... (no property, no recursion)
+		* state   => public interface, @property, triggers timeout check on every read, returns _state
+	- accessing self.state runs the full property body each time
+	  if we returned self._state directly without the check, the circuit would stay OPEN forever
+
+* why dataclass and not pydantic here?
+	- pydantic validates data ONCE at construction time. its for data shapes at trust boundaries
+	- circuit breaker manages evolving runtime state - failure_count increments, state transitions over time
+	  none of that is input validation, its behavioral logic responding to live events
+	- pydantic models are immutable by default - fighting the framework to mutate _state and _failure_count
+	
+	sharpened rule:
+	| Use Pydantic               | Use dataclass                          |
+	| validate data at boundary  | manage state that evolves over time    |
+	| data crosses trust boundary| data is internal and trusted           |
+	| need serialization         | need methods with side effects         |
+
+
+PHASE 8
+
+* BM25 fallback retriever => activated when ChromaDB is unavailable (circuit breaker OPEN)
+	- instead of returning an error, fall back to classic keyword matching
+	- system keeps running, semantic understanding is lost but results still returned
+	- warning log fires in __init__ the moment the fallback is instantiated
+
+* corpus => NLP term for "the full collection of text you are working with"
+	- BM25Okapi expects pre-tokenized lists, not raw strings
+	- corpus = [doc.page_content.lower().split() for doc in docs]
+	  ["What is RAG?"] -> [["what", "is", "rag?"]]
+
+* tokens => the query in the same tokenized form as the corpus
+	- BM25 compares query tokens against document tokens, not raw strings
+	- tokens = query.lower().split()
+
+* get_scores => scores every document in the corpus against the query tokens
+	- returns a list of floats, one per document. higher = more relevant
+	- documents with no matching tokens score 0
+
+* top_indices => sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:k]
+	- range(len(scores)) generates indices [0, 1, 2, ...], one per document
+	- sorted by score value, reverse=True means highest score first
+	- [:k] takes only the top k indices
+	- why sort indices and not scores? need the index to look up the actual document
+	  sorting scores directly loses track of which score belongs to which document
+	- results = [self.docs[i] for i in top_indices] — pulls documents in ranked order
