@@ -553,3 +553,58 @@ PHASE 11
 	- .inc()          Counter    increment by 1
 	- .set(value)     Gauge      set to this exact value right now
 	- .observe(value) Histogram  record one measurement of this value
+	
+	
+* Generator => the augmentation part of RAG
+	- get the selected documents and turn them into single string
+	- each document separated by its source file and new lines
+	- the entire string become the context inside RAG PROMPT
+	- LLM sees the chunks with their labels so it knows which module to cite
+	
+	
+* LCEL chain => the | is langchain operator overloaded on a base class called Runnable
+	- every component in langchain, prompt | llm | parser, extends Runnable
+	- the | just chains them - output of each feeds as te input to the next
+	- RAG_PROMPT.invoke({"context": ..., "question": ...})
+		→ formatted prompt messages
+			→ llm.invoke(messages)
+				→ raw LLM response object
+					→ StrOutputParser.invoke(response)
+						→ plain string
+						
+						
+* chain.invoke({"context": context, "question": question})
+	- not kwargs
+	- single positional argument, a plain python dict
+	- langcain matches the keys context and question to the context and question placeholders in the prompt template
+	- standard pattern across all LCEL chains
+	
+	
+* Raise => raise with no argument re-raises the same exception up the call stack
+	- intentional, generator does not decide what the user sees
+	- generator.py  →  raises exception
+			↓
+		chain.py      →  catches it, logs it, decides what to return to the API
+			↓
+		api/routes/chat.py  →  returns an HTTP response to the user
+	- if returned a string like error: something... the caller (chain) would have no way to know that generation failed
+	- by re-raising, it lets the layer above decide - retry with Ollama? return a 500? show friendly message?
+
+
+* Let it propagate => errors bubble up until they reach a layer that has enough context to make a decision
+	- raise when you can detect a failure but cannot meaningfully recover from it at your level
+	- recover locally if you can, raise if you cannot
+	- each layer has a different job:
+		generator.py       => I only know HOW to generate. I don't know what the user should see.
+			↓ raises
+		chain.py           => I know the full pipeline. I can retry, fallback, or give up gracefully.
+			↓ raises (or returns a safe response)
+		api/routes/chat.py => I know about HTTP. I decide the status code and response body.
+			↓
+		User sees a message
+
+	- this principle is applied consistently across the codebase:
+		* redis_cache.py       => swallows errors. a cache failure is recoverable right there - return None and continue.
+		                          no layer above needs to know
+		* circuit_breaker.py   => records the failure, flips state. does not raise
+		* generator.py         => raises. only chain.py knows whether to retry with Ollama or give up
