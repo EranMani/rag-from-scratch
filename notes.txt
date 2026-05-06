@@ -968,3 +968,74 @@ PHASE 13
 	- common mistake: trying to add condition as a child of a list item
 	  "- chroma" followed by indented "condition:" is invalid YAML
 	  the entire depends_on block must use map format if any service uses condition
+
+
+PHASE 14
+
+* main.py => the entry point and wiring layer. deliberately thin - owns no business logic
+	- routes live in api/routes/
+	- pipeline lives in rag/
+	- config lives in app/core/
+	- main.py only connects them together
+
+* lifespan => startup and shutdown logic for the FastAPI app
+	- decorated with @asynccontextmanager because FastAPI is async and startup can involve
+	  async operations (network calls to ChromaDB)
+	- everything BEFORE yield runs at startup, before the first request is handled
+	- yield is the pause point: "now run the application and serve requests"
+	- everything AFTER yield runs at shutdown (closing connections, flushing queues, etc.)
+
+	server starts → before yield → yield → handles requests → after yield → server stops
+
+	what happens at startup in this project:
+		1. load the knowledge base markdown files into memory
+		2. set BM25 fallback with those docs (must be loaded upfront, before any failure occurs)
+		3. check if ChromaDB collection is empty → if yes, ingest and embed everything
+		4. log "RAG system ready"
+
+* startup validation and graceful startup failure
+	- ChromaDB check runs at startup so the first user request never triggers a slow ingest
+	  the system is ready before traffic arrives
+	- the ChromaDB check is wrapped in try/except
+	  if ChromaDB is unavailable at startup, the app still starts
+	  BM25 fallback is already loaded, warning is logged, server comes up anyway
+	- this is graceful degradation applied at startup, not just at request time
+
+* creating the FastAPI app
+	app = FastAPI(title="...", description="...", version="1.0.0", lifespan=lifespan)
+	- FastAPI() creates the application instance
+	- lifespan= wires in the startup/shutdown function
+	- title, description, version appear in the auto-generated /docs (Swagger UI) page
+
+* middleware => wraps every single HTTP request automatically
+	- runs before the route handler and after it
+	  Request arrives → middleware enter → route handler runs → middleware exit → response sent
+	- call_next(request) is the call that actually runs the matching route handler
+	- why use middleware instead of logging inside each route?
+	  it is cross-cutting - every endpoint gets the same behavior automatically
+	  one place, universal coverage. you can never forget to add it to a new route
+	- this middleware logs method, path, status code, and latency for every request
+	  feeds into Logstash → Elasticsearch → Kibana
+
+* /metrics endpoint => exposes Prometheus data for Grafana
+	- generate_latest(REGISTRY) is a prometheus_client function that serializes all metrics
+	  in the registry into Prometheus text format (plain text, not JSON)
+	- REGISTRY is the custom isolated collector from metrics.py - only app metrics, no Python runtime noise
+	- Prometheus scrapes this endpoint every 15s (configured in prometheus.yml)
+	- Grafana reads from Prometheus and draws graphs
+	- Response (not plain dict) because content is already a formatted string and needs
+	  media_type=CONTENT_TYPE_LATEST so Prometheus knows how to parse it
+
+* registering routes => routes in separate files don't automatically become part of the app
+	- must explicitly register each router:
+		app.include_router(chat.router)
+		app.include_router(documents.router)
+		app.include_router(health.router)
+	- each router was created with APIRouter(prefix="/api", ...) in its own file
+	- include_router mounts all routes from that router onto the main app
+	- without this, the endpoints simply don't exist
+
+* NiceGUI mounted last => setup_ui(app) is always the final line
+	- NiceGUI's ui.run_with() takes over the root path /
+	- must be registered after all API routes
+	- if it were first, it could intercept API calls before they reach their handlers
