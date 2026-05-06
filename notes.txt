@@ -1039,3 +1039,79 @@ PHASE 14
 	- NiceGUI's ui.run_with() takes over the root path /
 	- must be registered after all API routes
 	- if it were first, it could intercept API calls before they reach their handlers
+
+
+PHASE 15
+
+* NiceGUI => Python-only UI framework that mounts directly onto a FastAPI app
+	- no HTML, CSS, or JavaScript files needed
+	- UI components (cards, buttons, inputs, badges) are Python objects
+	- reactive: calling ui.update() re-renders changed components in the browser
+	- ui.run_with(fastapi_app, mount_path="/") takes over the root path on the existing FastAPI instance
+	  NiceGUI and FastAPI share one process, one port (8000)
+
+* create_session() => generates a fresh UUID per browser tab when the page loads
+	- each tab is an isolated conversation thread
+	- session_id is passed into run_rag_pipeline on every send
+	- session memory uses it as the dict key to separate conversations
+
+* send handler flow (what happens when user clicks Send or presses Enter)
+	1. read and clear the input
+	2. disable the Send button (prevents double-submit)
+	3. render the human message card immediately (feels responsive)
+	4. show "Thinking..." indicator
+	5. call run_rag_pipeline (blocking call - the await is implicit via NiceGUI's async page)
+	6. delete the thinking indicator
+	7. render the assistant response card with answer + badges (cache, latency, chunks, trace_id)
+	8. if chunks exist, render a collapsible panel showing source filenames and content previews
+	9. re-enable the Send button
+
+* response card badges => observability surfaced directly in the UI
+	- cache: query / llm / none  — green background if cache hit, dark if not
+	- latency in ms            — how long the full pipeline took
+	- chunk count              — how many docs were retrieved
+	- trace_id                 — short ID to search in Kibana for the exact log lines
+
+
+PHASE 16
+
+* two separate observability pipelines
+	METRICS pipeline:  app → Prometheus → Grafana
+	LOGS pipeline:     app → Logstash → Elasticsearch → Kibana
+
+	they answer different questions:
+		metrics => numbers over time (how fast? how many? what rate?)
+		logs    => what exactly happened, when, and with what context
+
+* METRICS pipeline in detail
+	app/core/metrics.py     defines the counters, histograms, gauges
+	/metrics endpoint       serializes them as Prometheus text format on demand
+	prometheus.yml          tells Prometheus to scrape app:8000/metrics every 15s
+	Prometheus              stores the time-series numbers
+	Grafana ds.yml          auto-provisions Prometheus as the default datasource on startup
+	Grafana dash.yml        tells Grafana where to look for dashboard JSON files
+	rag_dashboard.json      pre-built panels: p95 latency, cache hit rate, LLM calls, circuit breaker states
+
+* LOGS pipeline in detail
+	app/core/logging_config.py   formats every log line as JSON (not plain text)
+	stdout                       Docker captures stdout from the container
+	logstash.conf                Logstash listens on TCP 5044, receives JSON lines
+	                             filters: if service == "rag-from-scratch", tags the log
+	                             output: forwards to Elasticsearch with daily index (rag-logs-YYYY.MM.dd)
+	Elasticsearch                stores and indexes the structured log documents
+	Kibana                       UI to search, filter, and visualize logs by field (trace_id, session_id, latency_ms)
+
+* what each monitoring config file does
+	prometheus/prometheus.yml           => scrape config: which app to pull metrics from, how often
+	grafana/provisioning/datasources/   => auto-connect Grafana to Prometheus on first startup (no manual setup)
+	grafana/provisioning/dashboards/    => tell Grafana which folder to scan for dashboard JSON files
+	grafana/dashboards/rag_dashboard.json => the actual dashboard panels with PromQL queries
+	logstash/logstash.conf              => log pipeline: input (TCP) → filter (tag by service) → output (Elasticsearch)
+
+* why JSON logs matter
+	- plain text logs: "Request completed in 142ms" — hard to filter, impossible to query by field
+	- JSON logs: {"latency_ms": 142, "trace_id": "a3f8c1", "session_id": "b7d2"} 
+	  Kibana can filter by any field instantly
+	  find all requests slower than 500ms: latency_ms > 500
+	  find all logs for one request: trace_id: "a3f8c1"
+	- this is why RAGJsonFormatter in logging_config.py adds service and level to every log line
