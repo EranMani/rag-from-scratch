@@ -851,3 +851,48 @@ PHASE 13
 	- ChromaDB          => the embedded chunks (in Docker named volume chroma_data)
 	- if ChromaDB is wiped but data/uploads/ is intact, you can re-ingest
 	- if both are lost, the content is gone
+
+
+* Health endpoints => two endpoints, two different audiences, two different purposes
+
+	/api/health => liveness probe. for infrastructure (Docker, Kubernetes, load balancers)
+		- answers one question: "is the process alive and able to handle requests?"
+		- intentionally does nothing - no DB check, no Redis ping
+		- if the process can respond at all, it returns {"status": "ok"}
+		- that is enough. infrastructure doesn't care about internal service health
+		- wired in docker-compose as:
+			healthcheck:
+			  test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+			  interval: 30s
+			  retries: 3
+		- if it stops responding, Docker marks the container unhealthy and can restart it
+
+	/api/health/circuit-breakers => operational visibility. for developers and operators
+		- answers: "which internal services are degraded right now?"
+		- returns live state of all three circuit breakers (chroma, openai, redis)
+		- example response:
+			{
+			  "circuit_breakers": [
+			    {"service": "chroma",  "state": "OPEN",   "failure_count": 5},
+			    {"service": "openai",  "state": "CLOSED", "failure_count": 0},
+			    {"service": "redis",   "state": "CLOSED", "failure_count": 0}
+			  ]
+			}
+		- typical use: user reports slow or wrong answers
+		  hit this endpoint, see state: OPEN for chroma
+		  now you know ChromaDB is down and BM25 fallback is running instead of semantic search
+		- Prometheus already tracks CIRCUIT_BREAKER_STATE as a gauge for Grafana dashboards
+		  this endpoint gives a human-readable instant snapshot without opening Grafana
+
+	one-line distinction:
+		/health                   => "is the app running?"       → for infrastructure
+		/health/circuit-breakers  => "what is degraded right now?" → for humans
+
+* Why /health does NOT check dependencies (Redis, ChromaDB, OpenAI)
+	- a liveness probe should only fail if the app itself is broken
+	- if Redis is down but the app is running, the app should still serve requests (cache degrades gracefully)
+	- if the liveness probe checked Redis and Redis was down, Docker would restart the app
+	  restarting the app does not fix Redis — it just creates unnecessary churn and downtime
+	- infrastructure probes and service health are separate concerns:
+		* liveness probe  => is this container healthy? should it be restarted?
+		* circuit breaker => is this dependency healthy? should requests be rerouted?
