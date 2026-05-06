@@ -896,3 +896,33 @@ PHASE 13
 	- infrastructure probes and service health are separate concerns:
 		* liveness probe  => is this container healthy? should it be restarted?
 		* circuit breaker => is this dependency healthy? should requests be rerouted?
+
+
+* Liveness vs Readiness => two distinct probe types, each with a different consequence when they fail
+
+	| Probe      | Question                              | Fails →                                        |
+	| Liveness   | "Is the process alive?"               | Container is RESTARTED                         |
+	| Readiness  | "Is the app ready to accept traffic?" | Container is REMOVED from load balancer        |
+
+	- liveness failure => something is fundamentally wrong with the process. restart it.
+	- readiness failure => dependencies aren't ready yet. stop sending traffic, but don't restart.
+	  useful at startup: ChromaDB may still be initializing. don't serve users until it's up.
+
+* /api/health/ready => readiness probe implementation
+	- pings Redis using cache._get_client().ping()
+	- pings ChromaDB using get_vectorstore()
+	- builds a checks dict: {"redis": "ok", "chroma": "ok"} or "unavailable" per service
+	- returns JSONResponse (not plain dict) because status code must be controlled:
+		* 200 if all services are ok   → load balancer keeps routing traffic here
+		* 503 if any service is down   → load balancer stops sending traffic to this instance
+	- a plain dict return always gives 200, which would mislead the load balancer
+	  into thinking the app is ready when it cannot serve correctly
+
+	example responses:
+		all healthy:  {"status": {"redis": "ok", "chroma": "ok"}}           HTTP 200
+		chroma down:  {"status": {"redis": "ok", "chroma": "unavailable"}}  HTTP 503
+
+* three health endpoints, three different audiences
+	/api/health          → infrastructure (Docker, Kubernetes): is the process alive?
+	/api/health/ready    → load balancer: are dependencies ready to serve traffic?
+	/api/health/circuit-breakers → developers: which services are currently degraded?
