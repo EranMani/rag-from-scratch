@@ -743,3 +743,62 @@ PHASE 11
 	- if you wanted to persist conversation history across restarts in the future:
 	  that would be a separate addition (saving messages to PostgreSQL or a file)
 	  profiles.py would not own that - it answers a different question
+
+
+PHASE 12
+
+* chain.py => the heart of the system. the facade that wires every component into one pipeline
+	- single function: run_rag_pipeline(question, session_id, user_id) -> dict
+	- caller asks a question, gets back an answer + observability metadata
+	- the backbone of every step: check if the result exists in cache, if not create it
+
+* Setup
+	- time.perf_counter() starts a high-precision timer for latency measurement
+	- trace_id is the first 8 chars of a UUID - used to correlate all log lines from this one request
+	  search logs by trace_id to find every log line that belongs to this request
+	- session_id falls back to "default" if nothing was passed
+
+* Step 1 - Query cache check
+	- check if this exact question was already answered before
+	- if yes: calculate latency and return immediately
+	  retrieval and generation are completely skipped - fastest possible path
+	- notice chunks: [] in this early return - we have no chunks because we never retrieved any
+	- cache_hit: "query" tells the UI to show the cache badge
+
+* Step 2 - Retrieve relevant chunks
+	- calls retrieve(question, k=4)
+	- retrieve() handles ChromaDB -> BM25 fallback transparently
+	- chain.py doesn't know or care which retriever ran
+
+* Step 3 - LLM cache check
+	- prompt_key = question + first 100 chars of each retrieved chunk
+	- why not cache by question alone here?
+	  the same question could return different chunks if the knowledge base changes
+	  this key captures both the question AND the context - a fingerprint of the exact prompt
+	- if hit: use cached answer, mark cache_hit = "llm"
+	- if miss: fall through to Step 4
+
+* Step 4 - Generate (only runs on LLM cache miss)
+	- calls generate(question, docs) which runs the LCEL chain
+	- immediately stores the result in LLM cache so the next identical call skips this step
+
+* Step 5 - Store everything
+	- stores the final answer in query cache (so Step 1 hits on the next identical question)
+	- adds the question and answer to session memory
+	- updates user profile if user_id was provided
+
+* Return dict => the answer plus observability metadata
+	{
+	    "answer":     the actual text the user sees
+	    "cache_hit":  "query" | "llm" | "none" — which cache layer saved work
+	    "chunks":     the retrieved docs (first 200 chars + source path each)
+	    "latency_ms": total time from pipeline start to finish in milliseconds
+	    "trace_id":   short ID to find all log lines for this exact request in Kibana
+	}
+	- the UI uses all of it: shows the answer, renders the cache badge, displays latency,
+	  and shows the retrieved chunks in a collapsible panel
+
+* Cache layers and what each one saves
+	query cache hit  => skip retrieval + generation entirely (fastest path)
+	llm cache hit    => skip generation only, retrieval still runs
+	no cache hit     => full pipeline: retrieve -> generate -> store
