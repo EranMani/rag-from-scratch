@@ -802,3 +802,52 @@ PHASE 12
 	query cache hit  => skip retrieval + generation entirely (fastest path)
 	llm cache hit    => skip generation only, retrieval still runs
 	no cache hit     => full pipeline: retrieve -> generate -> store
+	
+	
+	
+PHASE 13
+
+* With, the context manager => python way of running setup before a block, and perform teardown after it
+	- guaranteed, even if an exception occurs. it will be closed 100%
+	- the with block will handle the close operation himself
+	- enter → your code runs → exit (no matter what)
+	
+* REQUEST_LATENCY.labels(endpoint="/chat").time() => prometheus helper that:
+	- on enter (with starts): records time.time(), notes when the block began
+	- on exit (with ends): calculates now - start and calls .observe() on the histogram
+	- wrapped in with is clear and guaranteed that if run rag pipeline raises an excpetion, the latency
+	  is still recorded.
+	- run rag pipeline is the entire cost of this endpoint. wrapping it gives prometheus an accurate measurement 
+	  of total request duration as seen from the API layer
+	- run rag pipeline tracks its own latency ms internally for the user to see
+	- prometheus here is for grafana dashboards
+	- two different consumers, same underlying work being measured
+
+
+* documents.py => ingest endpoint. only input is a file, no request schema needed
+	- FastAPI's UploadFile handles the file type automatically, no Pydantic schema required
+	- schemas (like ChatRequest) are for structured JSON bodies. a file upload is a different content type
+
+* returning a plain dict in FastAPI => no need for JsonResponse
+	- when a route returns a plain dict, FastAPI automatically serializes it to JSON
+	  and sends it with Content-Type: application/json
+	- JsonResponse is only needed for manual control: custom status codes, custom headers,
+	  or pre-serialized JSON strings
+	- returning a dict is the standard FastAPI idiom
+
+* await file.read() => endpoint is async, file.read() is an async operation
+	- await pauses this coroutine until the file bytes arrive, without blocking other requests
+	- destination.write_bytes() then writes the raw bytes to disk synchronously (small files, acceptable)
+
+* where uploaded files are stored
+	- data/uploads/ is a path on the host machine — files written there survive server restarts
+	- in Docker, data/ is a bind mount: ./data:/app/data in docker-compose.yml
+	  files written inside the container land directly in the host's data/ folder
+	- survive: container restarts, rebuilds, docker-compose down
+	- only manually deleting the folder would lose them (docker-compose down -v does NOT touch bind mounts)
+
+* two separate stores for uploaded content
+	- data/uploads/     => the original raw file (permanent, on disk, bind mount)
+	- ChromaDB          => the embedded chunks (in Docker named volume chroma_data)
+	- if ChromaDB is wiped but data/uploads/ is intact, you can re-ingest
+	- if both are lost, the content is gone
