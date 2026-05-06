@@ -723,3 +723,23 @@ PHASE 11
 		Facade   => simplify a complex workflow
 		Open/Closed => make implementations swappable without breaking callers
 		Strategy => pick between multiple implementations at runtime
+
+
+* conversation.py vs profiles.py => separation of concerns in the memory layer
+	- two files, two different questions, two different storage strategies
+
+	| What                        | Where             | Storage    | Survives restart |
+	| what the user said          | conversation.py   | in-memory  | No               |
+	| who the user is             | profiles.py       | JSON file  | Yes              |
+
+	- conversation.py => "what did we talk about this session?"
+	  stores the actual messages (human + assistant turns) per session_id
+	  ephemeral - lives only in server memory
+
+	- profiles.py => "have I seen this user before, and how often do they visit?"
+	  stores identity metadata only (first_seen, last_seen, query_count)
+	  does NOT store message content - that is not its responsibility
+
+	- if you wanted to persist conversation history across restarts in the future:
+	  that would be a separate addition (saving messages to PostgreSQL or a file)
+	  profiles.py would not own that - it answers a different question
