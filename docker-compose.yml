@@ -58,10 +58,11 @@ services:
       - rag-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD-SHELL", "timeout 2 bash -c 'echo > /dev/tcp/127.0.0.1/8000'"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 60s
 
   redis:
     image: redis:7-alpine

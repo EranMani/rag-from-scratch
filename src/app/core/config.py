@@ -1,9 +1,15 @@
 # Imports
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
     # App
     app_host: str = "0.0.0.0"
     app_port: int = 8000
@@ -35,9 +41,9 @@ class Settings(BaseSettings):
     cb_failure_threshold: int = 5
     cb_recovery_timeout: int = 30
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    # Prometheus
+    prometheus_port: int = 9090
+
 
 @lru_cache()
 def get_settings() -> Settings:

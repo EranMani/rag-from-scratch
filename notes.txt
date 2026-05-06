@@ -1115,3 +1115,63 @@ PHASE 16
 	  find all requests slower than 500ms: latency_ms > 500
 	  find all logs for one request: trace_id: "a3f8c1"
 	- this is why RAGJsonFormatter in logging_config.py adds service and level to every log line
+
+
+DOCKER-FIRST-RUN TROUBLESHOOTING (war journal)
+
+* this section documents real failures hit while bringing rag-from-scratch up on Docker Desktop
+
+* Chroma healthcheck => chromadb/chroma image is minimal at first glance
+	- /usr/local/bin may only show the chroma binary — curl, wget, python often NOT on PATH for healthcheck CMD
+	- documented curl http://localhost:8000/api/v1/heartbeat fails: wrong path for current Chroma, or curl missing
+	- current Chroma heartbeat path is /api/v2/heartbeat (check official docs if image upgrades)
+	- working approach without curl: TCP-only probe inside the container (bash + /dev/tcp), e.g.
+		timeout 2 bash -c 'echo > /dev/tcp/127.0.0.1/8000'
+	  proves the server is listening — weaker than HTTP 200 but enough for depends_on: service_healthy
+	- add start_period: 60s on Chroma so slow boots do not flip unhealthy before the server binds
+	- alternative: remove Chroma healthcheck and use depends_on condition: service_started for app
+	  rely on /api/health/ready on the FastAPI app for real dependency checks
+
+* depends_on map syntax => when using condition: service_healthy, the whole block must be map form:
+		chroma:
+		  condition: service_healthy
+	  not a list with "- chroma" plus inline condition (invalid YAML)
+
+* ollama has no healthcheck => use condition: service_started, never service_healthy
+	  otherwise app waits forever for a health signal that never arrives
+
+* uvicorn: executable file not found in $PATH
+	- uv sync installs CLI tools into /app/.venv/bin — that path is not on PATH by default
+	- fix: CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+	- after changing Dockerfile CMD, must rebuild the image: docker compose build --no-cache app
+
+* Pydantic Settings + .env => extra_forbidden / ValidationError on prometheus_port (or any var)
+	- BaseSettings in Pydantic v2 rejects ANY environment variable that does not map to a declared field,
+	  unless you allow extras
+	- .env.example listed PROMETHEUS_PORT before Settings had a matching field => crash at import time
+	- fixes applied:
+		* add prometheus_port: int = 9090 to Settings (documents Prometheus UI port; scraping still uses prometheus.yml)
+		* migrate to SettingsConfigDict(env_file=".env", extra="ignore") so future stray env vars do not crash startup
+		* keep .env and Settings in sync — every documented env var should either be a field or be ignored on purpose
+
+* Chroma port 8000 vs 8001 => the most confusing networking lesson
+	- compose maps host:container for Chroma as "8001:8000" — on Windows, localhost:8001 reaches Chroma
+	- INSIDE the Docker network, the Chroma service listens on port 8000 in ITS container
+	- the app container must connect to chroma:8000, NOT chroma:8001
+	  (8001 is a host-only mapping; other containers do not see it)
+	- set CHROMA_PORT=8000 in docker-compose app environment (or in .env when running fully in Compose)
+	- two services both using "port 8000" is NOT a conflict — each container has its own network namespace
+	  app binds 8000 inside the app container; Chroma binds 8000 inside the chroma container;
+	  Docker DNS sends chroma hostname to the chroma container's IP
+
+* default redis URL typo watch
+	- redis:// = plain Redis; rediss:// = TLS — local docker redis uses redis:// only
+	- if default in Settings is wrong, override with REDIS_URL in .env
+
+* verify what the container actually runs
+	- docker logs rag-app --tail 80
+	- docker compose run --rm --no-deps app grep -n CHROMA /app/src/app/core/config.py
+	  confirms bind-mounted source matches what you edited on the host
+
+* security
+	- never paste .env into chat or commit it — contains API keys; rotate any key that was exposed
