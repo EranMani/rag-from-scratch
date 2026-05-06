@@ -1,5 +1,3 @@
-version: "3.9"
-
 networks:
   rag-network:
     driver: bridge
@@ -29,12 +27,21 @@ services:
       - ./src:/app/src
       - ./data:/app/data
     depends_on:
-      - chroma
-      - redis
-      - ollama
+      chroma:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
     networks:
       - rag-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # -- data layer ------------------
   chroma:
@@ -50,6 +57,11 @@ services:
     networks:
       - rag-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -62,6 +74,11 @@ services:
     networks:
       - rag-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # -- local llm --------------------
   ollama:
