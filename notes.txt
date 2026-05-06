@@ -678,3 +678,48 @@ PHASE 11
 
 	- lru_cache on get_settings() is technically redundant (module only runs once anyway)
 	  it is there as explicit intent - a signal to the reader that this is meant to be a singleton
+
+
+* Open/Closed Principle (the O in SOLID) => open for extension, closed for modification from the outside
+	- a module's internal implementation can change freely
+	- but its interface (function signatures, inputs, outputs) stays stable
+	- callers never need to change when the internals swap
+
+	profiles.py example:
+		today  => load_profile() reads from a JSON file on disk
+		later  => load_profile() queries PostgreSQL
+		result => every caller stays untouched. same input, same output, different internals
+
+	- this pattern appears in three places in this codebase:
+		* profiles.py          => JSON today, PostgreSQL later
+		* providers/__init__.py => OpenAI today, Ollama as fallback
+		* embeddings/__init__.py => local or OpenAI based on env var
+
+	- the key insight: hide the HOW behind a stable interface
+	  callers only know WHAT the function does, not how it does it
+
+
+* Design patterns in this codebase => three distinct patterns, each solving a different problem
+
+	Facade => hides a complex subsystem behind a simple call
+		- the complexity is coordinating multiple components
+		- example: run_rag_pipeline() in chain.py
+		  one call that hides: retrieve → cache check → generate → store memory → update metrics
+		- caller just calls the function and gets an answer back
+
+	Open/Closed => interface stays stable, implementation can swap without breaking callers
+		- not necessarily about hiding complexity, about replaceability
+		- example: load_profile() — today reads JSON, later queries PostgreSQL
+		  zero changes needed in callers when the storage mechanism changes
+
+	Strategy => multiple implementations of the same interface, selected at runtime
+		- caller doesn't know or care which implementation runs
+		- examples in this codebase:
+			* get_provider()    => picks OpenAI or Ollama based on circuit breaker state
+			* get_embeddings()  => picks local HuggingFace or OpenAI based on env var
+			* load_profile()    => will pick JSON or PostgreSQL
+
+	one-line distinction:
+		Facade   => simplify a complex workflow
+		Open/Closed => make implementations swappable without breaking callers
+		Strategy => pick between multiple implementations at runtime
