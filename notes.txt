@@ -608,3 +608,46 @@ PHASE 11
 		                          no layer above needs to know
 		* circuit_breaker.py   => records the failure, flips state. does not raise
 		* generator.py         => raises. only chain.py knows whether to retry with Ollama or give up
+
+
+PHASE 11
+
+* SessionMemory => in-memory conversation buffer per browser tab
+	- Message dataclass holds one chat turn (role + content)
+	- use dataclass and not pydantic because:
+		* message is internal data, never crosses a trust boundary (no HTTP, no file, no env)
+		* no runtime validation needed - role is always set by our own code, never by untrusted input
+		* needs mutable state - the list grows every turn
+	- SessionMemory holds a dict of session_id => list of Messages
+
+* session_id => a UUID generated per browser tab by the UI, not by the user
+	- generated once in ui.py when the tab opens: str(uuid.uuid4())
+	- scoped to a browser tab - two tabs = two independent conversation histories
+	- ephemeral - lives only in server memory. restart the server and it's gone
+	- passed down through every layer as a plain string:
+		ui.py (generates UUID)
+			↓
+		api/routes/chat.py (receives it in ChatRequest body)
+			↓
+		chain.py (passes it to session_memory calls)
+			↓
+		SessionMemory (uses it as the dict key)
+	- since it is just a string, replacing it with a JWT or auth token later requires
+	  zero changes to SessionMemory - the memory layer doesn't care what the string is
+
+* defaultdict(list) => defaultdict takes a callable as its argument
+	- when a key doesn't exist yet, it calls that callable to produce the default value
+	- list is the type itself (calling list() returns [])
+	- so on first access for any session_id, it automatically creates an empty list []
+	- no need to check "if session_id not in self._sessions" before appending
+
+	normal dict vs defaultdict:
+		d = {}
+		d["abc"].append("x")            # KeyError: 'abc'
+
+		d = defaultdict(list)
+		d["abc"].append("x")            # works - creates [] first, then appends
+
+* format_history => only injects the last 10 messages into the prompt
+	- full history is stored in memory (unbounded)
+	- only last 10 turns are injected - injecting the full history would blow up the context window
