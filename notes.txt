@@ -926,3 +926,45 @@ PHASE 13
 	/api/health          → infrastructure (Docker, Kubernetes): is the process alive?
 	/api/health/ready    → load balancer: are dependencies ready to serve traffic?
 	/api/health/circuit-breakers → developers: which services are currently degraded?
+
+
+* Docker healthcheck block => tells Docker how to test if a container is healthy
+	healthcheck:
+	  test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+	  interval: 30s       # how often to run the check
+	  timeout: 10s        # how long to wait for a response before marking as failed
+	  retries: 3          # how many consecutive failures before marking container unhealthy
+	  start_period: 40s   # grace period at startup - failures during this window don't count
+
+	- start_period is critical for the app container
+	  the app needs time to boot, load the knowledge base, and connect to ChromaDB
+	  without start_period, Docker would count the first 3 slow startup probes as failures
+	  and mark the container unhealthy before it even finishes starting
+
+	- test command runs INSIDE the container, not on the host machine
+	  this means the tool used (curl, redis-cli) must be installed inside the container image:
+		* app container    => curl installed via apt-get in Dockerfile
+		* redis container  => redis-cli is built into the redis:7-alpine image
+		* chroma container => curl available in the chromadb image
+
+* depends_on: list format vs map format in Docker Compose
+	- two valid syntaxes, cannot be mixed
+
+	list format (simple, no conditions):
+		depends_on:
+		  - chroma
+		  - redis
+
+	map format (required when using condition):
+		depends_on:
+		  chroma:
+		    condition: service_healthy
+		  redis:
+		    condition: service_healthy
+
+	- condition: service_healthy => waits until the service's healthcheck passes
+	- condition: service_started => waits only for the container to start (no healthcheck needed)
+	- use service_started for services without a healthcheck (e.g. ollama)
+	- common mistake: trying to add condition as a child of a list item
+	  "- chroma" followed by indented "condition:" is invalid YAML
+	  the entire depends_on block must use map format if any service uses condition
