@@ -651,3 +651,30 @@ PHASE 11
 * format_history => only injects the last 10 messages into the prompt
 	- full history is stored in memory (unbounded)
 	- only last 10 turns are injected - injecting the full history would blow up the context window
+
+
+* Python module singleton => Python handles this automatically via sys.modules
+	- when a module is imported for the first time:
+		1. Python executes the module top to bottom
+		2. creates any module-level instances (e.g. session_memory = SessionMemory())
+		3. stores the result in sys.modules (a dict of module name => module object)
+	- every subsequent import of the same module skips execution entirely
+	  and returns the cached version from sys.modules
+	- the same instance is shared across every file that imports it
+
+	First import  => execute module => create instance => store in sys.modules
+	Second import => find module in sys.modules => return it => same instance
+
+	- this is why the singleton pattern in Python is simpler than other languages:
+		* Java / C++ => need explicit singleton logic: private constructor, static instance, thread locks
+		* Python     => just write a module-level variable, the import system handles the rest
+
+	- examples in this codebase, all singletons via module-level variable:
+		* settings        => app/core/config.py
+		* logger          => app/core/logging_config.py
+		* cache           => rag/cache/redis_cache.py
+		* chroma_cb / openai_cb / redis_cb  => rag/resilience/circuit_breaker.py
+		* session_memory  => rag/memory/conversation.py
+
+	- lru_cache on get_settings() is technically redundant (module only runs once anyway)
+	  it is there as explicit intent - a signal to the reader that this is meant to be a singleton
