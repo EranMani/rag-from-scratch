@@ -1,8 +1,7 @@
 import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from app.core.config import settings
 from app.core.logging_config import logger
