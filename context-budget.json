@@ -1,0 +1,103 @@
+{
+  "_comment": "Token budget per agent role per invocation. Claude enforces these limits. All values in approximate tokens. Tiers stack: tier_0 + tier_1 + tier_2 <= total_cap.",
+  "_tiers": {
+    "tier_0": "Agent identity file (including Lessons section) + Current State Header. ALWAYS loaded.",
+    "tier_1": "Current commit spec + relevant handoffs + project-state.json. Loaded per invocation.",
+    "tier_2": "Most recent 2 worklog sessions + specific DECISIONS.md entries. Loaded when historical depth is needed.",
+    "total_cap": "Hard cap per invocation. If context exceeds this, Claude compresses before invoking."
+  },
+  "agents": {
+    "backend": {
+      "tier_0": 4000,
+      "tier_1": 3000,
+      "tier_2": 5000,
+      "total_cap": 18000,
+      "notes": "Tier 2 used for: referencing prior schema decisions, checking migration history, resolving service interface questions."
+    },
+    "devops": {
+      "tier_0": 3500,
+      "tier_1": 3000,
+      "tier_2": 3000,
+      "total_cap": 16000,
+      "notes": "DevOps rarely needs deep history. Tier 2 mainly for: checking prior env var decisions, reviewing startup sequence history."
+    },
+    "reviewer": {
+      "tier_0": 3000,
+      "tier_1": 1500,
+      "tier_2": 8000,
+      "total_cap": 22000,
+      "notes": "Viktor needs larger tier_2 to read the full diff context and surrounding code. Never needs worklog history — reads diffs only."
+    },
+    "security": {
+      "tier_0": 3000,
+      "tier_1": 1500,
+      "tier_2": 8000,
+      "total_cap": 22000,
+      "notes": "Sage needs the full changed files plus surrounding context for accurate threat modeling. Attack surface map from prior sessions is tier_2."
+    },
+    "qa": {
+      "tier_0": 3000,
+      "tier_1": 2000,
+      "tier_2": 5000,
+      "total_cap": 16000,
+      "notes": "Quinn reads changed code + existing test files. Tier_2 for: coverage debt log from prior sessions, known gaps carried forward."
+    },
+    "product": {
+      "tier_0": 2500,
+      "tier_1": 1500,
+      "tier_2": 2000,
+      "total_cap": 10000,
+      "notes": "Mira reviews Claude's summary, not raw code. Smallest budget — product review is high-level."
+    },
+    "frontend": {
+      "tier_0": 4000,
+      "tier_1": 3000,
+      "tier_2": 5000,
+      "total_cap": 18000,
+      "notes": "Similar budget to backend. Tier_2 for: reviewing prior API shape decisions, component hierarchy history."
+    },
+    "ai-engineer": {
+      "tier_0": 4500,
+      "tier_1": 3000,
+      "tier_2": 5000,
+      "total_cap": 20000,
+      "notes": "Slightly larger tier_0 — AI engineer identity includes prompt patterns and tool schema conventions that take more space."
+    },
+    "tech-writer": {
+      "tier_0": 2500,
+      "tier_1": 2000,
+      "tier_2": 3000,
+      "total_cap": 12000,
+      "notes": "Smallest depth needed. Alex reads summary + changed API/config. Tier_2 for: consistency check against prior DECISIONS.md entries."
+    },
+    "claude": {
+      "tier_0": 5000,
+      "tier_1": 4000,
+      "tier_2": 6000,
+      "total_cap": 24000,
+      "notes": "Claude as orchestrator needs more context than individual agents. Reads all Current State Headers + protocol + state file every session."
+    }
+  },
+  "session_limits": {
+    "alert_at_pct": 80,
+    "compress_at_pct": 90,
+    "alert_message": "Session is at {pct}% of context limit. Claude should compress worklog summaries before the next agent invocation.",
+    "compress_action": "Archive the oldest worklog sessions for each active agent. Rebuild Current State Headers from the compressed state."
+  },
+  "archive_protocol": {
+    "trigger": "After every 5 completed sessions per agent",
+    "action": "Move sessions 1-N to [agent]-worklog-archive-[batch].md. Compress to 20-line Archive Entry in the active worklog.",
+    "archive_entry_max_lines": 20,
+    "current_state_header_max_lines": 50
+  },
+  "lessons_protocol": {
+    "max_active_lessons": 20,
+    "archive_trigger": "When active lessons reach 20 entries",
+    "archive_action": "Move oldest 10 lessons to [agent]-lessons-archive.md. Keep 10 most recent in identity file.",
+    "archive_file": "[agent]-lessons-archive.md",
+    "archive_loaded_as_context": false,
+    "lessons_token_budget": 2000,
+    "lessons_token_note": "Lessons are part of tier_0. The 2000 token budget is included within each agent tier_0 allocation. If lessons exceed 2000 tokens, trigger archive regardless of entry count.",
+    "quality_bar": "Every lesson must have Trigger + Pattern + Why it matters. Reject generic lessons at write time."
+  }
+}

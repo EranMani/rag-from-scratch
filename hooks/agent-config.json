@@ -1,0 +1,82 @@
+{
+  "_comment": "Written by /init on 2026-05-08. Update via /replan if roles or domains change.",
+  "project": "rag-from-scratch",
+  "initialized": true,
+  "agents": {
+    "rex.stockagent@gmail.com": {
+      "name": "Rex",
+      "role": "backend",
+      "domains": [
+        "src/app/auth/",
+        "src/app/profile/",
+        "src/app/api/routes/",
+        "src/app/core/",
+        "src/app/main.py",
+        "tests/"
+      ]
+    },
+    "adam.stockagent@gmail.com": {
+      "name": "Adam",
+      "role": "devops",
+      "domains": [
+        ".github/",
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.prod.yml",
+        "nginx/",
+        "scripts/",
+        "systemd/",
+        ".env.example",
+        ".env.prod.example"
+      ]
+    },
+    "aria.stockagent@gmail.com": {
+      "name": "Aria",
+      "role": "frontend",
+      "domains": [
+        "src/app/ui.py"
+      ]
+    },
+    "nova.nodegraph@gmail.com": {
+      "name": "Nova",
+      "role": "ai-engineer",
+      "domains": [
+        "src/agents/",
+        "src/rag/"
+      ]
+    },
+    "ryan.tech.writer.agent@gmail.com": {
+      "name": "Ryan",
+      "role": "tech-writer",
+      "domains": [
+        "docs/",
+        "README.md",
+        "GETTING_STARTED.md"
+      ]
+    },
+    "claude@anthropic.com": {
+      "name": "Claude",
+      "role": "orchestrator",
+      "domains": [
+        "CLAUDE.md",
+        "ORCHESTRATION.md",
+        "AGENTS.md",
+        "ARCHITECTURE.md",
+        "DECISIONS.md",
+        "GLOSSARY.md",
+        "commit-protocol.md",
+        "project-state.json",
+        "team-preferences.md",
+        ".claude/commands/",
+        "hooks/"
+      ]
+    }
+  },
+  "universal_allowed": [
+    "README.md",
+    ".gitignore",
+    "pyproject.toml",
+    "uv.lock",
+    ".env.example"
+  ]
+}

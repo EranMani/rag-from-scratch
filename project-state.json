@@ -1,0 +1,77 @@
+{
+  "project": "rag-from-scratch",
+  "last_updated": "2026-05-08",
+  "status": "active",
+  "current_commit": {
+    "number": "01",
+    "name": "auth-gate-on-ingest",
+    "status": "pending",
+    "assignee": "backend"
+  },
+  "commits_done": [],
+  "commits_pending": ["01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24"],
+  "next_commit": "01",
+  "open_handoffs": [
+    {
+      "from": "commit-03",
+      "to": "Nova",
+      "target_commit": "10",
+      "message": "Commit 03 wires format_history() into chain.py generator. When you replace chain.py in Commit 10, carry this forward: call SessionMemory.format_history(session_id) before graph.invoke() and pass it into AgentState as conversation_history. This is a named deliverable of Commit 10, not optional."
+    }
+  ],
+  "blockers": [],
+  "quality_gate_results": {
+    "last_commit": {
+      "number": null,
+      "tests": null,
+      "viktor": null,
+      "sage": null,
+      "quinn": null,
+      "gate_wave": "parallel"
+    }
+  },
+  "parallel_groups_available": [
+    {
+      "wave": "A",
+      "commits": ["01", "02", "03"],
+      "note": "Phase 1 stabilize — all touch distinct files"
+    },
+    {
+      "wave": "B",
+      "commits": ["08", "09"],
+      "note": "retrieve_node and generate_node are independent"
+    }
+  ],
+  "rollback_history": [],
+  "replan_history": [],
+  "claude_decisions": [
+    {
+      "date": "2026-05-08",
+      "decision": "Monitoring stack (Prometheus, Grafana, ELK) stays in prod compose",
+      "reason": "Team Lead: portfolio must demonstrate production-grade self-evaluation and metrics visibility"
+    },
+    {
+      "date": "2026-05-08",
+      "decision": "AgentState designed for full arc in Commit 07",
+      "reason": "Nova flagged: retroactive state schema changes cascade through compiled LangGraph graph — design once for commits 07-17"
+    },
+    {
+      "date": "2026-05-08",
+      "decision": "graph.invoke() synchronous inside asyncio.to_thread()",
+      "reason": "Nova: consistent with existing chain.py pattern. Async graph would require rewriting all synchronous node I/O."
+    },
+    {
+      "date": "2026-05-08",
+      "decision": "Cache key incorporates user_level from Commit 17 onward",
+      "reason": "Nova: query-level cache shared across users at different mastery levels causes silent correctness bugs"
+    }
+  ],
+  "session_token_usage": {
+    "total_this_session": 0,
+    "by_agent": {}
+  },
+  "archaeology_complete": true,
+  "onboarding_type": "existing_codebase",
+  "completed_date": null,
+  "handoff_doc": null
+}
