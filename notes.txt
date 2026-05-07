@@ -1277,3 +1277,32 @@ PHASE 20
 * HTTPException in routes => map outcomes to status codes and JSON detail here; keep auth/db and auth/tokens free of FastAPI imports so lower layers stay reusable and testable
 
 * Wiring => app/main.py imports app.api.routes.auth and app.include_router(auth.router) alongside chat, documents, health so auth endpoints are live on the same FastAPI app
+
+
+PHASE 21
+
+* FastAPI dependencies sync vs async => Depends(...) accepts either def or async def; choose based on what the dependency does, not “everything async must be async def”
+
+* Phase plan pattern => app/auth/deps.py helpers such as get_current_user are written as plain def in the roadmap — decode JWT + stdlib sqlite3 lookup — that matches intentional sync deps
+
+* sync def dependency + async def route => FastAPI runs blocking sync dependencies in a thread pool when the endpoint is async, so sqlite3.get_user_by_id inside get_current_user does not occupy the asyncio event loop
+
+* async def dependency => right choice when the dependency itself awaits async I/O — async database drivers (asyncpg, SQLAlchemy async session), httpx.AsyncClient, async Redis clients — keeps one consistent async stack
+
+* async def dependency calling blocking sqlite3 directly => still blocks the event loop inside the coroutine — worse than sync def + pool unless work is offloaded (executor / sync helper called correctly)
+
+* rule of thumb => blocking sqlite + PyJWT decode → sync dependency callable is appropriate until user lookup becomes truly async
+
+* Phase 21 wiring => get_current_user in app/auth/deps.py reads Authorization: Bearer <token>, verifies JWT via decode_access_token, resolves sub to SQLite row via get_user_by_id, raises 401 on missing header/wrong scheme/invalid exp/sub/missing user — this is the enforcement choke point for “who is calling”
+
+* GET /api/auth/me => depends on get_current_user and returns UserPublic (user_id, email, display_name) — lets a client confirm identity from the token alone without trusting any user id in the request body
+
+* Route order and /me => /me does not need to be declared above /login or /register just because it is a literal path — FastAPI matches distinct paths independently. Order only matters when a parameterized route could steal a literal (e.g. define /users/me before /users/{user_id}); no such conflict on the current auth router layout
+
+* Chat security flow => POST /api/chat uses current_user_optional: same Bearer extraction pattern but returns None if header absent or token/user invalid — pipeline still runs when anonymous mode allows it
+
+* settings.allow_annonymous_chat => when false and creds_user is None → HTTP 401 (“login required”) — anonymous callers cannot hit chat at all. When true → trusted_user_id may be None — demo / legacy behavior without a JWT
+
+* trusted_user_id => taken only from creds_user["id"] after successful decode + DB lookup — intentionally ignores ChatRequest.user_id for authorization and personalization so clients cannot impersonate another user by forging JSON
+
+* End-to-end JWT flow for chat => client obtains access_token from register/login → sends Authorization: Bearer <access_token> on /api/chat → optional dependency validates and loads user → run_rag_pipeline receives server-derived user_id only → profiles and telemetry tied to real identity when anonymous mode is off
