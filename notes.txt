@@ -1306,3 +1306,29 @@ PHASE 21
 * trusted_user_id => taken only from creds_user["id"] after successful decode + DB lookup — intentionally ignores ChatRequest.user_id for authorization and personalization so clients cannot impersonate another user by forging JSON
 
 * End-to-end JWT flow for chat => client obtains access_token from register/login → sends Authorization: Bearer <access_token> on /api/chat → optional dependency validates and loads user → run_rag_pipeline receives server-derived user_id only → profiles and telemetry tied to real identity when anonymous mode is off
+
+
+PHASE 22 (NiceGUI auth + asyncio lesson)
+
+* NiceGUI auth UX => login form on `/` when auth is required and no valid session; loopback HTTP to `/api/auth/login` and `/api/auth/register`; `verify_stored_bearer()` calls `/api/auth/me` with stored Bearer token so a valid JWT skips the login UI; `/register` shows a post-success “You're signed in” + “Go to chat”; `/login` remains for anonymous-demo mode (`allow_annonymous_chat`) only — stored session uses `app.storage.user` (access_token, user_id, email)
+
+* Why the server “froze” on login/register => Uvicorn drives an asyncio event loop; NiceGUI `on_click` and synchronous page setup run work on that loop. Using **`httpx.Client`** (`with Client(...)`) performs **blocking** socket I/O — the loop cannot process other requests or UI updates until the HTTP call returns — looks like a global freeze with symptoms worst on same-process loopback to the same app
+
+* Fix => **`httpx.AsyncClient`** created once in **FastAPI lifespan** (`app.state.internal_http_client`), **`base_url=http://127.0.0.1:{app_port}`**, **`timeout` configured**, **`await client.aclose()`** in **`finally`** after `yield` — NiceGUI paths use **`async def`** pages/handlers and **`await http().get/post(...)`** so I/O yields and the server stays responsive
+
+* Relative paths => internal calls use paths like `/api/auth/me` against the client `base_url` — no duplicated URL building
+
+* Related caveat => **`run_rag_pipeline`** inside **`async def send()`** is still **synchronous** heavy work — long RAG calls can block the loop until offloaded (e.g. `asyncio.to_thread`) — separate from the auth HTTP freeze but worth knowing for chat latency under load
+
+
+Architecture decisions — auth, UI, ops
+
+* Two ways chat sees `user_id` => **`POST /api/chat`** derives **`trusted_user_id`** only from a verified Bearer JWT (`current_user_optional` → SQLite row). **NiceGUI** skips that route and calls **`run_rag_pipeline(..., user_id=app.storage.user["user_id"])`** in-process after the UI auth flow — identity on the UI path is **whatever the server stored** after successful login/register, not a second JWT verification per message — API clients stay JWT-bound; UI trusts server-side session storage once populated
+
+* NiceGUI uses loopback HTTP for auth => register/login/me hit the same FastAPI routes via **`AsyncClient`** rather than importing **`hash_password` / `create_access_token`** inside **`ui.py`** — keeps **one behavioral contract** for credentials and tokens at the cost of an extra HTTP hop and dependence on **`127.0.0.1:{app_port}`** being reachable from inside the process/container
+
+* JWT in NiceGUI **`app.storage.user`** => convenient for a demo SPA-style UI; storage is **not HttpOnly-cookie isolated** — mitigate XSS and treat token leakage like password leakage; production hardening often moves toward http-only cookies + CSRF strategy or very short-lived access tokens (see roadmap Phase 24)
+
+* **`allow_annonymous_chat`** => explicit **product / ops flag**: disables anonymous **`/api/chat`** when false; NiceGUI uses it to decide whether **`/`** requires login — document env alignment (**`ALLOW_ANNONYMOUS_CHAT`** matches **`allow_annonymous_chat`** field spelling in Settings) so prod never accidentally runs demo-open chat
+
+* Docker dependency reproducibility => image builds should **`COPY pyproject.toml` + `uv.lock`** before **`uv sync`** so the container matches the committed lockfile; after adding deps (**PyJWT**, **bcrypt**, etc.) **`docker compose build --no-cache app`** (or service name) avoids stale layers that omit packages and surface **`ModuleNotFoundError`** at runtime
