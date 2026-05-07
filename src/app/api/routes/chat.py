@@ -1,4 +1,5 @@
 from typing import Annotated
+import asyncio
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
@@ -51,10 +52,11 @@ async def chat(body: ChatRequest, creds_user: Annotated[dict | None, Depends(cur
     trusted_user_id = creds_user["id"] if creds_user else None
     
     with REQUEST_LATENCY.labels(endpoint="/chat").time():
-        result = run_rag_pipeline(
+        result = await asyncio.to_thread(
+            run_rag_pipeline,
             question=body.question,
             session_id=body.session_id or str(uuid.uuid4()),
-            user_id=trusted_user_id
+            user_id=trusted_user_id,
         )
     REQUEST_COUNT.labels(endpoint="/chat", status="success").inc()
     return ChatResponse(**result)

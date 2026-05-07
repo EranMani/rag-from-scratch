@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 
 import httpx
@@ -273,9 +274,11 @@ def setup_ui(fastapi_app):
                 thinking = ui.label("Thinking...").style("color:#64748b; font-style:italic")
 
             ui.update()
+            await asyncio.sleep(0)
 
             try:
-                result = run_rag_pipeline(
+                result = await asyncio.to_thread(
+                    run_rag_pipeline,
                     question=question,
                     session_id=session["session_id"],
                     user_id=trusted_user_id,
