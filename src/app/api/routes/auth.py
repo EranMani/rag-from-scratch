@@ -15,11 +15,11 @@ async def me(user: dict = Depends(get_current_user)):
     return UserPublic(
         user_id=user["id"],
         email=user["email"],
-        display_name=["display_name"],
+        display_name=user["display_name"],
     )
 
 
-@router.post(prefix="/register", response_model=TokenResponse)
+@router.post("/register", response_model=TokenResponse)
 async def register(body: RegisterBody):
     """Register new user and return the token generated with user id"""
     if get_user_by_email(body.email):

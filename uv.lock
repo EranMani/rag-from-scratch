@@ -3020,6 +3020,7 @@ name = "rag-from-scratch"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "bcrypt" },
     { name = "chromadb" },
     { name = "fastapi" },
     { name = "httpx" },
@@ -3051,6 +3052,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bcrypt", specifier = ">=5.0.0" },
     { name = "chromadb", specifier = ">=0.5.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", specifier = ">=0.27.0" },

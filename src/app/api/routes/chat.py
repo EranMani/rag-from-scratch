@@ -1,12 +1,12 @@
 from typing import Annotated
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi import security
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from app.core.metrics import REQUEST_COUNT, REQUEST_LATENCY
 from rag.chain import run_rag_pipeline
 from app.core.config import settings
+from app.auth.deps import security
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
