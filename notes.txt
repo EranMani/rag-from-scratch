@@ -1205,3 +1205,75 @@ PHASE 19
 * sqlite3.connect(..., check_same_thread=False) => opens (or creates) the DB file; check_same_thread=False allows use from worker threads other than the creating thread (common with ASGI servers). Prefer one connection per request or careful sharing — multiple concurrent writers on one connection still need discipline
 
 * row_factory = sqlite3.Row => rows are addressable by column name (row["email"]) and convert cleanly with dict(row). Default tuple rows would force positional indexing only unless you tracked column order manually
+
+
+PHASE 20
+
+* bcrypt password hashing => app/auth/password.py wraps the bcrypt library for plaintext never touches the DB
+	- hash_password: bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8") — store the returned string in password_hash
+	- verify_password: bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8")) — returns True/False for login
+
+* bcrypt.hashpw => hashes password bytes; the second argument is the salt (here from gensalt, or embedded in an existing hash in other workflows — verification uses checkpw, not re-hashpw)
+
+* bcrypt.gensalt => generates a new random salt per call; bcrypt folds salt + cost into the stored hash string so verification knows how to reproduce the hash
+
+* same plaintext twice => normally different stored strings — each registration runs gensalt(), so two users with the same password get different hashes; reduces rainbow-table value if the DB leaks
+
+* hashpw vs checkpw => hashpw + gensalt when writing password_hash (signup / password change); checkpw when authenticating — extracts salt and params from the stored hash and compares in constant-time style internally — never compare hashes as plain strings yourself
+
+* JWT access tokens => app/auth/tokens.py uses PyJWT (import jwt)
+	- jwt.encode: builds a compact signed string from claims (payload) using jwt_secret and jwt_algorithm (settings default HS256)
+	- jwt.decode: takes the token string, verifies signature with the same secret and algorithms list; PyJWT validates exp by default so expired tokens fail
+
+* create_access_token(sub, extra=None) => builds payload then encode
+	- exp: datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+	- base payload: sub, exp, iat — extra dict merged with payload.update(extra) for optional claims without changing the function signature each time
+
+* sub claim => registered JWT claim "subject" — identifies who the token is about (typically users.id from SQLite); stable id preferred over display-only fields
+
+* exp claim => expiry — access tokens should be short-lived so leaked tokens stop working automatically
+
+* iat claim => "issued at" — when the token was minted; optional but useful for auditing, debugging, or rotation policies
+
+* extra claims => examples used in production: email, display_name, roles/scope, jti (JWT id for revocation lists), iss/aud (issuer/audience across services)
+	- JWT payload is signed not encrypted — readable by anyone who holds the token — never put secrets there unless using encryption (JWE), which is a different pattern
+
+* decode_access_token(token) => inverse of encode — client sends the token string (not the raw payload); server verifies signature and expiry and returns the claims dict
+
+* why JWTs in production => after login the client presents a bearer proof instead of sending the password on every request
+	- typical flow: POST credentials → verify password → create_access_token(sub=user_id, extra=…) → return access_token to client
+	- client stores token and sends Authorization: Bearer <token> on API calls
+	- dependency/route calls decode_access_token → read sub (and claims) → authorize and serve
+	- when exp passes, re-login or use a refresh-token flow (optional second layer not shown in tokens.py alone)
+
+* Bearer and token_type ("bearer") => login responses often include token_type alongside access_token; "Bearer" names the HTTP authorization scheme (RFC 6750), not the JWT format
+	- Authorization: Bearer <token> means the credential following the word Bearer is the access token the server issued
+	- bearer semantics: whoever possesses the token may use it — possession is treated as proof of identity until exp — no per-request password or extra MAC beyond what is inside the JWT itself
+	- treat the token like a password on the client (HTTPS, careful storage); if it leaks, anyone can present it until it expires
+
+* jwt_secret => must stay server-only and long/random in production — whoever knows it can forge tokens; pair with HTTPS because bearer tokens are secrets on the wire
+
+* Auth HTTP schemas => app/auth/schemas.py — Pydantic models for JSON in/out on auth routes (validation, OpenAPI, serialization); separate shapes per operation instead of one mega-model
+
+* RegisterBody => signup body: EmailStr for format-checked email; password with Field(min_length=8, max_length=128); display_name optional with max_length — hashing stays outside the schema
+
+* LoginBody => login body: EmailStr + password — password usually without extra Field rules so failed login responses do not finger-print validation differently from wrong credentials
+
+* TokenResponse => success payload after login/register: access_token (JWT string), token_type defaults to "bearer" for Authorization header usage, user_id so the client knows who logged in without decoding the JWT
+
+* UserPublic => safe user projection for responses (user_id, email, display_name) — intentionally excludes password_hash and password; use instead of returning raw DB rows so secrets never leak by accident
+
+* Auth route handlers => app/api/routes/auth.py — thin HTTP boundary over db.py, password.py, tokens.py, schemas.py
+	- APIRouter(prefix="/api/auth", tags=["auth"]) groups endpoints under /api/auth for OpenAPI and imports
+
+* POST register => body validated as RegisterBody; get_user_by_email — if row exists raise HTTPException 409 CONFLICT ("Email already registered") because email is UNIQUE in SQLite
+	- otherwise hash_password(body.password), create_user(...), create_access_token(sub=user_id, extra={"email": body.email}), return TokenResponse(access_token=..., user_id=...)
+	- success returns JWT immediately so the client can authenticate without a second login call
+
+* POST login => body validated as LoginBody; row = get_user_by_email(body.email)
+	- single guard: if no row or not verify_password(plain, row["password_hash"]) raise HTTPException 401 UNAUTHORIZED with generic detail ("Invalid email or password") — avoids revealing whether the email exists
+	- otherwise create_access_token(sub=row["id"], extra={"email": row["email"]}), return TokenResponse with user_id row["id"]
+
+* HTTPException in routes => map outcomes to status codes and JSON detail here; keep auth/db and auth/tokens free of FastAPI imports so lower layers stay reusable and testable
+
+* Wiring => app/main.py imports app.api.routes.auth and app.include_router(auth.router) alongside chat, documents, health so auth endpoints are live on the same FastAPI app
