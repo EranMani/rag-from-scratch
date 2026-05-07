@@ -6,7 +6,7 @@ from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from app.core.config import settings
 from app.core.logging_config import logger
 from app.core.metrics import REGISTRY, REQUEST_COUNT, REQUEST_LATENCY
-from app.api.routes import chat, documents, health
+from app.api.routes import chat, documents, health, auth
 from app.auth.db import init_user_db
 from rag.pipeline.indexer import load_knoweldge_base, get_vectorstore, ingest_documents
 from rag.pipeline.retriever import set_bm25_fallback
@@ -76,6 +76,7 @@ async def metrics():
 app.include_router(chat.router)
 app.include_router(documents.router)
 app.include_router(health.router)
+app.include_router(auth.router)
 
 
 # Mount NICEGUI
