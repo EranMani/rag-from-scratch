@@ -1,11 +1,22 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from app.auth.db import create_user, get_user_by_email
 from app.auth.password import hash_password, verify_password
 from app.auth.schemas import RegisterBody, LoginBody, TokenResponse, UserPublic
 from app.auth.tokens import create_access_token
+from app.auth.deps import get_current_user
+
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+@router.get("/me", response_model=UserPublic)
+async def me(user: dict = Depends(get_current_user)):
+    return UserPublic(
+        user_id=user["id"],
+        email=user["email"],
+        display_name=["display_name"],
+    )
 
 
 @router.post(prefix="/register", response_model=TokenResponse)
