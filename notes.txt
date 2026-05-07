@@ -1175,3 +1175,33 @@ DOCKER-FIRST-RUN TROUBLESHOOTING (war journal)
 
 * security
 	- never paste .env into chat or commit it — contains API keys; rotate any key that was exposed
+
+
+PHASE 19
+
+* Auth configuration surface => JWT and SQLite live in environment contract + Settings
+	- .env.example documents jwt_secret, jwt_algorithm, access_token_expire_minutes, sqlite_db_path,
+	  allow_annonymous_chat (and related vars as the plan adds them)
+	- app/core/config.py maps those names to typed fields on Settings (pydantic-settings reads .env automatically)
+	- sqlite_db_path default: "data/app_users.db" — relative paths resolve against the process cwd unless overridden with an absolute path
+
+* src/app/auth/ => persistence helpers for registered users (not HTTP). app/auth/db.py owns connection + DDL + CRUD helpers for the users table
+
+* SQLite and SQL => SQLite executes standard SQL DDL/DML (CREATE TABLE, INSERT, SELECT, etc.) with SQLite-specific details (dynamic typing, TEXT for ISO timestamps). The auth module uses plain parameterized SQL strings executed via sqlite3.Connection.execute()
+
+* Patterns in app/auth/db.py
+	- CREATE TABLE: run once from init_user_db(), use CREATE TABLE IF NOT EXISTS with columns, types, and constraints (PRIMARY KEY, NOT NULL, UNIQUE). Follow with conn.commit() so schema changes persist
+	- INSERT: list explicit columns, use VALUES (?, ?, ...) and pass a tuple of values as the second argument to execute()
+	- SELECT by filter: SELECT ... FROM users WHERE column = ?, tuple binds one value per placeholder. fetchone() returns one row or None
+
+* Parameter placeholders (?) and SQL injection => never concatenate user input into the SQL text. Placeholders keep values separate from parsing; SQLite binds them safely. Injection risk returns only if raw strings are interpolated into the query
+
+* commit() => ends the current transaction and makes pending writes durable in the database file on disk. Without commit(), implicit transactions may roll back on close depending on context — the auth helpers commit after DDL and after INSERT
+
+* Where the .db file comes from => sqlite3.connect(path) opens the file; if it does not exist yet, SQLite creates it at that path. _connect() ensures path.parent.mkdir(parents=True, exist_ok=True) so the directory exists first. First real writes (CREATE TABLE / INSERT) populate structure and data
+
+* dict(row) => with conn.row_factory = sqlite3.Row, fetchone() returns a Row that supports mapping semantics (column name → value). dict(row) converts that row into an ordinary Python dict. If fetchone() is None, return None instead of calling dict()
+
+* sqlite3.connect(..., check_same_thread=False) => opens (or creates) the DB file; check_same_thread=False allows use from worker threads other than the creating thread (common with ASGI servers). Prefer one connection per request or careful sharing — multiple concurrent writers on one connection still need discipline
+
+* row_factory = sqlite3.Row => rows are addressable by column name (row["email"]) and convert cleanly with dict(row). Default tuple rows would force positional indexing only unless you tracked column order manually
