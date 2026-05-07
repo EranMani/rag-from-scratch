@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     # Prometheus
     prometheus_port: int = 9090
 
+    # Auth
+    jwt_secret: str = "dev-only-change-in-production"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+    sqlite_db_path: str = "data/app_users.db"
+    allow_annonymous_chat: bool = False
+
 
 @lru_cache()
 def get_settings() -> Settings:

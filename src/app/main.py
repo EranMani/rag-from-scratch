@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.logging_config import logger
 from app.core.metrics import REGISTRY, REQUEST_COUNT, REQUEST_LATENCY
 from app.api.routes import chat, documents, health
+from app.auth.db import init_user_db
 from rag.pipeline.indexer import load_knoweldge_base, get_vectorstore, ingest_documents
 from rag.pipeline.retriever import set_bm25_fallback
 
@@ -16,6 +17,9 @@ from rag.pipeline.retriever import set_bm25_fallback
 async def lifespan(app: FastAPI):
     """Startup and shutdown logic."""
     logger.info("Starting Educational RAG System")
+
+    # Create users table in sqlite3
+    init_user_db()
 
     # Load knowledge base and setup BM25 fallback on startup
     docs = load_knoweldge_base()
