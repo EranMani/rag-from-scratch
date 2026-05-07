@@ -1,5 +1,7 @@
 import time
 from contextlib import asynccontextmanager
+
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
@@ -34,9 +36,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Could not check ChromaDB on startup", extra={"error": str(e)})
 
+    app.state.internal_http_client = httpx.AsyncClient(
+        base_url=f"http://127.0.0.1:{settings.app_port}",
+        timeout=httpx.Timeout(30.0),
+    )
+
     logger.info("RAG system ready")
-    yield
-    logger.info("Shutting down RAG system")
+    try:
+        yield
+    finally:
+        await app.state.internal_http_client.aclose()
+        logger.info("Shutting down RAG system")
 
 
 app = FastAPI(
