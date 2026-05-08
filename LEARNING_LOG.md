@@ -26,7 +26,8 @@ or DECISIONS.md.*
 
 **Interview talking point:**
 > **Q:** [The interview question this commit best answers]
-> **A:** [2–3 sentences. Demonstrates you understood the why, not just the what. Written so the Team Lead can say it verbatim.]
+>
+> **A:** [1–2 sentences max. Demonstrates you understood the why, not just the what. Written so the Team Lead can say it verbatim.]
 
 **What happened and why:**
 - [One idea — what was built or changed]
@@ -85,7 +86,8 @@ anything that doesn't introduce a new pattern or decision.*
 
 **Interview talking point:**
 > **Q:** How did you approach securing file upload endpoints in this project?
-> **A:** The ingest endpoint needed three layers: authentication to verify who is uploading, path confinement to ensure an authenticated user can't overwrite arbitrary files using a crafted filename, and async-safe I/O so the upload doesn't block the event loop for every other request. Each layer addresses a distinct attack surface — identity, filesystem access, and availability — and they're applied in that order so the cheapest checks fail fast before any I/O runs.
+>
+> **A:** I applied three layers in order — auth to verify identity, path confinement to prevent overwriting arbitrary server files via a crafted filename, and `asyncio.to_thread` to keep the upload off the event loop. Each layer is cheap-first: the cheapest check (auth) runs before any I/O touches the filesystem.
 
 **What happened and why:**
 - The `/ingest` endpoint accepted unauthenticated uploads, meaning anyone could push documents into the vector database and corrupt the knowledge base the RAG pipeline draws from.

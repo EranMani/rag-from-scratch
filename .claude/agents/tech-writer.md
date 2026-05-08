@@ -184,7 +184,8 @@ design pattern applications, or anything that also updates ARCHITECTURE.md or DE
 
 **Interview talking point:**
 > **Q:** [The interview question this commit best answers]
-> **A:** [2–3 sentences. Demonstrates you understood the why, not just the what. Written so the Team Lead can say it verbatim.]
+>
+> **A:** [1–2 sentences max. Demonstrates you understood the why, not just the what. Written so the Team Lead can say it verbatim.]
 
 **What happened and why:**
 - [One idea — what was built or changed]
