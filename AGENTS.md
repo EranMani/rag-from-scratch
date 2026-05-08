@@ -31,7 +31,7 @@ QUALITY GATE LAYER (invoked at Step 8–11 of every commit loop):
 
 DOCUMENTATION (triggered on API, config, concept changes):
    ┌─────────────┐
-   │    Alex     │
+   │    Ryan     │
    │ Tech Writer │
    └─────────────┘
 ```
@@ -198,7 +198,7 @@ Flagging to Claude. Not silently absorbing.
 Claude checks this matrix before invoking quality gate agents.
 A "yes" in any cell means that gate fires automatically.
 
-| Commit type | Viktor | Sage | Quinn | Mira | Alex |
+| Commit type | Viktor | Sage | Quinn | Mira | Ryan |
 |---|---|---|---|---|---|
 | Any code commit | ✅ | depends | depends | ✅ | depends |
 | New API route | ✅ | ✅ | ✅ | ✅ | ✅ |

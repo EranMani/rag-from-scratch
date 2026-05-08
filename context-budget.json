@@ -68,7 +68,7 @@
       "tier_1": 2000,
       "tier_2": 3000,
       "total_cap": 12000,
-      "notes": "Smallest depth needed. Alex reads summary + changed API/config. Tier_2 for: consistency check against prior DECISIONS.md entries."
+      "notes": "Smallest depth needed. Ryan reads summary + changed API/config. Tier_2 for: consistency check against prior DECISIONS.md entries."
     },
     "claude": {
       "tier_0": 5000,

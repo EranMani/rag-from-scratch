@@ -360,7 +360,7 @@ specific project. Each has a full identity file in `.claude/agents/`.
 |---|---|---|
 | Frontend Engineer (Jordan) | Project has a user interface | `.claude/agents/frontend.md` |
 | AI/ML Engineer (Nova) | Project uses LLMs or ML models | `.claude/agents/ai-engineer.md` |
-| Technical Writer (Alex) | Project ships developer-facing docs or an API | `.claude/agents/tech-writer.md` |
+| Technical Writer (Ryan) | Project ships developer-facing docs or an API | `.claude/agents/tech-writer.md` |
 | Data Engineer | Project has data pipelines or analytics | `.claude/agents/data-engineer.md` |
 | Mobile Engineer | Project has iOS/Android | `.claude/agents/mobile.md` |
 
