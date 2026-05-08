@@ -182,21 +182,28 @@ design pattern applications, or anything that also updates ARCHITECTURE.md or DE
 
 > **In one sentence:** [recruiter-ready summary of what changed and why it matters]
 
+**Interview talking point:**
+> **Q:** [The interview question this commit best answers]
+> **A:** [2–3 sentences. Demonstrates you understood the why, not just the what. Written so the Team Lead can say it verbatim.]
+
 **What happened and why:**
-[2–3 paragraphs in plain English for the Team Lead. What was built, what problem
-it solves, why this approach over the alternatives.]
+- [One idea — what was built or changed]
+- [One idea — what problem it solves]
+- [One idea — why this approach over the alternatives]
+- [One idea — any non-obvious constraint or consequence]
+- [One idea — what this enables going forward (if relevant)]
 
 **Design pattern / architectural principle:**
-[Name the pattern(s) applied — e.g. atomicity, single responsibility, dependency
-injection, idempotency, separation of concerns, guard clause, middleware chain, etc.
-One or two plain sentences on what that pattern means in this specific context and
-why it matters here. Write "N/A" if no named pattern applies.]
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| [pattern name] | [what it does in this specific context] | [why this over the alternative] |
+| [pattern name] | [what it does in this specific context] | [why this over the alternative] |
 
 **Reasoning & discovery:**
-[How did the agent find this solution? What was the bug or problem as initially understood?
-What guiding questions or observations pointed toward the answer? What was tried and ruled
-out? Synthesized from the agent's Approach note in their worklog. Write for the Team Lead
-who needs to follow the thought process, not just read the outcome.]
+1. [How the problem was initially understood — what was the bug or gap as first seen]
+2. [What was tried or ruled out — alternatives considered and why they didn't fit]
+3. [What clinched the solution — the observation or constraint that locked in the answer]
 
 **The key change:**
 \`\`\`[language]
