@@ -88,11 +88,16 @@ the Team Lead approval prompt.
 
 **Step 12:** Run the pre-commit checklist:
 ```
-□ ARCHITECTURE.md — new component, pattern, or data flow introduced?
-□ DECISIONS.md    — non-obvious design choice made?
-□ GLOSSARY.md     — new term introduced?
+□ ARCHITECTURE.md  — new component, pattern, or data flow introduced?
+□ DECISIONS.md     — non-obvious design choice made?
+□ GLOSSARY.md      — new term introduced?
+□ LEARNING_LOG.md  — always: trigger Ryan for a one-liner minimum;
+                     full entry (with code snippet + reasoning) if any box above is checked
+                     or if the change is security-relevant, non-obvious, or architecturally significant.
 ```
 If any box applies and the file was not updated: stop and update it first.
+ARCHITECTURE.md, DECISIONS.md, and GLOSSARY.md are yours to update. LEARNING_LOG.md is Ryan's —
+signal full or one-liner and pass him the diff and commit context.
 
 **Step 13:** Present the approval prompt to the Team Lead:
 ```
@@ -128,6 +133,12 @@ Pre-commit checklist: [all clear / updated X]
 **GLOSSARY.md** gets updated when:
 - A new domain-specific term is introduced in code, comments, or documentation
 - An existing term is used in a new or more precise way
+
+**LEARNING_LOG.md** gets a Ryan entry on every commit:
+- One-liner entry for: routine fixes, config updates, test additions, minor refactors
+- Full entry (code snippet + reasoning + file citations) for: anything architectural,
+  security-relevant, non-obvious, or anything that also updates ARCHITECTURE.md or DECISIONS.md
+- You signal entry type to Ryan; Ryan writes it as part of his commit-loop invocation
 
 ---
 

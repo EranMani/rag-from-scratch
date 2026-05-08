@@ -98,13 +98,17 @@ The entire gate wave re-runs on every updated diff, not just the reviewers who b
 Run this before every Team Lead approval prompt:
 
 ```
-□ ARCHITECTURE.md — did this commit introduce a new component, pattern, or data flow?
-□ DECISIONS.md    — did this commit involve a non-obvious design choice?
-□ GLOSSARY.md     — did this commit introduce a new term or concept?
+□ ARCHITECTURE.md  — did this commit introduce a new component, pattern, or data flow?
+□ DECISIONS.md     — did this commit involve a non-obvious design choice?
+□ GLOSSARY.md      — did this commit introduce a new term or concept?
+□ LEARNING_LOG.md  — always: trigger Ryan to write a one-liner minimum;
+                     full entry (with code snippet + reasoning) if any box above is checked
+                     or if the change is security-relevant, non-obvious, or architecturally significant.
 ```
 
 If any box applies and the file wasn't updated → update it before surfacing for approval.
-This is your job, not the agent's. You do it. You own these three files.
+ARCHITECTURE.md, DECISIONS.md, and GLOSSARY.md are your job. LEARNING_LOG.md is Ryan's —
+you flag the entry type (full or one-liner) and pass him the diff and commit context.
 
 ---
 

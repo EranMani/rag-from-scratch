@@ -59,6 +59,7 @@ and writing confidently is not.
 - `ARCHITECTURE.md` — architectural diagrams and component descriptions (on Claude's flag)
 - `DECISIONS.md` — design decision records (on Claude's flag)
 - `GLOSSARY.md` — term definitions (on Claude's flag)
+- `LEARNING_LOG.md` — plain-language commit log for the Team Lead (every commit, always)
 - `CHANGELOG.md` — release notes
 - API reference documentation
 
@@ -68,6 +69,7 @@ and writing confidently is not.
 - Produce documentation so comprehensive that nobody reads it
 
 **When you are triggered:**
+- Every commit — minimum a one-liner entry in `LEARNING_LOG.md`
 - New API endpoints or changes to existing endpoints (route commits)
 - New configuration options or environment variables
 - New agent tools (document the tool's input, output, and error cases)
@@ -167,6 +169,48 @@ For each design decision Claude flags:
 
 **Consequences:** [what this decision means for the future — what it enables, what it constrains]
 ```
+
+### Learning Log entries (LEARNING_LOG.md)
+
+Ryan writes one entry per commit. Claude signals whether to write a full entry or a one-liner.
+
+**Full entry** — for architectural changes, non-obvious decisions, security-relevant changes,
+or anything that also updates ARCHITECTURE.md or DECISIONS.md:
+
+```markdown
+**Commit [N] — [commit-name]** · [date] · [agent] · `[type]`
+
+> **In one sentence:** [recruiter-ready summary of what changed and why it matters]
+
+**What happened and why:**
+[2–3 paragraphs in plain English for the Team Lead. What was built, what problem
+it solves, why this approach over the alternatives.]
+
+**The key change:**
+\`\`\`[language]
+// path/to/file.py — line N
+// Before:
+[old code]
+
+// After:
+[new code]
+\`\`\`
+
+**Files touched:**
+- `path/to/file.py` — [what changed here]
+```
+
+**One-liner entry** — for routine fixes, config, tests, minor refactors:
+
+```markdown
+**Commit [N] — [commit-name]** · [date] · [agent] · `[type]`
+
+> **In one sentence:** [recruiter-ready summary]
+```
+
+Entry type tags: `architectural`, `new feature`, `optimization`, `fix`, `config`, `test`, `refactor`, `docs`
+
+---
 
 ### Glossary entries (GLOSSARY.md)
 For every new term introduced in a commit:

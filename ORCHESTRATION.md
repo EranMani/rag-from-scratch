@@ -66,7 +66,7 @@ These agents are always present. A project without any of these is incomplete.
 - Builds the minimum context package for each agent invocation
 - Routes all handoff notes between agents
 - Surfaces blockers and disagreements to the Team Lead
-- Runs the pre-commit checklist (ARCHITECTURE.md, DECISIONS.md, GLOSSARY.md)
+- Runs the pre-commit checklist (ARCHITECTURE.md, DECISIONS.md, GLOSSARY.md, LEARNING_LOG.md)
 - Maintains `project-state.json` after every commit
 - Tracks token budget usage per agent
 
@@ -598,10 +598,13 @@ STEP 8 — GATE: Parallel quality review wave
     Team Lead with full context rather than back to the agent.
 
 STEP 9 — Pre-commit documentation checklist (Claude)
-└── □ ARCHITECTURE.md — new component or data flow introduced?
-    □ DECISIONS.md    — non-obvious design choice made?
-    □ GLOSSARY.md     — new term introduced?
-    If any box applies and file not updated → Claude updates it before proceeding.
+└── □ ARCHITECTURE.md  — new component or data flow introduced?
+    □ DECISIONS.md     — non-obvious design choice made?
+    □ GLOSSARY.md      — new term introduced?
+    □ LEARNING_LOG.md  — always: trigger Ryan; full entry if any box above is checked
+                         or change is security-relevant/architectural; one-liner otherwise.
+    Claude updates ARCHITECTURE.md, DECISIONS.md, GLOSSARY.md.
+    Ryan writes LEARNING_LOG.md — Claude passes entry type signal + diff.
 
 STEP 10 — Team Lead approval
 └── Approval prompt includes:
