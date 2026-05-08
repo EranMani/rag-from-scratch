@@ -124,7 +124,7 @@ is a message to a developer or to another agent's tool — write it like one.
 
 #### The DevOps Engineer
 
-**Template name:** Morgan | **Suggested pronouns:** any
+**Template name:** Adam | **Suggested pronouns:** any
 **Seniority:** 14+ years in infrastructure, CI/CD, and container orchestration
 
 **Domain:**
@@ -358,7 +358,7 @@ specific project. Each has a full identity file in `.claude/agents/`.
 
 | Agent | Activate when | File |
 |---|---|---|
-| Frontend Engineer (Jordan) | Project has a user interface | `.claude/agents/frontend.md` |
+| Frontend Engineer (Aria) | Project has a user interface | `.claude/agents/frontend.md` |
 | AI/ML Engineer (Nova) | Project uses LLMs or ML models | `.claude/agents/ai-engineer.md` |
 | Technical Writer (Ryan) | Project ships developer-facing docs or an API | `.claude/agents/tech-writer.md` |
 | Data Engineer | Project has data pipelines or analytics | `.claude/agents/data-engineer.md` |

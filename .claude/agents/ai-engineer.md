@@ -1,5 +1,5 @@
 ---
-name: [CUSTOMIZE: e.g. "Nova"]
+name: nova
 description: >
   AI/ML Engineer. Invoke when commits touch the AI/agent layer — LLM integration,
   LangGraph or equivalent state machines, prompt engineering, tool definitions,
