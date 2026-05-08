@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 01 gate-remediation · 2026-05-08*
+*Last updated: Commit 02 · 2026-05-08*
 
-**Last completed:** Commit 01 `auth-gate-on-ingest` — gate remediation pass ✅
+**Last completed:** Commit 02 `config-and-naming-cleanup` ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -42,6 +42,7 @@ No archived sessions yet.
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
 | 01 | Commit 01 `auth-gate-on-ingest` | ✅ Done (gate remediation applied) | Used `Depends(get_current_user)` — not the optional variant — and `asyncio.to_thread` consistent with chat.py pattern; gate remediation added path traversal neutralization, extension validation, async dep |
+| 02 | Commit 02 `config-and-naming-cleanup` | ✅ Done | Pure rename — chat.py added as call site beyond spec; Viktor confirmed correct |
 
 ---
 

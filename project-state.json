@@ -3,14 +3,14 @@
   "last_updated": "2026-05-08",
   "status": "active",
   "current_commit": {
-    "number": "02",
-    "name": "config-and-naming-cleanup",
+    "number": "03",
+    "name": "wire-conversation-history",
     "status": "pending",
     "assignee": "backend"
   },
-  "commits_done": ["01"],
-  "commits_pending": ["02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24"],
-  "next_commit": "02",
+  "commits_done": ["01","02"],
+  "commits_pending": ["03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24"],
+  "next_commit": "03",
   "open_handoffs": [
     {
       "from": "commit-03",
@@ -22,12 +22,12 @@
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "01",
-      "tests": "9/9 pass",
-      "viktor": "PASS — B1 Hard Block (path traversal) and B2 (sync dep) resolved",
-      "sage": "PASS — 2 HIGH resolved; 2 items deferred (upload size limit, password_hash exposure)",
-      "quinn": "ADEQUATE — 9 tests",
-      "gate_wave": "parallel"
+      "number": "02",
+      "tests": "no new tests — existing 9/9 unaffected",
+      "viktor": "PASS — no findings; confirmed rename is exhaustive",
+      "sage": "not triggered",
+      "quinn": "not triggered",
+      "gate_wave": "viktor only"
     }
   },
   "parallel_groups_available": [
