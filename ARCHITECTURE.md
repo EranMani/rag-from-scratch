@@ -160,10 +160,26 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 | Boundary | Mechanism | Notes |
 |---|---|---|
 | API authentication | JWT Bearer token + Depends(get_current_user) | Applied to /api/auth/me, /api/profile/me, /api/ingest |
-| Chat auth | Optional auth + allow_anonymous_chat setting | Commit 01 adds auth to /api/ingest |
+| Chat auth | Optional auth + allow_anonymous_chat setting | Anonymous chat configurable; ingest is always mandatory auth |
+| File upload path confinement | Path(filename).name + is_relative_to(UPLOAD_DIR) | Two-layer defense against path traversal on /api/ingest |
 | Secrets | .env file; never in code | JWT secret, OpenAI API key |
 | Monitoring endpoints | nginx reverse proxy with auth | /grafana, /kibana, /prometheus not publicly browsable |
 | /metrics | nginx deny rule | Prometheus scrape endpoint blocked from public internet |
+
+---
+
+## Document Ingest Flow
+
+```
+1. User uploads file via POST /api/ingest (JWT required)
+2. get_current_user dependency validates JWT → asyncio.to_thread(get_user_by_id)
+3. Extension check: only .txt and .md accepted
+4. Path confinement: Path(filename).name strips traversal; resolve() + is_relative_to() confirms bounds
+5. File bytes written to data/uploads/
+6. TextLoader reads file → LangChain Documents
+7. asyncio.to_thread(ingest_documents, docs) → ChromaDB (off the event loop)
+8. Returns {"status": "ok", "chunks_ingested": N, "filename": safe_name}
+```
 
 ---
 
@@ -171,6 +187,8 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 
 | Debt | Impact | Logged | Priority |
 |---|---|---|---|
+| get_current_user returns full DB row incl. password_hash | Any future endpoint returning current_user directly will leak the hash — callers must project to safe fields | Sage Commit 01 | 🟡 fix before new /me-style endpoints |
+| Unbounded file upload size on /api/ingest | Large uploads OOM the process; no size cap exists | Sage Commit 01 | 🟡 fix before public launch |
 | SessionMemory is in-process (lost on restart) | Users lose conversation context on app restart | archaeology | 🟡 |
 | SQLite → PostgreSQL migration pending | Scale limitation; no concurrent writes at volume | DECISIONS.md | 🟢 deferred |
 | NiceGUI → Node.js migration pending | UI framework constraint | DECISIONS.md | 🟢 deferred |
@@ -184,4 +202,4 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 - **Profile scoring algorithm** — threshold table and delta merge strategy — after Commit 14
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 
-*Last updated: 2026-05-08 — /init complete, pre-build*
+*Last updated: 2026-05-08 — Commit 01 complete*

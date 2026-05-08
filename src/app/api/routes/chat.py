@@ -27,7 +27,7 @@ class ChatResponse(BaseModel):
     trace_id: str
 
 
-def current_user_optional(creds: HTTPAuthorizationCredentials | None = Depends(security)) -> dict | None:
+async def current_user_optional(creds: HTTPAuthorizationCredentials | None = Depends(security)) -> dict | None:
     if creds is None:
         return None
 
@@ -36,7 +36,7 @@ def current_user_optional(creds: HTTPAuthorizationCredentials | None = Depends(s
     try:
         uid = decode_access_token(creds.credentials).get("sub")
         if uid:
-            return get_user_by_id(uid)
+            return await asyncio.to_thread(get_user_by_id, uid)
     except Exception:
         pass
 

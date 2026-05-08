@@ -72,6 +72,12 @@
 **Used in:** `src/app/profile/scoring.py`, `src/agents/state.py`
 **Introduced in:** Commit 07
 
+### asyncio.to_thread
+**Meaning on this project:** A Python stdlib function (`asyncio.to_thread(fn, *args)`) that runs a synchronous callable in a thread pool executor and returns an awaitable. Used throughout this project to prevent blocking I/O (ChromaDB, SQLite, LLM calls) from stalling the async event loop. Called as `await asyncio.to_thread(fn, arg1, arg2)` — not wrapped in a lambda.
+**Distinct from:** `asyncio.run_in_executor` (lower-level; `asyncio.to_thread` is the idiomatic modern replacement).
+**Used in:** `src/app/api/routes/documents.py`, `src/app/api/routes/chat.py`, `src/app/auth/deps.py`
+**Introduced in:** Commit 01 (extended from pattern already present in chat.py)
+
 ### Circuit Breaker
 **Meaning on this project:** A resilience pattern that stops sending requests to a failing service. Three states: CLOSED (normal), OPEN (failing — reject immediately), HALF_OPEN (probing — allow one test request). This project has circuit breakers for ChromaDB (`chroma_cb`), OpenAI (`openai_cb`), and Redis (`redis_cb`).
 **Used in:** `src/rag/resilience/circuit_breaker.py`
@@ -110,4 +116,4 @@
 **Meaning on this project:** A Viktor finding so severe it bypasses the normal quality gate and surfaces directly to the Team Lead before any commit is made. Two Hard Blocks were raised during /init: graph replacement with zero tests (resolved by Commit 11), and untyped cross-agent interface (resolved by Commit 14's typed interface requirement).
 **Used in:** `ORCHESTRATION.md`, Viktor reviews
 
-*Last updated: 2026-05-08 — /init complete, pre-build*
+*Last updated: 2026-05-08 — Commit 01 complete*

@@ -94,6 +94,21 @@
 - **Decision:** Redis query cache key = `sha256(question + user_level)` for authenticated users. For anonymous users, behavior unchanged.
 - **Reason:** Two users at different mastery levels asking the same question must receive different responses. The existing `sha256(question)` key would serve the same cached response to both.
 
+### asyncio.to_thread as the project-wide blocking I/O bridge
+- **Date:** 2026-05-08
+- **Commit:** 01
+- **Decided by:** Rex (applied) + Viktor (confirmed)
+- **Decision:** `asyncio.to_thread(fn, *args)` is the standard pattern for running synchronous blocking calls inside async FastAPI routes. No lambda wrappers — pass callable and arguments separately.
+- **Alternatives considered:** Making blocking libraries async-native; running a separate thread pool manually.
+- **Consequences:** All blocking I/O (ChromaDB, SQLite, LLM calls) runs off the event loop without rewriting the underlying libraries. The pattern is now applied in `chat.py` (run_rag_pipeline), `documents.py` (ingest_documents), and `deps.py` (get_user_by_id). Every new blocking call in an async route must follow this pattern.
+
+### Mandatory vs. optional auth dependency
+- **Date:** 2026-05-08
+- **Commit:** 01
+- **Decided by:** Rex
+- **Decision:** Two auth dependencies exist — `get_current_user` (raises 401 if no token) and `current_user_optional` (returns None if no token). Use `get_current_user` when unauthenticated access has no legitimate use case. Use `current_user_optional` when the route supports both authenticated and anonymous usage (governed by a feature flag like `allow_anonymous_chat`).
+- **Consequences:** The selection criterion is explicit: does an anonymous request have a valid code path through this route? If no → mandatory. If yes → optional. Applied first in Commit 01 (ingest: mandatory — no anonymous use case exists).
+
 ### Tests interspersed, not end-batched
 - **Date:** 2026-05-08
 - **Commit:** 05, 11, 14, 23
@@ -138,4 +153,4 @@
 | Subscription/billing | Out of scope for portfolio | Future phase |
 | Exact OpenAI model ID | Team Lead to confirm when target model is available | Commit 02 or later |
 
-*Last updated: 2026-05-08 — /init complete, pre-build*
+*Last updated: 2026-05-08 — Commit 01 complete*
