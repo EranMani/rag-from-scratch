@@ -152,3 +152,9 @@ async def ingest(
 - `pyproject.toml` — pytest configuration updated
 
 ---
+
+**Commit 02 — config-and-naming-cleanup** · 2026-05-08 · Rex · `chore`
+
+> **In one sentence:** Two misspelled identifiers (`allow_annonymous_chat`, `load_knoweldge_base`) were corrected across all call sites in a single atomic commit, preventing silent `AttributeError` bugs from propagating as the codebase grows.
+
+---

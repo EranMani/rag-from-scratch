@@ -50,7 +50,7 @@ def setup_ui(fastapi_app):
 
     @ui.page("/login")
     async def login_page():
-        if not settings.allow_annonymous_chat:
+        if not settings.allow_anonymous_chat:
             ui.navigate.to("/")
             return
 
@@ -94,7 +94,7 @@ def setup_ui(fastapi_app):
 
     @ui.page("/register")
     async def register_page():
-        if not settings.allow_annonymous_chat and await verify_stored_bearer():
+        if not settings.allow_anonymous_chat and await verify_stored_bearer():
             ui.navigate.to("/")
             return
 
@@ -162,7 +162,7 @@ def setup_ui(fastapi_app):
         ui.query("body").style("background:#0f172a; color:#e2e8f0; font-family:system-ui")
 
         bearer_ok = await verify_stored_bearer()
-        can_use_chat = settings.allow_annonymous_chat or bearer_ok
+        can_use_chat = settings.allow_anonymous_chat or bearer_ok
 
         def logout():
             app.storage.user.clear()
@@ -187,7 +187,7 @@ def setup_ui(fastapi_app):
                         ui.button("Log out", on_click=logout).props("flat dense").style(
                             "color:#94a3b8"
                         )
-                    elif settings.allow_annonymous_chat:
+                    elif settings.allow_anonymous_chat:
                         ui.label("Anonymous demo").style("font-size:0.75rem; color:#64748b")
                         ui.link("Sign in", "/login").classes("text-sky-400 text-sm")
                         ui.link("Register", "/register").classes("text-sky-400 text-sm")

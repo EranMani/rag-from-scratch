@@ -45,7 +45,7 @@ async def current_user_optional(creds: HTTPAuthorizationCredentials | None = Dep
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest, creds_user: Annotated[dict | None, Depends(current_user_optional)]):
-    if not settings.allow_annonymous_chat and creds_user is None:
+    if not settings.allow_anonymous_chat and creds_user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="login required")
     
     # Use trusted user id only for security reasons. Ignore user id from client

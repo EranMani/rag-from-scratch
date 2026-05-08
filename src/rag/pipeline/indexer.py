@@ -9,7 +9,7 @@ from rag.embeddings import get_embeddings
 from rag.pipeline.chunker import chunk_documents, ChunkConfig
 
 
-def load_knoweldge_base(path: str = "data/knowledge_base") -> list[Document]:
+def load_knowledge_base(path: str = "data/knowledge_base") -> list[Document]:
     """Load all .md files from the knowledge base folder."""
     # Walks a folder and loads all files matching the glob pattern
     loader = DirectoryLoader(

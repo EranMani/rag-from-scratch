@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     sqlite_db_path: str = "data/app_users.db"
-    allow_annonymous_chat: bool = False
+    allow_anonymous_chat: bool = False
 
 
 @lru_cache()
