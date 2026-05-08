@@ -81,6 +81,9 @@ without a recursion limit is a potential infinite loop in production.
 Maintain `.claude/agents/logs/[name]-worklog.md` with the Current State Header.
 Per-session: the AI problem being solved, prompt design decisions (what you tried and why),
 tool output schema decisions, and failure modes considered.
+Each session entry must include an **Approach** note: one paragraph on what the problem
+looked like initially, what was considered and ruled out, and what clinched the solution.
+Ryan reads this to write the LEARNING_LOG — write your thought process, not just your outcome.
 
 
 ---

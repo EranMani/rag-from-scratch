@@ -2,10 +2,11 @@
 
 > Written for the Team Lead. Plain language. No jargon without explanation.
 > Every commit gets at minimum a one-liner. Significant commits get a full entry
-> with code snippet and reasoning.
+> with code snippet, reasoning, and design pattern analysis.
 >
 > **Use this file to:** understand what was built, why it was built that way,
-> and explain it to a reviewer or recruiter.
+> which design patterns and architectural principles were applied, and how to
+> explain all of it to a reviewer or recruiter.
 
 ---
 
@@ -13,7 +14,9 @@
 
 ### Full Entry
 *Used for: architectural changes, non-obvious decisions, security-relevant changes,
-new patterns — anything that also touches ARCHITECTURE.md or DECISIONS.md.*
+design pattern applications (atomicity, single responsibility, dependency injection,
+idempotency, separation of concerns, etc.) — anything that also touches ARCHITECTURE.md
+or DECISIONS.md.*
 
 ---
 
@@ -25,6 +28,18 @@ new patterns — anything that also touches ARCHITECTURE.md or DECISIONS.md.*
 [2–3 paragraphs in plain English. What the agent built, what problem it solves,
 why this approach was chosen over the alternatives. Written so you can explain it
 to someone who didn't read the code.]
+
+**Design pattern / architectural principle:**
+[Name the pattern(s) applied — e.g. atomicity, single responsibility, dependency injection,
+idempotency, separation of concerns, guard clause, middleware chain, etc.
+Then explain in one or two plain sentences what that pattern means in this specific context
+and why it matters here. If no named pattern applies, write "N/A".]
+
+**Reasoning & discovery:**
+[How did the agent find this solution? What was the bug or problem as initially understood?
+What guiding questions or observations pointed toward the answer? What was tried and ruled
+out along the way? Synthesized from the agent's Approach note in their worklog — written
+so you can follow the thought process, not just read the conclusion.]
 
 **The key change:**
 ```[language]

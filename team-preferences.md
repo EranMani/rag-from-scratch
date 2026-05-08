@@ -146,6 +146,7 @@ Backend:        Rex
 DevOps:         Adam
 Frontend:       Aria
 AI Engineer:    Nova
+Product:        Mira
 Code Reviewer:  Viktor
 Security:       Sage
 QA:             Quinn

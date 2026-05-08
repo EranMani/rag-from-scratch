@@ -48,6 +48,13 @@ No archived sessions yet.
 [Write immediately at session start. What is being built? What are the constraints
 coming in? What does success look like? What could go wrong?]
 
+### Approach
+
+[One paragraph. What did the problem look like when you first encountered it? What
+did you consider or try first, and why was it ruled out? What question or observation
+led you to the final approach? Ryan reads this to write LEARNING_LOG.md — write for
+someone who needs to understand your thought process, not just your outcome.]
+
 ### Decisions Made
 
 **1. [Decision title]**

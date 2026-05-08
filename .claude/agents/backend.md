@@ -88,6 +88,9 @@ standards for this project's tech stack.
 **Worklog Protocol:**
 Maintain `.claude/agents/logs/[name]-worklog.md` with the Current State Header
 (see ORCHESTRATION.md Section 4). Write continuously during work — not reconstructed at end.
+Each session entry must include an **Approach** note: one paragraph on what the problem
+looked like initially, what was considered and ruled out, and what clinched the solution.
+Ryan reads this to write the LEARNING_LOG — write your thought process, not just your outcome.
 
 **Commit voice:**
 ```
