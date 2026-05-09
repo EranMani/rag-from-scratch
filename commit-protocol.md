@@ -10,15 +10,15 @@
 
 | # | Name | Assignee | Status |
 |---|---|---|---|
-| 01 | auth-gate-on-ingest | backend | pending |
-| 02 | config-and-naming-cleanup | backend | pending |
-| 03 | wire-conversation-history | backend | pending |
-| 04 | user-profile-db-schema | backend | pending |
-| 05 | user-profile-service | backend | pending |
-| 06 | user-profile-api | backend | pending |
-| 07 | langgraph-state-schema | ai-engineer | pending |
-| 08 | langgraph-retrieve-node | ai-engineer | pending |
-| 09 | langgraph-generate-node | ai-engineer | pending |
+| 01 | auth-gate-on-ingest | backend | ✅ done · 2026-05-08 |
+| 02 | config-and-naming-cleanup | backend | ✅ done · 2026-05-08 |
+| 03 | wire-conversation-history | backend | ✅ done · 2026-05-08 |
+| 04 | user-profile-db-schema | backend | ✅ done · 2026-05-09 |
+| 05 | user-profile-service | backend | ✅ done · 2026-05-09 |
+| 06 | user-profile-api | backend | ✅ done · 2026-05-09 |
+| 07 | langgraph-state-schema | ai-engineer | ✅ done · 2026-05-09 |
+| 08 | langgraph-retrieve-node | ai-engineer | ✅ done · 2026-05-09 |
+| 09 | langgraph-generate-node | ai-engineer | ✅ done · 2026-05-09 |
 | 10 | langgraph-graph-assembly | ai-engineer | pending |
 | 11 | langgraph-graph-smoke-test | ai-engineer | pending |
 | 12 | langgraph-assessment-scaffold | ai-engineer | pending |
