@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 05 · 2026-05-09*
+*Last updated: Commit 06 · 2026-05-09*
 
-**Last completed:** Commit 05 gate remediation ✅
+**Last completed:** Commit 06 `user-profile-api` ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -17,7 +17,9 @@
 **Open Handoffs — Inbound:**
 - (none)
 
-**Key Interfaces I Own (for teammates — Commit 06 must read):**
+**Key Interfaces I Own (for teammates):**
+- `GET /api/profile/me` — requires Bearer token; returns `UserProfilePublic`; 404 if profile missing (should not happen for registered users)
+- `src/app/api/routes/profile.py` — profile router; single GET endpoint
 - `src/app/profile/db.py` — full CRUD: `create_profile(user_id)`, `get_profile_by_user_id(user_id)`, `update_profile(user_id, **fields)`, `get_or_create_profile(user_id)`. All follow the existing `_connect()` pattern.
 - `src/app/profile/schemas.py` — `UserProfilePublic` Pydantic model. Import from here for API response serialization.
 - `user_profiles` schema: `id TEXT PK`, `user_id TEXT NOT NULL UNIQUE FK→users(id)`, `mastery_level TEXT DEFAULT 'novice'`, `interaction_count INTEGER DEFAULT 0`, `topic_scores TEXT DEFAULT '{}'`, `strengths TEXT DEFAULT '[]'`, `gaps TEXT DEFAULT '[]'`, `last_activity_at TEXT`, `created_at TEXT NOT NULL`, `updated_at TEXT NOT NULL`.
@@ -59,6 +61,7 @@ No archived sessions yet.
 | 03 | Commit 03 `feat: inject conversation history into RAG generator prompt` | ✅ Done | History injected post-retrieval only; empty string default makes first-turn safe; LLM cache key gap flagged |
 | 04 | Commit 04 `feat: user_profiles table in SQLite with WAL mode and lifespan init` | ✅ Done | `PRAGMA foreign_keys=ON` added alongside WAL — SQLite FK enforcement is off by default; both pragmas set in `_connect()` in both auth and profile modules |
 | 05 | Commit 05 `feat: user profile CRUD service, UserProfilePublic schema, delete JSON stub` | ✅ Done | Patched `_connect` in tests to point at temp DB rather than monkeypatching settings; `jwt_secret` default removed from config — `.env` updated to provide the value |
+| 06 | Commit 06 `feat: GET /api/profile/me endpoint and auto-create profile on registration` | ✅ Done | `asyncio.to_thread` wraps the synchronous DB call in the async route; register route's `create_profile` call wraps `sqlite3.IntegrityError` to handle duplicate races without surfacing 500 |
 
 ---
 
@@ -533,6 +536,128 @@ hasn't been initialized.
    Session 03 prose.
 
 *Remediation complete. 16/16 tests passing. No domain boundary violations.*
+
+— Rex
+Co-Authored-By: Rex <rex.stockagent@gmail.com>
+
+---
+
+## Session 06 — Commit 06: `feat: GET /api/profile/me endpoint and auto-create profile on registration`
+
+**Date:** 2026-05-09
+**Status:** ✅ Done
+
+### Task Brief
+
+Wire the profile service into the HTTP layer: one `GET /api/profile/me` endpoint (mandatory auth, returns `UserProfilePublic`), auto-create a profile in the register route immediately after `create_user()` succeeds, and include the profile router in `main.py`.
+
+### Approach
+
+I read five files before writing anything: `auth.py` (to find the exact registration flow), `chat.py` (to see how `get_current_user` and `asyncio.to_thread` are used in a route), `main.py` (to see the router inclusion pattern), `schemas.py` (to confirm `UserProfilePublic` fields), and `deps.py` (to confirm `get_current_user` signature and return type).
+
+The reading answered four questions upfront:
+
+**1. Can I pass the `get_profile_by_user_id` return dict directly to FastAPI as `response_model=UserProfilePublic`?**
+Yes. `get_profile_by_user_id` returns a plain Python `dict` with keys matching `UserProfilePublic` field names exactly — `user_id`, `mastery_level`, `interaction_count`, `topic_scores` (already deserialized to `dict`), `strengths` (already `list`), `gaps` (already `list`), `last_activity_at`, `created_at`, `updated_at`. FastAPI's Pydantic validation on the response model handles the dict-to-model coercion. No intermediate `UserProfilePublic(**profile)` construction needed.
+
+**2. What does `get_current_user` return?**
+A `dict` with key `"id"` (confirmed: `deps.py` calls `get_user_by_id(user_id)` which uses `row_factory = sqlite3.Row` — `dict(row)` produces `"id"` among the keys). So `current_user["id"]` is the correct access pattern.
+
+**3. What happens if `create_profile` fails in the register route?**
+The user is already committed to the DB at that point — `create_user()` has returned. An uncaught exception from `create_profile` would surface as a 500, leaving the user registered but without a profile. The caller's token would work for auth but `GET /api/profile/me` would return 404. The right treatment: swallow `sqlite3.IntegrityError` (a duplicate insert from a retry race) and let other exceptions propagate so they appear in logs. The user was successfully created either way — a 500 on profile creation shouldn't roll back the registration or confuse the caller with a non-specific error.
+
+**4. Router inclusion pattern in `main.py`?**
+Line 11: `from app.api.routes import chat, documents, health, auth`. Line 88–91: four `app.include_router(X.router)` calls. Pattern is to add to both the import and the include block. Straightforward extension.
+
+The profile route itself is minimal: `Depends(get_current_user)` for mandatory auth (raises 401 automatically if no token or invalid token), `asyncio.to_thread(get_profile_by_user_id, user_id)` for the DB call, a defensive 404 guard with a named error message, and `return profile` (FastAPI serializes via `response_model`). The 404 guard exists even though registration now creates profiles — if the profile is missing it indicates a data integrity problem and a bare 404 with no context would make debugging at 3am miserable.
+
+### Decisions Made
+
+**1. 404 message names `user_id` and points to the registration flow**
+`f"Profile not found for user_id='{user_id}' — a profile should have been created at registration. Re-register or contact support if this persists."` — names the value, names the invariant that was violated, names the next action. Consistent with the project's error message standard.
+
+**2. `sqlite3.IntegrityError` in register route — swallowed, all other exceptions propagate**
+A duplicate profile insert is the only case where an IntegrityError is expected and safe to absorb. Any other exception (connection failure, malformed SQL, unexpected constraint violation) propagates as an unhandled 500, surfaces in logs, and can be investigated. Silently swallowing all exceptions would hide real infrastructure failures.
+
+**3. No `get_or_create_profile` in the register route**
+The spec says `create_profile`. Using `get_or_create_profile` would be semantically wrong at registration time: registration is the profile's birth — it should always be a fresh create, never a silent fetch-if-exists. `get_or_create_profile` is appropriate for lazy-creation call sites; `create_profile` + `IntegrityError` guard is appropriate here.
+
+**4. Route file is minimal — no business logic**
+The route body does four things: extract `user_id` from the injected user, call the service function via `to_thread`, guard for None, return. No conditional branching, no data transformation. All the real logic is in `profile/db.py` and `profile/schemas.py` where it belongs.
+
+### Test Gate Verification
+
+All 42 existing tests pass. No new tests written — the spec did not include test gates for this commit, and the route depends on `app.main` lifespan machinery (ChromaDB, knowledge base) that requires the full Docker stack for integration testing.
+
+### Cross-Domain Findings
+
+None.
+
+### Scope Overflow Check
+
+No scope overflows. One GET endpoint only, no PUT/PATCH/DELETE. `src/agents/` not touched.
+
+### Documentation Flags for Claude
+
+**ARCHITECTURE.md:**
+- `GET /api/profile/me` is now a live endpoint. Auth-gated. Returns `UserProfilePublic`. Profile router is included in `main.py` alongside `auth`, `chat`, `documents`, `health`.
+- Registration flow now auto-creates a user profile: `POST /api/auth/register` calls `create_profile(user_id)` after `create_user()` succeeds. Profile lifetime is tied to user lifetime from registration onward.
+
+**DECISIONS.md:**
+- `create_profile` + `IntegrityError` guard in register route (vs `get_or_create_profile`): registration is the profile's creation event; `create_profile` is semantically correct. `IntegrityError` is absorbed only because a retry race is the only expected duplicate-insert scenario. Other exceptions propagate as 500.
+
+*Session 06 complete. 42/42 tests passing. No cross-domain findings.*
+
+— Rex
+Co-Authored-By: Rex <rex.stockagent@gmail.com>
+
+---
+
+### Session 06 Gate Remediation — Commit 06 (2026-05-09)
+
+**Status:** Done (not committed)
+**Tests:** 53/53 passing (11 new tests added)
+
+#### Findings addressed
+
+**Fix 1 — 404 error message: remove user_id exposure, add server-side logging (Viktor + Sage MEDIUM)**
+
+The original 404 detail was an f-string that interpolated `user_id` directly into the HTTP response body. Two problems: (a) it leaked an internal system identifier to any caller, which is the exact class of information a Sage MEDIUM finding flags; (b) it suggested "Re-register" as a recovery action, which would fail with 409 for any existing user.
+
+Applied: added `import logging` and `logger = logging.getLogger(__name__)` at the top of `profile.py`. In `get_my_profile()`, replaced the f-string HTTPException detail with `logger.warning("Profile not found for user_id=%s — data integrity anomaly", user_id)` (server-side, structured, named) and a static safe response: `"Profile not found. Contact support if this persists."`. The user_id is now visible in logs (where it belongs) and absent from the HTTP response body (where it does not belong). "Re-register" was removed entirely.
+
+**Fix 2 — Clarifying comment above create_profile call in auth.py (Viktor)**
+
+The existing inline comment explained the IntegrityError handling but not the choice to use `create_profile` over `get_or_create_profile`. Viktor's finding was that a future reader of the route could not tell from the code alone why the simpler get-or-create pattern was rejected. Added a one-line comment immediately above the try block naming both the design decision and its rationale: registration is the profile's creation event; the returned dict is not needed; IntegrityError on a retry race is absorbed. The original existing comments were preserved below the new line — they explain the IntegrityError behavior, which is complementary.
+
+**Fix 3 — Route tests in tests/test_profile_api.py (Quinn NEEDS ADDITIONS)**
+
+11 tests across 6 classes:
+
+- `TestGetProfileAuthenticated` (2): valid token → 200; all `UserProfilePublic` fields present in response body.
+- `TestGetProfileNoToken` (1): no Authorization header → 401.
+- `TestGetProfileInvalidToken` (2): malformed token → 401; garbage bearer value → 401.
+- `TestProfileDefaultsAfterRegistration` (2): register then `GET /me` → `mastery_level == "novice"`, `topic_scores == {}`.
+- `TestGetProfileMissingProfile` (2): user row exists, no profile row → 404; 404 detail does not contain user_id, does not suggest "Re-register".
+- `TestDuplicateEmailRegistration` (2): second register with same email → 409; `create_profile` patched in the auth route's namespace and confirmed `assert_not_called()`.
+
+Isolation pattern mirrors `test_profile_service.py`: both `app.auth.db._connect` and `app.profile.db._connect` are replaced via `monkeypatch.setattr` with a factory bound to a temp-file DB (not `:memory:` — multiple `_connect()` calls per request must share state). Both tables are bootstrapped (`users` first, then `user_profiles`) before the fixture yields. The test FastAPI app mounts only the auth and profile routers — no lifespan, no ChromaDB, no knowledge base.
+
+For test 5 (missing profile): a user row is inserted directly into the temp DB via raw SQL, bypassing `create_user()`, so no profile row is ever created. A valid token is minted via `create_access_token(sub=user_id, extra={"email": email})` — the same production function, producing a real JWT that passes `get_current_user`'s decode and DB lookup. The route finds the user, finds no profile, returns 404.
+
+For test 6 (`create_profile` not called on duplicate): `patch("app.api.routes.auth.create_profile")` patches the name in the route module's own namespace, not in `app.profile.db`. This is the correct patch target — the route imports `create_profile` by name from `app.profile.db`, so the binding lives in `app.api.routes.auth`. Patching at the source module would not intercept the call from within the route.
+
+One adjustment made during writing: the `/api/auth/register` route returns HTTP 200 (FastAPI default, no explicit `status_code` on the `@router.post` decorator), not 201. All test assertions for registration success use 200.
+
+#### Approach
+
+The three fixes are independent. I applied them in the order given: profile.py (highest-severity Sage finding), auth.py (one-line comment, no risk), tests (most volume).
+
+The test isolation design was the only decision requiring thought. The key constraint is that both DB modules must hit the same physical file per test — `app.auth.db._connect` writes users, `app.profile.db._connect` reads profiles, and they share a FK relationship. Patching both to the same temp DB path satisfies this. The fixture uses `monkeypatch.setattr` for automatic teardown, and the DB file is in `tmp_path` (pytest-managed temp directory, cleaned up after each test function).
+
+The `create_profile` patch target took one re-read of the auth route to confirm: the route does `from app.profile.db import create_profile`, which binds the name `create_profile` in `app.api.routes.auth`'s namespace. Patching `app.api.routes.auth.create_profile` intercepts the call at the point of use; patching `app.profile.db.create_profile` would not, because the name was already bound at import time.
+
+*Gate remediation complete. 53/53 tests passing. No domain boundary violations.*
 
 — Rex
 Co-Authored-By: Rex <rex.stockagent@gmail.com>
