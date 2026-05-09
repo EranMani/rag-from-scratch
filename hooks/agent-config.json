@@ -65,8 +65,11 @@
         "DECISIONS.md",
         "GLOSSARY.md",
         "commit-protocol.md",
+        "commit-specs/",
         "project-state.json",
         "team-preferences.md",
+        "CLAUDE_TIPS.md",
+        "TOKEN_OPTIMIZATION.md",
         ".claude/commands/",
         "hooks/"
       ]
