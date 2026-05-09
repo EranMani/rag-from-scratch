@@ -66,19 +66,42 @@
 ## Architecture Decisions (made during /init + archaeology, 2026-05-08)
 
 ### AgentState designed for full arc in Commit 07
-- **Date:** 2026-05-08
+- **Date:** 2026-05-08 · **Updated:** 2026-05-09 (Eran Mani — streaming architecture)
 - **Commit:** 07
-- **Decided by:** Nova (flagged) + Claude (accepted)
-- **Decision:** Design the complete `AgentState` TypedDict in Commit 07 including all Phase 4 fields (`topic_scores_delta`, `user_level`, `identified_gaps`, `assessment_error`, `conversation_history`, `retrieval_source`).
-- **Reason:** LangGraph compiles the graph against the TypedDict. Retroactive state schema changes require recompiling and cascade through all downstream nodes. One careful design is cheaper than multiple breaking changes across commits 07–17.
+- **Decided by:** Nova (flagged) + Claude (accepted) · **Updated by:** Eran Mani
+- **Decision:** Design the complete `AgentState` TypedDict in Commit 07 including all Phase 4 fields. Updated 2026-05-09: `conversation_history: str` replaced with `messages: Annotated[list[BaseMessage], add_messages]`; `session_id` removed from state (passed as `thread_id` in graph config).
+- **Reason:** LangGraph compiles the graph against the TypedDict — one careful design prevents breaking changes across commits 07–17. Native message management is required for production streaming (`graph.astream_events()`). `session_id` in state was redundant — LangGraph's `MemorySaver` checkpointer uses `thread_id` from config, not a state field.
 
-### Synchronous graph.invoke() inside asyncio.to_thread()
-- **Date:** 2026-05-08
+### ~~Synchronous graph.invoke() inside asyncio.to_thread()~~ — SUPERSEDED
+- **Date:** 2026-05-08 · **Superseded:** 2026-05-09
 - **Commit:** 10
-- **Decided by:** Nova (flagged) + Claude (accepted)
-- **Decision:** LangGraph graph runs synchronously (`graph.invoke()`), dispatched via `asyncio.to_thread()` — same pattern as the existing `run_rag_pipeline`.
-- **Alternatives considered:** Async graph with `graph.astream()`.
-- **Consequences:** All synchronous node I/O (ChromaDB, LLM calls) works without modification. Moving to `graph.astream()` in the future would require rewriting every node that calls synchronous I/O.
+- **Decided by:** Nova (original) · **Superseded by:** Eran Mani
+- **Original decision:** LangGraph graph runs synchronously (`graph.invoke()`), dispatched via `asyncio.to_thread()`.
+- **Why superseded:** This is a production system — streaming responses are a hard requirement. See streaming decision below.
+
+### `graph.astream_events()` + SSE `StreamingResponse` (Commit 10)
+- **Date:** 2026-05-09
+- **Commit:** 10
+- **Decided by:** Eran Mani
+- **Decision:** LangGraph graph is invoked with `graph.astream_events()` (not `graph.invoke()`). `chat.py` returns `StreamingResponse(media_type="text/event-stream")`. Tokens arrive as `on_chat_model_stream` events; the final `done` event carries `user_level` and `assessed_topics`.
+- **Alternatives considered:** `graph.invoke()` inside `asyncio.to_thread()` (synchronous, no streaming); asyncio.Queue callback pattern (complex, non-idiomatic).
+- **Consequences:** The frontend receives tokens as they are generated — no wait for the full response. All LangGraph nodes must use `async` I/O or be dispatched with `asyncio.to_thread()` for blocking calls. `chat.py` and any API tests must be updated to consume SSE rather than a JSON dict. `ui.py` (NiceGUI) streaming display is addressed in Commit 18.
+
+### `Annotated[list[BaseMessage], add_messages]` replaces `conversation_history: str`
+- **Date:** 2026-05-09
+- **Commit:** 07
+- **Decided by:** Eran Mani
+- **Decision:** `AgentState.messages` is typed as `Annotated[list[BaseMessage], add_messages]`. The `add_messages` reducer appends incoming messages rather than replacing the list. Conversation history is reconstructed automatically from the `MemorySaver` checkpointer when `thread_id` is passed in graph config — no application code needed.
+- **Alternatives considered:** Keeping `conversation_history: str` formatted from `SessionMemory.format_history()` before graph entry.
+- **Consequences:** `session_id` is no longer an `AgentState` field — it is the `thread_id` in `{"configurable": {"thread_id": session_id}}`. `SessionMemory` class (`src/rag/memory/conversation.py`) is deleted in Commit 10. `generate_node` receives full prior conversation in `state["messages"]` and prepends a `SystemMessage` with context before calling the LLM. The Commit 03 handoff about `format_history()` is obsolete and removed from open handoffs.
+
+### `MemorySaver` checkpointer replaces `SessionMemory` class
+- **Date:** 2026-05-09
+- **Commit:** 10
+- **Decided by:** Eran Mani
+- **Decision:** LangGraph's built-in `MemorySaver` checkpointer handles cross-turn persistence. `src/rag/memory/conversation.py` (the `SessionMemory` class) is deleted in Commit 10 and must not be referenced anywhere afterward.
+- **Alternatives considered:** Keeping `SessionMemory` and formatting history as a string before each graph invocation; using `SqliteSaver` for disk persistence from the start.
+- **Consequences:** `MemorySaver` is in-process — history is lost on app restart. This is acceptable for portfolio/single-instance deployment. When multi-instance or restart-persistence is needed, swap to `SqliteSaver(conn)` or `PostgresSaver` — the only change is the `checkpointer=` argument at graph compile time. The Redis query-level cache is independent and unaffected.
 
 ### User profiles in SQLite, not JSON files
 - **Date:** 2026-05-08
@@ -146,7 +169,7 @@
 | PostgreSQL migration | SQLite sufficient for portfolio scale; schema is ready | Future phase |
 | Node.js frontend | NiceGUI sufficient for demo; full Node.js is a separate project | Future phase |
 | Redis/Celery async queue | Not needed until multi-user concurrent load is demonstrated | Future phase |
-| LangGraph streaming (Option B: asyncio.Queue callbacks) | Requires graph callback design decision before UI can use it | Future phase |
+| LangGraph streaming — UI token display (NiceGUI) | SSE wired in Commit 10; NiceGUI reactive display deferred | Commit 18 |
 | Prometheus/Grafana dashboard configuration | Infrastructure present; dashboards need production data to tune | Post-deployment |
 | LLM fine-tuning | Requires evaluation data from production interactions | Future phase |
 | A/B testing framework | Requires production traffic | Future phase |
@@ -234,4 +257,4 @@
 - **Reason:** Registration is the profile's creation event. Using `get_or_create_profile` would mask accidental double-creation by silently returning an existing row — obscuring whether the registration flow ran correctly. Using `create_profile` makes the intent explicit: this is the moment the profile is born.
 - **Consequences:** If `create_profile` fails for a non-race reason (e.g., disk full), the user row persists without a profile (see ARCHITECTURE.md Known Debts — non-atomic insert). A future commit may wrap both operations in a shared SQLite transaction on the same connection to prevent orphaned users.
 
-*Last updated: 2026-05-09 — Commit 06 complete*
+*Last updated: 2026-05-09 — streaming architecture redesign by Eran Mani (pre-Commit 07)*

@@ -13,12 +13,6 @@
   "next_commit": "07",
   "open_handoffs": [
     {
-      "from": "commit-03",
-      "to": "Nova",
-      "target_commit": "10",
-      "message": "Commit 03 wires format_history() into chain.py generator. When you replace chain.py in Commit 10, carry this forward: call SessionMemory.format_history(session_id) before graph.invoke() and pass it into AgentState as conversation_history. This is a named deliverable of Commit 10, not optional."
-    },
-    {
       "from": "commit-05",
       "to": "Nova",
       "target_commit": "15",
@@ -63,9 +57,24 @@
     },
     {
       "date": "2026-05-08",
-      "decision": "graph.invoke() synchronous inside asyncio.to_thread()",
-      "reason": "Nova: consistent with existing chain.py pattern. Async graph would require rewriting all synchronous node I/O."
+      "decision": "graph.invoke() synchronous inside asyncio.to_thread() — SUPERSEDED by streaming decision 2026-05-09",
+      "reason": "Nova: consistent with existing chain.py pattern. Async graph would require rewriting all synchronous node I/O. Superseded: Eran Mani redesigned to graph.astream_events() + SSE StreamingResponse (Commit 10) for production streaming."
     },
+    {
+      "date": "2026-05-09",
+      "decision": "graph.astream_events() + SSE StreamingResponse replaces synchronous graph.invoke()",
+      "reason": "Eran Mani: this is a production system — streaming responses are a hard requirement. LangGraph's astream_events() emits on_chat_model_stream events token-by-token; chat.py returns StreamingResponse(media_type='text/event-stream')."
+    },
+    {
+      "date": "2026-05-09",
+      "decision": "AgentState uses Annotated[list[BaseMessage], add_messages] — not conversation_history: str",
+      "reason": "Eran Mani: production streaming requires LangGraph's native message management. add_messages reducer accumulates turns; session_id is passed as thread_id in graph config, enabling MemorySaver checkpointer to reconstruct history automatically."
+    },
+    {
+      "date": "2026-05-09",
+      "decision": "SessionMemory class deleted in Commit 10 — LangGraph MemorySaver replaces it",
+      "reason": "Eran Mani: LangGraph's checkpointer handles cross-turn persistence natively via thread_id config. The SessionMemory class (src/rag/memory/conversation.py) is redundant and must not survive Commit 10."
+    }
     {
       "date": "2026-05-08",
       "decision": "Cache key incorporates user_level from Commit 17 onward",
