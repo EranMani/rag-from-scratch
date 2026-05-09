@@ -219,6 +219,61 @@ async def ingest(
 
 ---
 
+**Commit 05 — user-profile-service** · 2026-05-09 · Rex · `architectural | new feature | security`
+
+> **In one sentence:** The full user profile CRUD service was built on top of the Commit 04 schema — with two non-obvious decisions: a column allowlist that closes a structural SQL injection path before any caller could open it, and a TOCTOU-safe `get_or_create` that absorbs concurrent-creation races at the DB layer rather than propagating them to callers.
+
+**Interview talking point:**
+> **Q:** How did you handle the dynamic SQL in your profile update function — wasn't that a SQL injection risk?
+>
+> **A:** The values were parameterized, but column names can't be — they have to be interpolated. So I added a module-level frozenset allowlist that validates every kwarg key before the SET clause is built. Unknown keys raise `ValueError` before SQL runs. The frozenset is immutable, so no caller can patch it at runtime. It's defence-in-depth: the current callers are all internal code, but the guard means a future LangGraph node spreading LLM output into kwargs can't accidentally become an injection vector.
+
+**What happened and why:**
+- Four CRUD functions were added to `profile/db.py`: `create_profile`, `get_profile_by_user_id`, `update_profile`, `get_or_create_profile` — plus a private `_deserialize_row` that centralizes JSON deserialization for the three JSON columns.
+- The `update_profile` f-string interpolation of column names triggered a Sage MEDIUM finding and a Viktor block on the first gate pass — the fix was a `_ALLOWED_PROFILE_COLUMNS` frozenset guard added before the SQL runs.
+- `get_or_create_profile` initially propagated `sqlite3.IntegrityError` to callers on a concurrent first-creation race — Viktor blocked on this too; the fix wraps `create_profile` in `try/except IntegrityError: pass` with an unconditional re-fetch after.
+- `src/rag/memory/profiles.py` (the old flat-file JSON store) was deleted and its dead call sites removed from `chain.py` — two profile storage systems no longer coexist.
+- `jwt_secret` hardcoded default was removed from `config.py` and replaced with a Pydantic `field_validator` requiring ≥ 32 characters — app now fails at startup with a clear error if `JWT_SECRET` is unset.
+
+**Design pattern / architectural principle:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Allowlist validation | `_ALLOWED_PROFILE_COLUMNS` frozenset guards `update_profile` kwargs before SQL | Column names can't be parameterized — the allowlist is the only way to prevent a caller-supplied key from reaching the SET clause |
+| TOCTOU-safe upsert | `get_or_create_profile` uses check-then-insert with `IntegrityError` absorption | SQLite's UNIQUE constraint on `user_id` makes the race safe: one insert wins, the loser is silently absorbed, both callers get the correct row |
+| Serialization boundary | `_deserialize_row` is the single point where JSON strings become Python objects | One function owns the DB→Python shape; all read paths go through it; changing the format means changing one function |
+
+**The key change:**
+
+```python
+# src/app/profile/db.py
+
+_ALLOWED_PROFILE_COLUMNS: frozenset[str] = frozenset({
+    "mastery_level", "interaction_count", "topic_scores",
+    "strengths", "gaps", "last_activity_at",
+})
+
+def update_profile(user_id: str, **fields) -> None:
+    if not fields:
+        raise ValueError(...)
+
+    invalid = set(fields) - _ALLOWED_PROFILE_COLUMNS
+    if invalid:
+        raise ValueError(f"update_profile: unknown column(s) {invalid!r}")
+
+    # ... serialize JSON fields, build SET clause, execute
+```
+
+**Files touched:**
+- `src/app/profile/db.py` — 4 CRUD functions + `_deserialize_row` + `_ALLOWED_PROFILE_COLUMNS` allowlist
+- `src/app/profile/schemas.py` — new: `UserProfilePublic` Pydantic model (incl. `updated_at`)
+- `src/app/core/config.py` — `jwt_secret` default removed; `require_strong_secret` validator added
+- `src/rag/chain.py` — dead `load_profile`/`save_profile` imports and calls removed
+- `src/rag/memory/profiles.py` — deleted
+- `tests/test_profile_service.py` — 26 tests: CRUD, FK cascade, allowlist rejection, malformed JSON
+
+---
+
 **Commit 04 — user-profile-db-schema** · 2026-05-09 · Rex · `architectural | new feature`
 
 > **In one sentence:** A new `profile` Python package was created to own all user-profile logic, with a `user_profiles` table added to the existing SQLite database — connected to `users` via foreign key — and WAL journal mode enabled to prevent write-blocking under concurrent LangGraph agent calls.

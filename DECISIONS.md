@@ -202,4 +202,20 @@
 - **Reason:** Session-aware cache keys would require a per-session Redis namespace and complicate cache invalidation. For a portfolio system this edge case is acceptable. The cache key is partially addressed in Commit 17 (adds `user_level`), but conversation history is not incorporated at any commit — this is a known permanent limitation of the cache strategy.
 - **Consequences:** The test gate "asking 'What did I just ask?' returns a response that references the prior turn" must use a question that hasn't been asked before in the same test session, or the cache must be cleared between test runs.
 
-*Last updated: 2026-05-09 — Commit 04 complete*
+### Column allowlist in `update_profile` — defence-in-depth against injection
+- **Date:** 2026-05-09
+- **Commit:** 05
+- **Decided by:** Sage (flagged) + Viktor (confirmed) + Rex (applied)
+- **Decision:** `update_profile` validates kwarg keys against `_ALLOWED_PROFILE_COLUMNS` (a `frozenset`) before building the dynamic SQL SET clause. Unknown keys raise `ValueError` before SQL runs.
+- **Reason:** Column names cannot be parameterized in SQL — they must be interpolated as strings. Without a guard, any future caller that passes an attacker-influenced key (e.g., a LangGraph node spreading LLM output into `**kwargs`) creates a structural injection path. The frozenset is immutable and module-scoped — it cannot be patched by a caller at runtime.
+- **Consequences:** All callers must use the exact column names in the frozenset. The `updated_at` column is excluded from the allowlist intentionally — it is always set internally by `update_profile`, never by callers.
+
+### `get_or_create_profile` absorbs `IntegrityError` on concurrent creation
+- **Date:** 2026-05-09
+- **Commit:** 05
+- **Decided by:** Viktor (flagged) + Rex (applied)
+- **Decision:** `get_or_create_profile` wraps `create_profile()` in a `try/except sqlite3.IntegrityError: pass` block and always re-fetches after the block, regardless of whether the insert succeeded or was lost to a race.
+- **Reason:** A function named `get_or_create` must never surface `IntegrityError` to its callers. The UNIQUE constraint on `user_id` prevents duplicate rows — the `except` block absorbs the race, and the unconditional re-fetch returns whichever row won.
+- **Consequences:** On a concurrent first-creation race, one `create_profile` call is silently discarded. The caller always receives the correct row. The loser of the race incurs one extra SELECT — acceptable cost.
+
+*Last updated: 2026-05-09 — Commit 05 complete*

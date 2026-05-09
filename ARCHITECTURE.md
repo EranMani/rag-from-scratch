@@ -209,8 +209,8 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 | SQLite → PostgreSQL migration pending | Scale limitation; no concurrent writes at volume | DECISIONS.md | 🟢 deferred |
 | NiceGUI → Node.js migration pending | UI framework constraint | DECISIONS.md | 🟢 deferred |
 | No streaming from LangGraph to UI | Agent state transitions are simulated (timer labels) | DECISIONS.md | 🟡 deferred to Option B |
-| `src/rag/memory/profiles.py` flat-file store not yet retired | Two profile backends coexist — one writes to JSON files, one to SQLite; a reader using the wrong backend gets stale data | Viktor Commit 04 | 🔴 retire in Commit 05 (spec already deletes it) |
-| `jwt_secret` has a hardcoded default in config.py | Any deployment that doesn't override JWT_SECRET issues forgeable tokens | Sage Commit 04 | 🔴 must fix before first authenticated route ships (Commit 05) |
+| `_deserialize_row` return type is untyped `dict` | Misses mypy coverage on callers that access keys that don't exist | Viktor Commit 05 | 🟢 advisory |
+| `UserProfilePublic` timestamps typed as `str` not `datetime` | Malformed timestamps pass schema validation silently | Viktor Commit 05 | 🟢 advisory — fix before production |
 | `_connect()` duplicated in `auth/db.py` and `profile/db.py` | Future hardening applied to one may not be applied to the other | Sage Commit 04 | 🟡 refactor to shared `src/app/core/db.py` when convenient |
 
 ---
@@ -221,4 +221,4 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 - **Profile scoring algorithm** — threshold table and delta merge strategy — after Commit 14
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 
-*Last updated: 2026-05-09 — Commit 04 complete*
+*Last updated: 2026-05-09 — Commit 05 complete*

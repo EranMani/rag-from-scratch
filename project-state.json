@@ -3,32 +3,38 @@
   "last_updated": "2026-05-09",
   "status": "active",
   "current_commit": {
-    "number": "05",
-    "name": "user-profile-service",
+    "number": "06",
+    "name": "user-profile-api",
     "status": "pending",
     "assignee": "backend"
   },
-  "commits_done": ["01","02","03","04"],
-  "commits_pending": ["05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24"],
-  "next_commit": "05",
+  "commits_done": ["01","02","03","04","05"],
+  "commits_pending": ["06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24"],
+  "next_commit": "06",
   "open_handoffs": [
     {
       "from": "commit-03",
       "to": "Nova",
       "target_commit": "10",
       "message": "Commit 03 wires format_history() into chain.py generator. When you replace chain.py in Commit 10, carry this forward: call SessionMemory.format_history(session_id) before graph.invoke() and pass it into AgentState as conversation_history. This is a named deliverable of Commit 10, not optional."
+    },
+    {
+      "from": "commit-05",
+      "to": "Nova",
+      "target_commit": "15",
+      "message": "Mira flagged: last_activity_at exists in user_profiles but no code path sets it. The Commit 15 spec (profile_update_node) must explicitly pass last_activity_at=datetime.now(timezone.utc).isoformat() in the update_profile() call on every successful assessment turn. Without this, the UI profile panel (Commit 18) displays a blank 'Last active' field. This is a named deliverable of Commit 15."
     }
   ],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "04",
-      "tests": "16/16 PASS — no new tests (schema-only commit)",
-      "viktor": "PASS WITH COMMENTS — 2 concerns (comment-only fixes, deferred); 2 advisories",
-      "sage": "NON-BLOCKING — S04-01: jwt_secret hardcoded default (Hard Block for Commit 05); S04-02: duplicate _connect() (refactor candidate)",
-      "quinn": "NEEDS ADDITIONS — FK cascade test deferred to Commit 05; Hard Block if missing from Commit 05",
-      "mira": "NON-BLOCKING — topic_scores flat format locked as deliberate decision; 4 other notes routed",
-      "gate_wave": "viktor + sage + quinn + mira"
+      "number": "05",
+      "tests": "42/42 PASS — 26 new tests in test_profile_service.py",
+      "viktor": "PASS WITH COMMENTS (after remediation) — 2 blocks resolved; 2 advisories remain",
+      "sage": "NON-BLOCKING — S05-01 (column injection) resolved; S04-01 (jwt_secret) confirmed resolved",
+      "quinn": "ADEQUATE — FK cascade test present; all required tests added",
+      "mira": "NON-BLOCKING — last_activity_at handoff routed to Nova/Commit 15; updated_at added to schema",
+      "gate_wave": "viktor + sage + quinn + mira (two passes — remediation between)"
     }
   },
   "parallel_groups_available": [
