@@ -61,9 +61,16 @@ apply, omit them when they don't. Depth scales with complexity.
 >
 > **A:** [1–2 sentences. The why, not the what. Written so the Team Lead can say it verbatim.]
 
-**Why it wasn't obvious:** *(omit if the decision was straightforward)*
-- [The single most important non-obvious constraint, tradeoff, or gotcha]
-- [Second point only if there truly is one — do not pad]
+**What happened and why:** *(1-2 sentences per bullet — no paragraphs)*
+- [What was built or changed]
+- [What problem it solves]
+- [Why this approach over the alternative — only if a real choice was made]
+- [Any non-obvious constraint or consequence — only if one exists]
+
+**Reasoning & discovery:** *(1-2 sentences per step — no paragraphs)*
+1. [How the problem was first understood]
+2. [What was ruled out and why]
+3. [What clinched the solution]
 
 **The key change:** *(omit if prose explains it better than code)*
 ```python
