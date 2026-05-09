@@ -112,9 +112,9 @@ apply, omit them when they don't. Depth scales with complexity.
 
 **What happened and why:**
 - The `/ingest` endpoint accepted unauthenticated uploads, meaning anyone could push documents into the vector database and corrupt the knowledge base the RAG pipeline draws from.
-- FastAPI's `get_current_user` dependency was injected to reject any request without a valid JWT; the mandatory variant was chosen because there is no anonymous ingest use case.
+- FastAPI's `get_current_user` dependency was injected to reject any request without a valid JWT. The mandatory variant was chosen because there is no anonymous ingest use case.
 - Using `file.filename` directly allowed path traversal — a crafted filename could overwrite arbitrary server files. Two-layer confinement (`Path.name` + `is_relative_to`) closes this.
-- `get_current_user` was a synchronous SQLite query running on the async event loop, blocking all concurrent requests for its duration; it was converted to `async def` with `asyncio.to_thread`.
+- `get_current_user` was a synchronous SQLite query running on the async event loop, blocking all concurrent requests for its duration. It was converted to `async def` with `asyncio.to_thread`.
 - A file extension guard (`.txt` and `.md` only) was added to reject unexpected input before any I/O runs, keeping the expensive path behind the cheap check.
 
 **Design pattern / architectural principle:**
@@ -190,9 +190,9 @@ async def ingest(
 > **A:** Retrieval needs to stay query-pure — injecting history there would blur the semantic search and fetch documents that match earlier turns rather than the current question. History belongs at generation, where it gives the LLM session context without corrupting what gets retrieved.
 
 **What happened and why:**
-- `generate()` in `generator.py` had no awareness of session state; every LLM call was stateless, so multi-turn conversations received answers with no memory of prior exchanges.
+- `generate()` in `generator.py` had no awareness of session state. Every LLM call was stateless, so multi-turn conversations received answers with no memory of prior exchanges.
 - A `{history}` slot was added to `RAG_PROMPT` and a `conversation_history: str = ""` parameter was added to `generate()`, defaulting to empty so all existing callers remain compatible without any changes.
-- History is fetched as STEP 2b in `chain.py`, after `retrieve()` returns and before the LLM cache check — this is the load-bearing ordering decision: retrieval stays query-pure, history is visible only to the generation step.
+- History is fetched as STEP 2b in `chain.py`, after `retrieve()` returns and before the LLM cache check. This keeps retrieval query-pure — history is injected at generation only.
 - A known gap was accepted: the LLM cache key (`question + docs[:100]`) excludes conversation history, so a cache hit can return a stale answer ignoring the current session. The same gap exists on the query-level cache.
 - The ordering and the cache gap are both documented in an inline comment at `chain.py` lines 54–57 and in DECISIONS.md, so future engineers don't "fix" a non-bug or inherit the gap silently.
 
@@ -271,7 +271,7 @@ async def ingest(
 **What happened and why:**
 - Four CRUD functions were added to `profile/db.py`: `create_profile`, `get_profile_by_user_id`, `update_profile`, `get_or_create_profile` — plus a private `_deserialize_row` that centralizes JSON deserialization for the three JSON columns.
 - The `update_profile` f-string interpolation of column names triggered a Sage MEDIUM finding and a Viktor block on the first gate pass — the fix was a `_ALLOWED_PROFILE_COLUMNS` frozenset guard added before the SQL runs.
-- `get_or_create_profile` initially propagated `sqlite3.IntegrityError` to callers on a concurrent first-creation race — Viktor blocked on this too; the fix wraps `create_profile` in `try/except IntegrityError: pass` with an unconditional re-fetch after.
+- `get_or_create_profile` initially propagated `sqlite3.IntegrityError` on concurrent races — Viktor blocked on this. The fix wraps the insert in `try/except IntegrityError: pass` and always re-fetches the row after.
 - `src/rag/memory/profiles.py` (the old flat-file JSON store) was deleted and its dead call sites removed from `chain.py` — two profile storage systems no longer coexist.
 - `jwt_secret` hardcoded default was removed from `config.py` and replaced with a Pydantic `field_validator` requiring ≥ 32 characters — app now fails at startup with a clear error if `JWT_SECRET` is unset.
 
@@ -326,9 +326,9 @@ def update_profile(user_id: str, **fields) -> None:
 **What happened and why:**
 - A new Python package `src/app/profile/` was created (`__init__.py` + `db.py`) to own all profile-related DB logic — this separates the domain from `src/app/auth/` even though both tables live in the same file.
 - The `user_profiles` table is in `data/app_users.db` — the same file as `users` — so a single `FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE` enforces referential integrity: deleting a user automatically removes their profile row.
-- `PRAGMA journal_mode=WAL` was added to `_connect()` in `auth/db.py`; WAL allows readers and writers to operate concurrently — without it, a profile write from one LangGraph node would block a read happening in another node of the same turn.
+- `PRAGMA journal_mode=WAL` was added to `_connect()` so readers and writers can operate concurrently. Without it, a profile write from one LangGraph node would block a concurrent read in the same turn.
 - `init_profile_db()` is registered in the FastAPI lifespan alongside `init_user_db()` so the table is guaranteed to exist before the first request arrives.
-- All JSON fields (`topic_scores`, `strengths`, `gaps`) are stored as raw strings in SQLite; the service layer (Commit 05) owns deserialization — the DB layer never returns Python dicts directly.
+- All JSON fields (`topic_scores`, `strengths`, `gaps`) are stored as raw strings in SQLite. The service layer (Commit 05) owns deserialization — the DB layer never returns Python dicts directly.
 
 **Design pattern / architectural principle:**
 
@@ -341,7 +341,7 @@ def update_profile(user_id: str, **fields) -> None:
 **Reasoning & discovery:**
 1. The FK requirement drove the single-file decision: SQLite foreign keys only enforce across tables in the same connection/file, so splitting into a second DB would have meant managing cascade deletes manually in application code.
 2. WAL mode was added at schema initialization time (not later) because it affects all connections to the file — enabling it once in `_connect()` means every subsequent connection automatically inherits it.
-3. Storing JSON as strings was chosen over SQLite's JSON functions to keep the DB layer dependency-free; the service layer in Commit 05 gets full Python typing on deserialized fields without any SQL-level JSON path queries.
+3. Storing JSON as strings was chosen over SQLite's JSON functions to keep the DB layer dependency-free. The service layer in Commit 05 gets full Python typing on deserialized fields without any SQL-level JSON path queries.
 
 **The key change:**
 
@@ -393,8 +393,8 @@ def _connect():
 > **A:** Registration is the one moment in the system where a profile should not already exist. Using `get_or_create_profile` there would silently swallow an accidental double-creation — the kind of bug that only surfaces later as corrupted data. `create_profile` makes the intent explicit: if a profile row already exists when a new user registers, that is a data integrity problem worth knowing about, not something to paper over.
 
 **What happened and why:**
-- `GET /api/profile/me` is the first route that exposes profile data externally; it needed to be locked to the authenticated user, so `Depends(get_current_user)` was injected — the route never receives a `user_id` from the request body or query string, only from the verified token.
-- `get_profile_by_user_id` is a synchronous SQLite call; wrapping it in `asyncio.to_thread` keeps it consistent with every other DB call in the project and avoids blocking the event loop during a lookup.
+- `GET /api/profile/me` exposes profile data externally, so `Depends(get_current_user)` was injected to lock it to the authenticated user. The route never accepts a `user_id` from the request — it reads from the verified JWT only.
+- `get_profile_by_user_id` is a synchronous SQLite call. Wrapping it in `asyncio.to_thread` keeps it consistent with every other DB call in the project and avoids blocking the event loop during a lookup.
 - Registration previously created a user row and returned — the user's first call to `GET /api/profile/me` would have received a 404. Moving `create_profile(user_id)` into `POST /api/auth/register` collapses profile initialization into the same HTTP transaction that creates the account.
 - A known data integrity gap was accepted: `create_user` and `create_profile` run sequentially without a shared transaction, so a non-race failure in `create_profile` leaves an orphaned user row. The static 404 detail guides support without leaking implementation details.
 - The 404 detail is a static string — `user_id` appears only in `logger.warning(...)` on the server side. A detail string that included the ID would confirm a valid internal identifier to any client that triggered the 404, which is a CWE-209 information exposure.
@@ -408,8 +408,8 @@ def _connect():
 | Dependency injection (FastAPI Depends) | `get_current_user` is declared as a parameter dependency, not called inside the route body | `user_id` is extracted from a verified JWT — the route cannot be called with a user-supplied ID |
 
 **Reasoning & discovery:**
-1. The initial framing was simple — add a GET route that returns the calling user's profile. The question was how to get `user_id` into the route safely: reading it from a query parameter would require validating that the caller isn't requesting someone else's profile; reading it from the JWT via `get_current_user` makes that validation structural.
-2. `get_or_create_profile` was considered but ruled out — registration is not a general case where silent race-handling is appropriate. If a profile row already exists at registration, that is a data integrity problem; `create_profile` surfaces it as an error rather than silently swallowing it.
+1. The key question was how to get `user_id` safely into the route. Using `get_current_user` reads it from the verified JWT — structurally safer than a query parameter that would require manual validation to prevent user-spoofing.
+2. `get_or_create_profile` was ruled out — registration is not a case for silent race-handling. If a profile row already exists at registration, that is a data integrity problem that should surface as an error, not be absorbed.
 3. The static 404 detail was the last decision: the first draft included `user_id` in the detail string for debuggability. The CWE-209 implication — that a 404 response confirming a valid internal ID is an information exposure — moved the ID to the server-side log and replaced the detail with a static support message.
 
 **The key change:**
@@ -469,9 +469,9 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
 
 **What happened and why:**
 - The state schema is the single source of truth for the entire adaptive-RAG graph — changes made here cascade through graph construction in all downstream nodes (retrieve_node, generate_node, assess_node, profile_update_node). Designing it once for the full 07–17 arc was a conscious decision to avoid retroactive schema refactoring breaking the compiled graph.
-- `messages: Annotated[list[BaseMessage], add_messages]` replaces the legacy `conversation_history: str` — the reducer appends messages rather than replacing the list, so prior turns accumulate automatically. `session_id` is not in state; it is passed as `thread_id` in the graph config for the `MemorySaver` checkpointer.
+- `messages: Annotated[list[BaseMessage], add_messages]` replaces `conversation_history: str` — the reducer appends turns rather than replacing, so prior context accumulates automatically. `session_id` is not a state field — it is passed as `thread_id` in the graph config for `MemorySaver`.
 - `user_level` and `cache_hit` are `Literal[...]` types because `assess_node` calls the LLM with structured output — hallucinated values like `"ultra_expert"` would silently corrupt state. Pydantic raises `ValidationError` at parse time on any out-of-range value.
-- `AssessmentOutput` includes two `@field_validator`s that silently drop unknown module slugs from `topic_scores_delta` and `identified_gaps` against `VALID_MODULE_SLUGS`. This is a soft-fail policy — losing one slug to a hallucination is better than failing the entire assessment turn and triggering the fallback edge that skips profile update.
+- `AssessmentOutput` has two `@field_validator`s that silently drop unknown module slugs rather than raising. A hallucinated slug drops from the result — the assessment turn still completes and profile update still runs.
 - `from __future__ import annotations` stores all annotations as strings — `get_type_hints()` without `include_extras=True` silently strips the `Annotated` wrapper, losing the `add_messages` reducer. This affects any code introspecting `AgentState`, including the graph builder in Commit 08.
 
 **Design pattern / architectural principle:**
