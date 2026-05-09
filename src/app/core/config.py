@@ -1,5 +1,6 @@
 # Imports
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from functools import lru_cache
 
 
@@ -44,12 +45,23 @@ class Settings(BaseSettings):
     # Prometheus
     prometheus_port: int = 9090
 
-    # Auth
-    jwt_secret: str = "dev-only-change-in-production"
+    # Auth — no default: startup fails with a clear error if JWT_SECRET is not set.
+    # Minimum 32 characters enforced by require_strong_secret below.
+    jwt_secret: str
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     sqlite_db_path: str = "data/app_users.db"
     allow_anonymous_chat: bool = False
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def require_strong_secret(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError(
+                f"JWT_SECRET must be at least 32 characters — "
+                f"got {len(v)}. Set a strong secret in your .env file."
+            )
+        return v
 
 
 @lru_cache()

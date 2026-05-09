@@ -6,7 +6,6 @@ from rag.pipeline.retriever import retrieve
 from rag.pipeline.generator import generate
 from rag.cache.redis_cache import cache
 from rag.memory.conversation import session_memory
-from rag.memory.profiles import load_profile, save_profile
 
 
 def run_rag_pipeline(
@@ -79,10 +78,6 @@ def run_rag_pipeline(
     cache.set_query(question, answer)
     session_memory.add_human(session_id, question)
     session_memory.add_assistant(session_id, answer)
-
-    if user_id:
-        profile = load_profile(user_id)
-        save_profile(user_id, profile)
 
     latency = round((time.perf_counter() - start) * 1000)
     logger.info(

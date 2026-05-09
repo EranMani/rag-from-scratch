@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 04 · 2026-05-09*
+*Last updated: Commit 05 · 2026-05-09*
 
-**Last completed:** Commit 04 `feat: user_profiles table in SQLite with WAL mode and lifespan init` ✅
+**Last completed:** Commit 05 gate remediation ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -17,12 +17,14 @@
 **Open Handoffs — Inbound:**
 - (none)
 
-**Key Interfaces I Own (for teammates — Commit 05 must read):**
-- `src/app/profile/db.py` — `init_profile_db()` creates `user_profiles` table. Commit 05 adds CRUD here — follow the same `_connect()` pattern, same file. Do NOT add a new connection helper.
+**Key Interfaces I Own (for teammates — Commit 06 must read):**
+- `src/app/profile/db.py` — full CRUD: `create_profile(user_id)`, `get_profile_by_user_id(user_id)`, `update_profile(user_id, **fields)`, `get_or_create_profile(user_id)`. All follow the existing `_connect()` pattern.
+- `src/app/profile/schemas.py` — `UserProfilePublic` Pydantic model. Import from here for API response serialization.
 - `user_profiles` schema: `id TEXT PK`, `user_id TEXT NOT NULL UNIQUE FK→users(id)`, `mastery_level TEXT DEFAULT 'novice'`, `interaction_count INTEGER DEFAULT 0`, `topic_scores TEXT DEFAULT '{}'`, `strengths TEXT DEFAULT '[]'`, `gaps TEXT DEFAULT '[]'`, `last_activity_at TEXT`, `created_at TEXT NOT NULL`, `updated_at TEXT NOT NULL`.
 - `mastery_level` valid values: `novice`, `beginner`, `intermediate`, `advanced`, `expert`. Enforced in service layer — not a DB constraint.
-- `topic_scores`, `strengths`, `gaps` are JSON strings. Serialize before INSERT, deserialize after SELECT — that is Commit 05's responsibility.
-- FK enforcement: `PRAGMA foreign_keys=ON` is set in `_connect()`. Cascade delete is live: deleting a user removes their profile. Service layer must never assume a profile row survives a user delete.
+- `topic_scores`, `strengths`, `gaps` are deserialized to Python objects on every read. Pass Python objects (dict/list) to `update_profile` — serialization is handled internally.
+- FK enforcement live: `PRAGMA foreign_keys=ON` in `_connect()`. Cascade delete confirmed by test.
+- `src/app/core/config.py` — `jwt_secret` no longer has a default. `JWT_SECRET` must be set in the environment (≥ 32 chars). Missing or short secret raises `ValidationError` at startup.
 
 **Key Interfaces I Own (for teammates):**
 - `POST /api/ingest` — requires Bearer token; validates extension (.txt/.md only); neutralizes path traversal; wraps ingest in `asyncio.to_thread`
@@ -56,6 +58,7 @@ No archived sessions yet.
 | 02 | Commit 02 `config-and-naming-cleanup` | ✅ Done | Pure rename — chat.py added as call site beyond spec; Viktor confirmed correct |
 | 03 | Commit 03 `feat: inject conversation history into RAG generator prompt` | ✅ Done | History injected post-retrieval only; empty string default makes first-turn safe; LLM cache key gap flagged |
 | 04 | Commit 04 `feat: user_profiles table in SQLite with WAL mode and lifespan init` | ✅ Done | `PRAGMA foreign_keys=ON` added alongside WAL — SQLite FK enforcement is off by default; both pragmas set in `_connect()` in both auth and profile modules |
+| 05 | Commit 05 `feat: user profile CRUD service, UserProfilePublic schema, delete JSON stub` | ✅ Done | Patched `_connect` in tests to point at temp DB rather than monkeypatching settings; `jwt_secret` default removed from config — `.env` updated to provide the value |
 
 ---
 
@@ -351,6 +354,134 @@ No scope overflows. No CRUD functions written. `profile/db.py` contains `_connec
 - `PRAGMA foreign_keys=ON` — Per-connection SQLite setting that enables FK enforcement. Must be set on every connection that should respect FK constraints; it does not persist between connections.
 
 *Session 04 complete. 3/3 test gates passed. 16/16 existing tests passing. No cross-domain findings.*
+
+— Rex
+Co-Authored-By: Rex <rex.stockagent@gmail.com>
+
+---
+
+---
+
+## Session 05 — Commit 05: `feat: user profile CRUD service, UserProfilePublic schema, delete JSON stub`
+
+**Date:** 2026-05-09
+**Status:** ✅ Done
+
+### Task Brief
+
+Add 4 CRUD functions to `src/app/profile/db.py`, create `src/app/profile/schemas.py` with `UserProfilePublic`, delete `src/rag/memory/profiles.py` (old flat-file JSON stub), clean dead imports from `src/rag/chain.py`, remove the hardcoded `jwt_secret` default from `config.py` and enforce minimum length via a field validator, and write 6 categories of tests including a FK cascade test using a real SQLite connection.
+
+### Approach
+
+I read all five source files before writing anything: `profile/db.py`, `config.py`, `chain.py`, `memory/profiles.py`, and both existing test files. The reading surfaced three things that shaped my decisions:
+
+**The `jwt_secret` default removal:** Removing the default means `Settings()` raises `ValidationError` at module import if `JWT_SECRET` is not in the environment. The `.env` file had no `JWT_SECRET`. If I removed the default without adding the value to `.env` first, every test that imports any `app.*` module would fail at collection time, not at test time — producing a confusing "invalid pyproject.toml or conftest" error rather than a clear missing-env-var message. I added `JWT_SECRET` to `.env` first, then removed the default. The `.env.example` already had the field documented with the correct comment.
+
+**The test isolation problem:** `_connect()` in `profile/db.py` reads `settings.sqlite_db_path` every time it's called. If tests called the CRUD functions without redirecting the DB path, they would touch `data/app_users.db` — the live development database. Monkeypatching `settings.sqlite_db_path` was one option, but it would mutate the shared `lru_cache`-backed singleton across all tests in the session unless carefully restored. The cleaner approach was to monkeypatch `app.profile.db._connect` at the module level — replace the function reference entirely with a factory bound to the temp DB path. This is a pure module-level attribute replacement; `monkeypatch` restores it after each test automatically. It also means the tests have no dependency on `settings` at all.
+
+**The FK cascade test:** The spec said to use a temp file DB (not `:memory:`) because `:memory:` DBs don't share state between connections. This is correct — each `sqlite3.connect(":memory:")` call returns an independent empty database. The cascade test goes direct-to-sqlite3 rather than through the profile CRUD functions, because the CRUD functions' behavior doesn't affect whether the FK cascade works at the DB level — I want to test the DB constraint, not the application code. The test inserts a user and a profile via raw SQL, deletes the user via raw SQL, and asserts the profile row is gone. `PRAGMA foreign_keys=ON` is set on every connection in the test (same requirement as in production `_connect()`).
+
+**Deleting `profiles.py`:** The `chain.py` called `load_profile()` and `save_profile()` after every pipeline run when `user_id` was set. These were genuine stubs — `load_profile()` returned an empty default dict and `save_profile()` wrote a JSON file to `data/user_profiles/`. Removing them from `chain.py` requires removing the import and the 2-line call block. The `user_id` parameter on `run_rag_pipeline` is still valid and used for session identification — I left it in place because future profile-integration commits will use it.
+
+### Decisions Made
+
+**1. Monkeypatch `_connect` rather than `settings.sqlite_db_path`**
+`settings` is a module-level singleton backed by `lru_cache`. Mutating its attributes in tests risks cross-test contamination if test ordering causes the lru_cache to be shared across tests in the same session. Replacing `_connect` at the module level is cleaner: it's a named function reference, `monkeypatch` restores it atomically, and the tests have no coupling to the settings machinery.
+
+**2. `JWT_SECRET` added to `.env` before removing the default**
+The `.env` file is loaded by `pydantic-settings` at `Settings()` construction time. All `app.*` modules import `settings` at the top level. Removing the default without the `.env` value would cause every test to fail with `ValidationError` at collection time. The value I added (`dev-local-secret-change-before-any-deployment-32chars`) is 52 characters, satisfies the `>=32` validator, and the comment in the value makes its purpose clear. This value is acceptable for local development; it is not acceptable for any deployed environment.
+
+**3. FK cascade test uses raw sqlite3, not CRUD functions**
+Testing the CRUD functions in the cascade test would blur the test's responsibility. The cascade is a DB-level constraint — it should be tested at the DB level. Using raw SQL also makes the test immune to future refactors of the CRUD layer.
+
+**4. `update_profile` raises `ValueError` for zero-field calls**
+A call with no kwargs produces a dynamic SQL string of `SET  WHERE user_id = ?` (empty SET clause), which is a syntax error in SQLite. Raising `ValueError` before building the query produces a readable error at the call site instead of a cryptic `OperationalError` from SQLite.
+
+**5. `get_or_create_profile` does not wrap in a transaction**
+The check-then-create race condition (two concurrent callers both see `None` and both call `create_profile`) would result in one of them getting `IntegrityError` from the `UNIQUE` constraint on `user_id`. That is the correct behavior — the second caller should retry or surface the error. A SERIALIZABLE transaction would prevent the race but is not necessary for a SQLite app where connections are per-request.
+
+### Issues Found Mid-Task
+
+**`.env` had no `JWT_SECRET`.**
+Pre-existing gap. Resolved by adding the value before touching `config.py`. Not a blocker — just needs to be done in the right order.
+
+**`tests/__init__.py` already existed.**
+The spec listed it as "New file." It was created in Session 01. I did not re-create or touch it.
+
+### Test Gate Verification
+
+All 6 test categories pass. Full suite: 39/39.
+
+- `TestCreateProfile` (5 tests) — default values, UUID return, None for `last_activity_at`
+- `TestGetProfileByUserId` (5 tests) — dict/list deserialization, None for missing user, round-trip for non-empty `topic_scores`
+- `TestUpdateProfile` (5 tests) — single-field update, other fields unchanged, `updated_at` refreshed, JSON field round-trip, ValueError for empty kwargs
+- `TestGetOrCreateProfile` (4 tests) — creates on first call, same `id` on second call, no IntegrityError, preserves updates between calls
+- `TestImportSmoke` (3 tests) — `rag.chain`, `app.profile.db`, `app.profile.schemas` all import cleanly
+- `TestForeignKeyCascade` (1 test) — cascade delete confirmed with real SQLite and `PRAGMA foreign_keys=ON`
+
+### Cross-Domain Findings
+
+None.
+
+### Scope Overflow Check
+
+No scope overflows. No profile routes written (Commit 06). No HTTP layer added to `profile/db.py`. `src/agents/` not touched.
+
+### Documentation Flags for Claude
+
+**ARCHITECTURE.md:**
+- `src/rag/memory/profiles.py` deleted — flat-file JSON profile store is gone. Profile data now lives exclusively in `user_profiles` table in `data/app_users.db`.
+- `src/app/profile/schemas.py` is new — `UserProfilePublic` is the public-facing Pydantic model for profile data. Route layer (Commit 06) serializes to this.
+- `config.py` `jwt_secret` now required at startup — no default. Pydantic `ValidationError` at startup if `JWT_SECRET` is missing or shorter than 32 chars.
+
+**DECISIONS.md:**
+- `jwt_secret` hardcoded default removed: the previous default (`"dev-only-change-in-production"`) would allow an attacker who knew the default to forge valid JWTs on any deployment that forgot to set `JWT_SECRET`. Removing it makes misconfiguration a startup failure rather than a silent security hole.
+- `_connect` monkeypatching strategy in tests: module-level function reference replacement is preferred over `settings` attribute mutation because `settings` is a shared singleton. Restoring a function reference is atomic and has no cross-test contamination risk.
+
+**GLOSSARY.md:**
+- `UserProfilePublic` — Pydantic model in `app.profile.schemas` representing the public view of a user profile. Excludes internal fields (e.g., `id`, `updated_at`). Used by the API route layer for response serialization.
+
+*Session 05 complete. 39/39 tests passing. No cross-domain findings.*
+
+— Rex
+Co-Authored-By: Rex <rex.stockagent@gmail.com>
+
+---
+
+### Session 05 Gate Remediation — Commit 05 (2026-05-09)
+
+**Status:** ✅ Done
+**Tests:** 42/42 passing (3 new tests added)
+
+#### Findings addressed
+
+**Fix 1 — `update_profile` column allowlist (Viktor BLOCKED + Sage MEDIUM)**
+
+Added `_ALLOWED_PROFILE_COLUMNS: frozenset[str]` at module level in `src/app/profile/db.py`. Added a guard immediately after the empty-fields check in `update_profile()`: computes `invalid = set(fields) - _ALLOWED_PROFILE_COLUMNS` and raises `ValueError` with the exact set of invalid names and the allowed set. The SQL SET clause is never reached with attacker-influenced column names.
+
+**Fix 2 — `get_or_create_profile` IntegrityError handling (Viktor BLOCKED)**
+
+Wrapped `create_profile(user_id)` in a `try/except sqlite3.IntegrityError: pass` block. After the except clause (whether or not it fired), the function always calls `get_profile_by_user_id(user_id)` to fetch the winner of any concurrent race. The function now contracts to never raise `IntegrityError` — callers named `get_or_create` have no reason to expect it. The UNIQUE constraint still protects data integrity at the DB level; the exception is absorbed and the result is correct either way.
+
+**Fix 3 — Two new tests in `tests/test_profile_service.py` (Quinn NEEDS ADDITIONS)**
+
+`TestUpdateProfileAllowlist` (2 tests): verifies that passing an unknown column raises `ValueError` matching "unknown column", and that the row is left unchanged (mastery_level, interaction_count, and updated_at all unmodified) after the rejected call.
+
+`TestDeserializeRowMalformedJson` (1 test): bypasses the CRUD layer, writes `"not-valid-json{{{"` directly into `topic_scores` via raw SQL on the temp DB (using the `isolated_db` fixture pattern), then calls `get_profile_by_user_id()` and asserts `json.JSONDecodeError` is raised.
+
+**Fix 4 — `updated_at` added to `UserProfilePublic` (Mira)**
+
+Added `updated_at: str` to `src/app/profile/schemas.py`. One-line change. The field exists in every DB row — it was present in the `user_profiles` table since Commit 04 and returned by all CRUD reads. The public schema was simply missing it. Adding it now is correct before Commit 06 wires the route; adding it after would require a cross-domain schema change.
+
+#### Approach
+
+The four fixes are independent — no ordering dependency between them. I applied the allowlist (Fix 1) before the IntegrityError handling (Fix 2) because the allowlist is the higher-severity finding and I wanted the guard in place first. Fix 4 is a one-line schema addition with no risk of interaction with the other fixes.
+
+The IntegrityError absorb pattern (Fix 2) is straightforward. The important invariant is that `get_profile_by_user_id` is always called after the try/except block, not inside the except clause — so if the except fires, we still fetch the row that won the race rather than returning stale pre-check data or None.
+
+For the malformed JSON test (Fix 3, Test B): the key constraint was that the test must bypass the CRUD layer to write invalid JSON — if it went through `update_profile()`, the JSON fields are `json.dumps()`'d before insert, so valid JSON would always be written. The `isolated_db` fixture provides the temp DB path as a string, which is exactly what `sqlite3.connect()` needs for the raw write. No new fixture infrastructure required.
+
+*Gate remediation complete. 42/42 tests passing. No domain boundary violations.*
 
 — Rex
 Co-Authored-By: Rex <rex.stockagent@gmail.com>
