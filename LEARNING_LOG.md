@@ -8,6 +8,28 @@
 > which design patterns and architectural principles were applied, and how to
 > explain all of it to a reviewer or recruiter.
 
+> Technical terms (WAL mode, TOCTOU, CWE-209, etc.) are defined in [GLOSSARY.md](GLOSSARY.md).
+
+---
+
+## Agents in This Project
+
+The following specialized AI agents contributed to this codebase. Each log entry
+identifies the owning agent by name.
+
+| Agent | Role | Responsible for |
+|---|---|---|
+| Rex | Backend Engineer | API routes, auth, profile service, SQLite, tests |
+| Nova | AI/ML Engineer | LangGraph graph, RAG pipeline nodes, prompt engineering |
+| Aria | Frontend Engineer | NiceGUI UI (`src/app/ui.py`) |
+| Adam | DevOps Engineer | Docker, nginx, EC2 deployment scripts |
+| Viktor | Code Reviewer | Reviews every commit — blocks on hard findings |
+| Sage | Security Engineer | Reviews auth, secrets, and external API commits |
+| Quinn | QA Engineer | Test coverage review |
+| Mira | Product Manager | User-facing behavior review |
+| Ryan | Tech Writer | This log, README, API reference |
+| Claude | Orchestrator | Sequences commits, routes agents, maintains architecture docs |
+
 ---
 
 ## Entry Format Reference
@@ -16,7 +38,8 @@
 *Used for: architectural changes, non-obvious decisions, security-relevant changes,
 design pattern applications (atomicity, single responsibility, dependency injection,
 idempotency, separation of concerns, etc.) — anything that also touches ARCHITECTURE.md
-or DECISIONS.md.*
+or DECISIONS.md. Include an ASCII flow diagram before the design pattern table when
+the commit changes a data or execution pipeline.*
 
 ---
 
@@ -174,6 +197,25 @@ async def ingest(
 - History is fetched as STEP 2b in `chain.py`, after `retrieve()` returns and before the LLM cache check — this is the load-bearing ordering decision: retrieval stays query-pure, history is visible only to the generation step.
 - A known gap was surfaced and accepted: the LLM response cache key is `question + docs[:100]` and does not include conversation history, so a cache hit can return a stale answer that ignores the current session's context; the same issue exists on the query-level cache.
 - The ordering and the cache gap are both documented in an inline comment at `chain.py` lines 54–57 and in DECISIONS.md, so future engineers don't "fix" a non-bug or inherit the gap silently.
+
+**Pipeline flow:**
+```
+[User Question]
+      │
+      ▼
+  retrieve(question)              ← pure query — no history contamination
+      │
+      ▼
+  format_history(session_id)      ← STEP 2b: injected here by design
+      │                              history does NOT influence retrieval
+      ▼
+  generate(question, docs, history)
+      │
+      ├── LLM cache check  ← cache key omits history (known accepted gap)
+      │
+      ▼
+  [Answer]
+```
 
 **Design pattern / architectural principle:**
 

@@ -210,6 +210,14 @@
 - **Reason:** Column names cannot be parameterized in SQL — they must be interpolated as strings. Without a guard, any future caller that passes an attacker-influenced key (e.g., a LangGraph node spreading LLM output into `**kwargs`) creates a structural injection path. The frozenset is immutable and module-scoped — it cannot be patched by a caller at runtime.
 - **Consequences:** All callers must use the exact column names in the frozenset. The `updated_at` column is excluded from the allowlist intentionally — it is always set internally by `update_profile`, never by callers.
 
+### Frozenset allowlist is the project-wide standard for all dynamic SQL
+- **Date:** 2026-05-09
+- **Commit:** 05 (established here — applies to all future commits)
+- **Decided by:** Sage (validated) + Rex (applied)
+- **Decision:** Any function in this codebase that builds SQL dynamically from caller-supplied keys must validate those keys against a module-scoped `frozenset` before touching the database. This is not specific to the profile service — it applies to every future service with dynamic column updates (scoring queries in Commit 14, any analytics extensions).
+- **Reason:** Column names cannot be parameterized — interpolation is unavoidable. A frozenset guard is the only reliable defense at the call boundary. Making this a project-wide rule prevents future agents building dynamic queries from creating injection paths unknowingly.
+- **Consequences:** Every future function with dynamic SQL needs a corresponding `_ALLOWED_X_COLUMNS` frozenset defined at module scope. System-managed columns (`updated_at`, `created_at`) are intentionally excluded from caller-facing allowlists.
+
 ### `get_or_create_profile` absorbs `IntegrityError` on concurrent creation
 - **Date:** 2026-05-09
 - **Commit:** 05
