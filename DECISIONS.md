@@ -161,6 +161,39 @@
 - **Alternatives considered:** Prepending history to the query before retrieval (history-aware retrieval).
 - **Consequences:** Retrieval stays fast and cache-friendly (same question always hits the same docs). History influences only what the LLM says, not what is retrieved. A follow-up question like "explain that differently" will retrieve on those three words, not on the full context — this is a known limitation of the current pipeline, resolved when the LangGraph graph replaces chain.py.
 
+### Both tables in the same SQLite file (`app_users.db`)
+- **Date:** 2026-05-09
+- **Commit:** 04
+- **Decided by:** Rex (applied) + Viktor (confirmed)
+- **Decision:** `user_profiles` lives in `data/app_users.db` alongside `users` — not a separate database file.
+- **Reason:** SQLite FK enforcement only works across tables in the same connection/file. Splitting into two files would require application-level cascade logic instead of `ON DELETE CASCADE`. A single connection also avoids coordinating two lifespan init calls.
+- **Consequences:** Both `auth/db.py` and `profile/db.py` open the same file path. Init order matters: `init_user_db()` must run before `init_profile_db()` so the `users` table the FK references exists.
+
+### `_connect()` duplicated across `auth/db.py` and `profile/db.py`
+- **Date:** 2026-05-09
+- **Commit:** 04
+- **Decided by:** Rex (applied) + Sage (flagged as refactor candidate)
+- **Decision:** Both modules contain an identical `_connect()` rather than sharing one from `src/app/core/db.py`.
+- **Reason:** Domain separation — `auth/` and `profile/` are independent modules. The duplication is intentional at this stage to keep each module self-contained.
+- **Consequences:** Any future security hardening added to one `_connect()` must also be applied to the other. Tracked as an architecture debt. Refactor to `src/app/core/db.py` is a named candidate for a future commit if the duplication spreads to a third module.
+
+### `topic_scores` stored as flat `dict[str, float]` — no per-topic interaction counts
+- **Date:** 2026-05-09
+- **Commit:** 04
+- **Decided by:** Team Lead
+- **Decision:** `topic_scores` JSON format is `{"module_slug": float}` — not `{"module_slug": {"score": float, "n": int}}`.
+- **Alternatives considered:** Nested format with per-topic interaction count to support confidence-weighted display ("only show a score after ≥3 interactions on this module").
+- **Reason:** The entire protocol (Commits 07–19) is specced around `dict[str, float]`. Changing the format would require reopening 8+ commit specs. For a 6-module portfolio demo, flat scores are sufficient — the aggregate `interaction_count` column can proxy any threshold logic needed. The nested format is better for a production learning platform; flat is the right call here.
+- **Consequences:** Per-topic interaction counts are not tracked. If confidence-weighted display is added later, it requires a JSON migration on the `topic_scores` TEXT column. This is a known permanent limitation, not an oversight.
+
+### JSON string storage for `topic_scores`, `strengths`, `gaps`
+- **Date:** 2026-05-09
+- **Commit:** 04
+- **Decided by:** Rex (applied) + Viktor (advisory)
+- **Decision:** Store `topic_scores`, `strengths`, and `gaps` as JSON strings in SQLite (`TEXT DEFAULT '{}'`, `TEXT DEFAULT '[]'`). The service layer (Commit 05) owns serialization (`json.dumps`) and deserialization (`json.loads`).
+- **Reason:** Avoids SQLite JSON function dependency. Keeps the DB layer responsible only for persistence, not data structure. Portable to PostgreSQL JSONB without schema changes.
+- **Consequences:** Every write path must call `json.dumps()` before INSERT/UPDATE. Every read path must call `json.loads()` after SELECT. A missed `json.dumps()` on a Python dict will store a Python-syntax string (single quotes) that `json.loads()` will fail to parse — validated in Commit 05 tests.
+
 ### Conversation history not included in LLM cache key
 - **Date:** 2026-05-09
 - **Commit:** 03
@@ -169,4 +202,4 @@
 - **Reason:** Session-aware cache keys would require a per-session Redis namespace and complicate cache invalidation. For a portfolio system this edge case is acceptable. The cache key is partially addressed in Commit 17 (adds `user_level`), but conversation history is not incorporated at any commit — this is a known permanent limitation of the cache strategy.
 - **Consequences:** The test gate "asking 'What did I just ask?' returns a response that references the prior turn" must use a question that hasn't been asked before in the same test session, or the cache must be cleared between test runs.
 
-*Last updated: 2026-05-09 — Commit 03 complete*
+*Last updated: 2026-05-09 — Commit 04 complete*

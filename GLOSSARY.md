@@ -97,7 +97,7 @@
 
 ### WAL Mode
 **Meaning on this project:** SQLite Write-Ahead Logging journal mode. Enables concurrent reads during a write operation. Enabled via `PRAGMA journal_mode=WAL` in `_connect()`. Required because the LangGraph agent thread writes profile updates while FastAPI request threads read user data concurrently.
-**Used in:** `src/app/auth/db.py`
+**Used in:** `src/app/auth/db.py`, `src/app/profile/db.py`
 **Introduced in:** Commit 04
 
 ---

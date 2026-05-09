@@ -218,3 +218,72 @@ async def ingest(
 - `tests/test_conversation_memory.py` — 7 new tests: empty session returns `""`, truncation boundary at 10 messages (3 tests), `generate()` passes history key to `chain.invoke()` (2 tests)
 
 ---
+
+**Commit 04 — user-profile-db-schema** · 2026-05-09 · Rex · `architectural | new feature`
+
+> **In one sentence:** A new `profile` Python package was created to own all user-profile logic, with a `user_profiles` table added to the existing SQLite database — connected to `users` via foreign key — and WAL journal mode enabled to prevent write-blocking under concurrent LangGraph agent calls.
+
+**Interview talking point:**
+> **Q:** How did you structure the user profile data model, and why did you keep it in the same database as the auth tables?
+>
+> **A:** The `user_profiles` table lives in the same SQLite file as `users` but is owned by a separate Python module. That lets us enforce referential integrity with a foreign key (`user_id → users.id ON DELETE CASCADE`) without managing a second database connection, while keeping the profile domain's code completely separate from the auth domain. WAL mode was added at this point because LangGraph's graph nodes run sequentially per turn and would otherwise serialize on the default SQLite write lock.
+
+**What happened and why:**
+- A new Python package `src/app/profile/` was created (`__init__.py` + `db.py`) to own all profile-related DB logic — this separates the domain from `src/app/auth/` even though both tables live in the same file.
+- The `user_profiles` table is in `data/app_users.db` — the same file as `users` — so a single `FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE` enforces referential integrity: deleting a user automatically removes their profile row.
+- `PRAGMA journal_mode=WAL` was added to `_connect()` in `auth/db.py`; WAL allows readers and writers to operate concurrently — without it, a profile write from one LangGraph node would block a read happening in another node of the same turn.
+- `init_profile_db()` is registered in the FastAPI lifespan alongside `init_user_db()` so the table is guaranteed to exist before the first request arrives.
+- All JSON fields (`topic_scores`, `strengths`, `gaps`) are stored as raw strings in SQLite; the service layer (Commit 05) owns deserialization — the DB layer never returns Python dicts directly.
+
+**Design pattern / architectural principle:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Separation of concerns | `profile/` is its own module even though it shares a DB file with `auth/` | Profile logic (scoring, mastery, gaps) is unrelated to auth logic (tokens, passwords); keeping them separate prevents the auth module from growing into a catch-all |
+| Single database, multiple tables | `user_profiles` lives in `app_users.db` alongside `users` | Avoids managing two SQLite connections and two lifespan init calls; FK enforcement only works within the same database file |
+| Schema-layer / service-layer split | `profile/db.py` creates the table and stores raw JSON strings; deserialization is deferred to the service layer | The DB layer stays dumb — it stores and retrieves bytes; the service layer owns meaning. This makes the schema stable even when the Python shape of the data changes |
+
+**Reasoning & discovery:**
+1. The FK requirement drove the single-file decision: SQLite foreign keys only enforce across tables in the same connection/file, so splitting into a second DB would have meant managing cascade deletes manually in application code.
+2. WAL mode was added at schema initialization time (not later) because it affects all connections to the file — enabling it once in `_connect()` means every subsequent connection automatically inherits it.
+3. Storing JSON as strings was chosen over SQLite's JSON functions to keep the DB layer dependency-free; the service layer in Commit 05 gets full Python typing on deserialized fields without any SQL-level JSON path queries.
+
+**The key change:**
+
+```python
+# src/app/profile/db.py — new file
+
+def init_profile_db() -> None:
+    conn = _connect()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_profiles (
+            id                TEXT PRIMARY KEY,
+            user_id           TEXT NOT NULL UNIQUE,
+            mastery_level     TEXT NOT NULL DEFAULT 'novice',
+            interaction_count INTEGER NOT NULL DEFAULT 0,
+            topic_scores      TEXT NOT NULL DEFAULT '{}',
+            strengths         TEXT NOT NULL DEFAULT '[]',
+            gaps              TEXT NOT NULL DEFAULT '[]',
+            last_activity_at  TEXT,
+            created_at        TEXT NOT NULL,
+            updated_at        TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    """)
+    conn.commit()
+
+# src/app/auth/db.py — WAL mode added to existing _connect()
+def _connect():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA journal_mode=WAL")   # allows concurrent reads during writes
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+```
+
+**Files touched:**
+- `src/app/auth/db.py` — `PRAGMA journal_mode=WAL` added to `_connect()`
+- `src/app/profile/__init__.py` — new, empty (makes `profile` a Python package)
+- `src/app/profile/db.py` — new, contains `init_profile_db()` only
+- `src/app/main.py` — `init_profile_db()` called in FastAPI lifespan alongside `init_user_db()`
+
+---

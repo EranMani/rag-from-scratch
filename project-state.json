@@ -1,16 +1,16 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-08",
+  "last_updated": "2026-05-09",
   "status": "active",
   "current_commit": {
-    "number": "03",
-    "name": "wire-conversation-history",
+    "number": "05",
+    "name": "user-profile-service",
     "status": "pending",
     "assignee": "backend"
   },
-  "commits_done": ["01","02"],
-  "commits_pending": ["03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24"],
-  "next_commit": "03",
+  "commits_done": ["01","02","03","04"],
+  "commits_pending": ["05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24"],
+  "next_commit": "05",
   "open_handoffs": [
     {
       "from": "commit-03",
@@ -22,12 +22,13 @@
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "02",
-      "tests": "no new tests — existing 9/9 unaffected",
-      "viktor": "PASS — no findings; confirmed rename is exhaustive",
-      "sage": "not triggered",
-      "quinn": "not triggered",
-      "gate_wave": "viktor only"
+      "number": "04",
+      "tests": "16/16 PASS — no new tests (schema-only commit)",
+      "viktor": "PASS WITH COMMENTS — 2 concerns (comment-only fixes, deferred); 2 advisories",
+      "sage": "NON-BLOCKING — S04-01: jwt_secret hardcoded default (Hard Block for Commit 05); S04-02: duplicate _connect() (refactor candidate)",
+      "quinn": "NEEDS ADDITIONS — FK cascade test deferred to Commit 05; Hard Block if missing from Commit 05",
+      "mira": "NON-BLOCKING — topic_scores flat format locked as deliberate decision; 4 other notes routed",
+      "gate_wave": "viktor + sage + quinn + mira"
     }
   },
   "parallel_groups_available": [
