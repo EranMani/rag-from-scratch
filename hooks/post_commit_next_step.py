@@ -44,14 +44,14 @@ def get_last_commit_message() -> str:
 def extract_commit_number_from_message(message: str) -> str | None:
     """
     Try to find a commit step number in the message.
-    Looks for patterns like "step 01", "#01", or a bare number at word boundary.
+    Requires an explicit marker on its own line: "Commit #NN" or "Step #NN".
+    Bare "#NN" anywhere in the body is intentionally NOT matched — too ambiguous.
     Returns zero-padded two-digit string, or None.
     """
-    # Pattern: "step N", "commit N", "#N" or standalone number 1-30
+    # Only match "Commit #NN" or "Step #NN" as a dedicated line/phrase
     patterns = [
-        r"step\s+0*(\d{1,2})\b",
-        r"commit\s+0*(\d{1,2})\b",
-        r"#0*(\d{1,2})\b",
+        r"(?:^|\n)\s*[Cc]ommit\s+#0*(\d{1,2})\b",
+        r"(?:^|\n)\s*[Ss]tep\s+#0*(\d{1,2})\b",
     ]
     for pat in patterns:
         m = re.search(pat, message, re.IGNORECASE)
@@ -152,39 +152,15 @@ def main() -> int:
         print("⚠️  post_commit: commit-protocol.md not found. Skipping protocol update.")
         commits = []
 
-    # ── Step 2: Update project-state.json ────────────────────────────────────
-    state = load_or_init_state()
-    state["last_updated"] = today
-
-    if commit_number and commit_number not in state["commits_done"]:
-        state["commits_done"].append(commit_number)
-        if commit_number in state["commits_pending"]:
-            state["commits_pending"].remove(commit_number)
-
-    # Rebuild pending list from protocol
-    done_set = set(state["commits_done"])
-    if commits:
-        all_numbers = [c["number"] for c in commits]
-        state["commits_pending"] = [n for n in all_numbers if n not in done_set]
-        next_commit = find_next_pending(commits, done_set)
-        if next_commit:
-            state["current_commit"] = {
-                "number": next_commit["number"],
-                "name": next_commit["name"],
-                "status": "pending",
-                "assignee": next_commit["assignee"],
-            }
-    else:
-        next_commit = None
-
-    STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
-    print(f"💾 project-state.json updated: {len(state['commits_done'])} done, "
-          f"{len(state['commits_pending'])} pending")
+    # ── Step 2: Derive next pending from protocol (read-only — no state file write) ──
+    # project-state.json is maintained by Claude (the orchestrator) with full quality
+    # gate results, decision logs, and handoff history. The hook does not touch it.
+    done_in_protocol = {c["number"] for c in commits if "done" in c["status"]}
+    next_commit = find_next_pending(commits, done_in_protocol)
 
     # ── Step 3: Print next step ───────────────────────────────────────────────
     print()
     if commit_number:
-        # Find the committed step's details for the completion message
         committed = next((c for c in commits if c["number"] == commit_number), None)
         if committed:
             print(f"✅  Commit {commit_number} `{committed['name']}` complete. "
