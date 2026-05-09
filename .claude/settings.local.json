@@ -5,7 +5,11 @@
       "Bash(git commit -m ' *)",
       "Bash(uv run *)",
       "Bash(python -m pytest tests/test_ingest_auth.py -v)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(python -m pytest tests/ -q)",
+      "Bash(dir D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch *)",
+      "Read(//mnt/d/AI/_My_Projects/rag-from-scratch/**)",
+      "Bash(dir \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\src\" /s /b)"
     ]
   }
 }
