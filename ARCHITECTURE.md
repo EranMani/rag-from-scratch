@@ -212,6 +212,9 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 | `_deserialize_row` return type is untyped `dict` | Misses mypy coverage on callers that access keys that don't exist | Viktor Commit 05 | 🟢 advisory |
 | `UserProfilePublic` timestamps typed as `str` not `datetime` | Malformed timestamps pass schema validation silently | Viktor Commit 05 | 🟢 advisory — fix before production |
 | `_connect()` duplicated in `auth/db.py` and `profile/db.py` | Future hardening applied to one may not be applied to the other | Sage Commit 04 | 🟡 refactor to shared `src/app/core/db.py` when convenient |
+| `user_id` returned in `TokenResponse` body on register/login | Pre-conditions any future IDOR — clients can decode JWT `sub` instead; remove field from schema | Sage Commit 06 | 🟡 fix before public launch |
+| Non-atomic user+profile insert in `register` route | If `create_profile` fails with non-`IntegrityError`, user row persists without profile; user can log in but `GET /api/profile/me` returns 404 | Sage Commit 06 | 🟡 wrap in shared transaction or use `get_or_create_profile` in route |
+| No test for valid JWT with nonexistent `user_id` (deleted-account scenario) | `get_current_user` DB-lookup branch is untested; refactor could silently break 401 on deleted accounts | Quinn Commit 06 | 🟢 accepted coverage debt |
 
 ---
 
@@ -221,4 +224,4 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 - **Profile scoring algorithm** — threshold table and delta merge strategy — after Commit 14
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 
-*Last updated: 2026-05-09 — Commit 05 complete*
+*Last updated: 2026-05-09 — Commit 06 complete*

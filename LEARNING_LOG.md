@@ -342,3 +342,78 @@ def _connect():
 - `src/app/main.py` — `init_profile_db()` called in FastAPI lifespan alongside `init_user_db()`
 
 ---
+
+**Commit 06 — user-profile-api** · 2026-05-09 · Rex · `new feature | security`
+
+> **In one sentence:** `GET /api/profile/me` was wired up behind JWT authentication and profile creation was moved into the registration flow — with two non-obvious decisions: `create_profile` (not `get_or_create_profile`) at registration to make double-creation visible, and a static 404 detail string to prevent the response body from leaking internal user IDs.
+
+**Interview talking point:**
+> **Q:** Why did you use `create_profile` instead of `get_or_create_profile` in the registration handler?
+>
+> **A:** Registration is the one moment in the system where a profile should not already exist. Using `get_or_create_profile` there would silently swallow an accidental double-creation — the kind of bug that only surfaces later as corrupted data. `create_profile` makes the intent explicit: if a profile row already exists when a new user registers, that is a data integrity problem worth knowing about, not something to paper over.
+
+**What happened and why:**
+- `GET /api/profile/me` is the first route that exposes profile data externally; it needed to be locked to the authenticated user, so `Depends(get_current_user)` was injected — the route never receives a `user_id` from the request body or query string, only from the verified token.
+- `get_profile_by_user_id` is a synchronous SQLite call; wrapping it in `asyncio.to_thread` keeps it consistent with every other DB call in the project and avoids blocking the event loop during a lookup.
+- Registration previously created a user row and returned — the user's first call to `GET /api/profile/me` would have received a 404. Moving `create_profile(user_id)` into `POST /api/auth/register` collapses profile initialization into the same HTTP transaction that creates the account.
+- A known data integrity gap was accepted: `create_user` and `create_profile` run sequentially but are not wrapped in a shared SQLite transaction. If `create_profile` fails for a non-race reason after `create_user` succeeds, the user row persists without a profile. The 404 detail string was written to surface this to support rather than leaving the user with no actionable message.
+- The 404 detail is a static string — `user_id` appears only in `logger.warning(...)` on the server side. A detail string that included the ID would confirm a valid internal identifier to any client that triggered the 404, which is a CWE-209 information exposure.
+
+**Design pattern / architectural principle:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Explicit over implicit | `create_profile` is called instead of `get_or_create_profile` at registration | Registration is the profile's creation event — `get_or_create_profile` would hide a bug (double creation) that should surface as an error |
+| Information hiding at the API boundary | The 404 detail is a static string; `user_id` is logged server-side only | Prevents the response body from confirming or leaking internal identifiers to a caller who shouldn't have them |
+| Dependency injection (FastAPI Depends) | `get_current_user` is declared as a parameter dependency, not called inside the route body | `user_id` is extracted from a verified JWT — the route cannot be called with a user-supplied ID |
+
+**Reasoning & discovery:**
+1. The initial framing was simple — add a GET route that returns the calling user's profile. The question was how to get `user_id` into the route safely: reading it from a query parameter would require validating that the caller isn't requesting someone else's profile; reading it from the JWT via `get_current_user` makes that validation structural.
+2. `get_or_create_profile` was considered for the registration handler — it is the safer choice in general because it handles races — but registration is not a general case. If a profile row exists at registration time, the system has diverged from its intended state; the `IntegrityError` path in `create_profile` (absorbed only for concurrent duplicates, propagated as 500 for everything else) surfaces that divergence rather than silently correcting it.
+3. The static 404 detail was the last decision: the first draft included `user_id` in the detail string for debuggability. The CWE-209 implication — that a 404 response confirming a valid internal ID is an information exposure — moved the ID to the server-side log and replaced the detail with a static support message.
+
+**The key change:**
+
+```python
+# src/app/api/routes/profile.py — new file
+
+@router.get("/me", response_model=UserProfilePublic)
+async def get_my_profile(current_user: dict = Depends(get_current_user)):
+    user_id: str = current_user["id"]
+
+    profile = await asyncio.to_thread(get_profile_by_user_id, user_id)
+    if profile is None:
+        logger.warning(
+            "Profile not found for user_id=%s — data integrity anomaly", user_id
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found. Contact support if this persists.",
+        )
+
+    return profile
+```
+
+```python
+# src/app/api/routes/auth.py — register route, modified
+
+# Before — user row created, no profile:
+    user_id = create_user(email, hashed)
+    return TokenResponse(...)
+
+# After — profile created immediately after user:
+    user_id = create_user(email, hashed)
+    try:
+        create_profile(user_id)
+    except IntegrityError:
+        pass   # concurrent duplicate — profile already exists
+    return TokenResponse(...)
+```
+
+**Files touched:**
+- `src/app/api/routes/profile.py` — new: `GET /api/profile/me` with `Depends(get_current_user)` and `asyncio.to_thread`
+- `src/app/api/routes/auth.py` — `create_profile(user_id)` called after `create_user()` in register route; `IntegrityError` absorbed for concurrent duplicates
+- `src/app/main.py` — `profile.router` included in app router
+- `tests/test_profile_api.py` — new: 11 route tests covering authenticated fetch, unauthenticated rejection, 404 on missing profile, and register-then-fetch round trip
+
+---

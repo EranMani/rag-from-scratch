@@ -218,4 +218,12 @@
 - **Reason:** A function named `get_or_create` must never surface `IntegrityError` to its callers. The UNIQUE constraint on `user_id` prevents duplicate rows — the `except` block absorbs the race, and the unconditional re-fetch returns whichever row won.
 - **Consequences:** On a concurrent first-creation race, one `create_profile` call is silently discarded. The caller always receives the correct row. The loser of the race incurs one extra SELECT — acceptable cost.
 
-*Last updated: 2026-05-09 — Commit 05 complete*
+### `create_profile` (not `get_or_create_profile`) at registration
+- **Date:** 2026-05-09
+- **Commit:** 06
+- **Decided by:** Rex (applied) + Viktor (advisory)
+- **Decision:** The `register` route calls `create_profile(user_id)` directly — not `get_or_create_profile`. A `sqlite3.IntegrityError` on a concurrent duplicate is caught and swallowed; any other exception propagates as 500.
+- **Reason:** Registration is the profile's creation event. Using `get_or_create_profile` would mask accidental double-creation by silently returning an existing row — obscuring whether the registration flow ran correctly. Using `create_profile` makes the intent explicit: this is the moment the profile is born.
+- **Consequences:** If `create_profile` fails for a non-race reason (e.g., disk full), the user row persists without a profile (see ARCHITECTURE.md Known Debts — non-atomic insert). A future commit may wrap both operations in a shared SQLite transaction on the same connection to prevent orphaned users.
+
+*Last updated: 2026-05-09 — Commit 06 complete*
