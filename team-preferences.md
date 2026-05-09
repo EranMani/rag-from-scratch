@@ -122,11 +122,35 @@ config, scoring pure functions, LangGraph node internals, worklog/doc-only commi
 ```
 Haiku  (fast, low cost):     Ryan, worklog-only updates, GLOSSARY one-liners
 Sonnet (default, balanced):  Rex, Nova, Aria, Adam — all implementation work
-Opus   (deep reasoning):     Viktor (code review), Sage (security) — use selectively
+Opus   (deep reasoning):     Viktor and Sage — selectively, by commit complexity (see below)
 ```
 
 Specify at Agent invocation time via `model: "haiku" | "sonnet" | "opus"`.
 Default if unspecified: Sonnet.
+
+### Viktor model tier rule
+
+| Commit type | Viktor model |
+|---|---|
+| Schema / TypedDict / Pydantic models / constants | Sonnet |
+| Single-domain CRUD routes, simple nodes, test files | Sonnet |
+| Multi-domain wiring, cross-agent contracts, async patterns | Opus |
+| Auth logic, JWT, secrets, security-sensitive code | Opus |
+| Complex state machines, concurrent patterns, streaming | Opus |
+
+Default to **Sonnet**. Upgrade to **Opus** only when the commit crosses multiple domains,
+touches auth/secrets, or involves subtle async/concurrent logic where shallow review misses
+the real risk.
+
+### Ryan context rule
+
+Do NOT pass Ryan the full `LEARNING_LOG.md`. Instead, pass:
+1. The format template inline in the prompt (copy from the Entry Format Reference section)
+2. The diff + commit context
+3. Instruction to `Write` (append) to the file — not to read it first
+
+LEARNING_LOG.md grows with every commit. Reading the whole file on Haiku for a one-liner
+entry wastes 50k+ tokens per commit. The format template in the prompt is sufficient.
 
 ---
 
@@ -170,6 +194,40 @@ Team Lead is learning — explain non-obvious technical decisions briefly when s
 
 ---
 
+## Quality Gate Pre-Brief (for implementors)
+
+When invoking an implementor agent (Nova, Rex, Aria, Adam), include a short
+"Viktor will check:" list in the invocation prompt so the agent anticipates common
+blocking findings before the first gate pass.
+
+Standard pre-brief for all implementors:
+```
+Viktor will check:
+- All collection types are explicitly typed (list[X], not bare list; dict[K,V], not bare dict)
+- All string fields with finite valid values use Literal[...], not str
+- Any documented constraint is enforced in code (frozenset, validator, etc.) — not just in a docstring
+- A test file exists with all spec gate conditions covered
+- No domain boundary violations (node writes only declared AgentState keys)
+```
+
+Add commit-specific items where the spec has known sharp edges.
+This costs ~100 tokens per invocation and routinely prevents an entire Viktor block + re-review cycle.
+
+---
+
+## Orchestrator Read Discipline
+
+Do NOT read files speculatively in the main context. Read a file only at the moment
+you need its content to make a decision or write an edit.
+
+Wrong: reading ARCHITECTURE.md + DECISIONS.md + GLOSSARY.md at session start "just in case"
+Right: reading ARCHITECTURE.md immediately before editing it, then GLOSSARY.md immediately before editing it
+
+Each speculative file read adds to the running conversation history and compounds cost
+across all subsequent messages in the session.
+
+---
+
 ## Scope and Speed Tradeoffs
 
 ```
@@ -207,3 +265,7 @@ Tech Writer:    Ryan
 | 2026-05-09 | Added Model Assignments section | Haiku/Sonnet/Opus tiering to reduce cost without quality loss |
 | 2026-05-09 | Added Worklog Archive Trigger section | Lower threshold (3 sessions) for proactive archiving |
 | 2026-05-09 | Added worktree isolation note to Parallelization | Needed for Wave B (commits 08+09) |
+| 2026-05-09 | Viktor model tier rule added | Two Opus passes on Commit 07 schema cost 107k tokens — Opus only for complex/auth/concurrent commits |
+| 2026-05-09 | Ryan context rule added | Ryan read full LEARNING_LOG (55k tokens) just to append one entry — pass format template inline instead |
+| 2026-05-09 | Quality Gate Pre-Brief section added | Nova ran twice on Commit 07 — pre-brief prevents Viktor blocks by front-loading what he checks |
+| 2026-05-09 | Orchestrator Read Discipline section added | Speculative file reads compound across session history — read only when about to edit |

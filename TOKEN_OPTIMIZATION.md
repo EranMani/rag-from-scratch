@@ -139,6 +139,72 @@ forward, open handoffs to Nova. 90% smaller, zero information loss for current w
 
 ---
 
+### 6. Viktor Model Tiering by Commit Complexity
+
+**Why / When:** Viktor on Opus ran twice for a TypedDict file (107k tokens combined). Opus costs 3–5× Sonnet. Most commits don't require Opus-level reasoning depth — schema files, CRUD routes, simple nodes, and test files are well within Sonnet's capability. Opus only pays off when the review requires reasoning about subtle concurrent interactions, multi-domain contracts, or security attack surfaces.
+
+**What changed:** Viktor's model is now determined per-commit based on complexity, not set globally to Opus.
+- **Sonnet:** schemas, TypedDicts, Pydantic models, CRUD routes, simple LangGraph nodes, test files, documentation
+- **Opus:** auth logic, JWT handling, secrets management, cross-domain wiring (Nova → Rex contracts), async/concurrent patterns, streaming state machines, multi-domain commits
+
+**Estimated saving:** ~40–60k tokens on simple commits where Viktor ran at Opus unnecessarily.
+
+**Status:** Active — Viktor model tier rule added to `team-preferences.md` 2026-05-09
+
+**Example:** Commit 07 was a TypedDict file with a Pydantic model. Viktor's first Opus pass (60k tokens) found real issues, but they were not subtle — untyped `list`, missing `Literal`, no test file. Sonnet would have found all four. The second Opus pass (47k tokens) confirmed fixes on a diff that was 50 lines. 107k tokens on Opus for findings that Sonnet handles. Compare: Commit 17 (cross-domain, Nova writes to Redis cache with user_level key logic) warrants Opus because the cache correctness argument requires reasoning across the profile service, the cache key strategy, and the streaming response contract simultaneously.
+
+---
+
+### 7. Quality Gate Pre-Brief for Implementors
+
+**Why / When:** When Nova's first implementation pass misses things Viktor will catch, you get two Nova passes + two Viktor passes instead of one each. The fix is to tell Nova upfront what Viktor checks. This costs ~100 tokens in the invocation prompt and routinely prevents an entire re-review cycle worth 50–100k tokens.
+
+**What changed:** All implementor invocations (Nova, Rex, Aria, Adam) now include a standard "Viktor will check:" list in the prompt:
+- All collection types explicitly typed (not bare `list`/`dict`)
+- Finite-value string fields use `Literal[...]`
+- Documented constraints enforced in code (not just docstrings)
+- Test file exists covering all spec gate conditions
+- No domain boundary violations
+
+**Estimated saving:** ~50–100k tokens on commits where the first implementation pass would otherwise miss a Viktor concern.
+
+**Status:** Active — Quality Gate Pre-Brief section added to `team-preferences.md` 2026-05-09
+
+**Example:** Commit 07 Nova first pass: bare `docs: list`, `user_level: str`, `cache_hit: str`, no test file. Viktor blocked on all four. Nova fixed them. Full re-review. Total: 4 agent passes. With a pre-brief, Nova's first pass includes `list[Document]`, `Literal[...]` types, field validators, and a test file. Viktor sees a clean diff. 2 agent passes instead of 4.
+
+---
+
+### 8. Ryan Context Restriction
+
+**Why / When:** Ryan reads the full `LEARNING_LOG.md` before writing each entry to match the format. The file grows by ~100 lines per commit. By Commit 24 it will be 2,400+ lines — Ryan will read all of it just to append 10 lines. Even on Haiku, this compounds to thousands of wasted tokens per commit.
+
+**What changed:** Ryan no longer reads `LEARNING_LOG.md`. The invocation prompt includes:
+1. The entry format template inline (~25 lines)
+2. The diff and commit context
+3. Instruction to `Write` (append) without reading the existing file
+
+**Estimated saving:** ~50k tokens on Commit 07 (file was already 400+ lines). Grows with each commit.
+
+**Status:** Active — Ryan context rule added to `team-preferences.md` 2026-05-09
+
+**Example:** Commit 07 Ryan invocation: 55k tokens, 9 tool uses. The LEARNING_LOG was ~400 lines and Ryan read the whole thing. The entry Ryan wrote was ~50 lines. 90% of Ryan's tokens were spent reading history that added nothing to the output. Passing the 25-line format template inline brings this to ~5k tokens regardless of how long the file grows.
+
+---
+
+### 9. Orchestrator Read Discipline
+
+**Why / When:** Every file read in the main session context adds to the running conversation history. That history is re-sent with every subsequent message in the session. Reading ARCHITECTURE.md + GLOSSARY.md + DECISIONS.md + 3 commit specs "just in case" adds 500+ lines to the context that compounds across every subsequent tool call.
+
+**What changed:** Files are read only at the moment they are needed for a specific decision or edit. No speculative reads. If a file will be edited, read it immediately before the edit — not at session start.
+
+**Estimated saving:** 5–15k tokens per session depending on how many files would have been speculatively loaded.
+
+**Status:** Active — Orchestrator Read Discipline section added to `team-preferences.md` 2026-05-09
+
+**Example:** Commit 07 session: ARCHITECTURE.md, GLOSSARY.md, DECISIONS.md, commit-specs/07, 09, 10, project-state.json, state.py, nova-worklog.md, test_agent_state.py all loaded into main context sequentially. Most of these were read before they were needed. Reading ARCHITECTURE.md at the moment of editing it (not 20 messages earlier) would have eliminated those lines from all intermediate context windows.
+
+---
+
 ## Planned / Not Yet Applied
 
 ### `/compact` Mid-Session

@@ -34,62 +34,53 @@ identifies the owning agent by name.
 
 ## Entry Format Reference
 
-### Full Entry
-*Used for: architectural changes, non-obvious decisions, security-relevant changes,
-design pattern applications (atomicity, single responsibility, dependency injection,
-idempotency, separation of concerns, etc.) — anything that also touches ARCHITECTURE.md
-or DECISIONS.md. Include an ASCII flow diagram before the design pattern table when
-the commit changes a data or execution pipeline.*
+### When to use which format
+
+| Commit type | Format |
+|---|---|
+| Architectural change, new pattern, ARCHITECTURE.md or DECISIONS.md updated | Full entry |
+| Non-obvious decision, security-relevant, cross-domain wiring | Full entry |
+| Routine fix, config update, test addition, minor refactor | One-liner |
+
+For full entries: include only the sections that add value for *this specific commit*.
+"Why it wasn't obvious" and "Design pattern" are optional — use them when they genuinely
+apply, omit them when they don't. Depth scales with complexity.
 
 ---
 
-**Commit [N] — [commit-name]** · [date] · [agent] · `[architectural | new feature | optimization | fix]`
+### Full Entry
+
+---
+
+**Commit [N] — [commit-name]** · [date] · [agent] · `[architectural | new feature | fix | security]`
 
 > **In one sentence:** [One recruiter-ready line — what changed and why it matters.]
 
 **Interview talking point:**
-> **Q:** [The interview question this commit best answers]
+> **Q:** [The question this commit best answers in a technical interview]
 >
-> **A:** [1–2 sentences max. Demonstrates you understood the why, not just the what. Written so the Team Lead can say it verbatim.]
+> **A:** [1–2 sentences. The why, not the what. Written so the Team Lead can say it verbatim.]
 
-**What happened and why:**
-- [One idea — what was built or changed]
-- [One idea — what problem it solves]
-- [One idea — why this approach over the alternatives]
-- [One idea — any non-obvious constraint or consequence]
-- [One idea — what this enables going forward (if relevant)]
+**Why it wasn't obvious:** *(omit if the decision was straightforward)*
+- [The single most important non-obvious constraint, tradeoff, or gotcha]
+- [Second point only if there truly is one — do not pad]
 
-**Design pattern / architectural principle:**
-
-| Pattern | What it means here | Why it was chosen |
-|---|---|---|
-| [pattern name] | [what it does in this specific context] | [why this over the alternative] |
-| [pattern name] | [what it does in this specific context] | [why this over the alternative] |
-
-**Reasoning & discovery:**
-1. [How the problem was initially understood — what was the bug or gap as first seen]
-2. [What was tried or ruled out — alternatives considered and why they didn't fit]
-3. [What clinched the solution — the observation or constraint that locked in the answer]
-
-**The key change:**
-```[language]
-// path/to/file.py — line N
-// Before:
-[old code]
-
-// After:
-[new code]
+**The key change:** *(omit if prose explains it better than code)*
+```python
+# path/to/file.py
+# Before / After — show only the load-bearing lines
 ```
 
+**Design pattern:** *(omit if no genuine pattern was applied — do not invent one)*
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+
 **Files touched:**
-- `path/to/file.py` — [what changed here]
-- `path/to/other.py` — [what changed here]
+- `path/to/file` — what changed
 
 ---
 
 ### One-liner Entry
-*Used for: routine fixes, config updates, test additions, minor refactors —
-anything that doesn't introduce a new pattern or decision.*
 
 ---
 
