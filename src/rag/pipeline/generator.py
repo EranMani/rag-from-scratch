@@ -15,6 +15,9 @@ Always cite which module the information comes from."""),
     ("human", """Context from knowledge base:
 {context}
 
+Conversation history:
+{history}
+
 Question: {question}
 
 Answer:"""),
@@ -33,23 +36,29 @@ def format_context(docs: list[Document]) -> str:
     return "\n\n---\n\n".join(parts)
 
 
-def generate(question: str, docs: list[Document]) -> str:
+def generate(question: str, docs: list[Document], conversation_history: str = "") -> str:
     """
-    Augment the prompt with retrieved docs and generate an answer
-    Falls back to Ollama if OPENAI circuit breaker is OPEN
+    Augment the prompt with retrieved docs and generate an answer.
+    Falls back to Ollama if OPENAI circuit breaker is OPEN.
+
+    Args:
+        question: The user's current question.
+        docs: Retrieved documents from the knowledge base.
+        conversation_history: Formatted prior turns from SessionMemory.format_history().
+            Pass an empty string (the default) for the first turn in a session.
     """
 
     # Get the context as single string
     context = format_context(docs)
     # Get the LLM provider (OPENAI | OLLAMA)
-    provider = get_provider() 
+    provider = get_provider()
     llm = provider.get_llm()
 
     # LCEL chain: prompt | llm | parser
     chain = RAG_PROMPT | llm | StrOutputParser()
 
     try:
-        response = chain.invoke({"context": context, "question": question})
+        response = chain.invoke({"context": context, "question": question, "history": conversation_history})
         if provider.provider_name() == "openai":
             openai_cb.record_success()
         

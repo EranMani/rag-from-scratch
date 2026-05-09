@@ -35,7 +35,13 @@ def run_rag_pipeline(
     )
 
     # ======== STEP1 - Query cache check ===============
-    # Check if question already exists in cache
+    # Known gap: cache key is question only — does not include session_id or
+    # conversation history. A repeated question in an active session may be
+    # served from this cache, bypassing history injection entirely. Accepted
+    # for Commits 03–16; cache key is extended in Commit 17 (adds user_level).
+    # History is never incorporated into the cache key — this is a permanent
+    # known limitation. See DECISIONS.md: "Conversation history not included
+    # in LLM cache key".
     cached_answer = cache.get_query(question)
     if cached_answer:
         latency = round((time.perf_counter() - start) * 1000)
@@ -51,6 +57,11 @@ def run_rag_pipeline(
     # ======== STEP2 - Retrieve relevant chunks ========
     docs: list[Document] = retrieve(question, k=4)
 
+    # ======== STEP2b - Load conversation history ======
+    # format_history() is called AFTER retrieve() so history influences
+    # generation only, not retrieval — this is intentional per design.
+    conversation_history = session_memory.format_history(session_id)
+
     # ======== STEP3 - LLM cache check =================
     prompt_key = question + "".join(d.page_content[:100] for d in docs)
     cached_response = cache.get_llm_response(prompt_key)
@@ -60,7 +71,7 @@ def run_rag_pipeline(
         cache_hit = "llm"
     else:
         # ======== STEP4 - Generate ====================
-        answer = generate(question, docs)
+        answer = generate(question, docs, conversation_history)
         cache.set_llm_response(prompt_key, answer)
         cache_hit = "none"
 

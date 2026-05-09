@@ -153,4 +153,20 @@
 | Subscription/billing | Out of scope for portfolio | Future phase |
 | Exact OpenAI model ID | Team Lead to confirm when target model is available | Commit 02 or later |
 
-*Last updated: 2026-05-08 — Commit 01 complete*
+### History injection after retrieval, not before
+- **Date:** 2026-05-09
+- **Commit:** 03
+- **Decided by:** Commit spec (Claude)
+- **Decision:** `format_history(session_id)` is called after `retrieve()` — the retrieved docs are selected using the raw user question, not a history-augmented query.
+- **Alternatives considered:** Prepending history to the query before retrieval (history-aware retrieval).
+- **Consequences:** Retrieval stays fast and cache-friendly (same question always hits the same docs). History influences only what the LLM says, not what is retrieved. A follow-up question like "explain that differently" will retrieve on those three words, not on the full context — this is a known limitation of the current pipeline, resolved when the LangGraph graph replaces chain.py.
+
+### Conversation history not included in LLM cache key
+- **Date:** 2026-05-09
+- **Commit:** 03
+- **Decided by:** Rex (flagged) + Claude (accepted as known gap)
+- **Decision:** The LLM response cache key (`question + docs[:100]`) does not include `session_id` or `conversation_history`. A repeated identical question in the same session may be served from cache, ignoring any history change since the first answer.
+- **Reason:** Session-aware cache keys would require a per-session Redis namespace and complicate cache invalidation. For a portfolio system this edge case is acceptable. The cache key is partially addressed in Commit 17 (adds `user_level`), but conversation history is not incorporated at any commit — this is a known permanent limitation of the cache strategy.
+- **Consequences:** The test gate "asking 'What did I just ask?' returns a response that references the prior turn" must use a question that hasn't been asked before in the same test session, or the cache must be cleared between test runs.
+
+*Last updated: 2026-05-09 — Commit 03 complete*

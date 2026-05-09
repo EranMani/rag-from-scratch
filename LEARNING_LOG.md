@@ -158,3 +158,63 @@ async def ingest(
 > **In one sentence:** Two misspelled identifiers (`allow_annonymous_chat`, `load_knoweldge_base`) were corrected across all call sites in a single atomic commit, preventing silent `AttributeError` bugs from propagating as the codebase grows.
 
 ---
+
+**Commit 03 — wire-conversation-history** · 2026-05-09 · Rex · `architectural | new feature`
+
+> **In one sentence:** Conversation history was wired into the RAG generation step — after retrieval, not before — so the LLM answers in context of the current session without letting prior turns contaminate document selection.
+
+**Interview talking point:**
+> **Q:** How did you decide where in the RAG pipeline to inject conversation history?
+>
+> **A:** Retrieval needs to stay query-pure — injecting history there would blur the semantic search and fetch documents that match earlier turns rather than the current question. History belongs at generation, where it gives the LLM session context without corrupting what gets retrieved.
+
+**What happened and why:**
+- `generate()` in `generator.py` had no awareness of session state; every LLM call was stateless, so multi-turn conversations received answers with no memory of prior exchanges.
+- A `{history}` slot was added to `RAG_PROMPT` and a `conversation_history: str = ""` parameter was added to `generate()`, defaulting to empty so all existing callers remain compatible without any changes.
+- History is fetched as STEP 2b in `chain.py`, after `retrieve()` returns and before the LLM cache check — this is the load-bearing ordering decision: retrieval stays query-pure, history is visible only to the generation step.
+- A known gap was surfaced and accepted: the LLM response cache key is `question + docs[:100]` and does not include conversation history, so a cache hit can return a stale answer that ignores the current session's context; the same issue exists on the query-level cache.
+- The ordering and the cache gap are both documented in an inline comment at `chain.py` lines 54–57 and in DECISIONS.md, so future engineers don't "fix" a non-bug or inherit the gap silently.
+
+**Design pattern / architectural principle:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Separation of concerns | Retrieval operates on the raw question only; generation operates on question + documents + history | Keeps each stage's responsibility distinct — retrieval is a semantic search problem, generation is a language problem; mixing them would make both worse |
+| Default-parameter backward compatibility | `conversation_history: str = ""` defaults to empty string | Every existing caller of `generate()` continues to work without modification; the new capability is opt-in by passing a session ID through the chain |
+| Defensive inline documentation | The STEP 2b comment in `chain.py` names the ordering constraint and explains why it is intentional | Prevents a future engineer from "simplifying" the code by moving the history fetch before retrieval, which would silently break semantic search quality |
+
+**Reasoning & discovery:**
+1. The initial framing was straightforward — surface `session_memory.format_history()` inside the LLM call. The question was where in `chain.py` the fetch should live: before retrieval, between retrieval and generation, or inside `generate()` itself.
+2. Injecting history before retrieval was ruled out immediately: the retrieval vector search uses the question embedding, and prepending prior turns would shift that embedding toward earlier topics, causing the retriever to surface documents relevant to the conversation history rather than the current question.
+3. The cache gap was discovered during the STEP 2b insertion: the LLM response cache key is constructed from `question + docs[:100]` at the point the history fetch was inserted, making it obvious that history is never part of the cache key. The decision to accept this gap rather than invalidate the cache or add history to the key was made explicit in DECISIONS.md.
+
+**The key change:**
+
+```python
+# src/rag/chain.py — STEP 2b (new), inserted between retrieve() and the LLM cache check
+
+# Before — chain went straight from retrieval to cache check with no history:
+    docs = retrieve(question, retriever)
+    # ... LLM cache check follows immediately
+
+# After — history is fetched between retrieval and generation:
+    docs = retrieve(question, retriever)
+
+    # STEP 2b — fetch conversation history AFTER retrieval, not before.
+    # Retrieval must use the raw question only so the vector search
+    # reflects the current turn, not the accumulated session context.
+    # NOTE: the LLM response cache key (question + docs[:100]) does NOT
+    # include history — a cache hit will return an answer without current
+    # session context. Accepted gap; see DECISIONS.md.
+    conversation_history = session_memory.format_history(session_id)
+
+    response = generate(question, docs, conversation_history=conversation_history)
+```
+
+**Files touched:**
+
+- `src/rag/pipeline/generator.py` — `RAG_PROMPT` gained a `{history}` slot; `generate()` gained `conversation_history: str = ""` parameter; `chain.invoke()` now passes `"history": conversation_history`
+- `src/rag/chain.py` — STEP 2b added: `conversation_history = session_memory.format_history(session_id)` called after `retrieve()`, result passed to `generate()`
+- `tests/test_conversation_memory.py` — 7 new tests: empty session returns `""`, truncation boundary at 10 messages (3 tests), `generate()` passes history key to `chain.invoke()` (2 tests)
+
+---

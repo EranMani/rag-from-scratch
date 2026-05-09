@@ -117,6 +117,22 @@ responsive to who they are, not a static Q&A tool.
 
 ## Data Flows
 
+### Chat turn (current, Commits 01–09)
+
+```
+1. User submits question via NiceGUI
+2. UI calls POST /api/chat with JWT bearer token
+3. chat.py verifies JWT → extracts user_id
+4. asyncio.to_thread(run_rag_pipeline, question, session_id, user_id)
+5. Query cache check → serve from cache if hit
+6. retrieve() → ChromaDB (or BM25 fallback) → docs
+7. SessionMemory.format_history(session_id) → conversation_history string [Commit 03]
+8. LLM response cache check → serve from cache if hit (does not include history in key)
+9. generate(question, docs, conversation_history) → LLM → answer
+10. Caches updated; SessionMemory updated with new turn
+11. Response returned: answer + cache metadata + retrieved chunks
+```
+
 ### Chat turn (post-LangGraph, Commits 10+)
 
 ```
@@ -202,4 +218,4 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 - **Profile scoring algorithm** — threshold table and delta merge strategy — after Commit 14
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 
-*Last updated: 2026-05-08 — Commit 01 complete*
+*Last updated: 2026-05-09 — Commit 03 complete*
