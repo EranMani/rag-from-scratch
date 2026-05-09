@@ -459,3 +459,109 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
 - `tests/test_profile_api.py` — new: 11 route tests covering authenticated fetch, unauthenticated rejection, 404 on missing profile, and register-then-fetch round trip
 
 ---
+
+**Commit 07 — langgraph-state-schema** · 2026-05-09 · Nova · `architectural | new feature`
+
+> **In one sentence:** `AgentState` and `AssessmentOutput` define the full LangGraph state schema for the adaptive-RAG graph (Commits 07–17) — with three non-obvious design decisions: `Annotated[list[BaseMessage], add_messages]` for session-aware message persistence, `Literal[...]` enforcement on `user_level` and `cache_hit` to prevent LLM hallucinations, and `from __future__ import annotations` paired with `get_type_hints(include_extras=True)` to preserve `Annotated` metadata through Python's string-annotation system.
+
+**Interview talking point:**
+> **Q:** Why does your state schema use `Annotated[list[BaseMessage], add_messages]` instead of a plain conversation history string?
+>
+> **A:** LangGraph's `add_messages` reducer is designed for exactly this — it appends incoming messages rather than replacing the entire list, which means prior turns are automatically accumulated without us having to fetch and concatenate strings manually. Paired with LangGraph's `MemorySaver` checkpointer (which reconstructs history via `thread_id`), it gives us session-aware state management for free. The `from __future__ import annotations` gotcha was the catch: we store annotations as strings, but `get_type_hints()` without `include_extras=True` strips the `Annotated` wrapper entirely, losing the reducer metadata. Any downstream code introspecting the schema has to use `include_extras=True` or the graph builder will silently get an undecorated list type.
+
+**What happened and why:**
+- The state schema is the single source of truth for the entire adaptive-RAG graph — changes made here cascade through graph construction in all downstream nodes (retrieve_node, generate_node, assess_node, profile_update_node). Designing it once for the full 07–17 arc was a conscious decision to avoid retroactive schema refactoring breaking the compiled graph.
+- `messages: Annotated[list[BaseMessage], add_messages]` replaces the legacy `conversation_history: str` field from Commit 03's chain.py. The `add_messages` reducer means nodes APPEND to the message list rather than replace it. `session_id` is not a state field — it lives in the graph config as `thread_id` and is used by LangGraph's `MemorySaver` checkpointer to reconstruct prior turns automatically.
+- `user_level` and `cache_hit` are `Literal[...]` types, not plain `str`. In Commit 09, `assess_node` will call the LLM with `AssessmentOutput` structural output — without `Literal` constraints, the LLM can hallucinate level strings like "ultra_expert" or cache values like "stale". The `Literal` enforces the contract at Pydantic parse time, raising `ValidationError` on any unexpected value instead of silently corrupting state.
+- `AssessmentOutput` includes two `@field_validator`s that silently drop unknown module slugs from `topic_scores_delta` and `identified_gaps` against `VALID_MODULE_SLUGS`. This is a soft-fail policy — losing one slug to a hallucination is better than failing the entire assessment turn and triggering the fallback edge that skips profile update.
+- `from __future__ import annotations` at the top of the file stores all annotations as strings in the runtime. Any code that later calls `get_type_hints()` to introspect the schema MUST pass `include_extras=True`, or the `Annotated` wrapper and its `add_messages` reducer metadata will be stripped silently. This is non-obvious and affects the graph builder in Commit 08.
+
+**Design pattern / architectural principle:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Contract enforcement via Literal | `user_level` and `cache_hit` are restricted to a finite set of strings | The LLM in assess_node is constrained to valid values by Pydantic; invalid outputs raise ValidationError instead of corrupting state silently |
+| Soft-fail validation | Unknown module slugs are dropped with a warning, not rejected | Assessment turns fail entirely if even one slug is unknown; soft-fail means a hallucinated slug doesn't block profile updates for the valid slugs |
+| Separation of state identity from session ID | `messages` list accumulates turns; `session_id` lives in graph config as `thread_id` | Keeps the state schema focused on data (what the graph processes) not mechanics (how turns are persisted). The checkpointer uses `thread_id` to reconstruct history automatically. |
+| Deferred deserialization | Topic scores and gaps live in the state as raw dicts/lists, deserialized later in profile_update_node | The state layer is dumb — it stores the assessor's output as-is. The service layer (Commit 15) owns validation and persistence. Schema changes don't cascade through the graph. |
+
+**Reasoning & discovery:**
+1. The initial framing (from project-state.json) was that the full state schema should be designed in Commit 07 to avoid retroactive changes breaking the compiled graph. The first question was whether to use LangGraph's native message management (`list[BaseMessage]` + `add_messages`) or continue with string concatenation. The decision to use `add_messages` came from Nova: the reducer is designed for exactly this problem, and paired with `MemorySaver`, it eliminates the manual fetch-and-format boilerplate from Commit 03's chain.py.
+2. `Literal` enforcement was added after Viktor reviewed Commits 05–06 and raised the architectural question: if the LLM can hallucinate `user_level` strings, how does the type system protect us? The answer was `Literal` — not in the graph node itself, but in the `AssessmentOutput` schema the LLM is constrained to return. Pydantic's structural output validation happens at parse time, before the value touches the graph state.
+3. The `from __future__ import annotations` gotcha was discovered during a code review: Python 3.11 uses lazy evaluation of annotations (they're stored as strings, not evaluated at import time). When the graph builder introspects `AgentState` to find the `add_messages` reducer, it calls `get_type_hints()` — but without `include_extras=True`, that function strips the `Annotated` wrapper and returns a plain `list[BaseMessage]`. The reducer metadata disappears silently. This would be caught only at runtime when messages fail to accumulate. The fix is a module-level comment documenting the `include_extras=True` requirement for any downstream code.
+
+**The key change:**
+
+```python
+# src/agents/state.py — complete file excerpt
+
+from __future__ import annotations
+
+from typing import Annotated, Literal
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
+from pydantic import BaseModel, field_validator
+
+VALID_MODULE_SLUGS: frozenset[str] = frozenset({
+    "rag_fundamentals",
+    "vector_databases",
+    "langchain",
+    "chunking_strategies",
+    "retrieval_methods",
+    "production_patterns",
+})
+
+class AgentState(TypedDict):
+    """Full state envelope for the LangGraph adaptive-RAG graph."""
+    
+    # The key design: messages is ANNOTATED with add_messages reducer.
+    # from __future__ import annotations stores this as a string.
+    # Any code calling get_type_hints() MUST pass include_extras=True.
+    messages: Annotated[list[BaseMessage], add_messages]
+    """add_messages reducer appends incoming messages rather than replacing."""
+    
+    question: str
+    user_id: str | None
+    docs: list[Document]
+    retrieval_source: str
+    answer: str
+    
+    # Literal enforcement prevents LLM hallucinations from corrupting state
+    user_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
+    cache_hit: Literal["hit", "miss", "bypass"]
+    
+    # Assessment output fields
+    topic_scores_delta: dict[str, float]
+    identified_gaps: list[str]
+    assessment_error: bool
+    
+    trace_id: str
+    latency_ms: int
+
+class AssessmentOutput(BaseModel):
+    """LLM structured output schema for assess_node.
+    
+    Soft-fail validators drop unknown slugs rather than failing the turn.
+    """
+    
+    topic_scores_delta: dict[str, float]
+    identified_gaps: list[str]
+    user_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
+    
+    @field_validator("topic_scores_delta", mode="before")
+    @classmethod
+    def filter_topic_scores_slugs(cls, v: object) -> object:
+        if not isinstance(v, dict):
+            return v
+        filtered = {k: val for k, val in v.items() if k in VALID_MODULE_SLUGS}
+        dropped = set(v) - set(filtered)
+        if dropped:
+            logger.warning("AssessmentOutput.topic_scores_delta: dropped unknown slugs %s", dropped)
+        return filtered
+```
+
+**Files touched:**
+- `src/agents/state.py` — new: `AgentState` TypedDict + `AssessmentOutput` Pydantic model + `VALID_MODULE_SLUGS` frozenset
+- `pyproject.toml` — documentation/verification that `langgraph` and `langchain-core` are declared as dependencies
+
+---

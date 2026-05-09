@@ -26,7 +26,7 @@ responsive to who they are, not a static Q&A tool.
 | Language | Python 3.11 | |
 | Web framework | FastAPI | Async routes; blocking calls wrapped in asyncio.to_thread() |
 | UI | NiceGUI | Mounted on FastAPI via ui.run_with(); WebSocket-based reactive UI |
-| Agent framework | LangGraph | Synchronous graph.invoke() inside asyncio.to_thread() |
+| Agent framework | LangGraph | graph.astream_events() → SSE StreamingResponse from Commit 10; MemorySaver checkpointer |
 | RAG framework | LangChain | LCEL chains, ChromaDB integration, document loaders |
 | LLM (primary) | OpenAI (gpt-4o) | Configurable via OPENAI_MODEL env var |
 | LLM (fallback) | Ollama (gemma3:4b) | Activated when OpenAI circuit breaker is OPEN |
@@ -138,16 +138,21 @@ responsive to who they are, not a static Q&A tool.
 ```
 1. User submits question via NiceGUI
 2. UI calls POST /api/chat with JWT bearer token
-3. chat.py verifies JWT → extracts user_id
-4. SessionMemory.format_history(session_id) → conversation_history string
-5. asyncio.to_thread(graph.invoke, AgentState{question, user_id, conversation_history, ...})
-6. retrieve_node → ChromaDB (or BM25 fallback) → docs, retrieval_source
-7. generate_node → adaptive prompt (user_level from profile) → LLM → answer
-8. assess_node → second LLM call → AssessmentOutput (topic_scores_delta, user_level)
-9. update_profile_node → compute_topic_scores() → update_profile() → SQLite
-10. Response returned: answer + user_level + assessed_topics + cache metadata
-11. UI renders answer card + refreshes profile panel
+3. chat.py verifies JWT → extracts user_id + session_id
+4. Build initial AgentState: messages=[HumanMessage(question)], question, user_id, user_level, ...
+5. config = {"configurable": {"thread_id": session_id}}
+6. graph.astream_events(initial_state, config) → SSE StreamingResponse
+7.   retrieve_node → ChromaDB (or BM25 fallback) → docs, retrieval_source
+8.   generate_node → SystemMessage(context) + messages → LLM → streams tokens
+9.       ↳ on_chat_model_stream events → SSE "token" events to client
+10.  assess_node → second LLM call → AssessmentOutput (topic_scores_delta, user_level)
+11.  update_profile_node → compute_topic_scores() → update_profile() → SQLite
+12. SSE "done" event: { user_level, assessed_topics }
+13. MemorySaver checkpointer persists messages under thread_id for next turn
 ```
+
+Note: `SessionMemory` class deleted in Commit 10. Conversation history is managed entirely
+by LangGraph's `MemorySaver` checkpointer — no explicit history-string injection.
 
 ### User profile progression
 
@@ -205,10 +210,10 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 |---|---|---|---|
 | get_current_user returns full DB row incl. password_hash | Any future endpoint returning current_user directly will leak the hash — callers must project to safe fields | Sage Commit 01 | 🟡 fix before new /me-style endpoints |
 | Unbounded file upload size on /api/ingest | Large uploads OOM the process; no size cap exists | Sage Commit 01 | 🟡 fix before public launch |
-| SessionMemory is in-process (lost on restart) | Users lose conversation context on app restart | archaeology | 🟡 |
+| SessionMemory deleted in Commit 10 | Replaced by MemorySaver checkpointer. MemorySaver is also in-process — lost on restart. Swap to SqliteSaver for persistence. | Commit 10 | 🟡 swap before production |
 | SQLite → PostgreSQL migration pending | Scale limitation; no concurrent writes at volume | DECISIONS.md | 🟢 deferred |
 | NiceGUI → Node.js migration pending | UI framework constraint | DECISIONS.md | 🟢 deferred |
-| No streaming from LangGraph to UI | Agent state transitions are simulated (timer labels) | DECISIONS.md | 🟡 deferred to Option B |
+| NiceGUI streaming display | SSE tokens wired in Commit 10; NiceGUI reactive token display deferred to Commit 18 | Commit 18 | 🟡 before Commit 18 |
 | `_deserialize_row` return type is untyped `dict` | Misses mypy coverage on callers that access keys that don't exist | Viktor Commit 05 | 🟢 advisory |
 | `UserProfilePublic` timestamps typed as `str` not `datetime` | Malformed timestamps pass schema validation silently | Viktor Commit 05 | 🟢 advisory — fix before production |
 | `_connect()` duplicated in `auth/db.py` and `profile/db.py` | Future hardening applied to one may not be applied to the other | Sage Commit 04 | 🟡 refactor to shared `src/app/core/db.py` when convenient |
@@ -224,4 +229,4 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 - **Profile scoring algorithm** — threshold table and delta merge strategy — after Commit 14
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 
-*Last updated: 2026-05-09 — Commit 06 complete*
+*Last updated: 2026-05-09 — Commit 07 complete*

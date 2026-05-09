@@ -20,8 +20,8 @@
 **Introduced in:** existing codebase
 
 ### AgentState
-**Meaning on this project:** The TypedDict that carries all data through the LangGraph graph for a single user turn. Contains the question, conversation history, retrieved docs, generated answer, assessment output, and profile update delta. Designed for the full arc in Commit 07.
-**Distinct from:** A Python dict (AgentState is typed and compiled by LangGraph).
+**Meaning on this project:** The TypedDict that carries all data through the LangGraph graph for a single user turn. Key field: `messages: Annotated[list[BaseMessage], add_messages]` — the full conversation history managed by LangGraph's `add_messages` reducer. `session_id` is NOT a field — it is passed as `thread_id` in the graph config. Designed for the full Commits 07–17 arc.
+**Distinct from:** A Python dict (AgentState is typed, and `messages` uses a reducer — not plain assignment).
 **Used in:** `src/agents/state.py`, all node files
 **Introduced in:** Commit 07
 
@@ -90,10 +90,23 @@
 **Introduced in:** existing codebase
 
 ### Session Memory
-**Meaning on this project:** An in-process conversation buffer per session, keyed by session_id. Stores the last N message turns. Not persisted to disk — lost on app restart. Injected into `AgentState` as `conversation_history` before each graph invocation.
+**Meaning on this project:** An in-process conversation buffer per session, keyed by session_id. Stores the last N message turns. Not persisted to disk — lost on app restart. Previously injected into chain.py as a `conversation_history` string.
+**Status:** Deleted in Commit 10. Replaced by LangGraph's `MemorySaver` checkpointer, which manages conversation history natively via `thread_id` in the graph config. No application code needed for history injection after Commit 10.
 **Distinct from:** User Profile (which is persistent in SQLite and tracks understanding, not conversation).
-**Used in:** `src/rag/memory/conversation.py`
+**Was in:** `src/rag/memory/conversation.py` (deleted in Commit 10)
 **Introduced in:** existing codebase
+
+### add_messages (reducer)
+**Meaning on this project:** A LangGraph reducer function used as `Annotated[list[BaseMessage], add_messages]` on `AgentState.messages`. When a node returns `{"messages": [new_message]}`, the reducer *appends* the new message to the existing list rather than replacing it. This is what makes multi-turn conversation work without manual list management.
+**Distinct from:** A plain `list[BaseMessage]` TypedDict field (which would replace the entire list on every update).
+**Used in:** `src/agents/state.py`, `langgraph.graph.message`
+**Introduced in:** Commit 07
+
+### MemorySaver (checkpointer)
+**Meaning on this project:** LangGraph's built-in in-process checkpointer. When the graph is compiled with `graph.compile(checkpointer=MemorySaver())` and invoked with `config={"configurable": {"thread_id": session_id}}`, LangGraph automatically saves and restores `AgentState` (including `messages`) between turns. The conversation history is reconstructed transparently — no application code required.
+**Distinct from:** `SessionMemory` (the custom in-process buffer deleted in Commit 10); `SqliteSaver`/`PostgresSaver` (disk-persistent checkpointers for multi-instance deployments).
+**Used in:** `src/agents/graph.py` (Commit 10), LangGraph internals
+**Introduced in:** Commit 10
 
 ### WAL Mode
 **Meaning on this project:** SQLite Write-Ahead Logging journal mode. Enables concurrent reads during a write operation. Enabled via `PRAGMA journal_mode=WAL` in `_connect()`. Required because the LangGraph agent thread writes profile updates while FastAPI request threads read user data concurrently.
@@ -109,11 +122,11 @@
 **Used in:** `commit-protocol.md`, all worklogs
 
 ### Handoff
-**Meaning on this project:** A structured note from one agent to another, routed through Claude, carrying context the receiving agent needs before starting work. Currently open: Commit 03 → Nova (Commit 10) re: conversation history threading.
+**Meaning on this project:** A structured note from one agent to another, routed through Claude, carrying context the receiving agent needs before starting work. Currently open: Commit 05 → Nova (Commit 15) re: `last_activity_at` must be set on every profile update.
 **Used in:** `project-state.json open_handoffs`
 
 ### Hard Block
 **Meaning on this project:** A Viktor finding so severe it bypasses the normal quality gate and surfaces directly to the Team Lead before any commit is made. Two Hard Blocks were raised during /init: graph replacement with zero tests (resolved by Commit 11), and untyped cross-agent interface (resolved by Commit 14's typed interface requirement).
 **Used in:** `ORCHESTRATION.md`, Viktor reviews
 
-*Last updated: 2026-05-08 — Commit 01 complete*
+*Last updated: 2026-05-09 — Commit 07 complete*
