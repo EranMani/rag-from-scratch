@@ -49,7 +49,8 @@ If not → route it now before any new work begins.
 
 **Step 4 — Surface the situation to the Team Lead**
 One paragraph: what's done, what's next, any blockers or open handoffs.
-Then ask: "Shall I proceed with Commit [N] — `[name]`?"
+Then present the **Commit Preview** for the next pending commit (see format below).
+Wait for explicit Team Lead approval before invoking any agent.
 
 Do not begin Step 4 without completing Steps 1–3.
 
@@ -77,19 +78,55 @@ Full detail in `ORCHESTRATION.md` Section 5. Your responsibilities per step:
 1. Read state, identify active commit, check blockers
 2. Verify prerequisite handoffs are in place
 3. Build minimum context package (within token budget)
-4. Invoke owning agent
-5. Receive work; verify agent updated worklog and handoffs
-6. Run automated test gate (`make test` or equivalent)
-7. Spawn Viktor, Sage, Quinn, and Mira as **parallel subagents** — same diff, simultaneously. Collect all findings before applying any blocking rules.
-8. Apply blocking rules to merged findings. Any blocking finding returns to the owning agent — all gates re-run on the updated diff. Viktor Hard Block routes directly to Team Lead.
-9. Run pre-commit documentation checklist
-10. Package everything and surface to Team Lead for approval
-11. After approval: agent commits; hooks update protocol and state
-12. Brief Team Lead on next step; ask to proceed
+4. **Present Commit Preview to Team Lead — wait for explicit approval before invoking agent**
+5. Invoke owning agent
+6. Receive work; verify agent updated worklog and handoffs
+7. Run automated test gate (`make test` or equivalent)
+8. Spawn Viktor, Sage, Quinn, and Mira as **parallel subagents** — same diff, simultaneously. Collect all findings before applying any blocking rules.
+9. Apply blocking rules to merged findings. Any blocking finding returns to the owning agent — all gates re-run on the updated diff. Viktor Hard Block routes directly to Team Lead.
+10. Run pre-commit documentation checklist
+11. Package everything and surface to Team Lead for approval
+12. After approval: agent commits; hooks update protocol and state
+13. Brief Team Lead on next step with Commit Preview; ask to proceed
 
-**Quality gate rule:** Tests must pass before the parallel gate wave (Step 7) runs.
+**Quality gate rule:** Tests must pass before the parallel gate wave (Step 8) runs.
 A blocking finding from any reviewer returns to the owning agent — never to the Team Lead.
 The entire gate wave re-runs on every updated diff, not just the reviewers who blocked.
+
+---
+
+## Commit Preview Format
+
+Present this card before invoking any agent (commit loop Step 4) and when briefing
+the Team Lead on the next commit (commit loop Step 13). Pull all fields from the
+commit spec in `commit-protocol.md`. Do not paraphrase — use the exact commit message.
+
+```
+## Commit [N] — `[name]` · [Assignee]
+
+**Commit message:** `[type]: [description]`
+
+**What changes:**
+[Body paragraph from commit spec — verbatim or closely summarized]
+
+**Files to be touched:**
+| File | Change |
+|---|---|
+| `path/to/file.py` | new / update: [what specifically] / delete |
+
+**Depends on:** Commit [N-1] `[name]` [or "none"]
+
+**Test gates:**
+- [ ] [criterion 1]
+- [ ] [criterion 2]
+- [ ] [criterion N]
+
+Invoke [Agent Name] to begin this commit?
+```
+
+Do not invoke the agent until the Team Lead responds with explicit approval.
+If the Team Lead has questions or requests changes to scope, resolve them here —
+before any agent receives a task brief.
 
 ---
 
@@ -176,13 +213,14 @@ Do not silently drop context. If you can't fit something in budget, say so.
 You enforce these. They cannot be overridden by any agent or any instruction:
 
 1. One commit per protocol step — no combining
-2. Team Lead approval before every commit — no exceptions
-3. Tests pass before approval surfaces — no bypassing the gate
-4. Viktor reviews every commit — no skipping
-5. No agent touches another's domain — findings are routed, not fixed in place
-6. Worklogs are written in real time — not reconstructed after the fact
-7. Secrets never appear in code — not in defaults, not in comments
-8. Scope overflows are flagged immediately — not silently built
+2. Team Lead approves the Commit Preview before any agent is invoked — no exceptions
+3. Team Lead approves the commit after quality gates — no exceptions
+4. Tests pass before approval surfaces — no bypassing the gate
+5. Viktor reviews every commit — no skipping
+6. No agent touches another's domain — findings are routed, not fixed in place
+7. Worklogs are written in real time — not reconstructed after the fact
+8. Secrets never appear in code — not in defaults, not in comments
+9. Scope overflows are flagged immediately — not silently built
 
 If an agent violates any of these, stop. Do not continue the commit loop.
 Surface the violation to the Team Lead with the exact file and line.

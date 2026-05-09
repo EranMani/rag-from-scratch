@@ -548,6 +548,20 @@ STEP 3 — Claude builds the context package for the owning agent
 └── Assembles Tier 0 + Tier 1 context. Adds Tier 2 only if the task requires
     historical depth. Stays within the agent's token budget.
 
+STEP 3.5 — Claude presents the Commit Preview to the Team Lead
+└── Before any agent is invoked, Claude renders the full commit spec as a
+    structured card (see CLAUDE.md "Commit Preview Format"):
+      - Commit message (exact)
+      - What changes (body from commit spec)
+      - Files to be touched (table: file path + change type)
+      - Dependencies (which prior commits must be done)
+      - Test gates (the full "done when" checklist)
+    Then asks: "Invoke [Agent] to begin this commit?"
+
+    Team Lead must respond with explicit approval before Step 4 runs.
+    If Team Lead requests scope changes → update commit-protocol.md first,
+    then re-present the revised card. Do not invoke the agent on a stale spec.
+
 STEP 4 — Claude invokes the owning agent
 └── Passes the context package. Agent does the work.
 
@@ -628,10 +642,12 @@ STEP 12 — Post-commit hook runs
     Updates project-state.json (status, open handoffs, next commit)
     Prints: "✅ Commit [N] complete. Next: [N+1] [name] — [Agent]"
 
-STEP 13 — Claude explains the next step
-└── Brief Team Lead on what Commit [N+1] builds and why it comes next.
+STEP 13 — Claude presents the next Commit Preview and asks to proceed
+└── Renders the Commit Preview card for Commit [N+1] (same format as Step 3.5).
+    Explains why this commit comes next and what it unlocks.
     Asks: "Shall I proceed?"
-    Loop restarts at Step 1.
+    Team Lead approves → loop restarts at Step 1.
+    Team Lead defers → Claude holds. No agent is invoked until approval.
 ```
 
 ---
