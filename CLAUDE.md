@@ -38,9 +38,12 @@ If `team-preferences.md` does not exist → create it from the template before p
 Do not invoke any agent this session without having read it.
 
 **Step 2 — Load the commit queue**
-Read `commit-protocol.md`. Identify the first row with status `pending`.
-That is the active step. Confirm it matches `next_commit` in `project-state.json`.
+Read `commit-protocol.md` (index table only — all detail specs have been moved to `commit-specs/`).
+Identify the first row with status `pending`. That is the active step.
+Confirm it matches `next_commit` in `project-state.json`.
 If they disagree → `project-state.json` is authoritative. Flag the discrepancy.
+Then read `commit-specs/commit-XX.md` for the active commit's full specification.
+Do not load any other spec file.
 
 **Step 3 — Load open handoffs**
 Read `open_handoffs` in `project-state.json`.
@@ -83,6 +86,7 @@ Full detail in `ORCHESTRATION.md` Section 5. Your responsibilities per step:
 6. Receive work; verify agent updated worklog and handoffs
 7. Run automated test gate (`make test` or equivalent)
 8. Spawn Viktor, Sage, Quinn, and Mira as **parallel subagents** — same diff, simultaneously. Collect all findings before applying any blocking rules.
+   Reviewer context package: diff + active commit spec only. Do not pass agent identity files — the agent definition already provides that context. Do not pass full worklogs.
 9. Apply blocking rules to merged findings. Any blocking finding returns to the owning agent — all gates re-run on the updated diff. Viktor Hard Block routes directly to Team Lead.
 10. Run pre-commit documentation checklist
 11. Package everything and surface to Team Lead for approval
@@ -98,30 +102,22 @@ The entire gate wave re-runs on every updated diff, not just the reviewers who b
 ## Commit Preview Format
 
 Present this card before invoking any agent (commit loop Step 4) and when briefing
-the Team Lead on the next commit (commit loop Step 13). Pull all fields from the
-commit spec in `commit-protocol.md`. Do not paraphrase — use the exact commit message.
+the Team Lead on the next commit (commit loop Step 13). Keep it short — the Team Lead
+should be able to read it in 15 seconds.
 
 ```
 ## Commit [N] — `[name]` · [Assignee]
 
-**Commit message:** `[type]: [description]`
+**What:** [one sentence — what this commit does]
+**Why now:** [one sentence — why it comes at this point in the sequence]
 
-**What changes:**
-[Body paragraph from commit spec — verbatim or closely summarized]
+**Changes:**
+- `path/to/file` — new/update/delete: [what, in 5 words]
+- `path/to/file` — new/update/delete: [what, in 5 words]
 
-**Files to be touched:**
-| File | Change |
-|---|---|
-| `path/to/file.py` | new / update: [what specifically] / delete |
+**Test gates:** [gate 1] · [gate 2] · [gate 3]
 
-**Depends on:** Commit [N-1] `[name]` [or "none"]
-
-**Test gates:**
-- [ ] [criterion 1]
-- [ ] [criterion 2]
-- [ ] [criterion N]
-
-Invoke [Agent Name] to begin this commit?
+Invoke [Agent] to begin?
 ```
 
 Do not invoke the agent until the Team Lead responds with explicit approval.
@@ -159,7 +155,8 @@ team-preferences.md      ← Team Lead calibration (read every boot)
 ARCHITECTURE.md          ← living architecture doc (you maintain it)
 DECISIONS.md             ← design decisions log (you maintain it)
 GLOSSARY.md              ← term definitions (you maintain it)
-commit-protocol.md       ← build sequence
+commit-protocol.md       ← build sequence (index table only)
+commit-specs/            ← per-commit full specs (load active commit only)
 project-state.json       ← machine-readable project state
 .claude/settings.json    ← hook configuration
 .claude/commands/        ← all slash commands
@@ -200,7 +197,7 @@ Frame the invocation as a briefing, not a command:
 ## Token Management
 
 You track token usage. When a session approaches 80% of context capacity:
-1. Trigger `/archive-worklog` for any agent with >5 completed sessions
+1. Trigger `/archive-worklog` for any agent with >3 completed sessions
 2. Compress long context packages to Tier 0 + Tier 1 only
 3. Alert the Team Lead that context compression has occurred
 

@@ -5,7 +5,7 @@
 > Edit any section at any time — Claude propagates changes to affected agents
 > at the start of the next commit loop iteration.
 >
-> Last updated: 2026-05-08
+> Last updated: 2026-05-09
 
 ---
 
@@ -100,11 +100,54 @@ Commit 23 (integration tests) covers the full adaptive pipeline end-to-end.
 
 ---
 
+## Mira — Product Review Calibration
+
+```
+Invocation rule: dynamic (not every commit)
+```
+
+Invoke Mira when the commit introduces or changes **user-facing behavior**:
+- New or modified API endpoints (shape, fields, error codes)
+- UI changes (layout, interaction model, displayed data)
+- Data the user sees (profile fields, response fields, status badges)
+- Any creative design decision about what the user experiences
+
+Skip Mira on internal plumbing: state schema files, test-only commits, pure infra
+config, scoring pure functions, LangGraph node internals, worklog/doc-only commits.
+
+---
+
+## Model Assignments
+
+```
+Haiku  (fast, low cost):     Ryan, worklog-only updates, GLOSSARY one-liners
+Sonnet (default, balanced):  Rex, Nova, Aria, Adam — all implementation work
+Opus   (deep reasoning):     Viktor (code review), Sage (security) — use selectively
+```
+
+Specify at Agent invocation time via `model: "haiku" | "sonnet" | "opus"`.
+Default if unspecified: Sonnet.
+
+---
+
+## Worklog Archive Trigger
+
+```
+Archive threshold: >3 completed sessions per agent (not 5)
+Trigger:           /archive-worklog [agent-name]
+Timing:            at the start of the session following the threshold being crossed
+```
+
+Agents most likely to hit threshold first: Rex (Phases 1–3), Nova (Phases 2–4).
+
+---
+
 ## Parallelization Preferences
 
 ```
 Quality gate wave:       always parallel (Viktor + Sage + Quinn simultaneously)
 Commit parallelization:  use when possible (Wave A: commits 01/02/03, Wave B: 08/09)
+Parallel commits:        use worktree isolation (isolation: "worktree") to prevent file conflicts
 ```
 
 ---
@@ -160,3 +203,7 @@ Tech Writer:    Ryan
 | Date | Change | Reason |
 |------|--------|--------|
 | 2026-05-08 | Initial creation | /init protocol complete |
+| 2026-05-09 | Added Mira dynamic invocation rule | Only invoke on user-facing commits to reduce token cost |
+| 2026-05-09 | Added Model Assignments section | Haiku/Sonnet/Opus tiering to reduce cost without quality loss |
+| 2026-05-09 | Added Worklog Archive Trigger section | Lower threshold (3 sessions) for proactive archiving |
+| 2026-05-09 | Added worktree isolation note to Parallelization | Needed for Wave B (commits 08+09) |
