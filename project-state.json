@@ -3,14 +3,14 @@
   "last_updated": "2026-05-09",
   "status": "active",
   "current_commit": {
-    "number": "08",
-    "name": "langgraph-retrieve-node",
+    "number": "09",
+    "name": "langgraph-generate-node",
     "status": "pending",
     "assignee": "nova"
   },
-  "commits_done": ["01","02","03","04","05","06","07"],
-  "commits_pending": ["08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24"],
-  "next_commit": "08",
+  "commits_done": ["01","02","03","04","05","06","07","08"],
+  "commits_pending": ["09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24"],
+  "next_commit": "09",
   "open_handoffs": [
     {
       "from": "commit-05",
@@ -22,6 +22,14 @@
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
+      "number": "08",
+      "tests": "80/80 PASS — 11 new tests in test_retrieve_node.py",
+      "viktor": "PASS WITH COMMENTS — dead import (CircuitState) removed; 2 advisories: return type annotation, import-inside-test pattern",
+      "sage": "not triggered",
+      "quinn": "not triggered",
+      "gate_wave": "viktor only (single-domain node, no auth/async complexity)"
+    },
+    "commit_07": {
       "number": "07",
       "tests": "69/69 PASS — 16 new tests in test_agent_state.py",
       "viktor": "PASS (after 1 revision) — 4 findings resolved: cache_hit/user_level Literal, docs typed, test file added",
@@ -82,7 +90,7 @@
       "date": "2026-05-09",
       "decision": "SessionMemory class deleted in Commit 10 — LangGraph MemorySaver replaces it",
       "reason": "Eran Mani: LangGraph's checkpointer handles cross-turn persistence natively via thread_id config. The SessionMemory class (src/rag/memory/conversation.py) is redundant and must not survive Commit 10."
-    }
+    },
     {
       "date": "2026-05-08",
       "decision": "Cache key incorporates user_level from Commit 17 onward",

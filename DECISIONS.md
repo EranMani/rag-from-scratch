@@ -257,4 +257,13 @@
 - **Reason:** Registration is the profile's creation event. Using `get_or_create_profile` would mask accidental double-creation by silently returning an existing row — obscuring whether the registration flow ran correctly. Using `create_profile` makes the intent explicit: this is the moment the profile is born.
 - **Consequences:** If `create_profile` fails for a non-race reason (e.g., disk full), the user row persists without a profile (see ARCHITECTURE.md Known Debts — non-atomic insert). A future commit may wrap both operations in a shared SQLite transaction on the same connection to prevent orphaned users.
 
-*Last updated: 2026-05-09 — streaming architecture redesign by Eran Mani (pre-Commit 07)*
+### `retrieval_source` inferred from circuit breaker state inspection around `retrieve()`
+- **Date:** 2026-05-09
+- **Commit:** 08
+- **Decided by:** Nova
+- **Decision:** `retrieve_node` calls `chroma_cb.is_available()` immediately before and immediately after calling `retrieve()`. If available both sides → `retrieval_source = "chroma"`. Otherwise → `retrieval_source = "bm25"`.
+- **Alternatives considered:** Modifying `retrieve()` to return a path signal alongside the docs; duplicating the routing condition from `retriever.py` inside the node.
+- **Reason:** `retrieve()` returns only `list[Document]` — there is no path signal in its return value. Altering the signature would cross a domain boundary (`retriever.py` is the pipeline layer; `retrieve_node` is the graph layer). Duplicating the routing condition would create silent drift the moment `retriever.py` changes. CB state inspection is the only approach that leaves `retrieve()` untouched and gives the node accurate source attribution.
+- **Consequences:** The two `is_available()` calls are cheap and idempotent. The pattern handles all three CB states correctly: CLOSED→CLOSED (Chroma ran), OPEN before call (BM25 ran directly), CLOSED→OPEN mid-call (Chroma failed, BM25 fallback activated). This pattern is the established approach for any future node that needs to observe which fallback path ran.
+
+*Last updated: 2026-05-09 — Commit 08 complete (retrieve_node CB inspection decision)*

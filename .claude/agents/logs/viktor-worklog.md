@@ -3,11 +3,44 @@
 ---
 
 ## Current State
-Last reviewed: Commit 07 `langgraph-state-schema` (second pass) — Verdict: PASS
-Open resolutions awaiting: none — all 4 first-pass blockers resolved
+Last reviewed: Commit 08 `langgraph-retrieve-node` — Verdict: PASS WITH COMMENTS
+Open resolutions awaiting: none
 Recurring patterns by engineer (Rex):
   - Strong responsiveness to typing-discipline feedback: every Concern from the first pass closed cleanly with the recommended fix, plus extra defensive validators (slug filtering) beyond the minimum.
   - Watch for: forward-looking schema fields whose runtime producers still emit legacy values (cache_hit). Documented this turn — flag again only if the Commit 10 migration is skipped.
+  - Import-inside-test pattern continues across commits (flagged Commit 07, observed again Commit 08). Not a defect; noted as a style habit.
+
+---
+
+## Commit 08 — `langgraph-retrieve-node`
+
+**Files reviewed:**
+- `src/agents/nodes/retrieve.py`
+- `tests/test_retrieve_node.py`
+- Cross-references: `src/agents/state.py` (AgentState contract), `src/rag/pipeline/retriever.py` (retrieve() signature, BM25 fallback path), `src/rag/resilience/circuit_breaker.py` (is_available() semantics, HALF_OPEN state)
+
+**Date:** 2026-05-09
+
+### Findings
+
+💬 `src/agents/nodes/retrieve.py:18` — The return annotation is `dict`, which is technically correct but loses specificity. The actual return shape is `dict[str, Any]` at minimum, and could be `TypedDict` or `dict[str, list[Document] | str]`. Under the calibration for this commit (Sonnet-tier, Literal hint waived on return dict), this is advisory only: a future engineer reading the signature gets no signal about what the dict contains. The docstring covers it, but the annotation itself is silent. If the project standardizes on typed return dicts for LangGraph nodes (which is worth doing once there are 3+ nodes), a shared `RetrieveOutput(TypedDict)` would make the shape enforced rather than documented. Not required for this commit.
+
+💬 `src/agents/nodes/retrieve.py:15` — `CircuitState` is imported but never used in the node body. The determination logic was originally written referencing CB states by name, then refactored to use `is_available()` boolean reads — a clean simplification. The import is now dead. It should be removed. Dead imports accumulate into false signals about what a module depends on.
+
+💬 `tests/test_retrieve_node.py` (multiple) — The `from agents.nodes.retrieve import retrieve_node` import appears inside every test method body rather than at module top. This is the same pattern flagged in Commit 07 (`test_agent_state.py`). Functionally harmless — Python caches the import after the first call — but it obscures the module's import surface and makes it harder to see at a glance what the test file depends on. One top-level import would be cleaner. Noting as a continuing habit, not a new defect.
+
+### What's Good
+
+The circuit-breaker determination logic is correct, and the docstring explaining it is excellent. The three-case breakdown (before-available + after-available = chroma; before-not-available = bm25; before-available + after-not-available = bm25) is precisely what a reader needs to verify the conditional on lines 40-43. The logic itself is the simplest correct implementation: two boolean reads bracketing the call, a single conditional. No edge case is missed.
+
+One potential subtlety worth acknowledging: `is_available()` returns `True` in both CLOSED and HALF_OPEN states. This means a HALF_OPEN probe that succeeds will be correctly labelled "chroma" (the CB records_success and stays available-after). A HALF_OPEN probe that fails will trip the CB to OPEN, making it unavailable-after, and will be correctly labelled "bm25". The determination logic handles the HALF_OPEN case implicitly and correctly, without needing to know about it. That is elegant.
+
+The test for Gate 2c (line 172: `side_effect = [True, False]`) is exactly the right way to test mid-call state transitions. Using `side_effect` as a sequence rather than `return_value` proves the node reads availability twice, in order, and uses both readings in the determination. That test would catch a naive implementation that only checked once.
+
+The `test_return_dict_contains_exactly_docs_and_retrieval_source` test (Gate 1, line 107) using `set(result.keys()) == {"docs", "retrieval_source"}` is the right idiom for domain boundary enforcement — it would catch both a missing key and an accidental state key leak.
+
+### Verdict
+PASS WITH COMMENTS
 
 ---
 

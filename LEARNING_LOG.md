@@ -563,3 +563,63 @@ class AssessmentOutput(BaseModel):
 - `pyproject.toml` — documentation/verification that `langgraph` and `langchain-core` are declared as dependencies
 
 ---
+
+**Commit 08 — langgraph-retrieve-node** · 2026-05-09 · Nova · `new feature | architectural`
+
+> **In one sentence:** The first LangGraph node was implemented — `retrieve_node` wraps the retrieval pipeline and infers the retrieval source (Chroma or BM25) without modifying the retriever's signature, using a non-obvious state inspection pattern to detect which backend was available before and after the call.
+
+**Interview talking point:**
+> **Q:** How did you determine which retrieval backend was used without modifying the `retrieve()` function signature?
+>
+> **A:** The callback's `is_available()` method is the single source of truth for Chroma availability. I inspect it both before and after calling `retrieve()` — if it's available both times, Chroma was used; if it's unavailable before the call, BM25 ran. If it was available before but not after (unlikely in production but possible), BM25 was used. This pattern detects which backend handled the call without adding an out-parameter or return wrapper to the retriever itself.
+
+**What happened and why:**
+- `retrieve_node` is the first of six nodes in the adaptive-RAG LangGraph graph. It receives the user question from `AgentState`, calls the existing `retrieve()` function, and returns the retrieved documents plus a `retrieval_source` label.
+- The `retrieve()` function in `src/rag/pipeline/retriever.py` takes care of routing to Chroma or BM25 based on `chroma_cb.is_available()` — it returns only `list[Document]`, with no signal about which backend ran.
+- Rather than modify `retrieve()`'s signature or duplicate the routing logic inside the node, the node inspects the callback's availability before and after the call. If available both times, Chroma ran. Otherwise BM25 ran.
+- Three state combinations are possible: both `True` (Chroma), both `False` (BM25), or `True→False` (rare but possible — Chroma became unavailable mid-call, BM25 fallback).
+- Eleven tests validate all three CB state transitions, document that empty questions return an empty doc list without raising, and confirm the return dict has exactly `{"docs", "retrieval_source"}`.
+
+**Reasoning & discovery:**
+1. The initial design consulted `chroma_cb.is_available()` only after the call — this left the `True→False` transition undetected. Viktor's review caught the gap: if the callback becomes unavailable mid-call, BM25 handles the retrieval, but the node would incorrectly report `"chroma"`.
+2. Adding a post-call inspection was ruled out — it doesn't solve the problem for the race case. Inspecting both before and after covers all three paths unambiguously.
+3. Modifying `retrieve()`'s return type to include source metadata was rejected: it couples the node to the retriever's implementation and breaks the clean domain separation between `src/agents/` (LangGraph) and `src/rag/pipeline/` (retrieval logic).
+
+**Design pattern / architectural principle:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| State query over signature modification | The node inspects `chroma_cb.is_available()` instead of asking `retrieve()` to return source metadata | Avoids coupling the retriever to LangGraph; the node reads the canonical source of truth (the callback's state) rather than trusting a return value |
+| Defensive boundary inspection | Both pre- and post-call checks detect all possible CB state transitions | Handles the rare case where Chroma becomes unavailable during retrieval (triggers fallback to BM25) without relying on `retrieve()` to signal it |
+| Node-level state enrichment | The retrieval source label is added at the node boundary, not inside `retrieve()` | Retrieval remains a pure query problem; the LangGraph-specific metadata is added at the point where the retriever's output enters the graph |
+
+**The key change:**
+
+```python
+# src/agents/nodes/retrieve.py — new file
+
+def retrieve_node(state: AgentState) -> dict:
+    """Retrieve documents for the user question and label the retrieval source.
+    
+    The retrieval source (Chroma or BM25) is inferred by inspecting
+    chroma_cb.is_available() before and after the retrieve() call.
+    """
+    question: str = state["question"]
+    
+    chroma_available_before: bool = chroma_cb.is_available()
+    docs: list[Document] = retrieve(question)
+    chroma_available_after: bool = chroma_cb.is_available()
+    
+    if chroma_available_before and chroma_available_after:
+        retrieval_source: str = "chroma"
+    else:
+        retrieval_source: str = "bm25"
+    
+    return {"docs": docs, "retrieval_source": retrieval_source}
+```
+
+**Files touched:**
+- `src/agents/nodes/retrieve.py` — new: `retrieve_node` with pre/post CB availability inspection
+- `tests/test_retrieve_node.py` — new: 11 tests covering both CB available, both unavailable, available-then-unavailable transitions; empty question handling; return dict shape validation
+
+---
