@@ -5,21 +5,26 @@
 ---
 
 ## Current State
-*Last updated: Commit 08 · 2026-05-09*
+*Last updated: Commit 09 · 2026-05-09*
 
-**Last completed:** Commit 08 `langgraph-retrieve-node` ✅
+**Last completed:** Commit 09 `langgraph-generate-node` ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
+- Commit 10 (graph assembly + streaming): `generate_node` is in `src/agents/nodes/generate.py`.
+  Signature: `async def generate_node(state: AgentState) -> dict`.
+  Returns exactly `{"messages": [AIMessage], "answer": str}`.
+  Import as: `from agents.nodes.generate import generate_node`.
+  The node is async — use `await` or wire into the graph with `graph.astream_events()`.
+  `add_messages` appends the returned `[AIMessage]` — the node does NOT return the full history.
+  `question` is NOT read by this node — the current question is already the last HumanMessage in state["messages"].
+  LLM is obtained via `get_provider().get_llm()` — OpenAI CB → Ollama fallback is automatic.
+  When `graph.astream_events()` is wired, `on_chat_model_stream` token events fire with zero
+  changes to generate_node — it's already async and uses `ainvoke`.
 - Commit 08+ (graph build): `AgentState` is complete. All Phase 4 fields are present.
   `messages` uses `add_messages` reducer — nodes must append `[HumanMessage(...)]` or
   `[AIMessage(...)]` via state update, not replace the list.
-- Commit 09+ (graph wiring): `retrieve_node` is in `src/agents/nodes/retrieve.py`.
-  Signature: `def retrieve_node(state: AgentState) -> dict`. Returns only `{"docs": ..., "retrieval_source": ...}`.
-  Import as: `from agents.nodes.retrieve import retrieve_node`.
-  `retrieval_source` logic: 'chroma' if chroma_cb available before AND after the call;
-  'bm25' otherwise. This covers both CB-already-open and CB-tripped-mid-call paths.
 - Commit 10 (streaming): `session_id` is passed as `thread_id` in the graph config,
   NOT as a state field. Pattern:
       config = {"configurable": {"thread_id": session_id}}
@@ -42,6 +47,8 @@
 - `src/agents/nodes/__init__.py` — empty package marker
 - `src/agents/nodes/retrieve.py` — `retrieve_node(state: AgentState) -> dict`
   Returns `{"docs": list[Document], "retrieval_source": str}` only.
+- `src/agents/nodes/generate.py` — `async generate_node(state: AgentState) -> dict`
+  Returns `{"messages": [AIMessage], "answer": str}` only.
 - `AgentState` fields summary:
     - `messages: Annotated[list[BaseMessage], add_messages]` — append-only via reducer
     - `question: str` — convenience copy of messages[-1].content
@@ -80,6 +87,7 @@ No archived sessions yet.
 |---|--------|--------|--------------|
 | 01 | Commit 07 `langgraph-state-schema` | ✅ Done | Used `Annotated[list[BaseMessage], add_messages]` with `from __future__ import annotations`; `session_id` excluded from state per architecture decision |
 | 02 | Commit 08 `langgraph-retrieve-node` | ✅ Done | `retrieval_source` derived from CB state before/after call, not from return value — retrieve() doesn't expose which path ran |
+| 03 | Commit 09 `langgraph-generate-node` | ✅ Done | Node is async (`ainvoke`) for streaming-readiness; `question` not read — current question is last HumanMessage in messages; LLM via get_provider().get_llm() |
 
 ---
 
@@ -302,3 +310,114 @@ instruction. The before/after comparison is necessary (not just before) because
 `chroma_cb.is_available()` before the call being True doesn't guarantee Chroma
 succeeded — it may fail mid-call and the CB may trip during the call. The after-check
 catches that case and correctly labels it `"bm25"`.
+
+---
+
+## Session 03 — Commit 09: `langgraph-generate-node`
+
+**Date:** 2026-05-09
+**Status:** ✅ Done
+
+### Task Brief
+
+Build `generate_node` — the LangGraph async generation node that takes retrieved docs
+and the full message history, calls the LLM via `get_provider().get_llm()`, and
+returns `{"messages": [AIMessage], "answer": str}`.
+
+### AI Problem Being Solved
+
+The generation node sits at the intersection of two LangGraph concerns: (1) proper
+message accumulation via the `add_messages` reducer, and (2) streaming readiness.
+The naive approach — calling `llm.invoke()` synchronously — would work for correctness
+but break streaming. LangGraph's `astream_events()` mechanism emits `on_chat_model_stream`
+token events only when the underlying LLM call is `async`. Using `await llm.ainvoke()`
+here means the streaming path in Commit 10 requires zero changes to this node.
+
+The second concern is `question` vs `messages`. The question field exists as a
+convenience for `retrieve_node` (which needs a bare string for similarity search). In
+`generate_node`, the question is already embedded as the last `HumanMessage` in
+`state["messages"]`. Using `question` here would create two sources of truth and
+risk desync if the LangGraph checkpointer reconstructs message history from a
+different source than `question`.
+
+### Prompt / Tool Design Decisions
+
+The `SystemMessage` is constructed inline per-call rather than from a template file.
+Rationale: the context changes every call (docs from retrieval) and the user_level
+changes per user. A static prompt file would require f-string injection anyway — the
+inline construction is cleaner for a node that has no fixed few-shot examples. If
+multi-turn prompt tuning becomes necessary in a later commit, the inline construction
+can be extracted to a prompt file without changing the node's interface.
+
+The `user_level` default is `"novice"` via `state.get("user_level", "novice")` rather
+than assuming the field is always present. `AgentState` declares it as required, but
+TypedDict fields can be absent at runtime if the state dict was constructed without all
+keys (e.g., from a minimal test fixture or an early graph entry that hasn't populated
+user_level yet). The `"novice"` default is the safest choice — it produces the most
+accessible output rather than an error.
+
+### What Was Considered and Ruled Out
+
+1. **Sync `llm.invoke()`** — rejected. Blocks the async event loop and defeats
+   streaming readiness. `ainvoke` is the required pattern for all async LangGraph nodes.
+
+2. **Reading `state["question"]` instead of `state["messages"]`** — rejected per spec.
+   The spec is explicit: "the current user question is already the last HumanMessage in
+   `state["messages"]`". Using `question` in the LLM call creates a redundancy and
+   would miss the full conversational framing.
+
+3. **Instantiating `ChatOpenAI` directly** — rejected. `get_provider()` is the circuit
+   breaker entry point. A direct instantiation bypasses the OpenAI → Ollama fallback
+   chain and couples the node to a single provider.
+
+4. **Returning `{"messages": all_messages, "answer": ...}`** — rejected. The
+   `add_messages` reducer accumulates messages — if the node returned the full history
+   plus the new AIMessage, the history would be doubled on every turn. The node returns
+   only the new message `[response]`.
+
+5. **Caching the LLM instance as a module-level variable** — considered but ruled out.
+   `get_provider()` is called per invocation so it can observe the current circuit
+   breaker state. Caching the LLM would freeze the provider choice at import time,
+   making CB failover invisible to the node.
+
+### Failure Modes Considered
+
+- **LLM provider down / rate-limited** — `get_provider()` returns OllamaProvider if
+  `openai_cb` is OPEN. If Ollama is also unavailable, `ainvoke()` will raise. The spec
+  does not require try/except in the node — circuit breaking is the provider layer's
+  responsibility. An unhandled raise propagates to the graph, which surfaces it as
+  a graph invocation error to the SSE endpoint.
+- **Empty docs list** — `"\n\n".join(...)` on an empty list produces `""`. The system
+  message says "Answer using ONLY the provided context" with an empty context block.
+  The LLM will produce a "I don't have enough context" answer rather than hallucinating.
+  This is acceptable behaviour and matches the RAG contract.
+- **`user_level` field absent** — handled via `.get("user_level", "novice")` default.
+- **`ainvoke` returns a non-`AIMessage`** — typed as `AIMessage` in the annotation.
+  If the provider returns a different `BaseMessage` subtype, `response.content` still
+  works (it's defined on `BaseMessage`). Runtime correctness is not affected; Pyright
+  would flag the mismatch.
+
+### Test Results
+
+18 new tests, all passed:
+- Gate 1 (4 tests): answer key is str, messages has AIMessage, exactly 2 keys returned, answer matches AIMessage content
+- Gate 2 (3 tests): returned messages has exactly 1 AIMessage, list length is 1, no HumanMessage echoed back
+- Gate 3 (3 tests): first-turn answer returned, no raise, docs joined into context
+- Gate 4 (3 tests): second-turn answer returned, full history forwarded to LLM in order, no raise
+- Gate 5 (5 tests): get_provider called once, get_llm called on provider, ainvoke called (not invoke), system message has user_level, missing user_level defaults to 'novice'
+
+Full suite: 98 passed (80 prior + 18 new), 0 failures.
+
+### Approach
+
+The initial design question was where to call `get_provider()` — once at module import
+(singleton) or once per node invocation. A module-level singleton was tempting for
+performance, but it would freeze the provider at import time and make the circuit breaker
+invisible — any CB state change after import would be silently ignored. Per-invocation
+call means every turn observes the current CB state, paying one function call overhead
+that is negligible compared to the LLM round-trip. The per-invocation pattern is correct.
+
+The `type: ignore[call-overload]` comment on `state.get("user_level", "novice")` is
+intentional: `AgentState` is a `TypedDict` and `TypedDict.get()` with a default is not
+typed to return the union of the value type and the default in all Pyright versions.
+The comment documents that this is a Pyright limitation workaround, not a logic smell.

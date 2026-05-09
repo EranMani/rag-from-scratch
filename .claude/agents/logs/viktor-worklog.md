@@ -3,12 +3,47 @@
 ---
 
 ## Current State
-Last reviewed: Commit 08 `langgraph-retrieve-node` — Verdict: PASS WITH COMMENTS
+Last reviewed: Commit 09 `langgraph-generate-node` — Verdict: PASS WITH COMMENTS
 Open resolutions awaiting: none
 Recurring patterns by engineer (Rex):
   - Strong responsiveness to typing-discipline feedback: every Concern from the first pass closed cleanly with the recommended fix, plus extra defensive validators (slug filtering) beyond the minimum.
   - Watch for: forward-looking schema fields whose runtime producers still emit legacy values (cache_hit). Documented this turn — flag again only if the Commit 10 migration is skipped.
-  - Import-inside-test pattern continues across commits (flagged Commit 07, observed again Commit 08). Not a defect; noted as a style habit.
+  - Import-inside-test pattern continues across commits (flagged Commit 07, 08, 09). Not a defect; noted as a persistent style habit. Will name the pattern directly if it continues into Commit 10.
+  - Return type annotation uses bare `dict` rather than `dict[str, Any]` — consistent across retrieve_node and now generate_node. Advisory-level, but worth tracking as a typing-discipline gap if a fourth node follows the same pattern.
+
+---
+
+## Commit 09 — `langgraph-generate-node`
+
+**Files reviewed:**
+- `src/agents/nodes/generate.py`
+- `tests/test_generate_node.py`
+- Cross-references: `src/agents/state.py` (AgentState contract, user_level Literal, add_messages reducer), `src/rag/providers/__init__.py` (get_provider() return type), `src/rag/providers/base.py` (LLMProvider.get_llm() return type: BaseChatModel)
+
+**Date:** 2026-05-09
+
+### Findings
+
+💬 `src/agents/nodes/generate.py:33` — Return annotation is bare `dict`. This is the same gap flagged in Commit 08 for `retrieve_node`. The actual contract is `dict[str, list[AIMessage] | str]` — or more precisely, a two-key TypedDict. Under the current project calibration this remains advisory, but this is now the second consecutive node with the same elision. If `assess_node` (Commit 11) follows the same pattern, I will raise it to a Concern: at that point it's a style that has cemented rather than a one-off. For now: `dict[str, Any]` is the minimum improvement; a shared `GenerateOutput(TypedDict)` is the principled solution.
+
+💬 `src/agents/nodes/generate.py:55` — `response: AIMessage = await llm.ainvoke(messages)` — the type annotation on `response` is a design assertion, as the context brief notes. `BaseChatModel.ainvoke()` is typed to return `BaseMessage`, not `AIMessage`. Mypy/Pyright will flag this as a type narrowing without a cast. The annotation is intentional (documenting a runtime assumption), but it should either be `response: BaseMessage = await llm.ainvoke(messages)` followed by a defensive cast `assert isinstance(response, AIMessage)`, or left as `response: AIMessage` with an explicit `# type: ignore[assignment]` comment explaining the narrowing. As written, the `# type: ignore` is absent — a type checker will produce a spurious-looking error that the next engineer might suppress without understanding why. Two lines, one comment, fixes it cleanly.
+
+💬 `src/agents/nodes/generate.py:40` — `state["docs"]` is accessed directly with no guard for an empty list. An empty `docs` list is a valid runtime state (retrieve_node can return zero results if the vector store is empty or the query has no hits). In that case `context` becomes `""`, and the system prompt becomes `"Context:\n"` — the LLM sees a context section with no content and will likely hallucinate or hedge. This is not a correctness failure in `generate_node` itself (the node keeps its contract), but the failure mode is invisible: no error is raised, no log is written, and the caller receives a confident-sounding answer grounded in nothing. A one-line guard — `if not state["docs"]: logger.warning(...)` — would make the empty-context path observable. Advisory because it is a runtime data quality issue rather than a code defect, but worth making visible.
+
+💬 `tests/test_generate_node.py` (multiple test classes) — The import-inside-test pattern (`from agents.nodes.generate import generate_node`) appears in every test method body across all five gates. This has now been flagged in Commits 07, 08, and 09. The pattern is harmless due to Python's module cache, but it has become a recurring style signature. Moving the import to module top is one line of change and would resolve all future occurrences in this file at once.
+
+### What's Good
+
+The node contract is tight and the docstring earns its length. The comment explaining why `question` is not read here ("the current user question is already the last HumanMessage in state['messages']") is precisely the kind of reasoning that prevents a future engineer from adding a redundant `question` read and inadvertently breaking the message-passing contract. It documents a non-obvious choice, not a non-obvious bug.
+
+The `[system_msg] + list(state["messages"])` construction on line 53 is correct in a subtle way that deserves acknowledgement. `state["messages"]` is `Annotated[list[BaseMessage], add_messages]` — the `list()` call defensively copies rather than mutating the state list, and the concatenation produces a new list that passes ownership to the LLM call. No state is mutated. This is exactly right for a node that might be retried.
+
+The test for Gate 5 (`test_default_user_level_novice_when_missing`, line 408) constructs a state dict with `user_level` intentionally omitted, which is the correct way to test the `.get()` default path on a TypedDict — since TypedDict fields are not enforced at runtime, a missing key is the actual failure mode this test is covering. That test would catch a regression where the default was removed.
+
+The `capture_ainvoke` pattern used in Gates 3, 4, and 5 (a plain async function that captures its arguments before returning a synthetic AIMessage) is preferable to `AsyncMock(side_effect=...)` for message-inspection tests — it gives the test author full control over what gets captured without wrestling with Mock's call recording semantics. Clean idiom.
+
+### Verdict
+PASS WITH COMMENTS
 
 ---
 

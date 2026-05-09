@@ -266,4 +266,13 @@
 - **Reason:** `retrieve()` returns only `list[Document]` — there is no path signal in its return value. Altering the signature would cross a domain boundary (`retriever.py` is the pipeline layer; `retrieve_node` is the graph layer). Duplicating the routing condition would create silent drift the moment `retriever.py` changes. CB state inspection is the only approach that leaves `retrieve()` untouched and gives the node accurate source attribution.
 - **Consequences:** The two `is_available()` calls are cheap and idempotent. The pattern handles all three CB states correctly: CLOSED→CLOSED (Chroma ran), OPEN before call (BM25 ran directly), CLOSED→OPEN mid-call (Chroma failed, BM25 fallback activated). This pattern is the established approach for any future node that needs to observe which fallback path ran.
 
-*Last updated: 2026-05-09 — Commit 08 complete (retrieve_node CB inspection decision)*
+### `get_provider()` called per-invocation in `generate_node`, not at module level
+- **Date:** 2026-05-09
+- **Commit:** 09
+- **Decided by:** Nova
+- **Decision:** `generate_node` calls `get_provider().get_llm()` inside the function body on every invocation — not as a module-level singleton.
+- **Alternatives considered:** Module-level `llm = get_provider().get_llm()` resolved at import time.
+- **Reason:** A module-level singleton freezes the provider at import time. If the OpenAI circuit breaker opens after startup, the module-level `llm` would still point to the OpenAI instance. Per-invocation resolution means every LLM call observes the current CB state — the Ollama fallback actually activates when needed.
+- **Consequences:** One extra function-call overhead per generation turn (negligible vs LLM latency). This is the correct pattern for any node that uses a circuit-breaker-guarded provider. All future nodes using `get_provider()` must follow the same pattern.
+
+*Last updated: 2026-05-09 — Commit 09 complete (generate_node per-invocation provider pattern)*

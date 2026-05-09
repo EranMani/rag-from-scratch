@@ -623,3 +623,73 @@ def retrieve_node(state: AgentState) -> dict:
 - `tests/test_retrieve_node.py` — new: 11 tests covering both CB available, both unavailable, available-then-unavailable transitions; empty question handling; return dict shape validation
 
 ---
+
+**Commit 09 — langgraph-generate-node** · 2026-05-09 · Nova · `new feature | architectural`
+
+> **In one sentence:** The second LangGraph node was implemented — `generate_node` applies adaptive prompt engineering by building a context-aware system message at runtime and calling the LLM async, with two non-obvious decisions: per-invocation `get_provider()` to detect callback state changes and async-by-design for streaming readiness without future refactoring.
+
+**Interview talking point:**
+> **Q:** Why do you call `get_provider()` inside the node instead of using a module-level LLM singleton?
+>
+> **A:** The callback opens after startup. A module-level singleton would freeze before that CB state changes. Per-invocation lets every generation turn see the current callback state — if OpenAI is open, Ollama is used as fallback. The cost is one function call per turn. The benefit is the node automatically adapts to infrastructure state changes without requiring a restart or manual refresh.
+
+**What happened and why:**
+- `generate_node` is the second of six LangGraph nodes. It reads `state["docs"]`, `state["messages"]`, and `state["user_level"]`, builds a system message with retrieved context, and calls the LLM with full conversation history.
+- The system message is constructed dynamically at invocation time, incorporating both the retrieved documents and the user's proficiency level. This allows the prompt to adapt per turn without modifying `RAG_PROMPT` or `generate()`.
+- `get_provider().get_llm()` is called inside the node body so the LLM instance reflects the current callback state. If the callback freezes after startup, subsequent turns still see the update and use Ollama fallback.
+- The node uses `await llm.ainvoke()` (async) instead of wrapping `llm.invoke()` in `asyncio.to_thread()`. This is intentional: when `graph.astream_events()` is wired in a later commit, token-level streaming events fire automatically with no changes needed to this node.
+- `add_messages` reducer in the state schema appends new AIMessages rather than replacing the list, so prior conversation history is automatically available to the LLM without manual fetch-and-format.
+
+**Design pattern / architectural principle:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Per-invocation provider lookup | `get_provider()` is called inside the node, not at module level | Detects callback state changes post-startup so the node automatically uses Ollama fallback if OpenAI becomes unavailable |
+| Runtime prompt assembly | System message is built at invocation time with current `user_level` and retrieved docs | Allows prompt adaptation per turn without modifying the underlying generator function or duplicating RAG_PROMPT |
+| Streaming-ready async design | Uses `await llm.ainvoke()` rather than `asyncio.to_thread(llm.invoke())` | When Commit 10 adds `graph.astream_events()`, token-level callbacks fire automatically; no refactoring needed |
+| State reducer for history | `messages` is appended to via `add_messages`, not replaced | Prior conversation is automatically accumulated; the node receives full history without manual joins or fetches |
+
+**Reasoning & discovery:**
+1. The initial design used a module-level LLM singleton. Viktor's review flagged the gap: a module-level instance freezes before the CB can open, so the Ollama fallback would never activate at runtime — per-invocation lookup is the only correct approach.
+2. Async design was chosen because `on_chat_model_stream` token events in LangChain only fire from a true async context. Wrapping `llm.invoke()` in `asyncio.to_thread()` would miss those events entirely, making the node streaming-incompatible without a future rewrite.
+3. The `add_messages` reducer behavior was verified during design: LangGraph appends to the messages list rather than replacing it, so the node receives `state["messages"]` pre-populated with the full conversation. No manual concatenation needed.
+
+**The key change:**
+
+```python
+# src/agents/nodes/generate.py — new file
+
+async def generate_node(state: AgentState) -> dict:
+    """Generate an answer using the LLM with adaptive prompt and full conversation history.
+    
+    The system prompt is built at invocation time to adapt the explanation depth
+    to the user's current proficiency level. History is appended via add_messages
+    reducer and automatically available in state["messages"].
+    """
+    context: str = "\n\n".join(doc.page_content for doc in state["docs"])
+    user_level: str = state.get("user_level", "novice")
+
+    system_msg = SystemMessage(content=(
+        "You are an expert on RAG systems. Answer using ONLY the provided context.\n"
+        f"Adapt your explanation depth to the user's level: {user_level}.\n\n"
+        f"Context:\n{context}"
+    ))
+
+    # Per-invocation provider lookup detects callback state changes.
+    # If OpenAI became unavailable post-startup, ainvoke() gets Ollama fallback.
+    llm = get_provider().get_llm()
+    
+    messages: list[BaseMessage] = [system_msg] + list(state["messages"])
+    response: AIMessage = await llm.ainvoke(messages)
+
+    return {
+        "messages": [response],   # add_messages appends — does not replace
+        "answer": response.content,
+    }
+```
+
+**Files touched:**
+- `src/agents/nodes/generate.py` — new: `generate_node` with runtime system message construction and async LLM invocation
+- `tests/test_generate_node.py` — new: 18 tests covering return shape (answer str, AIMessage in messages, exactly 2 keys), add_messages contract (exactly 1 AIMessage returned), first turn single HumanMessage, second turn full prior conversation forwarded, get_provider() called once per invocation and ainvoke() called not invoke()
+
+---

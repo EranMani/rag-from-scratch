@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-09 (Commit 08 — retrieve_node)
+> Last updated: 2026-05-09 (Commit 09 — generate_node)
 
 ---
 
