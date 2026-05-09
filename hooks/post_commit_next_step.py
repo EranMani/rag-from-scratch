@@ -68,7 +68,7 @@ def parse_commit_index(protocol_text: str) -> list[dict]:
     commits = []
     # Match table rows like: | 01 | name | Assignee | status |
     row_pattern = re.compile(
-        r"\|\s*(\d{1,2})\s*\|\s*`?([^|`]+?)`?\s*\|\s*(\w+)\s*\|\s*([^|]+?)\s*\|"
+        r"\|\s*(\d{1,2})\s*\|\s*`?([^|`]+?)`?\s*\|\s*([\w][\w\s\+\-]*?)\s*\|\s*([^|]+?)\s*\|"
     )
     for line in protocol_text.splitlines():
         m = row_pattern.match(line.strip())
