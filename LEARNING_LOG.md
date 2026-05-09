@@ -113,7 +113,7 @@ apply, omit them when they don't. Depth scales with complexity.
 **What happened and why:**
 - The `/ingest` endpoint accepted unauthenticated uploads, meaning anyone could push documents into the vector database and corrupt the knowledge base the RAG pipeline draws from.
 - FastAPI's `get_current_user` dependency was injected to reject any request without a valid JWT; the mandatory variant was chosen because there is no anonymous ingest use case.
-- `file.filename` was being used directly to build the upload path — an authenticated user could send `filename = "../../src/app/core/config.py"` and overwrite arbitrary server files; two-layer path confinement (`Path.name` + `is_relative_to`) closes this.
+- Using `file.filename` directly allowed path traversal — a crafted filename could overwrite arbitrary server files. Two-layer confinement (`Path.name` + `is_relative_to`) closes this.
 - `get_current_user` was a synchronous SQLite query running on the async event loop, blocking all concurrent requests for its duration; it was converted to `async def` with `asyncio.to_thread`.
 - A file extension guard (`.txt` and `.md` only) was added to reject unexpected input before any I/O runs, keeping the expensive path behind the cheap check.
 
@@ -126,9 +126,9 @@ apply, omit them when they don't. Depth scales with complexity.
 | Defense in depth | Path confinement uses two independent checks: `Path(filename).name` strips directory components; `is_relative_to` catches anything that slips through | Either check alone handles most inputs; together they cover symlinks and OS-specific edge cases that a single check would miss |
 
 **Reasoning & discovery:**
-1. The initial framing was simply "add auth to ingest" — the codebase already had two auth dependencies (`get_current_user` mandatory, `current_user_optional` nullable) and the question was which to use; because every document entering the system should be traceable to a user, the mandatory form was the obvious choice.
-2. The path traversal vulnerability was not in the initial implementation — it was caught independently by both Viktor and Sage during the quality gate pass; optional auth was ruled out because it would have required a manual `if current_user is None: raise` check inside the handler, re-implementing what the mandatory dependency already provides.
-3. Sage's observation that a synchronous SQLite query on the event loop blocks all concurrent requests for its duration clinched the async fix; the `async def` + `asyncio.to_thread` pattern was already established in `chat.py`, so extending it to the auth layer made `documents.py` consistent with the rest of the codebase.
+1. The codebase had two auth dependencies — `get_current_user` (mandatory) and `current_user_optional` (nullable) — and the question was which to use. Since every ingest document must be traceable to a user, the mandatory form was the obvious choice.
+2. Path traversal was not in the initial scope — Viktor and Sage both flagged it independently during the gate pass. Optional auth was ruled out: it would have required manually re-implementing what the mandatory dependency already provides.
+3. Sage flagged that a synchronous SQLite query blocks all concurrent requests for its duration — that clinched the async fix. The `asyncio.to_thread` pattern was already in `chat.py`, so extending it to `deps.py` kept the codebase consistent.
 
 **The key change:**
 
@@ -193,7 +193,7 @@ async def ingest(
 - `generate()` in `generator.py` had no awareness of session state; every LLM call was stateless, so multi-turn conversations received answers with no memory of prior exchanges.
 - A `{history}` slot was added to `RAG_PROMPT` and a `conversation_history: str = ""` parameter was added to `generate()`, defaulting to empty so all existing callers remain compatible without any changes.
 - History is fetched as STEP 2b in `chain.py`, after `retrieve()` returns and before the LLM cache check — this is the load-bearing ordering decision: retrieval stays query-pure, history is visible only to the generation step.
-- A known gap was surfaced and accepted: the LLM response cache key is `question + docs[:100]` and does not include conversation history, so a cache hit can return a stale answer that ignores the current session's context; the same issue exists on the query-level cache.
+- A known gap was accepted: the LLM cache key (`question + docs[:100]`) excludes conversation history, so a cache hit can return a stale answer ignoring the current session. The same gap exists on the query-level cache.
 - The ordering and the cache gap are both documented in an inline comment at `chain.py` lines 54–57 and in DECISIONS.md, so future engineers don't "fix" a non-bug or inherit the gap silently.
 
 **Pipeline flow:**
@@ -409,7 +409,7 @@ def _connect():
 
 **Reasoning & discovery:**
 1. The initial framing was simple — add a GET route that returns the calling user's profile. The question was how to get `user_id` into the route safely: reading it from a query parameter would require validating that the caller isn't requesting someone else's profile; reading it from the JWT via `get_current_user` makes that validation structural.
-2. `get_or_create_profile` was considered for the registration handler — it is the safer choice in general because it handles races — but registration is not a general case. If a profile row exists at registration time, the system has diverged from its intended state; the `IntegrityError` path in `create_profile` (absorbed only for concurrent duplicates, propagated as 500 for everything else) surfaces that divergence rather than silently correcting it.
+2. `get_or_create_profile` was considered but ruled out — registration is not a general case where silent race-handling is appropriate. If a profile row already exists at registration, that is a data integrity problem; `create_profile` surfaces it as an error rather than silently swallowing it.
 3. The static 404 detail was the last decision: the first draft included `user_id` in the detail string for debuggability. The CWE-209 implication — that a 404 response confirming a valid internal ID is an information exposure — moved the ID to the server-side log and replaced the detail with a static support message.
 
 **The key change:**
