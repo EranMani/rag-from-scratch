@@ -10,12 +10,19 @@ Runs after every successful `git commit`. Does three things:
 This script is what keeps project-state.json accurate without manual updates.
 """
 
+import io
 import json
 import re
 import subprocess
 import sys
 from datetime import date
 from pathlib import Path
+
+# Ensure stdout/stderr use UTF-8 on Windows (emoji in print statements).
+if hasattr(sys.stdout, "buffer"):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "buffer"):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 ROOT = Path(subprocess.check_output(
@@ -95,7 +102,7 @@ def load_or_init_state() -> dict:
     """Load project-state.json or return a minimal default structure."""
     if STATE_FILE.exists():
         try:
-            return json.loads(STATE_FILE.read_text())
+            return json.loads(STATE_FILE.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             pass
 
@@ -128,13 +135,13 @@ def main() -> int:
 
     # ── Step 1: Update commit-protocol.md ────────────────────────────────────
     if PROTOCOL_FILE.exists():
-        protocol_text = PROTOCOL_FILE.read_text()
+        protocol_text = PROTOCOL_FILE.read_text(encoding="utf-8")
         commits = parse_commit_index(protocol_text)
 
         if commit_number:
             updated_protocol = update_protocol_status(protocol_text, commit_number, today)
             if updated_protocol != protocol_text:
-                PROTOCOL_FILE.write_text(updated_protocol)
+                PROTOCOL_FILE.write_text(updated_protocol, encoding="utf-8")
                 print(f"📋 commit-protocol.md: Commit {commit_number} marked ✅ done · {today}")
             else:
                 print(f"⚠️  commit-protocol.md: Could not find 'pending' row for commit {commit_number}. Update manually.")
@@ -170,7 +177,7 @@ def main() -> int:
     else:
         next_commit = None
 
-    STATE_FILE.write_text(json.dumps(state, indent=2))
+    STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
     print(f"💾 project-state.json updated: {len(state['commits_done'])} done, "
           f"{len(state['commits_pending'])} pending")
 
