@@ -19,16 +19,34 @@ events as the LLM generates each token. `chat.py` returns a `StreamingResponse`
 (SSE, `text/event-stream`) so the frontend receives tokens in real time.
 
 **Graph compilation:**
-```python
-from langgraph.checkpoint.memory import MemorySaver
 
-checkpointer = MemorySaver()
-app = graph.compile(checkpointer=checkpointer)
+`graph.py` exposes a factory function — it does not create a module-level singleton:
+```python
+# src/agents/graph.py
+from langgraph.checkpoint.base import BaseCheckpointSaver
+
+def build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph:
+    ...
+    return graph.compile(checkpointer=checkpointer)
 ```
 
+The checkpointer is instantiated in the server lifespan alongside every other service
+(`init_user_db`, `init_profile_db`, `set_bm25_fallback`). Lifespan is the single place
+where all service dependencies are visible:
+```python
+# src/app/main.py lifespan
+from langgraph.checkpoint.memory import MemorySaver
+from agents.graph import build_graph
+
+checkpointer = MemorySaver()
+app.state.rag_graph = build_graph(checkpointer)
+```
+
+`chat.py` accesses the graph via `request.app.state.rag_graph` — no module-level import.
+
 `MemorySaver` is in-process and sufficient for portfolio/single-instance deployments.
-For multi-instance production, swap to `SqliteSaver` (persists across restarts) or
-`PostgresSaver` — the call site in `chain.py` is the only change needed.
+To swap to `SqliteSaver` (persists across restarts) or `PostgresSaver` (multi-instance),
+change one line in `lifespan` — nothing else.
 
 **Streaming SSE in `chat.py`:**
 ```python
@@ -36,8 +54,9 @@ from fastapi.responses import StreamingResponse
 import json
 
 @router.post("/chat")
-async def chat(request: ChatRequest, current_user = Depends(current_user_optional)):
-    session_id = request.session_id or str(uuid.uuid4())
+async def chat(req: ChatRequest, request: Request, current_user = Depends(current_user_optional)):
+    rag_graph = request.app.state.rag_graph
+    session_id = req.session_id or str(uuid.uuid4())
     user_id = current_user.id if current_user else None
     user_level = await asyncio.to_thread(get_user_level, user_id)
 
@@ -60,7 +79,7 @@ async def chat(request: ChatRequest, current_user = Depends(current_user_optiona
 
     async def generate_stream():
         final_state = {}
-        async for event in app.astream_events(initial_state, config=config, version="v2"):
+        async for event in rag_graph.astream_events(initial_state, config=config, version="v2"):
             if event["event"] == "on_chat_model_stream":
                 chunk = event["data"]["chunk"]
                 if chunk.content:
