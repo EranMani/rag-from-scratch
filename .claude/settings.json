@@ -18,6 +18,15 @@
             "command": "python hooks/tool_cap_enforce.py"
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/tool_cap_start.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -27,6 +36,15 @@
           {
             "type": "command",
             "command": "python hooks/post_commit_next_step.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/tool_cap_end.py"
           }
         ]
       }

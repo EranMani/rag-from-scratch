@@ -591,19 +591,13 @@ STEP 3.5 — Claude presents the Commit Preview to the Team Lead
 STEP 4 — Claude invokes the owning agent
 └── Passes the context package. Agent does the work.
 
-    TOOL CAP PROTOCOL (mandatory — do this every time):
-    Before calling Agent():
-      Write hooks/tool_cap.json → {"active": true, "agent": "<name>", "count": 0, "limit": 25}
-    After Agent() returns:
-      Write hooks/tool_cap.json → {"active": false, "agent": null, "count": 0, "limit": 25}
+    TOOL CAP — fully automatic, no orchestrator action required:
+    PreToolUse:Agent  → tool_cap_start.py sets active=true, resets count to 0
+    PostToolUse:Agent → tool_cap_end.py  sets active=false, resets count to 0
+    PreToolUse:*      → tool_cap_enforce.py counts each tool call; hard-blocks at call #26
 
-    hooks/tool_cap_enforce.py (PreToolUse hook) counts every tool call while active=true
-    and hard-blocks the agent at call #26 with exit code 2. The agent cannot bypass this —
-    it fires at the runtime level before the tool executes.
-
-    If you skip the before-Write: no enforcement (cap not active).
-    If you skip the after-Write: orchestrator's own tool calls get counted on the next step.
-    Neither is catastrophic, but both are sloppy. Do both writes, every time.
+    The cap activates and deactivates automatically on every Agent() invocation.
+    The orchestrator does not need to write tool_cap.json manually.
 
 STEP 5 — Agent executes and writes worklog continuously
 └── Task brief at start. Decisions as made. Issues as found. Not reconstructed at end.
