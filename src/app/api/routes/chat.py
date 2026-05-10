@@ -9,7 +9,8 @@ all requests within a single application lifetime.
 
 SSE event schema:
   {"type": "token",  "content": "<partial text>"}   — one per LLM token
-  {"type": "done",   "user_level": "<level>",
+  {"type": "done",   "answer": "<text>",
+                     "user_level": "<level>",
                      "assessed_topics": {}}           — final event
 """
 
@@ -27,8 +28,10 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
 from app.auth.deps import security
+from app.core.logging_config import logger
 from app.core.config import settings
 from app.profile.db import get_profile_by_user_id
+from rag.chain import ChatResponse, build_chat_response
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -88,7 +91,14 @@ def get_user_level(
     level = profile.get("mastery_level", "novice")
     # Guard: coerce any unexpected DB value to the Literal set.
     valid: set[str] = {"novice", "beginner", "intermediate", "advanced", "expert"}
-    return level if level in valid else "novice"  # type: ignore[return-value]
+    if level not in valid:
+        logger.warning(
+            "get_user_level: unexpected mastery_level %r for user_id=%r — coercing to novice",
+            level,
+            user_id,
+        )
+        return "novice"  # type: ignore[return-value]
+    return level  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -158,8 +168,9 @@ async def chat(
             elif event["event"] == "on_chain_end" and event.get("name") == "LangGraph":
                 final_state = event["data"].get("output", {})
 
+        chat_response: ChatResponse = build_chat_response(final_state)
         yield (
-            f"data: {json.dumps({'type': 'done', 'user_level': final_state.get('user_level', 'novice'), 'assessed_topics': final_state.get('topic_scores_delta', {})})}\n\n"
+            f"data: {json.dumps({'type': 'done', **chat_response.model_dump()})}\n\n"
         )
 
     return StreamingResponse(generate_stream(), media_type="text/event-stream")

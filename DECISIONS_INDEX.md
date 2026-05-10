@@ -57,6 +57,12 @@
 44. **DEFAULT_PROMPT separate from PROMPT_TEMPLATES dict** — enables `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)`; prevents `None` key in dict; makes fallback intent explicit at every call site
 45. **Single `{context}` variable per template** — question is already in `state["messages"]` as HumanMessage; double injection would confuse model priority; only retrieved context needs injection
 
+## Adaptive Graph Integration (C18)
+46. **Null-byte separator in query cache key** — `f"{question}\x00{user_level}"` before SHA-256; naive concatenation (`question + user_level`) is not injective and allows cross-level cache collisions
+47. **ChatResponse typed schema over hand-constructed dict** — single source of truth for SSE `done` wire format; Pydantic enforces types; field renames cause compile-time errors not silent wire breaks
+48. **`user_level: str | None = None` with `None` = "assessment unavailable"** — not a level value; UI must treat null as "assessment did not run"; falsy-as-novice would mask assessment failures
+49. **Three wiring changes bundled atomically in C18** — shared invariant: once `user_level` is in `AgentState`, prompt selection, cache key, and response schema must all update together; splitting would create a window of cross-level cache correctness bug
+
 ## Scoring Service Patterns (C14)
 40. **Invalid slug filter by value type, not allowlist** — allowlist couples scoring to curriculum; value-type check (`isinstance(score, (int, float))`) is the correct scoring invariant; unknown-but-numeric slugs stored; enforcement belongs at Nova's assess_node boundary
 41. **Silent score clamping to [0.0, 1.0]** — defensive last-writeable boundary before profile persistence; LLM may produce out-of-range values; no log on clamp (add later if monitoring needed)

@@ -195,6 +195,42 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 18 — `adaptive-graph-integration` · 2026-05-10 · Nova
+
+> Gate wave: Viktor + Sage + Quinn + Mira (all 4 — cross-domain writes + API route + external cache).
+> Two gate-fix cycles ran. Viktor ran 3 passes (pass 1 blocked; pass 2 read wrong worktree; pass 3 correct).
+> Ryan: full entry (ARCHITECTURE.md + DECISIONS.md + GLOSSARY.md updated).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target |
+|---|---|---|---|---|
+| Nova (implementation pass 1) | Sonnet | 44,148 | 26 | ✅ under ≤60k (marginal); 1 over 25 cap |
+| Nova (implementation pass 2 — worktree) | Sonnet | 38,585 | 23 | waste: worktree isolated from main |
+| Viktor (pass 1 — BLOCKED: cache collision) | Sonnet | 53,569 | 23 | **+39k** over ≤15k |
+| Sage (pass 1) | Sonnet | 37,665 | 16 | **+23k** over ≤15k |
+| Quinn (pass 1) | Sonnet | 38,746 | 11 | **+24k** over ≤15k |
+| Mira (pass 1) | Sonnet | 23,872 | 7 | **+9k** over ≤15k |
+| Nova (gate-fix) | Sonnet | 39,073 | 26 | 1 over 25 cap; tool cap hit, no test run |
+| Viktor (pass 2 — wrong dir, discarded) | Sonnet | 44,355 | 15 | waste: read worktree not main |
+| Sage (pass 2 — PASS) | Sonnet | 36,552 | 12 | **+22k** over ≤15k |
+| Quinn (pass 2 — ADEQUATE) | Sonnet | 41,478 | 8 | **+26k** over ≤15k |
+| Mira (pass 2) | Sonnet | 23,959 | 8 | **+9k** over ≤15k |
+| Viktor (pass 3 — PASS WITH COMMENTS) | Sonnet | 33,914 | 11 | **+19k** over ≤15k |
+| Ryan | Haiku | TBD | TBD | TBD |
+| **Total (excl. Ryan)** | | **455,916** | **186** | **well over** — gate cycle + worktree confusion |
+
+**Root causes:**
+- Viktor read the wrong directory on pass 2 (worktree at `b263889` vs. main at `4d650e2`) — 44k wasted; worktree isolation caused false BLOCKED verdict
+- Two full gate wave runs required (pass 1: genuine block; pass 2: worktree confusion artifact)
+- All reviewers on Sonnet (not Haiku) — per model-tiering rules, reviewers should use Haiku; oversight cost ~3× per reviewer
+- Nova hit tool cap twice without running tests; orchestrator had to verify files and run tests manually
+
+**What to fix:**
+- Explicitly direct Viktor (and all gate reviewers) to read from `D:\AI\_My_Projects\rag-from-scratch\src\` not from worktrees
+- Gate reviewers should be Haiku unless complexity warrants Sonnet
+- Add test run as required final step in Nova gate-fix brief; treat "tool cap reached without test run" as a incomplete delivery requiring orchestrator follow-up
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -207,6 +243,7 @@ No token data recorded. Tracking began at Commit 10.
 | 14 | topic-scoring-service | 71,923 | none | **✅ under** | Execution Constraints working |
 | 15 | profile-update-node | TBD | Viktor + Quinn (Haiku) | target ≤90k | first gate wave at new cadence |
 | 17 | adaptive-prompt-templates | 123,531 | none | over ≤75k | Ryan full-entry cost; Nova marginal over |
+| 18 | adaptive-graph-integration | ~456k (excl. Ryan) | all 4 (Sonnet) | **well over** | worktree confusion + 2 gate cycles + reviewers on Sonnet not Haiku |
 
 ---
 

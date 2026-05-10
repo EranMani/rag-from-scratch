@@ -363,6 +363,39 @@ class TestGate5GetProviderUsed:
         mock_provider.get_llm.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_unknown_user_level_falls_back_to_default_prompt(self) -> None:
+        """generate_node with an unrecognised user_level completes without raising
+        and uses DEFAULT_PROMPT framing (contains 'Answer using ONLY the provided context')."""
+        state = _make_state(
+            [HumanMessage("What is RAG?")],
+            user_level="not_a_real_level",
+        )
+
+        captured_messages: list = []
+
+        async def capture_ainvoke(messages: list) -> AIMessage:
+            captured_messages.extend(messages)
+            return AIMessage(content="Fallback answer.")
+
+        mock_llm = MagicMock()
+        mock_llm.ainvoke = capture_ainvoke
+        mock_provider = MagicMock()
+        mock_provider.get_llm.return_value = mock_llm
+
+        with patch("agents.nodes.generate.get_provider", return_value=mock_provider):
+            from agents.nodes.generate import generate_node
+            result = await generate_node(state)  # must not raise
+
+        from langchain_core.messages import SystemMessage
+        assert isinstance(captured_messages[0], SystemMessage), (
+            "First message passed to LLM must be a SystemMessage"
+        )
+        assert "Answer using ONLY the provided context" in captured_messages[0].content, (
+            "DEFAULT_PROMPT content must appear when user_level is unrecognised"
+        )
+        assert result["answer"] == "Fallback answer."
+
+    @pytest.mark.asyncio
     async def test_ainvoke_called_on_llm(self) -> None:
         """The async ainvoke() method is called on the LLM — not invoke()."""
         state = _make_state([HumanMessage("Async question.")])
@@ -441,5 +474,5 @@ class TestGate5GetProviderUsed:
 
         from langchain_core.messages import SystemMessage
         assert isinstance(captured_messages[0], SystemMessage)
-        assert "novice" in captured_messages[0].content
+        assert "complete beginner" in captured_messages[0].content
         assert result["answer"] == "Answer."

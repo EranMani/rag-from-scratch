@@ -45,8 +45,8 @@ class RAGRedisCache:
             logger.warning("Redis SET failed", extra={"key": key, "error": str(e)})
 
     # -- Query cache ---------------
-    def get_query(self, question: str) -> Optional[str]:
-        key = _make_key("query", question)
+    def get_query(self, question: str, user_level: str = "novice") -> Optional[str]:
+        key = _make_key("query", f"{question}\x00{user_level}")
         value = self._safe_get(key)
         if value:
             CACHE_HITS.labels(layer="query").inc()
@@ -55,8 +55,8 @@ class RAGRedisCache:
             CACHE_MISSES.labels(layer="query").inc()
         return value
 
-    def set_query(self, question: str, answer: str) -> None:
-        key = _make_key("query", question)
+    def set_query(self, question: str, answer: str, user_level: str = "novice") -> None:
+        key = _make_key("query", f"{question}\x00{user_level}")
         self._safe_set(key, answer, settings.cache_ttl_query)
 
     # -- Embedding cache -----------

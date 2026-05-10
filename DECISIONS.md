@@ -386,4 +386,31 @@
 - **Reason:** An anonymous user can never have a profile to fetch. Checking `assessment_error` first would require `user_id` to be present before skipping — for anonymous users, a DB lookup attempt would be made with `user_id=None` before the error flag is checked. Ordering `user_id` first eliminates any DB round-trip for anonymous users under all conditions.
 - **Consequences:** Tests must verify `get_profile_by_user_id` is never called when `user_id=None`, regardless of other state fields. The fast-exit pattern is standard for all future node implementations where user identity is a precondition.
 
-*Last updated: 2026-05-10 — Commit 15 complete (profile update node; scoring-derived gaps; fast-exit ordering)*
+### Null-byte separator in query cache key (`f"{question}\x00{user_level}"`) (Commit 18)
+- **Date:** 2026-05-10
+- **Commit:** 18
+- **Decided by:** Viktor (flagged) + Sage (confirmed) + Nova (applied)
+- **Decision:** The composite cache key for `get_query`/`set_query` is `SHA-256(f"{question}\x00{user_level}")`, not `SHA-256(question + user_level)`.
+- **Alternatives considered:** JSON serialization (`json.dumps([question, user_level])`); length-prefix encoding; naive concatenation.
+- **Reason:** Naive string concatenation is not injective: `("foobar", "expert")` and `("foo", "barexpert")` produce identical pre-hash input and therefore identical cache keys. A cross-level cache collision causes a novice user to receive an expert-framed cached answer (or vice versa) — a silent correctness failure. The null byte `\x00` cannot appear in UTF-8 question text or the valid level strings (`novice`, `beginner`, `intermediate`, `advanced`, `expert`), making the separator a reliable field delimiter. The fix is simpler than JSON serialization and produces an unambiguous two-field composite key.
+- **Consequences:** Cache keys for the same question at different mastery levels are guaranteed distinct. Test `test_ambiguous_inputs_do_not_collide` in `tests/test_cache.py` verifies the specific collision pair that motivated the fix. Any future composite key in this codebase should use a null-byte separator or equivalent non-ambiguous encoding — not raw concatenation.
+
+### `ChatResponse` as a typed Pydantic schema for the SSE `done` event (Commit 18)
+- **Date:** 2026-05-10
+- **Commit:** 18
+- **Decided by:** Nova (applied) + Viktor (gate recommendation)
+- **Decision:** The SSE `done` event is serialized from `ChatResponse(BaseModel)` via `.model_dump()`. `ChatResponse` is the single source of truth for the wire format: `answer: str`, `user_level: str | None`, `assessed_topics: dict[str, float]`.
+- **Alternatives considered:** Continuing to hand-construct the `done` dict inline in `chat.py` (`{"type": "done", "user_level": ..., "assessed_topics": ...}`).
+- **Reason:** A hand-constructed dict has no type enforcement. If `AgentState` renames `topic_scores_delta`, the inline dict construction silently breaks the wire format — no static error, no test failure unless the consumer notices. A Pydantic model at this boundary means field renames or type changes produce an error at the `build_chat_response(state)` call site, not in the client. The model also serves as the living documentation of the `done` event schema — the docstring and field types are authoritative.
+- **Consequences:** All SSE consumers must use `ChatResponse` field names (`answer`, `user_level`, `assessed_topics`). Adding or removing fields from the `done` event requires changing `ChatResponse` — this is intentional, as it forces a conscious decision about wire-format stability. Commit 19 (Aria) consumes these fields directly.
+
+### `user_level: str | None` in `ChatResponse` — `None` means "assessment unavailable" (Commit 18)
+- **Date:** 2026-05-10
+- **Commit:** 18
+- **Decided by:** Nova (applied) + Viktor (advisory) + Mira (confirmed)
+- **Decision:** `ChatResponse.user_level` defaults to `None`, not `"novice"`. `None` carries a specific meaning: assessment did not run (e.g., `assess_node` errored and `assessment_error=True`). The UI (Commit 19) must treat `None` as "assessment unavailable" — not as a fallback level.
+- **Alternatives considered:** Defaulting to `"novice"` to match the `get_user_level()` fallback in `chat.py`.
+- **Reason:** Using `"novice"` would conflate two distinct states: "user is a novice" and "assessment failed." A UI panel that shows the mastery level must be able to display "unknown" or "—" when assessment didn't run — which requires `None` to be distinguishable from any real level. Collapsing both states to `"novice"` would mislead users whose assessment failed into thinking they have a confirmed novice profile.
+- **Consequences:** Any SSE consumer must handle `user_level: null` explicitly. Commit 19 spec must define the null display state before Aria starts. The inline docstring on `ChatResponse.user_level` carries this contract for future maintainers.
+
+*Last updated: 2026-05-10 — Commit 18 complete (adaptive graph integration; cache key collision fix; typed SSE schema)*

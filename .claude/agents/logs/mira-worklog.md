@@ -5,14 +5,14 @@
 ---
 
 ## Current State
-*Last updated: Commit 03 review · 2026-05-09*
+*Last updated: Commit 18 second-pass review · 2026-05-10*
 
-**Last completed:** Commit 03 `wire-conversation-history` — product review
+**Last completed:** Commit 18 `adaptive-graph-integration` — second-pass product review
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
-- none
+- Commit 19 spec should clarify: (1) `assessed_topics` values are score-deltas, not absolute scores — UI must not render them as mastery percentages; (2) `answer` field duplication in `done` event needs explicit de-duplication contract; (3) mid-session cache seam on level upgrade needs a defined behavior (stale vs. flush).
 
 **Open Handoffs — Inbound:**
 - none

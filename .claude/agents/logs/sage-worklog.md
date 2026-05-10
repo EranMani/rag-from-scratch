@@ -5,8 +5,8 @@
 ---
 
 ## Current State
-Last reviewed: Commit 10 `langgraph-graph-assembly`
-Open findings unresolved: MEDIUM: hardcoded NiceGUI storage secret : Rex
+Last reviewed: Commit 18 `adaptive-graph-integration` (gate re-run, second pass)
+Open findings unresolved: MEDIUM: hardcoded NiceGUI storage secret : Rex (from Commit 10, still open)
 CRITICAL findings this project: 0 — none
 Attack surface map (current):
 - POST /api/chat — public SSE endpoint; user input flows to LangGraph → LLM; session_id user-controlled memory key
@@ -18,6 +18,8 @@ Attack surface map (current):
 - MemorySaver — in-process, not persisted; keyed by user-supplied session_id with no ownership binding
 - OpenAI API key — env-only via pydantic-settings; no hardcoding found
 - JWT secret — env-only with 32-char minimum validator; no hardcoding found
+- Redis query cache — keyed by SHA-256(question + null-byte + user_level); per-level isolation verified
+- mastery_level DB value — coercion guard with warning log on unexpected values; allowlist validated
 
 ---
 

@@ -61,6 +61,12 @@
 **Used in:** `src/agents/state.py`, `src/agents/nodes/assess.py`
 **Introduced in:** Commit 07 (schema), Commit 13 (implementation)
 
+### ChatResponse
+**Meaning on this project:** A Pydantic model in `src/rag/chain.py` that defines the typed schema for the SSE `done` event payload. Fields: `answer: str` (full generated text), `user_level: str | None` (`None` means assessment did not run — not a mastery level), `assessed_topics: dict[str, float]` (topic slug → per-turn score delta). Built by `build_chat_response(state)` from the final `AgentState` after the graph run completes.
+**Distinct from:** `AssessmentOutput` (which is raw LLM output during `assess_node`); `TopicScoreUpdate` (which is the merged absolute-score result after scoring).
+**Used in:** `src/rag/chain.py`, `src/app/api/routes/chat.py`
+**Introduced in:** Commit 18
+
 ### Module Slug
 **Meaning on this project:** A snake_case identifier for a knowledge base module, used as keys in `topic_scores`. The canonical set:
 - `rag_fundamentals` — Module 1: Information Retrieval

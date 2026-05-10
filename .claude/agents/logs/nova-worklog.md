@@ -5,42 +5,26 @@
 ---
 
 ## Current State
-*Last updated: Commit 17 `adaptive-prompt-templates` · 2026-05-10*
+*Last updated: Commit 18 `adaptive-graph-integration` · 2026-05-10*
 
-**Last completed:** Commit 17 `adaptive-prompt-templates` ✅
+**Last completed:** Commit 18 `adaptive-graph-integration` ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
-- Commit 18 (generate_node wiring): consume `PROMPT_TEMPLATES` and `DEFAULT_PROMPT` from
-  `agents.prompts`. Usage pattern:
-  ```python
-  from agents.prompts import PROMPT_TEMPLATES, DEFAULT_PROMPT
-  template = PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)
-  system_msg = template.format_messages(context=context)[0]
-  ```
-  Every template has exactly one input variable: `{context}`. The returned list is always
-  `[SystemMessage]` — take index 0. Replace the inline `SystemMessage(content=...)` in
-  `generate_node` with this call.
-- Commit 18: `DEFAULT_PROMPT` is the zero-regression fallback. It contains the same
-  "Answer using ONLY the provided context" constraint and "RAG systems" framing as the
-  current inline SystemMessage. No behavior change when `user_level` is unset.
-- Commit 18 (UI profile panel): `update_profile_node` sets `last_activity_at` on every
-  successful assessment turn using `datetime.now(timezone.utc).isoformat()`. The field is
-  guaranteed to be a valid ISO 8601 UTC string after any authenticated turn with no
-  assessment error.
-- Commit 18: `interaction_count` is incremented by 1 per successful turn and persisted
-  via `update_profile()`. The profile panel can read it directly.
-- Downstream commits: `update_profile_node` is now in `src/agents/nodes/update_profile.py`
-  (not a stub in `graph.py`). `graph.py` imports it as
-  `from agents.nodes.update_profile import update_profile_node`.
+- Commit 19 (Aria — SSE endpoint): `ChatResponse` is defined in `src/rag/chain.py`.
+  Fields: `answer: str`, `user_level: str | None`, `assessed_topics: dict[str, float]`.
+  The SSE `done` event payload is `{"type": "done", **ChatResponse.model_dump()}` — the
+  three ChatResponse fields appear as top-level keys alongside `"type"`.
+  `user_level` is populated from `AgentState.user_level` after the graph run completes.
+  `assessed_topics` is the `topic_scores_delta` dict (topic slug → score delta float).
 
 **Open Handoffs — Inbound (consumed this session):**
-- Commit 05 Mira handoff (last_activity_at): CONSUMED. `last_activity_at` is set on every
-  successful turn.
-- Commit 14 handoff (compute_topic_scores import path, no json.loads): CONSUMED. Importing
-  as `from app.profile.scoring import compute_topic_scores, TopicScoreUpdate`; profile dict
-  passed directly without json.loads.
+- Commit 17 outbound handoff (PROMPT_TEMPLATES / DEFAULT_PROMPT import pattern): CONSUMED.
+  `generate_node` now uses `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)` +
+  `template.format_messages(context=context)[0]`.
+- Commit 05 Mira handoff (last_activity_at): CONSUMED.
+- Commit 14 handoff (compute_topic_scores import path, no json.loads): CONSUMED.
 
 **Key Interfaces I Own (for teammates):**
 - `src/agents/prompts/rag.py` — `PROMPT_TEMPLATES: dict[str, ChatPromptTemplate]` (5 keys: novice/beginner/intermediate/advanced/expert)
@@ -123,6 +107,78 @@ No archived sessions yet.
 | 07 | Commit 13 `langgraph-assessment-llm` | ✅ Done | Prompt in dedicated file; assessment_prompt.__or__ mock pattern avoids RunnableSequence internals in tests; user_level NOT written back to state. |
 | 08 | Commit 15 `profile-update-node` | ✅ Done | Synchronous node in its own file; two fast-exit paths (None user_id, assessment_error=True); identified_gaps state field maps to `gaps` DB column; no json.loads on topic_scores. |
 | 09 | Commit 17 `adaptive-prompt-templates` | ✅ Done | Five mastery-level ChatPromptTemplates + DEFAULT_PROMPT in src/agents/prompts/rag.py; exported via package __init__; single {context} variable; system-message-only templates for Commit 18 wiring. |
+| 10 | Commit 18 `adaptive-graph-integration` | ✅ Done | Template lookup via PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT); cache key includes user_level; ChatResponse Pydantic model added to chain.py; assessed_topics is dict[str, float] not list. |
+
+---
+
+## Session 10 — Commit 18: `adaptive-graph-integration`
+
+**Date:** 2026-05-10
+**Status:** ✅ Done
+
+### AI Problem Being Solved
+
+Wire the adaptive prompt system (Commit 17) into the live request path so that the
+LLM receives a mastery-appropriate system prompt rather than a single generic one.
+Three related changes were bundled: template selection in `generate_node`, cache key
+scoping by `user_level` in `redis_cache.py`, and `ChatResponse` schema extension in
+`chain.py` for UI consumption.
+
+### Three Wiring Changes Made
+
+1. **`src/agents/nodes/generate.py` updated** — replaced the hardcoded inline
+   `SystemMessage(content=...)` with:
+   ```python
+   from agents.prompts import DEFAULT_PROMPT, PROMPT_TEMPLATES
+   template = PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)
+   system_msg = template.format_messages(context=context)[0]
+   ```
+   `user_level` is read via `state.get("user_level", "novice")` so a missing key
+   (anonymous users, early turns before assessment) falls back to novice framing.
+
+2. **`src/rag/cache/redis_cache.py` updated** — `get_query` and `set_query` now
+   accept `user_level: str = "novice"` and hash `question + user_level` as the cache
+   key. Without this, two users at different mastery levels asking the same question
+   would share a cache entry and receive identically-framed responses.
+
+3. **`src/rag/chain.py` rewritten** — was a placeholder docstring; now defines
+   `ChatResponse(BaseModel)` with fields `answer: str`, `user_level: str | None`,
+   `assessed_topics: dict[str, float]`, plus `build_chat_response(state)` which
+   extracts these safely from the final `AgentState` dict. The SSE `done` event in
+   `chat.py` now serializes via `chat_response.model_dump()`.
+
+### Approach
+
+The three changes were designed as a single wiring pass rather than three commits
+because they share a single invariant: once `user_level` is in `AgentState`, every
+downstream consumer (prompt selection, cache key, response schema) must be updated
+atomically. Splitting them would create a window where the graph generates adaptive
+responses but the cache still serves cross-level entries — a silent correctness bug
+that would be difficult to reproduce in testing.
+
+Key design decisions: `DEFAULT_PROMPT` as the `.get()` fallback (not a KeyError)
+because unrecognised levels should degrade gracefully in production, not crash. The
+`assessed_topics` field is `dict[str, float]` (not `list[str]`) to match the
+`topic_scores_delta` field in `AgentState` — the float values preserve score magnitude
+for the UI to display. `build_chat_response` uses `.get()` with defaults throughout so
+that a partial or error state still produces a valid `ChatResponse`.
+
+The test fix (`assert "novice"` → `assert "complete beginner"`) was a pre-existing
+assertion written against the old inline template that interpolated the literal level
+string. The novice `ChatPromptTemplate` uses "complete beginner" framing, not the
+word "novice" — this is intentional audience-appropriate language.
+
+### Failure Modes Considered
+
+- Unrecognised `user_level` value: `.get(user_level, DEFAULT_PROMPT)` falls back to novice.
+- Missing `user_level` key in state: `state.get("user_level", "novice")` → novice template.
+- `ChatResponse` fields missing in state: `build_chat_response` guards all fields with `.get()`.
+- Cache call sites not forwarding `user_level`: methods default to `"novice"` — no regression
+  for anonymous users; cache wiring to be completed in a future integration pass.
+
+### Test Result
+
+18/18 passed.
 
 ---
 

@@ -1039,6 +1039,74 @@ def update_profile_node(state: AgentState) -> dict:
 
 ---
 
+**Commit 18 — `adaptive-graph-integration`** · 2026-05-10 · Nova · `architectural | new feature`
+
+> **In one sentence:** The three adaptive intelligence systems — prompt selection, query cache, and response schema — were wired together atomically because they share a single correctness invariant: once `user_level` is in `AgentState`, every consumer of that field must update in the same commit or the system is temporarily broken.
+
+**Interview talking point:**
+> **Q:** Why did you bundle three distinct changes into one commit instead of splitting them?
+>
+> **A:** All three consumers read `user_level` from the same `AgentState` field. If you ship prompt selection without the cache fix, users at different levels start colliding in the cache — expert answers silently return for novice queries. If you ship the cache fix without the typed response schema, the `done` event is still a hand-constructed dict that can drift from the actual state shape. The invariant — one source of truth, all consumers update together — made atomic bundling the correct engineering choice, not the lazy one.
+
+**What happened and why:**
+- `generate_node` previously built a `SystemMessage` with `user_level` interpolated as a label (`"Adapt your explanation depth to the user's level: {user_level}"`). After Commit 17 built the prompt template library, this is wired up: `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)` selects the correct `ChatPromptTemplate`, then `template.format_messages(context=context)[0]` produces the `SystemMessage`. The inline hardcoded message is gone.
+- The Redis query cache used a naive string concatenation key — `question + user_level` — which is not injective. `("foobar", "expert")` and `("foo", "barexpert")` produce the same cache key. Fixed by keying on `f"{question}\x00{user_level}"` before SHA-256: a null byte cannot appear in question text or level strings, making the composite key injective at zero extra overhead.
+- `ChatResponse` (a new Pydantic `BaseModel` in `chain.py`) defines the typed schema for the SSE `done` event: `answer: str`, `user_level: str | None`, `assessed_topics: dict[str, float]`. `build_chat_response(state)` adapts the final `AgentState` to this model; `chat.py` serializes via `chat_response.model_dump()`, replacing the hand-constructed dict.
+- `get_user_level()` in `chat.py` now emits `logger.warning` when an unexpected DB value is coerced to `"novice"` — silent coercion was masking data integrity problems.
+
+**Reasoning & discovery:**
+1. The atomicity argument was the starting point. Each of the three changes is small in isolation, but shipping any one without the others creates a correctness window: stale cache entries survive across levels, or the done event carries ad-hoc structure the UI can't rely on.
+2. Null-byte separator was chosen over JSON serialization (`json.dumps([question, user_level])`) for the cache key. JSON adds quotation marks and bracket characters — more bytes, same guarantee, and a parser dependency for a key that only needs to be unique. `\x00` is a single byte that is structurally excluded from both input fields, making injectivity a provable property rather than an encoding assumption.
+3. The `user_level: str | None` choice in `ChatResponse` required care: `None` does not mean `"novice"` — it means assessment did not run this turn. The UI (Commit 19) must render `None` as "assessment unavailable," not as a level. The field type enforces this distinction in the schema so callers cannot accidentally treat `None` as a default level.
+
+**The key change:**
+
+```python
+# src/rag/cache/redis_cache.py
+# Before — naive concatenation; not injective:
+def _cache_key(question: str, user_level: str) -> str:
+    return hashlib.sha256(f"{question}{user_level}".encode()).hexdigest()
+    # "foobar" + "expert" == "foo" + "barexpert" → same key, wrong result
+
+# After — null-byte separator; provably injective:
+def _cache_key(question: str, user_level: str) -> str:
+    composite = f"{question}\x00{user_level}"   # \x00 cannot appear in either field
+    return hashlib.sha256(composite.encode()).hexdigest()
+```
+
+```python
+# src/agents/nodes/generate.py
+# Before — hardcoded inline SystemMessage with user_level as a label:
+system_msg = SystemMessage(content=(
+    "You are an expert on RAG systems. Answer using ONLY the provided context.\n"
+    f"Adapt your explanation depth to the user's level: {user_level}.\n\n"
+    f"Context:\n{context}"
+))
+
+# After — template selected from registry, rendered to SystemMessage:
+template = PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)
+system_msg = template.format_messages(context=context)[0]
+```
+
+**Design pattern:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Injective composite key | Null-byte separator makes `(question, user_level)` → cache key a one-to-one mapping | Naive concatenation is not injective; `\x00` exclusion from both fields is provable from input constraints, not encoding assumptions |
+| Atomic multi-consumer update | Three consumers of `user_level` updated in one commit | The correctness invariant is shared; shipping partial updates creates a window where the system violates it. Split commits would trade clarity for a real bug window. |
+| Typed response schema | `ChatResponse` Pydantic model replaces hand-constructed dict for SSE done event | Schema is validated at construction time; `model_dump()` output matches the declared type; callers can rely on it without reading `chat.py` source |
+| Nullable sentinel vs. default | `user_level: str | None = None` in `ChatResponse` — `None` means "did not run", not `"novice"` | Prevents the UI from treating an unevaluated session the same as a confirmed novice; forces the consumer to handle the case explicitly |
+
+**Files touched:**
+- `src/agents/nodes/generate.py` — hardcoded `SystemMessage` replaced with `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)` template lookup and `format_messages(context=context)[0]`
+- `src/rag/cache/redis_cache.py` — `get_query`/`set_query` accept `user_level: str = "novice"`; key built with null-byte separator before SHA-256
+- `src/rag/chain.py` — new `ChatResponse` Pydantic model (`answer`, `user_level`, `assessed_topics`); new `build_chat_response(state)` adapter function
+- `src/app/api/routes/chat.py` — SSE `done` event serialized via `chat_response.model_dump()` instead of hand-constructed dict; `get_user_level()` emits `logger.warning` on unexpected DB value
+- `tests/test_generate_node.py` — new test: `test_unknown_user_level_falls_back_to_default_prompt` verifies `.get()` fallback fires for unrecognised levels; asserts `DEFAULT_PROMPT` content in `SystemMessage`
+- `tests/test_cache.py` — new file, 6 tests: pure-function key isolation (null-byte prevents classic collision pair) + mock-Redis round-trip isolation (novice/expert entries stored independently); 240 passing total (was 233)
+
+---
+
 **Commit 17 — `adaptive-prompt-templates`** · 2026-05-10 · Nova · `new feature`
 
 > **In one sentence:** Built a mastery-level–aware prompt templating system that adapts explanation depth and technical vocabulary to the user's demonstrated knowledge, enabling better LLM responses across the full skill spectrum.

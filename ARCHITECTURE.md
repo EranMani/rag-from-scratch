@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-10 (Commit 15 — fix-score-delta-semantics)
+> Last updated: 2026-05-10 (Commit 18 — adaptive-graph-integration)
 
 ---
 
@@ -119,10 +119,19 @@ responsive to who they are, not a static Q&A tool.
 ### Adaptive Prompt Template Library
 - **Type:** prompt library
 - **Owner:** Nova
-- **Purpose:** 5 mastery-level `ChatPromptTemplate` objects (novice → expert) and a `DEFAULT_PROMPT` fallback. Templates vary in explanation depth, assumed prior knowledge, and vocabulary level. Commit 18 wires them into `generate_node`.
+- **Purpose:** 5 mastery-level `ChatPromptTemplate` objects (novice → expert) and a `DEFAULT_PROMPT` fallback. Templates vary in explanation depth, assumed prior knowledge, and vocabulary level. Wired into `generate_node` from Commit 18.
 - **Interface:** `PROMPT_TEMPLATES: dict[str, ChatPromptTemplate]` and `DEFAULT_PROMPT: ChatPromptTemplate` — both importable from `agents.prompts`
 - **Contract:** each template takes a single `{context}` input variable; `.format_messages(context=...)` returns `[SystemMessage]`
 - **Introduced in:** Commit 17
+
+### ChatResponse
+- **Type:** typed wire schema (Pydantic model)
+- **Owner:** Nova
+- **Purpose:** Typed schema for the SSE `done` event payload. Single source of truth for the JSON shape that clients receive at the end of each streaming response.
+- **Location:** `src/rag/chain.py`
+- **Contract:** `answer: str`, `user_level: str | None` (`None` = assessment did not run), `assessed_topics: dict[str, float]` (topic slug → per-turn score delta)
+- **Interface:** `build_chat_response(state: dict) → ChatResponse` — adapter that extracts fields from the final `AgentState` dict after `on_chain_end` fires
+- **Introduced in:** Commit 18
 
 ### Redis Cache
 - **Type:** cache
@@ -168,11 +177,11 @@ responsive to who they are, not a static Q&A tool.
 5. config = {"configurable": {"thread_id": session_id}}
 6. graph.astream_events(initial_state, config) → SSE StreamingResponse
 7.   retrieve_node → ChromaDB (or BM25 fallback) → docs, retrieval_source
-8.   generate_node → SystemMessage(context) + messages → LLM → streams tokens
+8.   generate_node → PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT) → SystemMessage(context) + messages → LLM → streams tokens
 9.       ↳ on_chat_model_stream events → SSE "token" events to client
 10.  assess_node → second LLM call → AssessmentOutput (topic_scores_delta, user_level)
 11.  update_profile_node → compute_topic_scores() → update_profile() → SQLite
-12. SSE "done" event: { user_level, assessed_topics }
+12. build_chat_response(final_state) → ChatResponse → SSE "done" event: { answer, user_level, assessed_topics }
 13. MemorySaver checkpointer persists messages under thread_id for next turn
 ```
 

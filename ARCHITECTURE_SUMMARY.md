@@ -10,7 +10,7 @@
 - **Adaptive prompt templates** (C17): `src/agents/prompts/rag.py` — `PROMPT_TEMPLATES: dict[str, ChatPromptTemplate]` (5 levels: novice → expert) + `DEFAULT_PROMPT` fallback. Single `{context}` variable per template. `generate_node` (C18) selects via `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)`.
 - **Storage**: SQLite (`data/app_users.db`) — `users` + `user_profiles` tables; WAL mode; FK ON DELETE CASCADE; JSON columns as TEXT strings. PostgreSQL migration path: schema is ready.
 - **RAG pipeline**: ChromaDB primary, BM25 fallback. Backend detected via pre/post `chroma_cb.is_available()` inspection in retrieve_node.
-- **Streaming**: `graph.astream_events(version="v2")` + `SSE StreamingResponse`. Blocking I/O hoisted outside async generator. SSE schema: token events + final done event with `assessed_topics`.
+- **Streaming**: `graph.astream_events(version="v2")` + `SSE StreamingResponse`. Blocking I/O hoisted outside async generator. SSE schema: token events + final `done` event serialized from `ChatResponse` (`answer`, `user_level`, `assessed_topics`). `build_chat_response(state)` in `src/rag/chain.py` is the single adapter between `AgentState` and the wire format.
 - **LLM providers**: OpenAI primary (gpt-4o, configurable), Ollama fallback (gemma3:4b). Per-invocation `get_provider().get_llm()` — never module-level singleton.
 - **Security**: JWT auth via `Depends(get_current_user)` or `current_user_optional`; path confinement on ingest; frozenset allowlist on all dynamic SQL; secrets in env vars only.
 - **Deployment**: EC2 t3.xlarge (16GB); nginx reverse proxy (WebSocket, SSL, proxy_read_timeout 86400); Prometheus + Grafana + ELK in both dev and prod.

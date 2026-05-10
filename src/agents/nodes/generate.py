@@ -26,8 +26,9 @@ Design notes:
 
 import logging
 
-from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage
 
+from agents.prompts import DEFAULT_PROMPT, PROMPT_TEMPLATES
 from agents.state import AgentState
 from rag.providers import get_provider
 
@@ -47,11 +48,8 @@ async def generate_node(state: AgentState) -> dict:
     context: str = "\n\n".join(doc.page_content for doc in state["docs"])
     user_level: str = state.get("user_level", "novice")  # type: ignore[call-overload]
 
-    system_msg = SystemMessage(content=(
-        "You are an expert on RAG systems. Answer using ONLY the provided context.\n"
-        f"Adapt your explanation depth to the user's level: {user_level}.\n\n"
-        f"Context:\n{context}"
-    ))
+    template = PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)
+    system_msg = template.format_messages(context=context)[0]
 
     llm = get_provider().get_llm()
 
