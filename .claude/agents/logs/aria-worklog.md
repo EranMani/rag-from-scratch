@@ -5,14 +5,14 @@
 ---
 
 ## Current State
-*Last updated: Commit 19 · 2026-05-10*
+*Last updated: Commit 20 · 2026-05-10*
 
-**Last completed:** Commit 19 `profile-ui-panel` ✅
+**Last completed:** Commit 20 `dynamic-chat-ui` ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
-- Commit 20 (Aria): `profile_panel` is `@ui.refreshable` — call `profile_panel.refresh()` after each chat response to update scores live. The function is defined inside `index()` and is in scope for the `send()` coroutine.
+- (none)
 
 **Open Handoffs — Inbound:**
 - (none)
@@ -30,6 +30,63 @@
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
 | 1 | 19 | ✅ Done | Profile panel as nested @ui.refreshable; redirect unauthenticated users to /login |
+| 2 | 20 | ✅ Done | _STAGE_LABELS at module level; ui.timer(2.5) with mutable closure list for stage advancement |
+
+---
+
+## Session 02 — Commit 20: `dynamic-chat-ui`
+
+**Date:** 2026-05-10
+**Status:** ✅ Done
+
+### Task Brief
+Three additions to `send()` in `ui.py`: cycling stage labels with `ui.timer` (2.5s intervals, 3 stages), `profile_panel.refresh()` after each turn, adaptation badge from `done_data["user_level"]`.
+
+### Approach
+The cycling label needed a way to mutate state inside a closure defined inside an async function. Python closures can read enclosing variables but cannot reassign them without `nonlocal`. The mutable-list pattern (`stage_idx = [0]`) sidesteps this cleanly — the list object itself is captured by the closure and its contents are mutated in place, no `nonlocal` keyword required. This is a well-understood idiom for NiceGUI timer callbacks, which do not receive parameters. `_STAGE_LABELS` was placed at module level (alongside `_MODULE_LABELS`) because it is a pure constant with no per-request state — module level is the right home for it. The adaptation badge was inserted inside the existing `with ui.row()` context so it flows naturally with the other 4 badges and inherits the same `flex-wrap:wrap` layout. `profile_panel.refresh()` placement was confirmed: it must be called after the `with chat_area:` block closes so the refreshable panel re-renders the full sidebar, not nested inside the card being built.
+
+### Decisions Made
+1. **`stage_idx = [0]` mutable list for closure mutation** — avoids `nonlocal` keyword in a nested function inside an async coroutine; the pattern is idiomatic and readable.
+2. **`_STAGE_LABELS` at module level** — consistent with `_MODULE_LABELS` placement; the constant has no per-request state so module scope is appropriate.
+3. **Adaptation badge inside existing `with ui.row()`** — the badge row already uses `flex-wrap:wrap`, so the adaptation badge sits naturally alongside cache/latency/chunks/trace. No new container needed.
+4. **`profile_panel.refresh()` before `send_btn.enable()`** — the sidebar updates while the button is still disabled, preventing a second submit racing the refresh.
+
+### Issues Found Mid-Task
+None. Import check passed on first run.
+
+### Gate-Fix — Viktor Block (post-Commit 20)
+
+**Concern 1 — `thinking.delete()` outside `finally`:** The standalone `thinking.delete()` call after the `try/finally` block was unreachable if any exception escaped the `finally`. Moved inside `finally`, after `stage_timer.cancel()`.
+
+**Concern 2 — `_advance` may fire on deleted element:** `ui.timer` callbacks fire on the background event loop; `stage_timer.cancel()` does not drain an already-queued callback. Added `stage_active = [True]` (mutable-list pattern, consistent with `stage_idx = [0]`) at the same scope. Set `stage_active[0] = False` as the first statement in `finally` (before `cancel()`). Added early return guard `if not stage_active[0]: return` at the top of `_advance`.
+
+**Lines changed in `src/app/ui.py`:**
+- Line ~347: added `stage_active = [True]` after `stage_idx = [0]`
+- Lines ~349–351: added `if not stage_active[0]: return` as first line of `_advance`
+- `finally` block: added `stage_active[0] = False` before `stage_timer.cancel()`; added `thinking.delete()` after `cancel()`
+- Removed standalone `thinking.delete()` that previously sat after the `try/finally`
+
+### Self-Review Checklist
+- [x] Stage labels cycle: Retrieving → Assessing → Generating
+- [x] Timer cancelled before `thinking.delete()`
+- [x] `profile_panel.refresh()` called after response render
+- [x] Adaptation badge shown when `user_level` is non-None
+- [x] UI does not break when `user_level` is None (badge simply absent — `if user_level:` guard)
+- [x] Import check passes
+
+### Product Fix — Post-gate label corrections
+
+**Fix 1 — Stage label rename:** Changed `"Personalizing your answer..."` to `"Preparing your answer..."` in `_STAGE_LABELS` (module level, line 9). The old label implied user-profile personalization is always active, which is false for cold-start users with no established profile. The new label is accurate for all users.
+
+**Fix 2 — Adaptation badge phrasing:** Replaced the inline `f"Adapted for: {user_level}"` string with a `_LEVEL_LABELS` dict lookup. The dict maps `beginner → "Simplified for clarity"`, `intermediate → "Standard depth"`, `advanced → "Full technical detail"`. The dict was defined at module level (alongside `_STAGE_LABELS` and `_MODULE_LABELS`) as `_LEVEL_LABELS: dict[str, str]`. The fallback `f"Adapted for: {user_level}"` is preserved for any unexpected level string so the badge always renders.
+
+### Documentation Flags for Claude
+**DECISIONS.md:**
+- Stage label cycling uses `stage_idx = [0]` (mutable list in closure) rather than `nonlocal`. This is the standard pattern for NiceGUI timer callbacks, which cannot receive parameters.
+
+**ARCHITECTURE.md:**
+- `send()` now calls `profile_panel.refresh()` after each completed turn — sidebar live-updates topic scores without a page reload.
+- Cycling stage labels (`ui.timer`, 2.5s interval) replace the static "Thinking..." label during SSE streaming.
 
 ---
 

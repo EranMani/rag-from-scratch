@@ -6,6 +6,8 @@ import httpx
 from nicegui import app, ui
 from app.core.config import settings
 
+_STAGE_LABELS = ["Retrieving context...", "Preparing your answer...", "Generating response..."]
+
 # Canonical module display names for topic_scores keys
 _MODULE_LABELS: dict[str, str] = {
     "rag_fundamentals": "RAG Fundamentals",
@@ -14,6 +16,13 @@ _MODULE_LABELS: dict[str, str] = {
     "chunking_strategies": "Chunking Strategies",
     "langchain": "LangChain",
     "production_patterns": "Production Patterns",
+}
+
+# Benefit-oriented labels for user_level adaptation badge
+_LEVEL_LABELS: dict[str, str] = {
+    "beginner": "Simplified for clarity",
+    "intermediate": "Standard depth",
+    "advanced": "Full technical detail",
 }
 
 
@@ -341,7 +350,17 @@ def setup_ui(fastapi_app):
                 ):
                     ui.label(question)
 
-                thinking = ui.label("Thinking...").style("color:#64748b; font-style:italic")
+                stage_idx = [0]
+                stage_active = [True]
+                thinking = ui.label(_STAGE_LABELS[0]).style("color:#64748b; font-style:italic")
+
+                def _advance():
+                    if not stage_active[0]:
+                        return
+                    stage_idx[0] = min(stage_idx[0] + 1, len(_STAGE_LABELS) - 1)
+                    thinking.set_text(_STAGE_LABELS[stage_idx[0]])
+
+                stage_timer = ui.timer(2.5, _advance)
 
             ui.update()
             await asyncio.sleep(0)
@@ -387,8 +406,10 @@ def setup_ui(fastapi_app):
                     "latency_ms": 0,
                     "trace_id": "—",
                 }
-
-            thinking.delete()
+            finally:
+                stage_active[0] = False
+                stage_timer.cancel()
+                thinking.delete()
 
             with chat_area:
                 with ui.card().style(
@@ -410,6 +431,11 @@ def setup_ui(fastapi_app):
                         ui.badge(f"trace: {result['trace_id']}").style(
                             "background:#0f172a; color:#94a3b8; font-size:0.7rem"
                         )
+                        user_level = done_data.get("user_level")
+                        if user_level:
+                            ui.badge(_LEVEL_LABELS.get(user_level, f"Adapted for: {user_level}")).style(
+                                "background:#1e3a5f; color:#93c5fd; font-size:0.7rem"
+                            )
 
                     if result["chunks"]:
                         with ui.expansion("Retrieved context", icon="search").style(
@@ -428,6 +454,7 @@ def setup_ui(fastapi_app):
                                         "font-size:0.75rem; color:#94a3b8"
                                     )
 
+            profile_panel.refresh()
             send_btn.enable()
             ui.update()
 
