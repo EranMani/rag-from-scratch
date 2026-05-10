@@ -91,7 +91,10 @@
       "Bash(.venv/Scripts/pytest -q)",
       "Bash(Get-Content \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\LEARNING_LOG.md\")",
       "Bash(Measure-Object -Line)",
-      "Bash(Select-Object -ExpandProperty Lines)"
+      "Bash(Select-Object -ExpandProperty Lines)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -c \"from app.ui import setup_ui; print\\('OK'\\)\")",
+      "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; $env:PYTHONPATH = \"src\"; & \".venv\\\\Scripts\\\\python.exe\" -c \"from app.ui import setup_ui; print\\('OK'\\)\")",
+      "Bash(powershell *)"
     ]
   }
 }

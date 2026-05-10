@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-10 (Commit 18 complete)",
+  "last_updated": "2026-05-10 (Commit 19 complete)",
   "status": "active",
   "current_commit": {
-    "number": "19",
-    "name": "profile-ui-panel",
+    "number": "20",
+    "name": "dynamic-chat-ui",
     "status": "pending",
     "assignee": "frontend"
   },
@@ -26,10 +26,10 @@
     "15",
     "16",
     "17",
-    "18"
+    "18",
+    "19"
   ],
   "commits_pending": [
-    "19",
     "20",
     "21",
     "22",
@@ -37,13 +37,13 @@
     "24",
     "25"
   ],
-  "next_commit": "19",
+  "next_commit": "20",
   "open_handoffs": [
     {
-      "from": "Mira",
+      "from": "Aria",
       "to": "Aria",
-      "commit": "19",
-      "message": "SSE done event: user_level=null means assessment did not run (show '—', not 'novice'); assessed_topics are per-turn deltas not absolute scores; filter 'answer' field from done payload before UI render to avoid duplicate; cache TTL seam is accepted tradeoff."
+      "commit": "20",
+      "message": "profile_panel is @ui.refreshable — call profile_panel.refresh() (not await profile_panel()) after each SSE done event inside send() to update the sidebar live. profile_panel is in scope inside index() alongside send()."
     }
   ],
   "blockers": [],
