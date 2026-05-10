@@ -68,7 +68,11 @@
       "Bash(venv/Scripts/python.exe -m pytest tests/test_scoring.py -v)",
       "PowerShell(& \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\.venv\\\\Scripts\\\\python.exe\" -m pytest \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\tests\\\\test_scoring.py\" -v)",
       "PowerShell(& \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\.venv\\\\Scripts\\\\python.exe\" -m pytest \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\tests\\\\\" -v --tb=short 2>&1 | Select-Object -Last 20)",
-      "Bash(powershell -Command \"\\(Get-Content 'D:\\\\\\\\AI\\\\\\\\_My_Projects\\\\\\\\rag-from-scratch\\\\\\\\LEARNING_LOG.md'\\).Count\")"
+      "Bash(powershell -Command \"\\(Get-Content 'D:\\\\\\\\AI\\\\\\\\_My_Projects\\\\\\\\rag-from-scratch\\\\\\\\LEARNING_LOG.md'\\).Count\")",
+      "Bash(.venv/Scripts/python -m pytest tests/test_update_profile_node.py -v)",
+      "Bash(.venv/Scripts/python -m pytest -v)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_update_profile_node.py -v --tb=short)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_scoring.py -v)"
     ]
   }
 }

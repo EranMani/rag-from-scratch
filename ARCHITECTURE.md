@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-09 (Commit 09 — generate_node)
+> Last updated: 2026-05-10 (Commit 15 — fix-score-delta-semantics)
 
 ---
 
@@ -107,6 +107,14 @@ responsive to who they are, not a static Q&A tool.
 - **Depends on:** nothing (pure function, zero imports outside stdlib/typing)
 - **Introduced in:** Commit 14
 - **Consumed by:** Nova's `update_profile_node` (Commit 15)
+
+### Profile Update Node (`update_profile_node`)
+- **Type:** LangGraph node (synchronous)
+- **Owner:** Nova
+- **Purpose:** Persists topic score deltas to the user profile after each assessed turn
+- **Contract:** reads `user_id`, `assessment_error`, `topic_scores_delta` from `AgentState`; returns `{}`
+- **Depends on:** Topic Scoring Service (`compute_topic_scores`), User Profile Service (`get_profile_by_user_id`, `update_profile`)
+- **Introduced in:** Commit 15 (stub from Commit 12 replaced)
 
 ### Redis Cache
 - **Type:** cache
@@ -229,6 +237,7 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 | `user_id` returned in `TokenResponse` body on register/login | Pre-conditions any future IDOR — clients can decode JWT `sub` instead; remove field from schema | Sage Commit 06 | 🟡 fix before public launch |
 | Non-atomic user+profile insert in `register` route | If `create_profile` fails with non-`IntegrityError`, user row persists without profile; user can log in but `GET /api/profile/me` returns 404 | Sage Commit 06 | 🟡 wrap in shared transaction or use `get_or_create_profile` in route |
 | No test for valid JWT with nonexistent `user_id` (deleted-account scenario) | `get_current_user` DB-lookup branch is untested; refactor could silently break 401 on deleted accounts | Quinn Commit 06 | 🟢 accepted coverage debt |
+| ~~`compute_topic_scores` has no isolation tests~~ | **Resolved in Commit 15** — 14 new isolation tests added in `tests/test_scoring.py` covering delta merge, clamping, mastery boundaries, strengths/gaps extraction. | Quinn wave C15 → resolved C15 | ✅ closed |
 
 ---
 
@@ -251,7 +260,9 @@ assess_node            — calls assessment_prompt | llm.with_structured_output(
   │                           │
   └─ assessment_error=True ───┤  (both paths: _route_after_assess → "update_profile")
                               ▼
-update_profile_node    — stub (Commit 12–14); Commit 15: calls profile service to merge delta
+update_profile_node    — synchronous node (Commit 15); fast-exits on user_id=None or assessment_error=True;
+  │                       calls compute_topic_scores() then update_profile() with merged scores,
+  │                       interaction_count+1, and last_activity_at=UTC ISO 8601 timestamp
   │
   ▼
 END

@@ -24,16 +24,17 @@
 | 12 | langgraph-assessment-scaffold | ai-engineer | ✅ done · 2026-05-10 |
 | 13 | langgraph-assessment-llm | ai-engineer | ✅ done · 2026-05-10 |
 | 14 | topic-scoring-service | backend | ✅ done · 2026-05-10 |
-| 15 | profile-update-node | ai-engineer | pending |
-| 16 | adaptive-prompt-templates | ai-engineer | pending |
-| 17 | adaptive-graph-integration | ai-engineer | pending |
-| 18 | profile-ui-panel | frontend | pending |
-| 19 | dynamic-chat-ui | frontend | pending |
-| 20 | production-compose | devops | pending |
-| 21 | nginx-config | devops | pending |
-| 22 | aws-ec2-deployment | devops | pending |
-| 23 | integration-tests | backend + ai-engineer | pending |
-| 24 | documentation | tech-writer | pending |
+| 15 | fix-score-delta-semantics | backend | ✅ done · 2026-05-10 |
+| 16 | profile-update-node | ai-engineer | ✅ done · 2026-05-10 |
+| 17 | adaptive-prompt-templates | ai-engineer | pending |
+| 18 | adaptive-graph-integration | ai-engineer | pending |
+| 19 | profile-ui-panel | frontend | pending |
+| 20 | dynamic-chat-ui | frontend | pending |
+| 21 | production-compose | devops | pending |
+| 22 | nginx-config | devops | pending |
+| 23 | aws-ec2-deployment | devops | pending |
+| 24 | integration-tests | backend + ai-engineer | pending |
+| 25 | documentation | tech-writer | pending |
 
 ---
 

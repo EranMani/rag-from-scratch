@@ -3,10 +3,10 @@
   "last_updated": "2026-05-10",
   "status": "active",
   "current_commit": {
-    "number": "14",
-    "name": "topic-scoring-service",
+    "number": "17",
+    "name": "adaptive-prompt-templates",
     "status": "pending",
-    "assignee": "backend"
+    "assignee": "ai-engineer"
   },
   "commits_done": [
     "01",
@@ -21,12 +21,12 @@
     "10",
     "11",
     "12",
-    "13"
-  ],
-  "commits_pending": [
+    "13",
     "14",
     "15",
-    "16",
+    "16"
+  ],
+  "commits_pending": [
     "17",
     "18",
     "19",
@@ -34,23 +34,11 @@
     "21",
     "22",
     "23",
-    "24"
+    "24",
+    "25"
   ],
-  "next_commit": "14",
-  "open_handoffs": [
-    {
-      "from": "commit-05",
-      "to": "Nova",
-      "target_commit": "15",
-      "message": "Mira flagged: last_activity_at exists in user_profiles but no code path sets it. The Commit 15 spec (profile_update_node) must explicitly pass last_activity_at=datetime.now(timezone.utc).isoformat() in the update_profile() call on every successful assessment turn. Without this, the UI profile panel (Commit 18) displays a blank 'Last active' field. This is a named deliverable of Commit 15."
-    },
-    {
-      "from": "commit-14",
-      "to": "Nova",
-      "target_commit": "15",
-      "message": "Import scoring service as: from app.profile.scoring import compute_topic_scores, TopicScoreUpdate. current_profile['topic_scores'] is already dict[str, float] when fetched via get_profile_by_user_id — do NOT json.loads() it before passing to compute_topic_scores. interaction_count in the function signature is accepted but unused by the scoring formula — pass it anyway as it belongs to the contract. Invalid slugs are silently dropped; out-of-range scores are silently clamped to [0.0, 1.0]."
-    }
-  ],
+  "next_commit": "17",
+  "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {

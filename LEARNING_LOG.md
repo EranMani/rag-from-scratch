@@ -964,3 +964,75 @@ def compute_topic_scores(
 **Files touched:**
 - `src/app/profile/scoring.py` — new: `TopicScoreUpdate` TypedDict, `compute_topic_scores()`, `get_mastery_level()`
 - `tests/test_scoring.py` — new: 17 unit tests across 4 classes; 172/172 full suite pass
+
+---
+
+**Commit 15 — `profile-update-node`** · 2026-05-10 · Nova · `new feature`
+
+> **In one sentence:** Profile Update Node synchronously merges topic scores from assessment into user profiles and persists them to SQLite, unblocking Commit 18's UI rendering.
+
+**Interview talking point:**
+> **Q:** When does the user's profile reflect their learning progress — before or after they see the feedback?
+>
+> **A:** It reflects it immediately after assessment scoring completes. The profile-update-node merges the newly computed scores into the stored profile and persists the merged result in a single write. By the time the agent graph reaches the final response, the user's profile already contains the latest mastery deltas and interaction count — the UI can show current state, not stale state.
+
+**What happened and why:**
+- New `update_profile_node` in `agents/nodes/update_profile.py` reads `topic_scores_delta` and `assessment_error` from `AgentState`, calls `compute_topic_scores()` from Commit 14, then persists merged scores and metadata to SQLite via `update_profile()`.
+- Fulfills Commit 12's routing stub and unblocks Commit 18's profile panel, which needs current `last_activity_at` and merged `topic_scores` to render correctly.
+- Fast-exit ordering (None user_id check before assessment_error) ensures we never hit the DB for anonymous sessions, even if scoring failed.
+- Scoring-derived gaps (from the `TopicScoreUpdate` contract) replace the per-turn LLM `identified_gaps` — this reflects cumulative mastery across sessions, not noise from a single assessment.
+- `last_activity_at` timestamp written on every successful profile update; absence breaks the UI's "last active" panel (Commit 18 requirement).
+
+**Reasoning & discovery:**
+1. After Commit 14 was complete, the agent graph had scores but no place to persist them. Reading Commit 12's graph code showed a routing stub: `update_profile_node` was sketched but not implemented. Commit 15 had to fill that gap before the UI could render anything meaningful.
+2. First draft used `AgentState.identified_gaps` directly as the DB `gaps` column — but reading `profile/db.py` revealed the column name mismatch and the `_ALLOWED_PROFILE_COLUMNS` frozenset. `identified_gaps` was not in the allowlist; `gaps` was. Only the computed gaps from Commit 14 passed validation, so that became the source of truth.
+3. The interaction count increment was discovered in the existing profile row during test setup: `interaction_count + 1` had to read the current count from the DB, not assume state carried it. This meant the node must always do a DB read before the write — no shortcut paths.
+
+**The key change:**
+```python
+# src/agents/nodes/update_profile.py
+# Before (Commit 12 stub):
+def update_profile_node(state: AgentState) -> dict:
+    return {"profile": state.get("profile")}  # no-op pass-through
+
+# After (Commit 15):
+def update_profile_node(state: AgentState) -> dict:
+    user_id = state.get("user_id")
+    if user_id is None:
+        return {"profile": None}
+    
+    assessment_error = state.get("assessment_error", False)
+    if assessment_error:
+        return {"profile": state.get("profile")}
+    
+    topic_scores_delta = state.get("topic_scores_delta", {})
+    current_profile = db.get_profile(user_id)
+    score_update = compute_topic_scores(
+        topic_scores_delta=topic_scores_delta,
+        current_profile=current_profile,
+        interaction_count=current_profile.get("interaction_count", 0)
+    )
+    merged = db.update_profile(
+        user_id=user_id,
+        topic_scores=score_update["topic_scores"],
+        gaps=score_update["gaps"],
+        mastery_level=score_update["mastery_level"],
+        last_activity_at=datetime.now(timezone.utc).isoformat()
+    )
+    return {"profile": merged}
+```
+
+**Design pattern:**
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Guard-clause exits | Null user_id, assessment_error checks run first | Ensures DB is never queried for no-op paths; minimal I/O footprint for error or anonymous cases |
+| Domain-boundary contract enforcement | Receives `TopicScoreUpdate` from scoring layer, writes only validated columns | Prevents LLM `identified_gaps` from corrupting the DB; contract makes the contract explicit |
+| Timestamp-on-write rule | `last_activity_at` set on every successful persist | UI relies on this for "last active" display; absence produces blank state that confuses users |
+
+**Files touched:**
+- `src/agents/nodes/update_profile.py` — new: `update_profile_node()` with guard clauses, scoring integration, and profile persistence
+- `src/agents/graph.py` — modified: imported real node, removed inline stub
+- `tests/test_update_profile_node.py` — new: 22 tests across 6 classes; all 5 spec gates covered; 194/194 full suite pass
+
+**Commit 16 — `fix-score-delta-semantics`** · 2026-05-10 · Rex · `fix`
+> `compute_topic_scores` was treating LLM deltas as absolute scores, silently clamping negatives to 0.0 and losing user weakness signal; fixed to additive merge with clamping to [0.0, 1.0], added 14 isolation tests, 208/208 tests pass.

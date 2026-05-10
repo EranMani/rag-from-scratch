@@ -351,4 +351,21 @@
 - **Reason:** The scoring service is the last writeable boundary before profile persistence. Out-of-range scores would cause `get_mastery_level` to return correct-looking results that violate the documented threshold invariants. The LLM is the source of `assessed_topics` — defensive clamping prevents malformed LLM output from corrupting the profile.
 - **Consequences:** Spec-compliant callers (scores in [0.0, 1.0]) observe no change. Clamping is silent — there is no warning log when a value is clamped. If monitoring of out-of-range values is needed later, a log call should be added here.
 
-*Last updated: 2026-05-10 — Commit 14 complete (topic scoring service; invalid slug handling; score clamping)*
+### Scoring-derived `gaps` written to DB, not LLM `identified_gaps` (Commit 15)
+- **Date:** 2026-05-10
+- **Commit:** 15
+- **Decided by:** Nova (discovered in implementation)
+- **Decision:** `update_profile_node` writes `score_update["gaps"]` (the scoring-service-derived set of slugs with score ≤ 0.3) to the `gaps` column in `user_profiles` — not `state["identified_gaps"]` (the raw LLM output from `assess_node`).
+- **Alternatives considered:** Persisting `identified_gaps` directly from `AgentState`; writing both fields independently.
+- **Reason:** `AgentState.identified_gaps` is the LLM's per-turn raw assessment — sparse, noisy, and not reflecting the user's full learning history. `score_update["gaps"]` is derived from the fully merged `topic_scores` after this turn's delta is applied — it reflects cumulative mastery, not just this turn's interaction. Persisting the LLM's raw gaps would overwrite prior gap history with a single-turn signal. The scoring-derived gaps are the correct long-term state.
+- **Consequences:** `identified_gaps` in `AgentState` is transient context for the current turn only. It is passed to `compute_topic_scores` (the interaction_count signature), but the field that reaches the DB is always the score-derived set. Any UI or downstream consumer must read gaps from the profile, not from the SSE event.
+
+### Fast-exit order in `update_profile_node`: `user_id` before `assessment_error` (Commit 15)
+- **Date:** 2026-05-10
+- **Commit:** 15
+- **Decided by:** Nova (ordering decision)
+- **Decision:** `update_profile_node` checks `user_id is None` first, then `assessment_error`. If both conditions are true, the function returns at the `user_id` check without calling `get_profile_by_user_id`.
+- **Reason:** An anonymous user can never have a profile to fetch. Checking `assessment_error` first would require `user_id` to be present before skipping — for anonymous users, a DB lookup attempt would be made with `user_id=None` before the error flag is checked. Ordering `user_id` first eliminates any DB round-trip for anonymous users under all conditions.
+- **Consequences:** Tests must verify `get_profile_by_user_id` is never called when `user_id=None`, regardless of other state fields. The fast-exit pattern is standard for all future node implementations where user identity is a precondition.
+
+*Last updated: 2026-05-10 — Commit 15 complete (profile update node; scoring-derived gaps; fast-exit ordering)*

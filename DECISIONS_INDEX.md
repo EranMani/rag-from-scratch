@@ -1,6 +1,6 @@
 # Decisions Index
 *Always-loaded companion to DECISIONS.md. One-liner per decision — full prose in DECISIONS.md.*
-*Last updated: 2026-05-10 — Commit 14*
+*Last updated: 2026-05-10 — Commit 15*
 
 ---
 
@@ -56,3 +56,7 @@
 ## Scoring Service Patterns (C14)
 40. **Invalid slug filter by value type, not allowlist** — allowlist couples scoring to curriculum; value-type check (`isinstance(score, (int, float))`) is the correct scoring invariant; unknown-but-numeric slugs stored; enforcement belongs at Nova's assess_node boundary
 41. **Silent score clamping to [0.0, 1.0]** — defensive last-writeable boundary before profile persistence; LLM may produce out-of-range values; no log on clamp (add later if monitoring needed)
+
+## Profile Update Node (C15)
+42. **Scoring-derived gaps, not LLM identified_gaps, written to DB** — `AgentState.identified_gaps` is per-turn LLM noise; `score_update["gaps"]` reflects cumulative merged mastery (≤ 0.3 threshold); persisting LLM gaps would overwrite history with a single-turn signal
+43. **Fast-exit order: user_id before assessment_error** — anonymous user has no profile to fetch; checking assessment_error first would attempt a DB lookup with user_id=None before the guard triggers

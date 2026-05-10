@@ -129,6 +129,53 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 15 — `fix-score-delta-semantics` · 2026-05-10 · Rex
+
+> Gate wave: none (Viktor already ran on this wave; no re-run per no-gate-fix-pass rule).
+> Sage not triggered. Mira not triggered.
+> Ryan: one-liner (bug fix — not architectural).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target |
+|---|---|---|---|---|
+| Rex (implementation) | Sonnet | 61,967 | 11 | **+2k** over ≤60k (marginal) |
+| Ryan | Haiku | 50,023 | 4 | **+35k** over ≤15k |
+| **Total** | | **111,990** | **15** | over ≤75k combined |
+
+**Notes:**
+- Rex: 11 tool uses (well under 25 cap) — two-phase discipline held cleanly. Fix was a 2-line change + 14 new tests.
+- Ryan: 50k for a one-liner is anomalous — suggests the Edit anchor was large or Ryan did unexpected reads. Expected ~3k. One-liner entries should be investigated.
+- Viktor anomaly from the blocked attempt (59 tool uses) logged separately in the attempt entry above.
+
+**Compared to blocked attempt (Nova + gates):** 260,447 → 111,990 tokens. The fix-in-own-commit approach is dramatically cheaper than a gate-fix-re-review cycle even with Ryan's anomaly.
+
+---
+
+## Commit 15 (attempt) — `profile-update-node` · 2026-05-10 · Nova
+
+> Gate wave: Viktor + Quinn (5-commit cadence wave).
+> Sage not triggered (no auth/secrets/external API).
+> Mira not triggered (LangGraph node internal — not user-facing).
+> **Viktor HARD BLOCKED — commit not made.**
+> Ryan ran (full entry — ARCHITECTURE.md + DECISIONS.md updated).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target |
+|---|---|---|---|---|
+| Nova (implementation) | Sonnet | 95,031 | 34 | **+35k** over ≤60k |
+| Viktor (wave, commits 11–15) | Haiku | 61,029 | 59 | **+41k** over ≤20k |
+| Quinn (wave, commits 11–15) | Haiku | 51,222 | 6 | **+36k** over ≤15k |
+| Ryan | Haiku | 53,165 | 5 | **+38k** over ≤15k |
+| **Total** | | **260,447** | **104** | well over ≤90k |
+
+**Viktor hard block:** `compute_topic_scores` clamps negative deltas to 0.0 — assessment prompt says deltas in [-1.0, 1.0] but scoring service treats them as absolute scores. Data corruption: user weakness signal silently discarded. Fix: additive delta merge (`existing + delta` clamped to [0, 1]).
+
+**Viktor anomaly:** 59 tool uses (target: tight read-only review). Viktor performed extensive file reads beyond the diff — this is a pattern violation. Next Viktor invocation should receive only the diff and be prohibited from full-file reads.
+
+**Nova:** 95,031 tokens / 34 tool uses — improved vs. Commit 13 (122k/73) but still +35k over target. Two-phase discipline partially held (34 uses vs. 25 cap — overran by 9).
+
+**Ryan:** 53,165 tokens — still over target for full entries. The full entry format generates ~50k consistently. Root cause: the entry itself is substantive. Consider one-liner entries when ARCHITECTURE.md and DECISIONS.md changes are minor.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |

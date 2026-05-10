@@ -368,9 +368,19 @@ This costs ~100 tokens per invocation and routinely prevents an entire Viktor bl
 
 ---
 
-## Implementor Execution Constraints
+## Universal Tool Use Cap — ALL Agents, No Exceptions
 
-Include these verbatim in every implementor invocation (Nova, Rex, Aria, Adam):
+**25 tool uses maximum for every agent invoked. This applies to Viktor, Sage, Quinn, Mira, Ryan, Nova, Rex, Aria, and Adam equally.**
+
+If an agent hits 25 and is not done, it stops and reports. Claude does not re-invoke to continue — the agent reports what remains and Claude surfaces it to the Team Lead.
+
+This cap is not negotiable. Viktor running 59 tool uses in a wave review is the same failure mode as Nova running 73 in an implementation. Both drain tokens. Both are orchestrator failures from omitting the constraint in the invocation prompt.
+
+---
+
+## Execution Constraints — Include Verbatim in Every Invocation
+
+### Implementors (Nova, Rex, Aria, Adam)
 
 ```
 EXECUTION CONSTRAINTS:
@@ -382,10 +392,34 @@ EXECUTION CONSTRAINTS:
 - Code comments: one line max, functional only. No explanatory prose, no narration.
 ```
 
+### Reviewers (Viktor, Sage, Quinn)
+
+```
+EXECUTION CONSTRAINTS:
+- Max tool uses: 25. If you hit 25 and aren't done, stop and report findings so far.
+- Work from the diff provided. Do NOT read files speculatively.
+- Only Read a file if a specific line in the diff is ambiguous — max 15 lines per targeted read.
+- Do not read files to understand context you can infer from the diff.
+```
+
+### Ryan
+
+```
+EXECUTION CONSTRAINTS:
+- Max tool uses: 5. Use Edit only — do not Read the target file.
+- All context comes from Claude's prompt. If something is unclear, note it and proceed.
+```
+
+### Mira
+
+```
+EXECUTION CONSTRAINTS:
+- Max tool uses: 5. Do not read any files — assess only from the brief Claude provides.
+```
+
 **Why these constraints exist:**
-Nova's Commit 13 ran 73 tool uses at 122k tokens — ~1,700 tokens of context-echo overhead per tool call.
-The two-phase protocol eliminates the read-modify-read spiral. The worklog constraint eliminates mid-task context bloat.
-The test budget prevents fix loops that compound context without producing new information.
+Nova's Commit 13 ran 73 tool uses at 122k tokens. Viktor's Commit 15 wave ran 59 tool uses at 61k tokens.
+Both cases are the same root cause: no explicit cap in the invocation prompt. The two-phase protocol eliminates the read-modify-read spiral. The reviewer cap eliminates speculative full-file reads on diffs.
 
 ---
 
@@ -470,3 +504,4 @@ Tech Writer:    Ryan
 | 2026-05-10 | Sage blocking criteria updated to match Viktor model (block only on critical exploitable issues) | Consistency with new Viktor model; LOW/MEDIUM findings go to deferred log |
 | 2026-05-10 | Ryan template trimmed — pass Full Entry format block only (~38 lines), not lines 1–99 | Ryan consumed 54k tokens in Commit 12 largely due to oversized template in prompt |
 | 2026-05-10 | Implementor Execution Constraints section added; token budget target revised to ≤60k/≤15k | Nova hit 122k / 73 tool uses in Commit 13 — read-modify-read spiral and mid-task worklog writes are the root cause |
+| 2026-05-10 | **Universal 25-tool-use cap extended to ALL agents** — Viktor, Sage, Quinn, Mira, Ryan included | Viktor hit 59 tool uses in the Commit 15 wave (61k tokens). Nova hit 34 in the same session. Both caused by Claude omitting constraints from invocation prompts. Cap now universal — no agent type exempt. Reviewer and Ryan constraint blocks added. |
