@@ -170,9 +170,9 @@ Step 2 — Claude reads the **last 15 lines** of `LEARNING_LOG.md` (Read with
          `offset = file_line_count - 15`). These are the Edit anchor.
 
 Step 3 — Claude builds Ryan's prompt containing:
-         a) Lines 1–99 verbatim — so Ryan sees the exact template and matches the format
+         a) Full Entry format block only (~38 lines, template lines 51–88) — NOT lines 1–99
          b) The last 15 lines verbatim — so Ryan can Edit without reading the file
-         c) A commit brief (150–200 words max, written by Claude):
+         c) A commit brief (150 words max, written by Claude):
             - Commit number, name, date, assignee
             - What changed (2–3 sentences)
             - Key decisions or non-obvious constraints (bullet points)
@@ -226,15 +226,33 @@ Agents most likely to hit threshold first: Rex (Phases 1–3), Nova (Phases 2–
 
 **Token budget target: 11–15k per commit total.**
 
-### Viktor — always, Haiku
-Run on every commit. Token target: ≤25k (half of the implementing agent's budget).
+### Viktor — every 5 commits, Haiku
+Run on commits 5, 10, 15, 20 (every 5th commit). In a single pass, review all accumulated diffs since the last Viktor wave. Token target: ≤20k per wave.
 
 **How Claude passes context to Viktor:**
-- Always pass a `git diff` of the commit (compact) — NEVER paste full file contents into the prompt.
+- Always pass a `git diff` — NEVER paste full file contents into the prompt.
 - Viktor uses Read with line ranges for targeted inspection only — never reads whole files.
-- Prompt should contain: diff output + commit spec (one-liner summary, not full spec) + calibration rules.
+- Prompt should contain: diff output only + brief commit name. No spec, no calibration prose.
 
-If the diff is large (>200 lines): pass the diff and instruct Viktor to `Read` only the sections he flags.
+**Blocking criteria — two tiers only:**
+
+Blocks immediately (system-breaking):
+- Import errors that prevent app startup
+- Unhandled exceptions that crash the process on the happy path
+- Wrong async/sync mixing that blocks the event loop
+- Data corruption — wrong merge logic, overwriting instead of appending
+- SQL injection, exposed secrets, auth bypass
+- Missing required arguments causing `TypeError` at runtime
+- Infinite loops or deadlocks
+
+Logged for deferred review (everything else):
+- Dead code, unused variables
+- Missing or imprecise type annotations
+- Style, naming, minor pattern issues
+- Performance concerns (unless O(n²) on unbounded input)
+- Test quality suggestions, maintainability advisories
+
+**No gate-fix passes.** If Viktor blocks, the fix is its own next commit — never a re-review within the same loop.
 
 ### Sage — conditional, Haiku
 Trigger **only** when the commit touches:
@@ -247,28 +265,41 @@ Trigger **only** when the commit touches:
 Skip Sage on: node internals, schema files, pure test additions, infra config with no secrets,
 doc-only commits.
 
-### Quinn — conditional, Haiku
-Trigger **only** when the commit introduces:
-- A new service with business logic
-- A new API route or endpoint
-- A behavior change to an existing route (not just a refactor)
-- A new LangGraph node
+**Blocking criteria — same model as Viktor:**
 
-Skip Quinn on: schema-only commits, infra config, test-only additions, doc/worklog commits,
-pure cleanup with no logic changes.
+Blocks immediately:
+- Secrets committed to code (API keys, JWT secret hardcoded)
+- SQL injection via unguarded dynamic column names
+- Auth bypass — unauthenticated access to a protected route
+- Critical CVE-level issues that are directly exploitable
+
+Logged for deferred review:
+- CWE-209, non-critical information disclosure
+- LOW/MEDIUM findings that require an exploitation chain
+- Advisory-level findings
+
+**No gate-fix passes.** If Sage blocks, the fix is its own next commit.
+
+### Quinn — every 5 commits, Haiku
+Run on the same wave as Viktor (commits 5, 10, 15, 20). Reviews accumulated test coverage across all commits since the last wave.
+
+Skip Quinn between waves — no per-commit coverage checks.
+
+**No gate-fix passes.** Coverage gaps are logged; fixes go into future commits.
 
 ### Mira — conditional, Haiku (unchanged rule, model now explicit)
 Trigger only on user-facing behavior changes (API shape, UI, data fields the user sees).
 Skip on internal plumbing.
 
 ### Gate wave execution
-Run triggered agents in parallel. If only Viktor is triggered — no parallel wave needed.
+Viktor + Quinn run together every 5 commits (commits 5, 10, 15, 20).
+Sage runs only on commits that touch auth/secrets/external APIs — regardless of the 5-commit cadence.
+Mira runs only on user-facing behavior changes — regardless of the 5-commit cadence.
+
 Do not spin up a gate agent just to confirm "not triggered" — make that call yourself.
 
-### Second gate wave (gate-fix pass)
-If a reviewer blocks, fix and re-run **only the blocking reviewer** — not the full wave.
-Exception: if the fix touches a different domain than the original block, re-run all
-triggered reviewers.
+### Gate-fix passes — eliminated
+There are no gate-fix passes. If a reviewer blocks on a system-breaking issue, the owning agent fixes it in a new dedicated commit — not within the current loop. The gate wave does not re-run.
 
 ### Commit message format (required for post-commit hook)
 Every commit message must include `Commit #NN` on its own line in the body.
@@ -397,3 +428,7 @@ Tech Writer:    Ryan
 | 2026-05-10 | Token budget target set: 11–15k per commit | Team Lead hard requirement — current 60–70k average is unsustainable |
 | 2026-05-10 | Ryan protocol overhauled — always invoked, uses Edit anchor Claude provides, never reads the file | Ryan read 48k tokens to append one entry by reading the full LEARNING_LOG; fix: Claude hands Ryan the last 15 lines as anchor |
 | 2026-05-10 | Viktor token target set to ≤25k; Claude passes git diff not full file contents | Claude pasting 532-line test file into Viktor prompt wasted ~20k tokens |
+| 2026-05-10 | Viktor + Quinn cadence changed to every 5 commits; gate-fix passes eliminated | Commit 12 cost ~297k tokens — review+fix+re-review cycle is unsustainable |
+| 2026-05-10 | Viktor blocking criteria narrowed to system-breaking only; everything else logged | Ghost if-else triggered a full gate-fix pass — disproportionate for a non-breaking issue |
+| 2026-05-10 | Sage blocking criteria updated to match Viktor model (block only on critical exploitable issues) | Consistency with new Viktor model; LOW/MEDIUM findings go to deferred log |
+| 2026-05-10 | Ryan template trimmed — pass Full Entry format block only (~38 lines), not lines 1–99 | Ryan consumed 54k tokens in Commit 12 largely due to oversized template in prompt |

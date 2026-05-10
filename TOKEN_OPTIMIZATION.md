@@ -138,13 +138,13 @@ forward, open handoffs to Nova. 90% smaller, zero information loss for current w
 
 | Reviewer | Trigger | Skip when |
 |---|---|---|
-| Viktor | **Every commit** | Never skip |
-| Sage | Auth/secrets/external APIs/file ops/new public routes with user input | Node internals, schema files, test additions, infra config, doc-only |
-| Quinn | New service, new route, behavior change to existing route, new LangGraph node | Schema-only, infra, test-only additions, pure refactors |
-| Mira | User-facing API shape, UI, data the user sees | Internal plumbing (nodes, schemas, infra, scoring functions) |
+| Viktor | **Every 5 commits** (commits 5, 10, 15, 20) | All other commits |
+| Sage | Auth/secrets/external APIs/file ops/new public routes — **any commit, immediately** | Node internals, schema files, test additions, infra config, doc-only |
+| Quinn | **Every 5 commits**, same wave as Viktor | All other commits |
+| Mira | User-facing API shape, UI, data the user sees — **any commit, immediately** | Internal plumbing (nodes, schemas, infra, scoring functions) |
 | Ryan | **Every commit** — tight brief, no raw diff | Never skip |
 
-**Gate-fix pass rule:** If a reviewer blocks, fix and re-run **only the blocking reviewer** — not the full wave. Exception: if the fix touches a different domain, re-run all triggered reviewers.
+**Gate-fix passes: eliminated.** If a reviewer blocks, the fix goes into the next commit — never a re-review within the same loop.
 
 **Estimated saving:** Commit 10 ran 4 agents twice = 8 reviewer passes. Under the new rules, Commit 10 would trigger Viktor + Sage (external API call, new public route, secrets) + Quinn (new route, behavior change) + Mira (API shape changed JSON → SSE) — so all 4 triggered, but on Haiku instead of Opus/Sonnet, and the fix pass re-runs only Quinn (the blocker). 4 + 1 = 5 passes at Haiku ≈ 30k tokens vs the actual 290k.
 
@@ -186,7 +186,7 @@ For a typical internal commit (e.g., Commit 11 graph smoke test): Viktor only. 3
 4. Claude signals entry type: "full" or "one-liner"
 5. Ryan appends using `Write` — never reads the file first
 
-**Why lines 1–99 only:** The template section is stable and small. The entries section grows without bound. Separating them means Ryan's context is always ~100 lines of template + ~200 word brief, regardless of how many commits have been made.
+**Why lines 1–99 only (updated: now ~38 lines):** The template section is stable and small. The entries section grows without bound. After Commit 12 cost 54k tokens largely from a 99-line template, this was tightened further — Claude now passes only the Full Entry format block (~38 lines, template lines 51–88), not the full header + one-liner section. Ryan's context is always ~38 lines of format + 150-word brief, regardless of how many commits have been made.
 
 **Estimated saving:** Commit 07 Ryan: 55k tokens (read 400-line file, wrote 50 lines). New approach: ~3k tokens (100-line template + brief + write). Saving: ~52k tokens for that one Ryan call. Across 14 remaining commits: ~728k tokens saved.
 
@@ -207,6 +207,32 @@ For a typical internal commit (e.g., Commit 11 graph smoke test): Viktor only. 3
 **Status:** Active — Orchestrator Read Discipline section added to `team-preferences.md` 2026-05-09
 
 **Example:** Commit 07 session: ARCHITECTURE.md, GLOSSARY.md, DECISIONS.md, commit-specs/07, 09, 10, project-state.json, state.py, nova-worklog.md, test_agent_state.py all loaded into main context sequentially. Most of these were read before they were needed. Reading ARCHITECTURE.md at the moment of editing it (not 20 messages earlier) would have eliminated those lines from all intermediate context windows.
+
+---
+
+### 10. 5-Commit Gate Cadence + System-Breaking-Only Blocking
+
+**Why / When:** Commit 12 cost ~297k tokens despite being a straightforward scaffold commit. The breakdown: Nova implementation (65k) + Viktor first pass (50k) + Quinn (44k) + Nova gate-fix (30k) + Viktor re-review (36k) + Ryan (54k) + commit (19k). The gate-fix cycle alone cost 66k tokens to fix a dead `if` statement — a non-breaking style issue that could have waited or been fixed in the next commit. The root problem: Viktor was blocking on things that didn't break anything.
+
+**What changed:** Three decisions made together:
+
+1. **Viktor + Quinn cadence: every 5 commits.** They run on commits 5, 10, 15, 20 — reviewing all accumulated diffs in one pass, not per commit. Sage and Mira keep their existing triggers (immediately on relevant commits).
+
+2. **Blocking criteria narrowed to system-breaking only.** Viktor and Sage now only hard-block on code that will break the system at runtime: crashes, data corruption, auth bypass, exploitable security holes, import failures. Everything else — dead code, missing annotations, style, minor patterns — goes into a deferred log and surfaces at the 5-commit review, not as an immediate stop.
+
+3. **Gate-fix passes eliminated.** If a reviewer blocks, the fix is the next commit in the queue. No re-review within the same loop. This removes an entire class of expensive back-and-forth cycles.
+
+**The reasoning behind "system-breaking only":** For a portfolio project at learning pace, the cost of a ghost `if` statement existing for 5 commits is zero — it doesn't affect users, it doesn't cascade, it can be cleaned up. The cost of catching it immediately is a full gate-fix cycle. The tradeoff is obvious at this scale. A production system serving real users would have a different calculus.
+
+**Estimated saving:** Commit 12 under the new rules: Nova implementation (~40k) + Sage if triggered (~5k) + Ryan (~8k) + commit (~5k) = ~55–60k total. No Viktor/Quinn until commit 15. No gate-fix pass. Saving vs. actual: ~240k tokens on this one commit.
+
+Over the 12 remaining commits: Viktor/Quinn run 2–3 times total instead of 12 times. Gate-fix passes: zero. Estimated cumulative saving: 800k–1.2M tokens.
+
+**Status:** Active — updated `team-preferences.md` 2026-05-10
+
+**What this trades away:** Issues caught at commit 12 may be present in commits 13–16 before Viktor sees them. If Nova repeats a pattern mistake across 4 commits, the fix is larger. Acceptable tradeoff at portfolio scale — not the right call for a production codebase with real users.
+
+**Example:** Commit 12's gate-fix cycle: Viktor flagged a dead `if state.get("assessment_error"): return "update_profile" / return "update_profile"` — both branches returning the same value. Correct finding. But this doesn't crash the app, doesn't corrupt data, doesn't break any user. Under the new model: Viktor notes it in his deferred log at commit 15, Nova fixes it in a one-line cleanup. Cost: 0 extra tokens at commit 12. Under the old model: gate-fix pass + re-review = 66k tokens.
 
 ---
 
@@ -283,18 +309,30 @@ cost of the 40 lines saved.
 
 ## Token Budget Benchmarks
 
-| Session type | Before (Commits 01–10) | Target (Commit 11+) |
-|---|---|---|
-| Boot sequence only | ~10k | ~3k |
-| Full commit loop — implementation (Sonnet) | ~30–50k | ~8–12k |
-| Gate wave — all 4 triggered (Haiku) | ~180k | ~15–20k |
-| Gate wave — Viktor only (Haiku) | ~60k | ~5–8k |
-| Gate-fix re-run — blocking reviewer only | ~60k | ~3–5k |
-| Ryan LEARNING_LOG entry | ~50k | ~2–3k |
-| **Full commit end-to-end (typical internal)** | **~200k** | **~12–18k** |
-| **Full commit end-to-end (complex, all gates)** | **~300k** | **~25–35k** |
+| Session type | Commits 01–10 actual | Commit 11–12 actual | Target (Commit 13+) |
+|---|---|---|---|
+| Boot sequence only | ~10k | ~3k | ~3k |
+| Nova/Rex implementation (Sonnet) | ~30–50k | ~65k | ~30–40k |
+| Gate wave — all 4 triggered (Haiku) | ~180k | ~94k | ~15–20k (5-commit batch) |
+| Gate wave — Viktor only (Haiku) | ~60k | ~50k | eliminated between waves |
+| Gate-fix re-run | ~60k | ~66k | **eliminated** |
+| Ryan LEARNING_LOG full entry | ~50k | ~54k | ~8–10k |
+| Ryan LEARNING_LOG one-liner | ~50k | n/a | ~3k |
+| **Full commit — no gate wave (typical)** | **~200k** | **~297k** | **~40–55k** |
+| **Full commit — Sage triggered** | **~260k** | n/a | **~50–65k** |
+| **5-commit gate wave (Viktor + Quinn, Haiku)** | n/a | n/a | **~20–30k total** |
 
-**Hard target:** 11–15k per commit for internal/plumbing commits. ≤35k for complex
-commits where all gates are triggered.
+**Hard target:** ≤55k per commit for non-gate commits. ≤30k for the 5-commit Viktor+Quinn wave.
 
-*Updated 2026-05-10 based on Commit 10 actual cost (~220k) and new Haiku + conditional-gate rules.*
+**What changed at Commit 13:** Gate-fix passes eliminated · Viktor/Quinn cadence every 5 commits · Ryan template trimmed from 99 → 38 lines · Viktor/Sage block only on system-breaking issues.
+
+**Actual vs. target tracking:**
+
+| Commit | Actual | Target | Notes |
+|---|---|---|---|
+| 10 | ~220k | — | Baseline — all rules established after this |
+| 11 | ~35k | — | Test-only, Viktor only — good |
+| 12 | ~297k | 55k | 5.4× over — gate-fix pass + oversized prompts |
+| 13+ | TBD | ≤55k | New rules active |
+
+*Updated 2026-05-10 based on Commit 12 actual cost (~297k) and new 5-commit cadence + system-breaking-only blocking rules.*
