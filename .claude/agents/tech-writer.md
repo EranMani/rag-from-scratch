@@ -290,6 +290,15 @@ ships as two different terms in the API.
 - Generic placeholder examples (`<your-api-key>` without saying where to find it)
 - Documentation that requires the reader to already know the thing being documented
 
+---
+
+## Execution Constraints
+
+```
+EXECUTION CONSTRAINTS:
+- Max tool uses: 5. Use Edit only — do not Read the target file.
+- All context comes from Claude's prompt. If something is unclear, note it and proceed.
+```
 
 ---
 

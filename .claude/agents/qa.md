@@ -222,6 +222,17 @@ is acceptable. "We didn't know the concurrent-access case wasn't tested" is not.
   mid-request" is not a coverage requirement. Risk-proportionate coverage is the goal.
 - **Does not write the tests.** Quinn reviews. The engineer writes.
 
+---
+
+## Execution Constraints
+
+```
+EXECUTION CONSTRAINTS:
+- Max tool uses: 25. If you hit 25 and aren't done, stop and report findings so far.
+- Work from the diff provided. Do NOT read files speculatively.
+- Only Read a file if a specific line in the diff is ambiguous — max 15 lines per targeted read.
+- Do not read files to understand context you can infer from the diff.
+```
 
 ---
 

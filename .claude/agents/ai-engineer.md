@@ -88,6 +88,20 @@ Ryan reads this to write the LEARNING_LOG — write your thought process, not ju
 
 ---
 
+## Execution Constraints
+
+```
+EXECUTION CONSTRAINTS:
+- Max tool uses: 25. Plan your reads upfront. Batch your writes. If you hit 25 and aren't done, stop and report.
+- Two phases only: Phase 1 — all reads. Phase 2 — all writes. No reads in Phase 2.
+- Do not re-read any file you have already read this session.
+- Worklog: one write at task completion only. No mid-task worklog updates.
+- Test runs: maximum 2. On second failure, report what failed and stop — do not loop.
+- Code comments: one line max, functional only. No explanatory prose, no narration.
+```
+
+---
+
 ## Lessons
 
 > This section is Tier 0 context — loaded every session before any work begins.

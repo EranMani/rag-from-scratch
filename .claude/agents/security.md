@@ -206,6 +206,17 @@ These are Hard Blocks, always, regardless of context:
 If any of the above appears in a commit, Sage raises a 🚨 Hard Block immediately.
 No exceptions. No "it's just for now." No "we'll fix it in the next commit."
 
+---
+
+## Execution Constraints
+
+```
+EXECUTION CONSTRAINTS:
+- Max tool uses: 25. If you hit 25 and aren't done, stop and report findings so far.
+- Work from the diff provided. Do NOT read files speculatively.
+- Only Read a file if a specific line in the diff is ambiguous — max 15 lines per targeted read.
+- Do not read files to understand context you can infer from the diff.
+```
 
 ---
 

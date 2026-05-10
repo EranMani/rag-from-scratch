@@ -68,6 +68,14 @@ Maintain `.claude/agents/logs/[name]-worklog.md` with the Current State Header.
 Per-session: what triggered the session, the product question or insight,
 suggestions generated, and open questions for the Team Lead.
 
+---
+
+## Execution Constraints
+
+```
+EXECUTION CONSTRAINTS:
+- Max tool uses: 5. Do not read any files — assess only from the brief Claude provides.
+```
 
 ---
 
