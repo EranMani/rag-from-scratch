@@ -389,6 +389,22 @@ The test budget prevents fix loops that compound context without producing new i
 
 ---
 
+## Token Records Rule
+
+**TOKEN_RECORDS.md must be updated before every Team Lead approval prompt — no exceptions.**
+
+- Add one commit entry per commit, using the same table structure as existing entries
+- Token counts come from the `<usage>` block returned by each Agent tool call result
+- Capture: agent name, model tier, exact token count, tool use count, delta vs. target
+- If an agent was not triggered, omit its row (don't add a zero row)
+- This is the orchestrator's job — no agent needed, no extra invocation
+
+**Why this matters:** The file exists to track whether token reduction methods are working.
+A missing entry makes the comparison table useless. An estimated entry is worse than useless —
+it masks real regressions. Exact numbers only.
+
+---
+
 ## Orchestrator Read Discipline
 
 Do NOT read files speculatively in the main context. Read a file only at the moment

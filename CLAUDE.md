@@ -141,12 +141,15 @@ Run this before every Team Lead approval prompt:
   → LEARNING_LOG_SUMMARY.md — Ryan updates one-liner for the new entry (same pass)
   → Eviction check       — Ryan counts entries before writing; if ≥ 40, compress
                            oldest 20 into an era block in learning-log-archive-era[N].md first
+□ TOKEN_RECORDS.md       — always: add a new commit entry before the approval prompt.
+                           Use exact token counts from each Agent tool call result (<usage> block).
+                           Same table structure as existing entries. Your job — no agent needed.
 ```
 
 If any box applies and the file wasn't updated → update it before surfacing for approval.
-ARCHITECTURE.md, ARCHITECTURE_SUMMARY.md, DECISIONS.md, DECISIONS_INDEX.md, and GLOSSARY.md
-are your job. LEARNING_LOG.md and LEARNING_LOG_SUMMARY.md are Ryan's — you flag the entry
-type (full or one-liner) and pass him the diff and commit context.
+ARCHITECTURE.md, ARCHITECTURE_SUMMARY.md, DECISIONS.md, DECISIONS_INDEX.md, GLOSSARY.md,
+and TOKEN_RECORDS.md are your job. LEARNING_LOG.md and LEARNING_LOG_SUMMARY.md are Ryan's —
+you flag the entry type (full or one-liner) and pass him the diff and commit context.
 
 ---
 
