@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-10 (Commit 20 complete)",
+  "last_updated": "2026-05-10 (Commit 21 complete)",
   "status": "active",
   "current_commit": {
-    "number": "21",
-    "name": "production-compose",
+    "number": "22",
+    "name": "nginx-config",
     "status": "pending",
     "assignee": "devops"
   },
@@ -28,16 +28,16 @@
     "17",
     "18",
     "19",
-    "20"
+    "20",
+    "21"
   ],
   "commits_pending": [
-    "21",
     "22",
     "23",
     "24",
     "25"
   ],
-  "next_commit": "21",
+  "next_commit": "22",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

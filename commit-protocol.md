@@ -30,7 +30,7 @@
 | 18 | adaptive-graph-integration | ai-engineer | ✅ done · 2026-05-10 |
 | 19 | profile-ui-panel | frontend | ✅ done · 2026-05-10 |
 | 20 | dynamic-chat-ui | frontend | ✅ done · 2026-05-10 |
-| 21 | production-compose | devops | pending |
+| 21 | production-compose | devops | ✅ done · 2026-05-10 |
 | 22 | nginx-config | devops | pending |
 | 23 | aws-ec2-deployment | devops | pending |
 | 24 | integration-tests | backend + ai-engineer | pending |
