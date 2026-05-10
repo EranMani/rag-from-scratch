@@ -72,7 +72,8 @@
       "Bash(.venv/Scripts/python -m pytest tests/test_update_profile_node.py -v)",
       "Bash(.venv/Scripts/python -m pytest -v)",
       "Bash(.venv/Scripts/python -m pytest tests/test_update_profile_node.py -v --tb=short)",
-      "Bash(.venv/Scripts/python -m pytest tests/test_scoring.py -v)"
+      "Bash(.venv/Scripts/python -m pytest tests/test_scoring.py -v)",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }
