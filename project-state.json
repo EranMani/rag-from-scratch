@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-10 (Commit 17 complete)",
+  "last_updated": "2026-05-10 (Commit 18 complete)",
   "status": "active",
   "current_commit": {
-    "number": "18",
-    "name": "adaptive-graph-integration",
+    "number": "19",
+    "name": "profile-ui-panel",
     "status": "pending",
-    "assignee": "ai-engineer"
+    "assignee": "frontend"
   },
   "commits_done": [
     "01",
@@ -25,10 +25,10 @@
     "14",
     "15",
     "16",
-    "17"
+    "17",
+    "18"
   ],
   "commits_pending": [
-    "18",
     "19",
     "20",
     "21",
@@ -37,18 +37,25 @@
     "24",
     "25"
   ],
-  "next_commit": "18",
-  "open_handoffs": [],
+  "next_commit": "19",
+  "open_handoffs": [
+    {
+      "from": "Mira",
+      "to": "Aria",
+      "commit": "19",
+      "message": "SSE done event: user_level=null means assessment did not run (show '—', not 'novice'); assessed_topics are per-turn deltas not absolute scores; filter 'answer' field from done payload before UI render to avoid duplicate; cache TTL seam is accepted tradeoff."
+    }
+  ],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "11",
-      "tests": "14/14 PASS — test_graph_smoke.py (5 gate classes, no live external services)",
-      "viktor": "PASS WITH COMMENTS — 1 concern (unused _stub_generate helper), 2 advisories; approved as-is",
-      "sage": "not triggered (test-only commit)",
-      "quinn": "not triggered (test-only additions)",
-      "mira": "not triggered (not user-facing)",
-      "gate_wave": "viktor only (test-only commit)"
+      "number": "18",
+      "tests": "240/240 PASS — 6 new cache isolation tests + 1 unknown user_level fallback test",
+      "viktor": "PASS WITH COMMENTS — 3 advisories: ChatResponse str|None annotation consistency, logger.warning vs logger.error, test_cache.py sentinel value test gap",
+      "sage": "PASS",
+      "quinn": "ADEQUATE — 2 HIGH closed (null-byte collision, unknown level fallback); 2 MEDIUM accepted as debt (cache TTL seam, assessed_topics delta display)",
+      "mira": "non-blocking — 3 carry-forwards for Commit 19: user_level null display, assessed_topics delta framing, answer duplicate-render risk",
+      "gate_wave": "all 4 (Viktor+Sage+Quinn+Mira) — 2 gate-fix cycles; Viktor ran 3 passes (worktree confusion on pass 2)"
     },
     "commit_10": {
       "number": "10",

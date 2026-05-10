@@ -28,6 +28,12 @@ Adds a profile sidebar to the main chat page. Structural changes:
 Panel handles the case where `topic_scores` is empty (fresh user) gracefully —
 shows "Start chatting to build your profile" message.
 
+**Carry-forwards from Commit 18 (Mira → Aria):**
+- `user_level: null` in the SSE `done` event means assessment did not run — display a neutral "—" or "N/A", not "novice"
+- `assessed_topics` values are per-turn **deltas** (not absolute scores); do not display them as percentage mastery without combining with the full profile
+- The `answer` field exists in `ChatResponse.model_dump()` — if the SSE done event is passed directly to the UI, filter `answer` to avoid a duplicate render
+- Cache TTL seam: profile may lag by up to the cache TTL after score changes mid-session; accepted tradeoff, no UI workaround needed
+
 **Assignee:** Aria (`aria.stockagent@gmail.com`)
 
 **Files touched:**
