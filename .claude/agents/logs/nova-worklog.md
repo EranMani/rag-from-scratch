@@ -5,17 +5,13 @@
 ---
 
 ## Current State
-*Last updated: Commit 12 `langgraph-assessment-scaffold` (gate-fix) · 2026-05-10*
+*Last updated: Commit 13 `langgraph-assessment-llm` · 2026-05-10*
 
-**Last completed:** Commit 12 `langgraph-assessment-scaffold` ✅ (gate-fix applied: dead `if` removed from `_route_after_assess`)
+**Last completed:** Commit 13 `langgraph-assessment-llm` ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
-- Commit 13 (assess_node real prompt): `assess_node` scaffold is in place.
-  Replace the stub `AssessmentOutput(...)` block in `src/agents/nodes/assess.py` with
-  a real `assessment_prompt | llm.with_structured_output(AssessmentOutput)` chain.
-  The try/except fallback (`assessment_error=True`) is already wired — do not remove it.
 - Commit 15 (update_profile_node): `update_profile_node` stub is in `src/agents/graph.py`
   (single-line passthrough returning `{}`). Replace it in place — do not add a new node.
   Reads `topic_scores_delta` and `identified_gaps` from state; merges them (not overwrites)
@@ -103,6 +99,7 @@ No archived sessions yet.
 | 04 | Commit 10 gate-fix | ✅ Done | Quinn: 4 chat route tests added; Sage: `nicegui_storage_secret` extracted to config — patched settings singleton directly in test 4 to avoid lru_cache re-evaluation |
 | 05 | Commit 11 `langgraph-graph-smoke-test` | ✅ Done | Two distinct mock layers: retrieve_node patched at agents.graph; get_provider patched at agents.nodes.generate import site. Threading test uses shared MemorySaver + capture stub at generate_node level. |
 | 06 | Commit 12 `langgraph-assessment-scaffold` | ✅ Done | Conditional edge: both error and non-error paths route to update_profile — structural branching now explicit via add_conditional_edges; update_profile_node is a passthrough stub declared in graph.py, not a separate file. |
+| 07 | Commit 13 `langgraph-assessment-llm` | ✅ Done | Prompt in dedicated file; assessment_prompt.__or__ mock pattern avoids RunnableSequence internals in tests; user_level NOT written back to state. |
 
 ---
 
@@ -828,3 +825,156 @@ The tie-breaker was testability: `_route_after_assess` as a named function with 
 gives clear evidence the routing logic reads `assessment_error`, satisfying Viktor's sharp edge
 check ("The conditional edge function must read `state['assessment_error']` — not the node
 return value directly").
+
+---
+
+## Session 07 — Commit 13: `langgraph-assessment-llm`
+
+**Date:** 2026-05-10
+**Status:** ✅ Done
+
+### Task Brief
+
+Replace the deterministic stub in `assess_node` with a real LLM call using
+`assessment_prompt | llm.with_structured_output(AssessmentOutput)`. Create a new
+`src/agents/prompts/assessment.py` module containing the assessment prompt template.
+Add 15 new tests covering the real LLM path, parse failure fallback, user_level
+validation, and per-invocation provider routing. All 140 prior tests must continue
+to pass.
+
+### AI Problem Being Solved
+
+The core assessment problem: given a user's question and the RAG-generated answer,
+identify which knowledge modules were touched, assess the user's apparent understanding
+of each, and surface gaps — without a live LLM in tests and without making the
+assessment error a hard failure in production.
+
+The secondary problem: this is a hidden second LLM call per user turn. Latency matters.
+The prompt must be concise and provide sufficient constraint to prevent hallucinated
+module slugs without being verbose.
+
+The tertiary problem: `AssessmentOutput` has a `user_level` field (required by the
+Pydantic schema for `.with_structured_output()`), but `assess_node` must NOT write
+`user_level` back to `AgentState` — that would create a state ownership conflict with
+the profile update system. The LLM needs the field in its output schema, but the node
+intentionally discards it.
+
+### Prompt / Tool Design Decisions
+
+**Prompt structure: role → task → constraints → output format.**
+The prompt in `src/agents/prompts/assessment.py` uses a `ChatPromptTemplate` with two
+messages: a system message establishing the role and constraints, and a human message
+providing the per-turn inputs (question, answer, valid_slugs).
+
+**Why `valid_slugs` is passed as an input variable, not hardcoded in the system prompt.**
+`VALID_MODULE_SLUGS` is a module-level constant in `state.py`. Passing it as a
+template variable (`{valid_slugs}`) at invocation time via `sorted(VALID_MODULE_SLUGS)`
+means the prompt automatically updates if slugs are added to or removed from the set
+in a future commit — no prompt file needs to change. The alternative (hardcoding the
+slugs in the system message string) would create a maintenance coupling between
+`state.py` and `assessment.py` that is invisible to the type checker.
+
+**Why constraint language is explicit about slugs ("MUST come from the valid_slugs list").**
+The Pydantic validator on `AssessmentOutput.topic_scores_delta` silently drops unknown
+slugs — but silent drops mean the downstream delta is smaller than intended. The prompt
+constraint prevents the hallucination before it reaches the validator. Defense in depth:
+prompt constrains → validator cleans. Either layer is sufficient; both together mean
+hallucinated slugs are practically eliminated in production.
+
+**No few-shot examples in the prompt.** `.with_structured_output()` provides strong
+implicit grounding via the JSON schema. Adding examples would increase token cost per
+hidden call. The explicit constraint language and the score range specification
+(`[-1.0, 1.0]`) are sufficient to guide the LLM to well-formed output.
+
+### What Was Considered and Ruled Out
+
+1. **Hardcoding VALID_MODULE_SLUGS in the prompt string** — rejected. Creates silent
+   drift risk. The frozenset in state.py is the single source of truth; the prompt
+   receives it at runtime.
+
+2. **Using `StrOutputParser` instead of `.with_structured_output()`** — rejected per
+   spec and per design principle. Free-form LLM output that requires downstream parsing
+   is a reliability failure. `.with_structured_output()` gives validated structured output
+   or raises at parse time.
+
+3. **Caching the LLM instance at module level** — rejected. Same reasoning as
+   `generate_node`: the circuit breaker state must be observed per invocation, not
+   frozen at import time.
+
+4. **Writing `user_level` back to `AgentState` from `assess_node`** — rejected.
+   `user_level` in `AgentState` is currently a "turn input" field loaded from the
+   profile before graph entry. Letting `assess_node` overwrite it would create a circular
+   update (assess reads user_level → updates user_level → next assess reads the just-
+   assessed level). The field exists in `AssessmentOutput` for the LLM's assessment,
+   not for state propagation. This decision is documented in the docstring and deferred
+   to Commit 15.
+
+5. **Using `pytest.fixture` for the mock setup** — considered for the repeated
+   `_make_provider_mock` / `_make_prompt_mock` pattern. Rejected because the fixtures
+   would need parametrization for different `AssessmentOutput` values across tests.
+   The factory functions are simpler and make the mock dependencies explicit at each
+   test site.
+
+### Failure Modes Considered
+
+**RunnableSequence mock opacity.** The critical failure mode in testing: `assess_node`
+does `chain = assessment_prompt | llm.with_structured_output(AssessmentOutput)`. The `|`
+operator creates a LangChain `RunnableSequence`. When I mocked `llm.with_structured_output`
+to return a `MagicMock`, the resulting `assessment_prompt | mock_chain` was a
+`RunnableSequence` wrapping the real prompt template and the mock. When
+`RunnableSequence.ainvoke()` was called, it correctly called `mock_chain.ainvoke()` —
+but the return value was a `MagicMock` attribute auto-generated by `MagicMock`, not my
+`AssessmentOutput`. The root cause: `MagicMock.ainvoke` returns a `MagicMock` by default
+unless explicitly set to `AsyncMock(return_value=...)`. The fix: mock at the prompt level
+instead — `assessment_prompt.__or__` returns a fully-controlled chain mock. This avoids
+all `RunnableSequence` internal machinery.
+
+**Provider import-time config failure.** The module-level import of `from rag.providers
+import get_provider` in `assess.py` triggers `app.core.config.settings` at collection
+time when the `.env` is absent. This cascades to a `ValidationError` during test
+collection, not during test execution. The fix: the worktree needs a `.env` (copied from
+root for the test run). Long-term fix: a `conftest.py` that mocks `settings` at collection
+time would be more portable. Flagged but not implemented — outside scope.
+
+**LangGraph state serialization of MagicMock.** When `assess_node` runs inside the
+real graph (Gate 5 tests), LangGraph's `MemorySaver` tries to serialize the state
+values to msgpack. A `MagicMock` in `topic_scores_delta` causes `TypeError: Type is
+not msgpack serializable: MagicMock`. This confirms the chain return value was a
+`MagicMock` before the prompt-level mock fix. After the fix, the chain returns a real
+`AssessmentOutput`, and `result.topic_scores_delta` is a proper `dict[str, float]`.
+
+### Test Results
+
+34 tests total in `test_assess_node.py` (up from 19):
+- Gate 1 (4 tests): happy path — assessment_error=False, topic_scores_delta is dict, identified_gaps is list, output types correct
+- Gate 2 (3 tests): output key boundary — no foreign keys, all declared keys present, exactly declared keys
+- Gate 3 (4 tests): fallback — provider error sets assessment_error=True, chain invoke error sets True, empty deltas on error, fallback output has all keys
+- Gate 4 (3 tests): conditional edge routing — routes to update_profile on both True and False
+- Gate 5 (6 tests): graph integration — compiles, ainvoke doesn't raise, returns dict, assess output in state, fallback path, normal path
+- Gate 6 (3 tests): LLM output mapping — vector_databases slug present, delta values are floats, gaps are valid slugs
+- Gate 7 (3 tests): parse failure — ValueError sets True, RuntimeError empties deltas, Exception doesn't re-raise
+- Gate 8 (4 tests): user_level validation — mock level is valid, invalid level rejected, all 5 accepted, user_level NOT in state output
+- Gate 9 (4 tests): provider routing — get_provider called once per invocation, twice for two calls, get_llm called on result, with_structured_output called with AssessmentOutput class
+
+Full suite: 155 passed (140 prior + 15 new), 0 failures.
+
+### Approach
+
+The first 30 minutes were prompt design. The key question was whether to constrain slugs at
+the prompt level (given the validator already handles unknown slugs via silent drop) or rely
+entirely on the schema enforcement. The decision: constrain at both levels. The prompt says
+"MUST come from the valid_slugs list" and receives the actual list at runtime. The validator
+catches any hallucinated slugs that slip through. The latency tradeoff was real — this is a
+hidden second call — so the prompt was kept as tight as possible: no examples, no verbose
+explanation of what RAG modules are, just the constraints and the task.
+
+The test mocking problem consumed more time than the implementation. The initial approach
+(mocking `llm.with_structured_output` to return a mock chain) failed because LangChain's
+`RunnableSequence.ainvoke` doesn't directly call the mock chain's `ainvoke` method in a way
+that a plain `MagicMock` with `ainvoke = AsyncMock(...)` handles correctly for all LangChain
+versions. The symptom was `topic_scores_delta` being a `MagicMock` instead of a `dict`. The
+fix was to mock one level higher — patch `assessment_prompt.__or__` to return a mock chain
+I fully control. This bypasses the `RunnableSequence` machinery entirely: `assessment_prompt |
+mock_llm_output` returns my mock chain, whose `ainvoke` I set to return my `AssessmentOutput`.
+The insight: when testing LangChain chains, don't mock at the Runnable composition level —
+mock at the entry point of the composition operator.

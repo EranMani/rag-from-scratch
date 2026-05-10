@@ -15,53 +15,57 @@ Node contract:
 
     DOES NOT write: messages, docs, answer, question, retrieval_source, or any
     field owned by retrieve_node or generate_node.
+    DOES NOT write: user_level — AssessmentOutput.user_level is used for the LLM
+    assessment call only; it is NOT propagated back to AgentState to avoid a
+    state ownership conflict (see Commit 12 design notes, deferred to Commit 15).
 
 Design notes:
-- This commit (12) ships the scaffold: the LLM call is a deterministic stub that
-  returns an empty AssessmentOutput.  The real assessment prompt is introduced in
-  Commit 13.
+- Commit 13 replaces the scaffold stub with a real LLM call using
+  assessment_prompt | llm.with_structured_output(AssessmentOutput).
+- get_provider() is called per-invocation (not at module level) so the circuit
+  breaker fallback (OpenAI → Ollama) is observed on every turn.
 - assessment_error is set to True when the LLM call or structured-output parsing
-  fails.  When True, the conditional edge in graph.py routes directly to
-  update_profile_node — no delta is applied to the profile.
+  fails.  When True, the conditional edge in graph.py routes to update_profile_node
+  with an empty delta — no delta is applied to the profile.
 - AssessmentOutput is imported from agents.state (the single schema source of truth).
   The validator on topic_scores_delta silently drops unknown module slugs.
-- The stub returns an empty AssessmentOutput with user_level set to the value
-  already in state.  This is intentionally conservative: the profile is unchanged
-  when no real assessment has run.
 """
 
 import logging
+from typing import Any
 
-from agents.state import AgentState, AssessmentOutput
+from agents.prompts.assessment import assessment_prompt
+from agents.state import VALID_MODULE_SLUGS, AgentState, AssessmentOutput
+from rag.providers import get_provider
 
 logger = logging.getLogger(__name__)
 
 
-async def assess_node(state: AgentState) -> dict:
+async def assess_node(state: AgentState) -> dict[str, Any]:
     """LangGraph node: assess user understanding from this turn's answer and question.
 
-    STUB IMPLEMENTATION (Commit 12): returns a deterministic empty AssessmentOutput.
-    The real LLM prompt and structured-output call are added in Commit 13.
+    Calls the LLM via get_provider().get_llm().with_structured_output(AssessmentOutput)
+    to extract topic understanding from the user's question and the generated answer.
 
     On any assessment failure the node catches the exception, logs a warning,
     sets assessment_error=True, and returns empty deltas.  The conditional edge
     in graph.py routes the fallback path so the graph never terminates on an
     assessment failure.
+
+    Returns exactly three keys: topic_scores_delta, identified_gaps, assessment_error.
+    Does NOT return user_level — state ownership deferred to Commit 15 design review.
     """
     try:
-        # --- Stub LLM call (Commit 12) -----------------------------------------
-        # In Commit 13 this block is replaced with:
-        #   llm = get_provider().get_llm()
-        #   chain = assessment_prompt | llm.with_structured_output(AssessmentOutput)
-        #   result: AssessmentOutput = await chain.ainvoke({...})
-        # For now return a deterministic empty output so the graph compiles and all
-        # downstream wiring can be exercised without a live LLM.
-        result: AssessmentOutput = AssessmentOutput(
-            topic_scores_delta={},
-            identified_gaps=[],
-            user_level=state["user_level"],
-        )
-        # -----------------------------------------------------------------------
+        # get_provider() is called here (not at module level) so every invocation
+        # observes the current circuit breaker state: OpenAI primary → Ollama fallback.
+        llm = get_provider().get_llm()
+        chain = assessment_prompt | llm.with_structured_output(AssessmentOutput)
+
+        result: AssessmentOutput = await chain.ainvoke({
+            "question": state["question"],
+            "answer": state["answer"],
+            "valid_slugs": sorted(VALID_MODULE_SLUGS),
+        })
 
         return {
             "topic_scores_delta": result.topic_scores_delta,
