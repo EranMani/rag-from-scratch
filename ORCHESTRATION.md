@@ -510,6 +510,32 @@ The 5 sessions are moved to `[agent]-worklog-archive-[N].md`.
 The active worklog stays lean. Archives are read only when resolving
 historical disputes.
 
+### Summary Companion Files
+
+The following files are always loaded in the context package because they are ≤15 lines.
+Full documents are loaded on demand only when the task explicitly requires them.
+
+| Full document | Summary companion | Always loaded | Load full doc when |
+|---|---|---|---|
+| `LEARNING_LOG.md` | `LEARNING_LOG_SUMMARY.md` | ✅ | agent needs full entry detail or code snippet |
+| `ARCHITECTURE.md` | `ARCHITECTURE_SUMMARY.md` | ✅ | commit introduces or changes a component |
+| `DECISIONS.md` | `DECISIONS_INDEX.md` | ✅ | commit touches a specific decision's domain |
+
+**Maintenance obligation:** Every agent who writes to a full doc must also update its
+companion summary in the same step. This is enforced by the Step 9 checklist.
+An outdated summary is worse than no summary — it actively misleads future agents.
+
+**LEARNING_LOG eviction rule:** Before Ryan writes a new entry, he counts the current
+entries in `LEARNING_LOG.md`. If the count is ≥ 40, he compresses the oldest 20 entries
+into a single era block and moves them to `learning-log-archive-era[N].md` first.
+Era block format:
+
+```markdown
+## Era [N] — Commits [X]–[Y] (compressed [date])
+Key patterns: [comma-separated one-liners from compressed entries]
+Full entries: learning-log-archive-era[N].md
+```
+
 ### Token budget by agent role
 
 Defined in `context-budget.json`. Enforced by Claude before invoking any agent.
@@ -578,6 +604,20 @@ STEP 7 — GATE: Automated test run
     FAIL → return failure output to agent. Agent fixes. Return to Step 5.
     Gate does not surface to Team Lead until tests pass.
 
+STEP 7.5 — GATE: Pre-commit contract validation (linter)
+└── Claude invokes a lightweight linter subagent immediately after tests pass.
+    Context package: staged diff + CONTRACTS.md only. No identity file. No history.
+    The linter checks:
+    - Node function signatures match the CONTRACTS.md node interface
+    - LLM calls use ainvoke() not invoke(); get_provider() called inside node body
+    - No blocking I/O inside async generator bodies
+    - Dynamic SQL functions have a _ALLOWED_X_COLUMNS frozenset guard
+    - State key values (user_level, cache_hit, retrieval_source) within declared sets
+    - user_id read from verified JWT, not request parameters
+    PASS → continue to Step 8.
+    FAIL → return violation to owning agent with the exact CONTRACTS.md rule breached.
+           Agent fixes. Return to Step 5. Linter re-runs before gate wave.
+
 STEP 8 — GATE: Parallel quality review wave
 └── Claude spawns all active reviewers simultaneously as subagents.
     Each receives the same context package: staged diff + agent worklog Current State.
@@ -612,13 +652,18 @@ STEP 8 — GATE: Parallel quality review wave
     Team Lead with full context rather than back to the agent.
 
 STEP 9 — Pre-commit documentation checklist (Claude)
-└── □ ARCHITECTURE.md  — new component or data flow introduced?
-    □ DECISIONS.md     — non-obvious design choice made?
-    □ GLOSSARY.md      — new term introduced?
-    □ LEARNING_LOG.md  — always: trigger Ryan; full entry if any box above is checked
-                         or change is security-relevant/architectural; one-liner otherwise.
-    Claude updates ARCHITECTURE.md, DECISIONS.md, GLOSSARY.md.
-    Ryan writes LEARNING_LOG.md — Claude passes entry type signal + diff.
+└── □ ARCHITECTURE.md       — new component or data flow introduced?
+    □ ARCHITECTURE_SUMMARY  — update if ARCHITECTURE.md changed (Claude)
+    □ DECISIONS.md          — non-obvious design choice made?
+    □ DECISIONS_INDEX.md    — add one-liner if DECISIONS.md received a new entry (Claude)
+    □ GLOSSARY.md           — new term introduced?
+    □ LEARNING_LOG.md       — always: trigger Ryan; full entry if any box above is checked
+                              or change is security-relevant/architectural; one-liner otherwise.
+    □ LEARNING_LOG_SUMMARY  — Ryan updates one-liner for the new entry (same pass as log)
+    □ LEARNING_LOG eviction — Ryan counts entries; if ≥ 40, compress oldest 20 to era block first
+
+    Claude updates ARCHITECTURE.md, ARCHITECTURE_SUMMARY.md, DECISIONS.md, DECISIONS_INDEX.md, GLOSSARY.md.
+    Ryan writes LEARNING_LOG.md and LEARNING_LOG_SUMMARY.md — Claude passes entry type signal + diff.
 
 STEP 10 — Team Lead approval
 └── Approval prompt includes:

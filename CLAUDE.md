@@ -131,17 +131,22 @@ before any agent receives a task brief.
 Run this before every Team Lead approval prompt:
 
 ```
-□ ARCHITECTURE.md  — did this commit introduce a new component, pattern, or data flow?
-□ DECISIONS.md     — did this commit involve a non-obvious design choice?
-□ GLOSSARY.md      — did this commit introduce a new term or concept?
-□ LEARNING_LOG.md  — always: trigger Ryan to write a one-liner minimum;
-                     full entry (with code snippet + reasoning) if any box above is checked
-                     or if the change is security-relevant, non-obvious, or architecturally significant.
+□ ARCHITECTURE.md        — new component, pattern, or data flow introduced?
+  → ARCHITECTURE_SUMMARY.md — update if yes (your job, same pass)
+□ DECISIONS.md           — non-obvious design choice made?
+  → DECISIONS_INDEX.md   — add one-liner if yes (your job, same pass)
+□ GLOSSARY.md            — new term or concept introduced?
+□ LEARNING_LOG.md        — always: trigger Ryan; full entry if any box above is checked
+                           or change is security-relevant, non-obvious, or architectural.
+  → LEARNING_LOG_SUMMARY.md — Ryan updates one-liner for the new entry (same pass)
+  → Eviction check       — Ryan counts entries before writing; if ≥ 40, compress
+                           oldest 20 into an era block in learning-log-archive-era[N].md first
 ```
 
 If any box applies and the file wasn't updated → update it before surfacing for approval.
-ARCHITECTURE.md, DECISIONS.md, and GLOSSARY.md are your job. LEARNING_LOG.md is Ryan's —
-you flag the entry type (full or one-liner) and pass him the diff and commit context.
+ARCHITECTURE.md, ARCHITECTURE_SUMMARY.md, DECISIONS.md, DECISIONS_INDEX.md, and GLOSSARY.md
+are your job. LEARNING_LOG.md and LEARNING_LOG_SUMMARY.md are Ryan's — you flag the entry
+type (full or one-liner) and pass him the diff and commit context.
 
 ---
 
@@ -153,7 +158,10 @@ ORCHESTRATION.md         ← full system ruleset
 AGENTS.md                ← cross-agent protocol
 team-preferences.md      ← Team Lead calibration (read every boot)
 ARCHITECTURE.md          ← living architecture doc (you maintain it)
-DECISIONS.md             ← design decisions log (you maintain it)
+ARCHITECTURE_SUMMARY.md  ← always-loaded companion; update when ARCHITECTURE.md changes
+DECISIONS.md             ← design decisions full prose (you maintain it)
+DECISIONS_INDEX.md       ← always-loaded index; add one-liner per new decision
+CONTRACTS.md             ← project-wide interface contracts; Viktor maintains after gate passes
 GLOSSARY.md              ← term definitions (you maintain it)
 commit-protocol.md       ← build sequence (index table only)
 commit-specs/            ← per-commit full specs (load active commit only)
