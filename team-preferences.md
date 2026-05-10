@@ -153,31 +153,56 @@ No full codebase scans.
 **Ryan runs every commit — no exceptions.** The LEARNING_LOG is the Team Lead's primary
 learning artifact and must stay current.
 
-**How to invoke Ryan (token-efficient, consistent format):**
-
-Step 1 — Claude reads `LEARNING_LOG.md` lines 1–99 only (the header + Entry Format Reference).
-         This is the template section. Do not read the entries below line 100.
-
-Step 2 — Claude embeds those lines verbatim in Ryan's prompt so Ryan sees the exact
-         template structure, Full Entry format, One-liner format, and section headers.
-         This is what enforces consistency — Ryan matches the template, not the prior entries.
-
-Step 3 — Claude passes a tight commit brief (150–200 words max, written by Claude):
-         - Commit number, name, date, assignee
-         - What changed (2–3 sentences)
-         - Key decisions or non-obvious constraints (bullet points)
-         - Files touched (list)
-         - Entry type: "full" or "one-liner"
-
-Step 4 — Ryan appends using `Write` (read current content first to get offset, then append).
-         Ryan never reads the full file — only Claude reads lines 1–99 for the template.
-
 **Entry type rule:**
 - Full entry: commit updated ARCHITECTURE.md or DECISIONS.md, had a security finding,
   involved a non-obvious design decision, or introduced a new pattern
 - One-liner: routine test addition, config tweak, minor refactor, doc-only commit
 
-Ryan never reads the raw diff. Claude summarizes it. Target: Ryan under 3k tokens per commit.
+---
+
+### One-liner entries — Claude writes directly, Ryan NOT invoked
+
+For one-liner commits, Claude composes the entry and appends it using Edit. No agent needed.
+
+Format (Claude writes this verbatim):
+```
+---
+
+**Commit [N] — [commit-name]** · [date] · [agent] · `test|fix|config|refactor|docs`
+
+> **In one sentence:** [One recruiter-ready line.]
+
+---
+```
+
+Claude uses Edit with `old_string` = the last `---` separator in the file,
+`new_string` = that separator + the new entry. No file read required — Claude already
+has the template from lines 1–99.
+
+---
+
+### Full entries — Ryan invoked with Edit anchor, never reads the file
+
+Step 1 — Claude reads `LEARNING_LOG.md` lines 1–99 only (template section).
+
+Step 2 — Claude reads the **last 15 lines** of `LEARNING_LOG.md` (use Read with
+         `offset = file_line_count - 15`). These are the Edit anchor Ryan will use.
+
+Step 3 — Claude passes Ryan a prompt containing:
+         a) Lines 1–99 verbatim (the full entry template, so Ryan matches the format exactly)
+         b) The last 15 lines verbatim (the Edit anchor — Ryan inserts after these)
+         c) A tight commit brief (150–200 words max):
+            - Commit number, name, date, assignee
+            - What changed (2–3 sentences)
+            - Key decisions or non-obvious constraints (bullet points)
+            - Files touched (list)
+
+Step 4 — Ryan uses Edit ONLY:
+         old_string = [last 15 lines Claude provided]
+         new_string = [those same 15 lines] + [new full entry]
+         Ryan NEVER reads the file. Claude provides everything Ryan needs in the prompt.
+
+Ryan never reads the raw diff. Claude summarizes it. Target: Ryan under 5k tokens per full entry.
 
 ---
 
@@ -218,7 +243,14 @@ Agents most likely to hit threshold first: Rex (Phases 1–3), Nova (Phases 2–
 **Token budget target: 11–15k per commit total.**
 
 ### Viktor — always, Haiku
-Run on every commit. Read diff + targeted files only. No full worklog reads.
+Run on every commit. Token target: ≤25k (half of the implementing agent's budget).
+
+**How Claude passes context to Viktor:**
+- Always pass a `git diff` of the commit (compact) — NEVER paste full file contents into the prompt.
+- Viktor uses Read with line ranges for targeted inspection only — never reads whole files.
+- Prompt should contain: diff output + commit spec (one-liner summary, not full spec) + calibration rules.
+
+If the diff is large (>200 lines): pass the diff and instruct Viktor to `Read` only the sections he flags.
 
 ### Sage — conditional, Haiku
 Trigger **only** when the commit touches:
@@ -363,3 +395,5 @@ Tech Writer:    Ryan
 | 2026-05-10 | Quality Gate Trigger Rules added | Conditional gates: Sage/Quinn only on specific commit types; re-run only the blocking reviewer on fix pass |
 | 2026-05-10 | Ryan runs every commit — tight brief only, no raw diff | LEARNING_LOG is the Team Lead's primary learning artifact; must stay current |
 | 2026-05-10 | Token budget target set: 11–15k per commit | Team Lead hard requirement — current 60–70k average is unsustainable |
+| 2026-05-10 | Ryan protocol overhauled — one-liners written by Claude directly, full entries use Edit anchor (no file read) | Ryan read 48k tokens just to append a one-liner by reading the full LEARNING_LOG |
+| 2026-05-10 | Viktor token target set to ≤25k; Claude passes git diff not full file contents | Claude pasting 532-line test file into Viktor prompt wasted ~20k tokens |

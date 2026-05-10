@@ -806,3 +806,7 @@ async def chat(req: ChatRequest, request: Request, current_user = Depends(curren
 - `tests/test_chat_streaming.py` — new: 12 tests covering end-to-end SSE streaming, token-by-token arrival, done event structure, multi-turn session persistence via `thread_id`, fallback to BM25 on ChromaDB unavailability
 
 ---
+
+**Commit 11 — langgraph-graph-smoke-test** · 2026-05-10 · Nova · `test`
+
+> **In one sentence:** Fourteen smoke tests validate the fully assembled LangGraph graph end-to-end without external services, covering state dict return, non-empty answers, docs lists, retrieval source types, and MemorySaver cross-turn conversation threading — establishing the hard gate before Phase 4 adaptive intelligence commits.
