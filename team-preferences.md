@@ -181,6 +181,26 @@ Ryan never reads the raw diff. Claude summarizes it. Target: Ryan under 3k token
 
 ---
 
+## Context Window Management
+
+```
+After every commit:     type /clear — all state is in project files, nothing is lost
+Mid-commit threshold:   type /compact when session reaches ~60k tokens without a commit yet
+```
+
+**Why /clear after every commit:** The boot sequence reloads everything from project-state.json,
+commit-protocol.md, team-preferences.md, and memory files. Conversation history adds zero value
+between commits and costs tokens on every subsequent message.
+
+**Why /compact at 60k mid-commit (not /clear):** At 60k without a commit, there is likely
+in-flight work (agent implementation, gate findings) that hasn't been persisted yet.
+/compact summarizes and frees context while keeping the thread alive.
+/clear at that point would lose the in-flight work.
+
+**The post-commit hook prints a /clear reminder automatically after every commit.**
+
+---
+
 ## Worklog Archive Trigger
 
 ```

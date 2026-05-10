@@ -180,6 +180,14 @@ def main() -> int:
         print("🎉 All commits in commit-protocol.md are complete!")
         print("   Run /status to confirm and review the final project state.")
 
+    # ── Context hygiene reminder ──────────────────────────────────────────────
+    print()
+    print("┌─────────────────────────────────────────────────────────────┐")
+    print("│  TYPE /clear NOW — all state is saved in project files.    │")
+    print("│  Start the next commit in a fresh context window.          │")
+    print("│  Mid-commit if session grows heavy: type /compact instead. │")
+    print("└─────────────────────────────────────────────────────────────┘")
+
     return 0
 
 
