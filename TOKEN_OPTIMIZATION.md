@@ -269,6 +269,32 @@ All three summaries are always loaded (~50 lines total). Full docs loaded on dem
 
 ---
 
+### 13. Implementor Execution Constraints
+
+**Why / When:** Apply to every implementor invocation. Each tool use in a long-running agent session adds a full context echo — at 73 tool uses and 122k tokens, Commit 13's Nova was paying ~1,700 tokens of overhead per tool call on average. The read-modify-read spiral (read file → write partial → re-read file → continue writing) is the primary driver. Mid-task worklog writes compound this: every incremental update re-echoes the full growing context before the agent can continue.
+
+**What changed:** Every implementor prompt (Nova, Rex, Aria, Adam) now includes a verbatim constraint block:
+
+```
+EXECUTION CONSTRAINTS:
+- Max tool uses: 25. Plan your reads upfront. Batch your writes. If you hit 25 and aren't done, stop and report.
+- Two phases only: Phase 1 — all reads. Phase 2 — all writes. No reads in Phase 2.
+- Do not re-read any file you have already read this session.
+- Worklog: one write at task completion only. No mid-task worklog updates.
+- Test runs: maximum 2. On second failure, report what failed and stop — do not loop.
+- Code comments: one line max, functional only. No explanatory prose, no narration.
+```
+
+Token budget target revised: ≤60k for implementation agents (Sonnet), ≤15k per review/doc agent (Haiku).
+
+**Estimated saving:** Commit 13 Nova: 73 tool uses, 122k tokens. A comparable commit with constraints applied should run 20–25 tool uses at 50–70k tokens — a 40–50% reduction. The two-phase protocol eliminates the read-after-write spiral. The worklog constraint eliminates mid-task context echo. The test limit prevents open-ended fix loops.
+
+**Status:** Active — Implementor Execution Constraints section added to `team-preferences.md` 2026-05-10; triggered by Commit 13 actual (122k / 73 tool uses)
+
+**Example:** Commit 13 Nova's 73 tool uses included: read assess.py, read state.py, read graph.py, read existing tests, write prompts/__init__.py, re-read assess.py, write assess.py, write assessment.py, run tests (first pass), fix and re-run, write test additions, write worklog (incrementally, multiple times). With two-phase: Phase 1 reads assess.py + state.py + existing tests (3 reads). Phase 2 writes all output files + runs tests twice + writes worklog once. Estimated: 15–20 tool uses instead of 73.
+
+---
+
 ## Planned / Not Yet Applied
 
 ### `/compact` Mid-Session
@@ -342,30 +368,50 @@ cost of the 40 lines saved.
 
 ## Token Budget Benchmarks
 
-| Session type | Commits 01–10 actual | Commit 11–12 actual | Target (Commit 13+) |
-|---|---|---|---|
-| Boot sequence only | ~10k | ~3k | ~3k |
-| Nova/Rex implementation (Sonnet) | ~30–50k | ~65k | ~30–40k |
-| Gate wave — all 4 triggered (Haiku) | ~180k | ~94k | ~15–20k (5-commit batch) |
-| Gate wave — Viktor only (Haiku) | ~60k | ~50k | eliminated between waves |
-| Gate-fix re-run | ~60k | ~66k | **eliminated** |
-| Ryan LEARNING_LOG full entry | ~50k | ~54k | ~8–10k |
-| Ryan LEARNING_LOG one-liner | ~50k | n/a | ~3k |
-| **Full commit — no gate wave (typical)** | **~200k** | **~297k** | **~40–55k** |
-| **Full commit — Sage triggered** | **~260k** | n/a | **~50–65k** |
-| **5-commit gate wave (Viktor + Quinn, Haiku)** | n/a | n/a | **~20–30k total** |
+| Session type | Commits 01–10 actual | Commit 11–12 actual | C13 actual | Target (C14+) |
+|---|---|---|---|---|
+| Boot sequence only | ~10k | ~3k | ~3k | ~3k |
+| Implementation agent (Sonnet) | ~30–50k | ~65k | **122k** | ≤60k |
+| Sage security review (Haiku) | ~20k | not triggered | **34k** | ≤15k |
+| Ryan LEARNING_LOG full entry (Haiku) | ~50k | ~54k | **32k** | ≤15k |
+| Gate wave — all 4 triggered (Haiku) | ~180k | ~94k | — | ~15–20k (5-commit batch) |
+| Gate wave — Viktor only (Haiku) | ~60k | ~50k | — | eliminated between waves |
+| Gate-fix re-run | ~60k | ~66k | — | **eliminated** |
+| **Full commit — Sage triggered (no gate wave)** | **~260k** | **~297k** | **~188k** | **≤90k** |
+| **Full commit — no gate wave, no Sage** | **~200k** | n/a | — | **≤75k** |
+| **5-commit gate wave (Viktor + Quinn, Haiku)** | n/a | n/a | — | **~20–30k total** |
 
-**Hard target:** ≤55k per commit for non-gate commits. ≤30k for the 5-commit Viktor+Quinn wave.
+**Hard target (updated):** ≤60k implementation agent · ≤15k per review/doc agent · ≤90k full commit with Sage triggered.
 
-**What changed at Commit 13:** Gate-fix passes eliminated · Viktor/Quinn cadence every 5 commits · Ryan template trimmed from 99 → 38 lines · Viktor/Sage block only on system-breaking issues.
+---
+
+### Commit 13 — Per-Agent Breakdown
+
+| Agent | Model | Tokens | Tool Uses | Target | Delta |
+|---|---|---|---|---|---|
+| Nova | Sonnet | 122,128 | 73 | ≤60k | **+62k** |
+| Sage | Haiku | 34,369 | 10 | ≤15k | **+19k** |
+| Ryan | Haiku | 32,108 | 5 | ≤15k | **+17k** |
+| **Total (subagents)** | | **188,605** | **88** | **≤90k** | **+99k** |
+
+**Root causes by agent:**
+- **Nova (+62k):** Read-modify-read spiral. 73 tool uses = ~1,700 tokens context-echo overhead per call. Mid-task worklog writes echoed growing context repeatedly. → Fixed by Execution Constraints (Method 13).
+- **Sage (+19k):** Read files beyond the diff despite targeted prompt — went to `state.py`, `chat.py`, and provider code to trace the data flow. Defensible but expensive. → Partially addressed by tighter targeted-file-only wording.
+- **Ryan (+17k):** High-context prompt (template + 15-line anchor + 300-word brief) + substantive LEARNING_LOG entry output. Largely unavoidable for a full entry. → One-liner entries will cost ~3k; full entries are a fixed cost.
+
+---
+
+**What changed at Commit 13 (rules added post-commit):**
+Gate-fix passes eliminated · Viktor/Quinn cadence every 5 commits · Ryan template trimmed 99 → 38 lines · Viktor/Sage block only on system-breaking issues · **Implementor Execution Constraints added** · **Token budget targets revised to ≤60k/≤15k**
 
 **Actual vs. target tracking:**
 
-| Commit | Actual | Target | Notes |
-|---|---|---|---|
-| 10 | ~220k | — | Baseline — all rules established after this |
-| 11 | ~35k | — | Test-only, Viktor only — good |
-| 12 | ~297k | 55k | 5.4× over — gate-fix pass + oversized prompts |
-| 13+ | TBD | ≤55k | New rules active |
+| Commit | Actual (subagents) | Target | Delta | Root cause |
+|---|---|---|---|---|
+| 10 | ~220k | — | baseline | All rules established after this |
+| 11 | ~35k | — | good | Test-only, Viktor only |
+| 12 | ~297k | 55k | 5.4× | Gate-fix pass + oversized prompts |
+| 13 | **188k** | ≤90k | **2.1×** | Nova read-modify-read spiral (rules not yet applied) |
+| 14+ | TBD | ≤90k | — | Execution constraints active from this commit |
 
-*Updated 2026-05-10 based on Commit 12 actual cost (~297k) and new 5-commit cadence + system-breaking-only blocking rules.*
+*Updated 2026-05-10 — Commit 13 actual measured: 188k subagent tokens. Execution Constraints (Method 13) added post-commit; C14 is first commit where they apply.*
