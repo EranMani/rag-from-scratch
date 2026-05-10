@@ -5,24 +5,29 @@
 ---
 
 ## Current State
-*Last updated: Commit 13 `langgraph-assessment-llm` · 2026-05-10*
+*Last updated: Commit 15 `profile-update-node` · 2026-05-10*
 
-**Last completed:** Commit 13 `langgraph-assessment-llm` ✅
+**Last completed:** Commit 15 `profile-update-node` ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
-- Commit 15 (update_profile_node): `update_profile_node` stub is in `src/agents/graph.py`
-  (single-line passthrough returning `{}`). Replace it in place — do not add a new node.
-  Reads `topic_scores_delta` and `identified_gaps` from state; merges them (not overwrites)
-  into `user_profiles.topic_scores` via the backend profile service.
-- Commit 15: `AssessmentOutput.topic_scores_delta` is a per-turn delta — not a DB snapshot.
-  The merge must be additive: `existing_scores[slug] += delta`.
-- SSE done event: `chat.py` already reads `topic_scores_delta` and `user_level` from
-  `final_state` via `on_chain_end`. Both fields now appear in state after assess_node runs.
+- Commit 18 (UI profile panel): `update_profile_node` sets `last_activity_at` on every
+  successful assessment turn using `datetime.now(timezone.utc).isoformat()`. The field is
+  guaranteed to be a valid ISO 8601 UTC string after any authenticated turn with no
+  assessment error.
+- Commit 18: `interaction_count` is incremented by 1 per successful turn and persisted
+  via `update_profile()`. The profile panel can read it directly.
+- Downstream commits: `update_profile_node` is now in `src/agents/nodes/update_profile.py`
+  (not a stub in `graph.py`). `graph.py` imports it as
+  `from agents.nodes.update_profile import update_profile_node`.
 
-**Open Handoffs — Inbound:**
-- (none)
+**Open Handoffs — Inbound (consumed this session):**
+- Commit 05 Mira handoff (last_activity_at): CONSUMED. `last_activity_at` is set on every
+  successful turn.
+- Commit 14 handoff (compute_topic_scores import path, no json.loads): CONSUMED. Importing
+  as `from app.profile.scoring import compute_topic_scores, TopicScoreUpdate`; profile dict
+  passed directly without json.loads.
 
 **Key Interfaces I Own (for teammates):**
 - `src/agents/graph.py` — `build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph`
@@ -100,6 +105,7 @@ No archived sessions yet.
 | 05 | Commit 11 `langgraph-graph-smoke-test` | ✅ Done | Two distinct mock layers: retrieve_node patched at agents.graph; get_provider patched at agents.nodes.generate import site. Threading test uses shared MemorySaver + capture stub at generate_node level. |
 | 06 | Commit 12 `langgraph-assessment-scaffold` | ✅ Done | Conditional edge: both error and non-error paths route to update_profile — structural branching now explicit via add_conditional_edges; update_profile_node is a passthrough stub declared in graph.py, not a separate file. |
 | 07 | Commit 13 `langgraph-assessment-llm` | ✅ Done | Prompt in dedicated file; assessment_prompt.__or__ mock pattern avoids RunnableSequence internals in tests; user_level NOT written back to state. |
+| 08 | Commit 15 `profile-update-node` | ✅ Done | Synchronous node in its own file; two fast-exit paths (None user_id, assessment_error=True); identified_gaps state field maps to `gaps` DB column; no json.loads on topic_scores. |
 
 ---
 
@@ -978,3 +984,147 @@ I fully control. This bypasses the `RunnableSequence` machinery entirely: `asses
 mock_llm_output` returns my mock chain, whose `ainvoke` I set to return my `AssessmentOutput`.
 The insight: when testing LangChain chains, don't mock at the Runnable composition level —
 mock at the entry point of the composition operator.
+
+---
+
+## Session 08 — Commit 15: `profile-update-node`
+
+**Date:** 2026-05-10
+**Status:** ✅ Done
+
+### Task Brief
+
+Replace the `update_profile_node` passthrough stub in `graph.py` with a real implementation
+that: fetches the user's current profile, calls `compute_topic_scores()` to merge the
+per-turn delta, and persists the result via `update_profile()`. Handle the two fast-exit
+paths (anonymous user, assessment error). Set `last_activity_at` on every successful write.
+
+### AI Problem Being Solved
+
+This is not an AI problem — the node is entirely deterministic. The engineering problem
+was: how to correctly map the three-layer data flow (AgentState fields → scoring service
+types → DB column names) without introducing impedance mismatches at each boundary.
+
+Three specific impedance questions had to be resolved before writing any code:
+
+1. What does `compute_topic_scores` actually expect? The function signature is
+   `compute_topic_scores(current_profile: dict, assessed_topics: dict[str, float], interaction_count: int)`.
+   The first argument is the full profile dict (not just `profile["topic_scores"]`) — the
+   function calls `current_profile.get("topic_scores", {})` internally. Passing only the
+   scores dict would silently produce an empty merged result.
+
+2. What column names does `update_profile()` accept? The `_ALLOWED_PROFILE_COLUMNS`
+   allowlist in `db.py` is `{"mastery_level", "interaction_count", "topic_scores",
+   "strengths", "gaps", "last_activity_at"}`. The AgentState field is `identified_gaps`
+   but the DB column is `gaps`. Passing `identified_gaps=` to `update_profile()` would
+   raise `ValueError` at runtime.
+
+3. Should `identified_gaps` from state be written directly to `gaps`, or should the
+   scoring-derived `gaps` (low-score slugs) be used? The scoring service computes
+   `gaps` from merged scores (slugs with score <= 0.3). The per-turn `identified_gaps`
+   from the LLM is the raw signal. The merged `score_update["gaps"]` reflects the full
+   accumulated state and is therefore the correct value to persist.
+
+### Tool / Node Design Decisions
+
+**Two fast-exit paths at the top of the function.**
+`user_id is None` exits immediately — before any DB call. `assessment_error is True`
+exits immediately — before any DB call. Both return `{}`. This ordering is deliberate:
+checking `user_id` first means we never fetch a profile for an anonymous user, not even
+as a side effect of the `assessment_error` check.
+
+**No async inside the node.**
+The spec is explicit: synchronous node called via `asyncio.to_thread()` at the invocation
+level. Adding `async` or `asyncio.to_thread()` inside the node would nest thread dispatch
+inside thread dispatch — a pattern that is difficult to test and produces undefined behavior
+under some event loop configurations. The node is sync throughout.
+
+**`interaction_count` passed to `compute_topic_scores` even though unused.**
+The scoring formula does not use `interaction_count`, but the function contract requires it
+(Commit 14 spec). Passing it satisfies the contract and keeps the call site stable if the
+formula evolves to use it in a future commit.
+
+**Defensive `None` check after `get_profile_by_user_id`.**
+If the profile row is missing (e.g., the user exists in `users` but their profile was never
+created — a known edge case if auth is misconfigured), the node logs a warning and returns
+`{}` cleanly. It does not raise, and it does not create the profile (that is the auth layer's
+responsibility per the profile DB module docs).
+
+### What Was Considered and Ruled Out
+
+1. **Passing `identified_gaps` directly to `update_profile(identified_gaps=...)` as the
+   `gaps` column** — rejected. `identified_gaps` is not an allowed column name
+   (`_ALLOWED_PROFILE_COLUMNS` uses `gaps`). More importantly, the scoring service
+   produces `score_update["gaps"]` which is derived from the full merged profile state —
+   a richer signal than the per-turn raw LLM output.
+
+2. **Creating the profile if missing** — rejected. Profile creation belongs to the
+   registration/auth flow (Commit 06). Creating here would silently bypass the FK
+   constraint on `user_profiles.user_id → users.id` and could produce orphaned profiles
+   if called with a non-existent user_id.
+
+3. **Making the node async** — rejected per spec. Async nodes in LangGraph require
+   `await` inside, which means the event loop must be running. Since the caller wraps
+   via `asyncio.to_thread()`, an async node would require the thread to have its own
+   event loop, which is non-standard and fragile.
+
+4. **Writing `user_level` from `score_update["mastery_level"]` to `AgentState`** —
+   not applicable. This node returns `{}` — it does not update AgentState. The mastery
+   level is persisted to the DB via `update_profile(mastery_level=...)`.
+
+### Failure Modes Considered
+
+- **`get_profile_by_user_id` raises** (DB connection failure) — propagates up. The graph
+  surfaces it as a graph invocation error. No specific try/except added — DB failures are
+  infrastructure-level and should alert, not be silently swallowed.
+- **`compute_topic_scores` with all-invalid delta** — returns empty merged scores + novice
+  mastery. `update_profile` is still called and sets `last_activity_at`. Acceptable.
+- **`update_profile` raises `ValueError` for unknown column** — would indicate a code bug
+  (wrong kwarg name). Propagates up. The test suite at commit time validates the exact
+  kwargs.
+
+### Handoffs Consumed
+
+- Commit 05 (Mira): `last_activity_at` set via `datetime.now(timezone.utc).isoformat()` on
+  every successful turn. CONSUMED.
+- Commit 14: `compute_topic_scores` import path confirmed; profile dict passed without
+  `json.loads` (already deserialized by `get_profile_by_user_id`); `interaction_count`
+  passed in call even though unused by formula. CONSUMED.
+
+### Outbound Handoffs
+
+- Commit 18 (UI profile panel): `last_activity_at` is a guaranteed ISO 8601 UTC string
+  after any successful authenticated turn. `interaction_count` is incremented per turn
+  and persisted. Both are readable directly from the profile row.
+- Downstream: `update_profile_node` is now in `src/agents/nodes/update_profile.py`.
+  `graph.py` imports it: `from agents.nodes.update_profile import update_profile_node`.
+
+### Test Results
+
+22 new tests in `tests/test_update_profile_node.py`, all passed:
+- Gate 1 (4 tests): topic_scores written to DB, existing scores preserved in merge,
+  delta values in merged output, returns empty dict
+- Gate 2 (3 tests): interaction_count incremented by 1, incremented from 0, not
+  incremented on error path
+- Gate 3 (4 tests): update_profile not called on error, get_profile not called on error,
+  returns {} on error path, no DB write with empty delta and error
+- Gate 4 (4 tests): update_profile not called when anonymous, get_profile not called when
+  anonymous, returns {} for anonymous, non-empty delta still skips on anonymous
+- Gate 5 (5 tests): last_activity_at passed to update_profile, is string, is valid ISO 8601,
+  not set on anonymous path, not set on error path
+- Bonus (2 tests): no DB write when profile not found, returns {} when profile not found
+
+Full suite: 194 passed (172 prior + 22 new), 0 failures.
+
+### Approach
+
+The commit looked like a straightforward data plumbing job — read state fields, call service,
+call DB. The two non-obvious decisions were the `identified_gaps` → `gaps` mapping and the
+full-profile-dict contract of `compute_topic_scores`. Both were caught before writing any code
+by reading `db.py` (the `_ALLOWED_PROFILE_COLUMNS` frozenset made the column names explicit)
+and `scoring.py` (the `current_profile.get("topic_scores", {})` call made it clear the full
+dict was expected). The test design was deliberately shallow: all 22 tests use mocked DB
+functions (`patch("agents.nodes.update_profile.get_profile_by_user_id", ...)`) rather than
+a real SQLite database. This is the correct choice for a unit test — the DB round-trip is
+tested in `test_profile_service.py` where it belongs. The gate tests verify behavioral
+contracts, not DB internals.

@@ -5,21 +5,19 @@ Factory function pattern: build_graph() is called once at application startup
 inside the FastAPI lifespan and stored on app.state.rag_graph.  No module-level
 singleton is created here.
 
-Graph topology (Commit 12):
+Graph topology (Commit 15):
     START → retrieve_node → generate_node → assess_node
                                                 ↓ (assessment_error == False)
                                           update_profile_node → END
                                                 ↓ (assessment_error == True)
-                                          update_profile_node → END   (fallback: empty delta)
+                                          update_profile_node → END   (skips DB write)
 
 Both the normal path and the fallback path converge at update_profile_node.
-update_profile_node is a passthrough stub in this commit (replaced in Commit 15).
+update_profile_node guards internally on assessment_error — no DB write on fallback path.
 
 Recursion limit is set defensively at compile time via graph_config to prevent
 an unconstrained loop from blocking a user request indefinitely.
 """
-
-from typing import Any
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
@@ -28,6 +26,7 @@ from langgraph.graph.state import CompiledStateGraph
 from agents.nodes.assess import assess_node
 from agents.nodes.generate import generate_node
 from agents.nodes.retrieve import retrieve_node
+from agents.nodes.update_profile import update_profile_node
 from agents.state import AgentState
 
 # Maximum number of node transitions before LangGraph raises GraphRecursionError.
@@ -37,27 +36,15 @@ _RECURSION_LIMIT: int = 10
 
 
 # ---------------------------------------------------------------------------
-# Stub node — will be replaced in Commit 15
-# ---------------------------------------------------------------------------
-
-def update_profile_node(state: AgentState) -> dict[str, Any]:
-    """STUB (Commit 12): passthrough node that will apply topic_scores_delta to the
-    persistent user profile in Commit 15.  Returns an empty dict so the graph
-    continues to END without modifying any state fields.
-    """
-    return {}
-
-
-# ---------------------------------------------------------------------------
 # Conditional edge — reads assessment_error from state
 # ---------------------------------------------------------------------------
 
 def _route_after_assess(state: AgentState) -> str:
     """Routes assess_node output to update_profile_node.
 
-    Both paths (assessment_error True and False) converge at update_profile_node
-    in Commit 12.  The conditional edge is kept for graph visualization — when
-    Commit 15 potentially diverges the paths, the routing logic lives here.
+    Both paths (assessment_error True and False) converge at update_profile_node.
+    update_profile_node guards internally on assessment_error — the conditional edge
+    is kept for graph visualization and future divergence if the paths split.
     """
     return "update_profile"
 
@@ -81,7 +68,7 @@ def build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph:
     builder.add_node("retrieve", retrieve_node)
     builder.add_node("generate", generate_node)
     builder.add_node("assess", assess_node)
-    builder.add_node("update_profile", update_profile_node)  # stub — Commit 15
+    builder.add_node("update_profile", update_profile_node)
 
     # Edges
     builder.add_edge(START, "retrieve")
