@@ -1,5 +1,5 @@
 ## Current State
-Last reviewed: Commit 10 `langgraph-graph-assembly` — Verdict: NEEDS ADDITIONS
+Last reviewed: Commit 21 `production-compose` — Verdict: ADEQUATE (Pass 2 confirmed)
 Open additions awaiting:
   Nova: add tests for POST /api/chat — Content-Type header, SSE token event ordering,
         done event schema (user_level + assessed_topics keys), and 401 on unauthenticated
@@ -11,6 +11,7 @@ Coverage debt noted (deferred):
 - Filename collision: two requests write to the same `UPLOAD_DIR / file.filename` path simultaneously → no locking, second write silently overwrites first. Not tested. LOW — the concurrent test uses different filenames; this is a known gap accepted at this stage.
 - Gate 4 recursion_limit test is version-sensitive: passes only if LangGraph exposes `.config` attribute on the compiled graph after `with_config()`. Accepted as LOW — the guard (`hasattr(graph, "config")`) means a missing attribute causes the assertion to fire correctly.
 - Chat route: `session_id` → `thread_id` wiring at the HTTP level untested at Commit 10. Accepted — Commit 11 is the hard integration gate for end-to-end route behavior.
+- Commit 21 infrastructure-only: no application logic tested. The three Pass 1 debt items (Chroma healthcheck fragility, CHROMA_PORT mismatch, ALLOW_ANNONYMOUS_CHAT typo) are all resolved. No new debt entered.
 
 ---
 
@@ -39,6 +40,28 @@ The `generate_stream()` generator can be exercised by mounting a test app that
 patches `app.state.rag_graph` with a mock that yields canned astream_events.
 
 Coverage debt added to header (see above).
+
+### Session 3 — 2026-05-10 (Pass 2)
+
+**Commit 21 — `production-compose` (gate-fix round)**
+Reviewed: `docker-compose.prod.yml`, `.env.prod.example`
+Assignee: DevOps agent
+Verdict: ADEQUATE
+
+Verified all three targeted fixes against the live files:
+
+1. Chroma healthcheck — confirmed `CMD-SHELL` with `curl -sf http://localhost:8000/api/v1/heartbeat || exit 1` at line 69 of `docker-compose.prod.yml`. The `bash /dev/tcp` approach is gone. The curl command references the correct internal port (8000) and the `/api/v1/heartbeat` path that Chroma's HTTP API actually exposes. No new gaps introduced.
+
+2. CHROMA_PORT — confirmed `CHROMA_PORT=8000` in `.env.prod.example` (line 50) with an explanatory comment distinguishing container-internal port from the dev-tooling host mapping. Confirmed explicit `- CHROMA_PORT=8000` in the app service `environment` block at line 31 of the compose file, which overrides any stale value from the env_file. The override-in-environment pattern is the correct defense against env file drift.
+
+3. ALLOW_ANONYMOUS_CHAT typo — confirmed correct spelling at line 80 of `.env.prod.example`. Pass 1 debt entry is retired.
+
+No new coverage concerns raised by these changes. The fixes are targeted and do not introduce new behavior paths that would require test coverage. Infrastructure compose changes remain outside Quinn's test domain by definition.
+
+Coverage debt retired this session: `ALLOW_ANNONYMOUS_CHAT` typo.
+No new debt added.
+
+---
 
 ### Session 1 — 2026-05-08
 

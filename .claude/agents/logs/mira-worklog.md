@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 20 `dynamic-chat-ui` final gate review · 2026-05-10*
+*Last updated: Commit 21 `production-compose` gate-fix pass 2 confirmation · 2026-05-10*
 
-**Last completed:** Commit 20 `dynamic-chat-ui` — final product gate (fix pass confirmation)
+**Last completed:** Commit 21 `production-compose` — gate-fix pass 2 confirmation
 **Currently active:** none
 **Blocked by:** none
 
@@ -28,6 +28,7 @@ No archived sessions yet.
 |---|--------|--------|-----------------|
 | 01 | 03 `wire-conversation-history` | Done | Cache/history interaction is a real product defect, not an edge case; session ephemerality needs explicit UI communication |
 | 02 | 20 `dynamic-chat-ui` (fix pass) | Done | Both original notes confirmed resolved; two low-stakes copy concerns flagged for post-commit backlog |
+| 03 | 21 `production-compose` | Done | Monitoring profile opt-in in dev is a net positive; .env.prod.example needs a deployment order callout; portfolio signal is strong |
 
 ---
 
@@ -95,3 +96,30 @@ See output block in final response.
   leaving it silently wrong for 14 commits is a risk in a demo context.
 - Is session continuity across page refreshes in scope for any commit? If not, should
   the UI display a session indicator so a user knows when they are starting fresh?
+
+---
+
+## Session 03 — Commit 21: `production-compose`
+
+**Date:** 2026-05-10
+
+### Trigger
+
+Team Lead requested product perspective on infrastructure commit before approval.
+Three questions posed: developer experience with monitoring profile opt-in, portfolio signal of full observability stack in prod, and operator experience with `.env.prod.example`.
+
+### Product Question
+
+Does this infrastructure commit serve both the developer who maintains it and the portfolio reviewer who evaluates it — and does it communicate the right things to each?
+
+### Review Findings
+
+See suggestions generated below.
+
+### Suggestions Generated
+
+See output block in final response.
+
+### Open Questions for Team Lead
+
+- None requiring immediate action. One carry-forward flagged: `.env.prod.example` deployment order callout (Commit 22 or 23 scope).

@@ -3,14 +3,56 @@
 ---
 
 ## Current State
-Last reviewed: Commit 18 `adaptive-graph-integration` — Verdict: PASS WITH COMMENTS
+Last reviewed: Commit 21 `production-compose` (Pass 2) — Verdict: PASS WITH COMMENTS
 Open resolutions awaiting: none
-Recurring patterns by engineer (Rex):
-  - Strong responsiveness to typing-discipline feedback: every Concern from the first pass closed cleanly with the recommended fix, plus extra defensive validators (slug filtering) beyond the minimum.
-  - Watch for: forward-looking schema fields whose runtime producers still emit legacy values (cache_hit). Documented this turn — flag again only if the Commit 10 migration is skipped.
-  - Commit 18: null-byte separator pattern applied correctly and tested thoroughly. Cache key collision fix is solid. ChatResponse schema is clean. get_user_level coercion guard is a good defensive addition. No recurring quality gap observed this commit.
-  - Import-inside-test pattern continues across commits (flagged Commit 07, 08, 09). Not a defect; noted as a persistent style habit. Will name the pattern directly if it continues into Commit 10.
-  - Return type annotation uses bare `dict` rather than `dict[str, Any]` — consistent across retrieve_node and now generate_node. Advisory-level, but worth tracking as a typing-discipline gap if a fourth node follows the same pattern.
+Recurring patterns by engineer (Adam):
+  - Pass 1 Hard Block 1 (bash-specific tcp healthcheck) resolved correctly: curl against the actual Chroma API endpoint is the right fix.
+  - Pass 1 Hard Block 2 (CHROMA_PORT=8001 mismatch) resolved correctly: explicit CHROMA_PORT=8000 in environment block, comment in .env.prod.example explains the host-mapping distinction clearly.
+  - Quinn typo (ALLOW_ANNONYMOUS_CHAT) resolved.
+  - No recurring quality gaps observed across commits yet — insufficient commits from Adam to establish a pattern.
+
+---
+
+## Commit 21 — `production-compose` (Pass 2 — Hard Block Resolution)
+
+**Files reviewed:**
+- `D:\AI\_My_Projects\rag-from-scratch\docker-compose.prod.yml`
+- `D:\AI\_My_Projects\rag-from-scratch\docker-compose.yml`
+- `D:\AI\_My_Projects\rag-from-scratch\.env.prod.example`
+
+**Date:** 2026-05-10
+
+**Context:** Pass 1 issued two Hard Blocks. This pass verifies both resolutions and all advisory fixes.
+
+### Hard Block Resolutions — Verified
+
+**HB1 — Chroma healthcheck (prod and dev compose):**
+`docker-compose.prod.yml:69` — `test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/v1/heartbeat || exit 1"]` confirmed on disk. Hits the real Chroma API endpoint; exits non-zero on failure. Resolution is correct.
+`docker-compose.yml:61` — same fix applied. Confirmed on disk.
+
+**HB2 — CHROMA_PORT mismatch:**
+`docker-compose.prod.yml:30` — `CHROMA_PORT=8000` present in the app service `environment:` block. Confirmed on disk.
+`.env.prod.example:49-50` — `CHROMA_PORT=8000` with comment: "Container-internal port — chroma listens on 8000 inside the network; host mapping is 8001:8000 for dev tooling only." Comment is correct and teaches the distinction clearly. Confirmed on disk.
+
+**Quinn typo fix:**
+`.env.prod.example:80` — `ALLOW_ANONYMOUS_CHAT=false`. Confirmed on disk. Correctly spelled.
+
+### Findings (Pass 2 — Advisories only)
+
+No new Hard Blocks. No new Concerns. Two advisory observations:
+
+💬 `docker-compose.prod.yml:55` — `image: chromadb/chroma:latest`. Using `latest` in a production compose file means the image version is not pinned; a pull on any future `docker compose up` may silently upgrade Chroma to a version with API or behavior changes. The correct production posture is a pinned digest or explicit version tag (e.g., `chromadb/chroma:0.5.23`). Same applies to `ollama/ollama:latest`, `prom/prometheus:latest`, and `grafana/grafana:latest`. For a portfolio demo context this is acceptable; for any path toward real traffic this is the first thing to fix.
+
+💬 `docker-compose.prod.yml` — `elasticsearch`, `logstash`, and `kibana` services have no healthcheck. The ELK stack is not in the `depends_on` chain for any other service, so a failed Elasticsearch startup will not block the app from starting — it will simply produce log-shipping failures silently. For the current portfolio scope this is fine. If Logstash's log-shipping pipeline becomes load-bearing (i.e., alerting or operational visibility depends on it), a healthcheck on Elasticsearch and a `depends_on` from Logstash would make failures visible at startup rather than at 3am. Advisory for now.
+
+### What's Good
+
+The CHROMA_PORT resolution is exactly right. The Hard Block existed because `.env.prod.example` said 8001, the compose environment block said nothing, and the network topology meant 8000 was the only value that would work. The fix is complete in both places, and the comment in `.env.prod.example` does real work: it explains why someone might expect 8001 (it is the host mapping) and why the container value must be 8000. That comment will prevent the next engineer from re-introducing the same confusion.
+
+The healthcheck fix is the correct tool: `curl -sf` against the actual API endpoint, not a TCP probe that can pass while the HTTP layer is still initializing. The `|| exit 1` makes the failure behavior explicit rather than relying on curl's non-zero exit code alone — that is a defensive habit worth keeping.
+
+### Verdict
+PASS WITH COMMENTS
 
 ---
 

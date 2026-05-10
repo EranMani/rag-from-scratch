@@ -5,7 +5,7 @@
 ---
 
 ## Current State
-Last reviewed: Commit 18 `adaptive-graph-integration` (gate re-run, second pass)
+Last reviewed: Commit 21 `production-compose` (Pass 2 — Viktor fix verification)
 Open findings unresolved: MEDIUM: hardcoded NiceGUI storage secret : Rex (from Commit 10, still open)
 CRITICAL findings this project: 0 — none
 Attack surface map (current):
@@ -20,6 +20,12 @@ Attack surface map (current):
 - JWT secret — env-only with 32-char minimum validator; no hardcoding found
 - Redis query cache — keyed by SHA-256(question + null-byte + user_level); per-level isolation verified
 - mastery_level DB value — coercion guard with warning log on unexpected values; allowlist validated
+- Host network exposure: app:8000 (intended public), grafana:3000 (portfolio), all others bridge-internal only
+- Redis (bridge-internal): no auth; full cache read/write to any compromised container
+- Chroma (bridge-internal): no auth; full vector store access to any compromised container
+- Elasticsearch (bridge-internal): xpack.security disabled by Team Lead decision; team-documented
+- Logstash monitoring API :9600 (bridge-internal): unauthenticated, exposes pipeline/plugin/OS metadata
+- ./data bind mount into app container: SQLite user DB on host filesystem; no volume isolation
 
 ---
 
@@ -28,6 +34,8 @@ Attack surface map (current):
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
 | 01 | 10 `langgraph-graph-assembly` | Done | No hard blocks; one MEDIUM finding on hardcoded NiceGUI storage secret |
+| 02 | 21 `production-compose` | Done (Pass 1) | NON-BLOCKING; two LOW + two INFO findings; no Hard Block triggers |
+| 03 | 21 `production-compose` | Done (Pass 2) | NON-BLOCKING confirmed; all three Viktor-fix changes verified; ALLOW_ANONYMOUS_CHAT typo fix improves enforcement of false default |
 
 ---
 
@@ -93,4 +101,112 @@ The memory growth concern is real but bounded by the EC2 instance's restart cycl
 This is a portfolio RAG system, not a privileged action system. The LLM has no
 tool access that would amplify injection impact. No server-side mitigation required
 at this stage.
+
+---
+
+## Session 02 — Commit 21: `production-compose`
+
+**Date:** 2026-05-10
+**Status:** Done
+
+### Task Brief
+
+Security review of new production Docker Compose file (`docker-compose.prod.yml`)
+and `.env.prod.example`. Five focus areas: secrets in files/env defaults, host
+port exposure, Elasticsearch xpack disabled (known team decision), Grafana on
+host port 3000 (portfolio requirement), and general trust boundary issues in the
+compose topology.
+
+### Hard Block Check
+
+No Hard Block triggers present:
+- No raw SQL string interpolation
+- No hardcoded credentials (all secret fields are empty in example file)
+- No verify=False
+- No shell=True with user input
+- No pickle deserialization
+- No auth-that-fails-open
+- No secrets in log statements
+- No == comparison on passwords
+
+### Findings
+
+**Finding 1 — LOW — Redis: no authentication within the bridge network**
+File: docker-compose.prod.yml (redis service)
+The Redis container runs without a password (`redis-server --appendonly yes`, no
+`--requirepass` flag). Within the `rag-network` bridge, any compromised container
+can connect to `redis:6379` with full unauthenticated access — read, write, and
+FLUSHALL on the entire cache. For a public portfolio demo this is acceptable; for
+any real deployment it is not.
+Mitigation: add `--requirepass ${REDIS_PASSWORD}` to the redis command, add
+`REDIS_PASSWORD=` to `.env.prod.example`, and update `REDIS_URL` in the app
+service to `redis://:${REDIS_PASSWORD}@redis:6379/0`.
+
+**Finding 2 — LOW — Logstash monitoring API unauthenticated (bridge-internal)**
+File: docker-compose.prod.yml (logstash service)
+Logstash exposes port 9600 (Monitoring API) within the bridge network with no
+authentication. An attacker who has compromised any container on `rag-network`
+can query `http://logstash:9600` to enumerate installed plugins, pipeline
+configurations, and OS-level statistics — useful lateral reconnaissance. There
+is also no pipeline config volume mounted, meaning Logstash starts with defaults
+and its behavior is undefined.
+Mitigation: if Logstash is not yet wired up, comment it out or add a
+`profiles: [logging]` gate. If it is active, mount a pipeline config volume and
+set `xpack.monitoring.enabled=false` or pin monitoring to localhost-only via
+`http.host: 0.0.0.0` to `http.host: 127.0.0.1` in logstash.yml (bridge-internal
+so impact is limited, but defense-in-depth applies).
+
+**Finding 3 — INFO — Grafana on host port 3000: admin password is the only access control**
+File: docker-compose.prod.yml (grafana service)
+Grafana is externally reachable at host:3000. `GF_USERS_ALLOW_SIGN_UP=false` is
+correctly set. However, the admin account's only protection is the
+`GRAFANA_ADMIN_PASSWORD` env var. There is no IP allowlisting, no reverse proxy
+with TLS, and no rate-limiting on the Grafana login form configured in compose.
+For a portfolio demo this is acceptable given the Team Lead decision. Noted so
+the operator knows to set a strong `GRAFANA_ADMIN_PASSWORD` and consider fronting
+Grafana with a reverse proxy if the demo is long-lived.
+No action required.
+
+**Finding 4 — INFO — Elasticsearch xpack.security disabled (team decision)**
+File: docker-compose.prod.yml (elasticsearch service)
+`xpack.security.enabled=false` disables all Elasticsearch authentication, TLS,
+and audit logging. Elasticsearch is bridge-internal only (expose, not ports), so
+the attack path requires first compromising another container. The inline TODO
+comment documents the team's intent. Flagged for completeness per instructions.
+No action required for portfolio demo context.
+
+**Verified clean:**
+- .env.prod.example: all four secret fields empty (no defaults that could be shipped)
+- docker-compose.prod.yml: no literal secrets in any environment block
+- All non-app, non-grafana services use expose: not ports: — host attack surface
+  is limited to :8000 and :3000 as intended
+- ANONYMIZED_TELEMETRY=FALSE on Chroma: prevents deployment fingerprinting via telemetry
+- GF_USERS_ALLOW_SIGN_UP=false on Grafana: self-registration disabled
+- Log rotation configured on all services (max-size: 10m, max-file: 5)
+- Ollama memory limit set (5G): prevents OOM exploitation via model loading
+
+### Decisions Made
+
+**1. Redis no-auth rated LOW not MEDIUM**
+The attack path requires prior container compromise within the bridge network.
+Redis is not reachable from the host. Lateral movement within a Docker bridge
+network is a meaningful threat on a shared host, less so on a dedicated EC2
+instance. Rated LOW for a single-host portfolio deployment.
+
+**2. Logstash monitoring API rated LOW not MEDIUM**
+Same reasoning as Redis: bridge-internal only. Reconnaissance value to an attacker
+is real but limited in a single-host context. The absence of a pipeline config
+mount is the more operationally concerning issue.
+
+**3. Grafana and Elasticsearch rated INFO**
+Both are explicit Team Lead decisions with inline documentation. Noted per
+instructions; no action required.
+
+### Verdict
+
+NON-BLOCKING. Two LOW findings with mitigations. Two INFO findings (team decisions).
+No Hard Block triggers. The infra topology is sound: secrets handling is correct,
+host exposure is minimal and intentional, and the internal service mesh follows
+least-exposure principles. The LOWs are appropriate for a portfolio demo deployment
+and are documented here for any future hardening pass.
 
