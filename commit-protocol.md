@@ -20,7 +20,7 @@
 | 08 | langgraph-retrieve-node | ai-engineer | ✅ done · 2026-05-09 |
 | 09 | langgraph-generate-node | ai-engineer | ✅ done · 2026-05-09 |
 | 10 | langgraph-graph-assembly | ai-engineer | ✅ done · 2026-05-10 |
-| 11 | langgraph-graph-smoke-test | ai-engineer | pending |
+| 11 | langgraph-graph-smoke-test | ai-engineer | ✅ done · 2026-05-10 |
 | 12 | langgraph-assessment-scaffold | ai-engineer | pending |
 | 13 | langgraph-assessment-llm | ai-engineer | pending |
 | 14 | topic-scoring-service | backend | pending |
