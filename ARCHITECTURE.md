@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-10 (Commit 19 — profile-ui-panel)
+> Last updated: 2026-05-10 (Commit 20 — dynamic-chat-ui)
 
 ---
 
@@ -69,7 +69,8 @@ responsive to who they are, not a static Q&A tool.
 - **Owner:** Aria
 - **Purpose:** Browser-based chat interface; auth pages; profile sidebar panel
 - **Layout:** `ui.row` with 280px profile sidebar (left) and `flex:1` chat column (right), introduced Commit 19
-- **Profile panel:** `@ui.refreshable async def profile_panel()` nested inside `index()`; fetches `GET /api/profile/me` on load; handles anonymous / API failure / empty / active user states; call `profile_panel.refresh()` from Commit 20 to update live after each turn
+- **Profile panel:** `@ui.refreshable async def profile_panel()` nested inside `index()`; fetches `GET /api/profile/me` on load; handles anonymous / API failure / empty / active user states; `profile_panel.refresh()` called from `send()` after each completed turn (Commit 20)
+- **send() flow** (Commit 20): `ui.timer(2.5, _advance)` cycles stage labels ("Retrieving context..." → "Personalizing your answer..." → "Generating response...") while SSE stream runs; `stage_active = [True]` mutable flag guards `_advance` against use-after-delete; `finally` block sets `stage_active[0] = False` → `cancel()` → `delete()` in that order; adaptation badge added from `done_data["user_level"]`; `profile_panel.refresh()` called before re-enabling send button
 - **Depends on:** FastAPI app (mounted via ui.run_with())
 - **Introduced in:** existing codebase
 

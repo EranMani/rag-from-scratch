@@ -431,4 +431,14 @@
 - **Reason:** Showing all 6 modules sets the user's expectations about the full scope of the curriculum. A user who has explored only 2 topics can see exactly which 4 remain — supporting goal-directed learning. Hiding unvisited modules would require a second "Topics to explore" list or tooltip, adding UI complexity for little gain.
 - **Consequences:** A fresh user who has interacted at least once (so `topic_scores` is non-empty) will see 4 bars at 0.0 alongside 2 partial bars. Mira flagged this as potentially discouraging — accepted tradeoff. If telemetry suggests users disengage at this point, move to progressive disclosure in a future commit.
 
-*Last updated: 2026-05-10 — Commit 19 complete (profile sidebar panel; layout refactor; @ui.refreshable pattern)*
+### `ui.timer` lifecycle: `stage_active` guard + `finally` ordering (Commit 20)
+- **Date:** 2026-05-10
+- **Commit:** 20
+- **Decided by:** Viktor (gate recommendation) + Aria (applied)
+- **Decision:** Two cooperating patterns protect the timer-driven stage label from use-after-delete:
+  1. `stage_active = [True]` mutable flag (same list-in-closure idiom as `stage_idx`) is checked at the top of `_advance`; set to `False` as the first action in `finally`.
+  2. `finally` block sequencing: `stage_active[0] = False` → `stage_timer.cancel()` → `thinking.delete()`. The flag fires before cancel, so any queued callback that arrives after cancel hits the early return and never touches `thinking`.
+- **Why not rely on `cancel()` alone:** NiceGUI timers run in the background event loop. `cancel()` prevents future scheduling but cannot guarantee it drains a callback already queued before cancel was called. The flag provides a hard synchronous barrier independent of the event-loop's internal callback queue.
+- **Consequences:** This is the project-wide pattern for any `ui.timer` paired with a UI element that may be deleted before the timer's natural expiry. The create → `stage_active=[True]` → `try` → `finally: flag=False / cancel / delete` sequence is the correct lifecycle. Relying on `cancel()` alone without a guard flag is incorrect for NiceGUI's event model.
+
+*Last updated: 2026-05-10 — Commit 20 complete (dynamic chat UI: stage labels, profile refresh, adaptation badge)*

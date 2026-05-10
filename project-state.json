@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-10 (Commit 19 complete)",
+  "last_updated": "2026-05-10 (Commit 20 complete)",
   "status": "active",
   "current_commit": {
-    "number": "20",
-    "name": "dynamic-chat-ui",
+    "number": "21",
+    "name": "production-compose",
     "status": "pending",
-    "assignee": "frontend"
+    "assignee": "devops"
   },
   "commits_done": [
     "01",
@@ -27,25 +27,18 @@
     "16",
     "17",
     "18",
-    "19"
+    "19",
+    "20"
   ],
   "commits_pending": [
-    "20",
     "21",
     "22",
     "23",
     "24",
     "25"
   ],
-  "next_commit": "20",
-  "open_handoffs": [
-    {
-      "from": "Aria",
-      "to": "Aria",
-      "commit": "20",
-      "message": "profile_panel is @ui.refreshable — call profile_panel.refresh() (not await profile_panel()) after each SSE done event inside send() to update the sidebar live. profile_panel is in scope inside index() alongside send()."
-    }
-  ],
+  "next_commit": "21",
+  "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {

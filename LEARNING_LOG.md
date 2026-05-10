@@ -1238,3 +1238,69 @@ async def index():
 - `src/app/ui.py` — layout refactor from single column to two-column row; nested `profile_panel()` with HTTP client and auth header closure; dead 37-line login form removed
 
 ---
+
+**Commit 20 — `dynamic-chat-ui`** · 2026-05-10 · Aria · `new feature | architectural`
+
+> **In one sentence:** The chat UI gained three live behaviors wired into `send()` — cycling stage labels replace the static spinner, the profile sidebar auto-refreshes after each turn, and an adaptation badge surfaces the current user level in the response card — held together by a non-obvious timer lifecycle pattern that prevents use-after-delete races on NiceGUI UI elements.
+
+**Interview talking point:**
+> **Q:** NiceGUI timers fire in the background event loop. How do you guarantee a timer callback cannot call `set_text()` on an element that has already been deleted?
+>
+> **A:** You set a mutable flag to `False` as the very first line of `finally`, before calling `cancel()`. Any callback that fires after `cancel()` — whether it was already queued or fires during teardown — hits an early return on that flag and exits without touching the element. `cancel()` prevents future scheduling but cannot drain a callback already queued; the flag makes the destruction order irrelevant. `finally` then calls `delete()` knowing no further writes to the element are possible.
+
+**What happened and why:**
+- `send()` previously displayed a static `"Thinking..."` label for the full duration of the LLM call. A `ui.timer(2.5, _advance)` now cycles through three `_STAGE_LABELS`: "Retrieving context..." → "Personalizing your answer..." → "Generating response..." — giving the user signal that the pipeline is progressing, not stalled.
+- `profile_panel.refresh()` is called inside `send()` after every completed turn (success or failure path, via `finally`). This ensures the sidebar reflects updated mastery scores without requiring the user to reload the page.
+- If the SSE `done` event carries a truthy `user_level`, a badge `"Adapted for: [level]"` appears inline with the cache/latency/chunks badges in the response card — making the adaptation visible to the user rather than implicit.
+- Viktor's gate review surfaced two races in the first draft: `thinking.delete()` was outside `finally` (crash on exception would leave the label visible indefinitely), and the timer callback had no guard against firing after `cancel()` on a deleted element.
+
+**Design pattern / architectural principle:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Mutable-list shared state | `stage_idx = [0]` and `stage_active = [True]` use single-element lists rather than `nonlocal` | NiceGUI timer callbacks receive no parameters; `nonlocal` requires a `def` inside `def` inside `async def`; single-element list is the standard NiceGUI idiom for event-loop-safe mutable state |
+| Flag-before-cancel teardown | `stage_active[0] = False` fires as the first line of `finally`, before `stage_timer.cancel()` | `cancel()` prevents future scheduling but cannot drain an in-flight callback; setting the flag first makes the callback's early return unconditional regardless of event-loop timing |
+| Finally-ordered destruction | `stage_active[0] = False` → `stage_timer.cancel()` → `thinking.delete()` | Once the flag is set, no callback can touch `thinking`; `cancel()` prevents new callbacks; `delete()` is then safe to call — ordering makes correctness explicit |
+| Post-turn profile refresh | `profile_panel.refresh()` called in `finally` | Both success and failure paths update the profile; `finally` guarantees the refresh fires even if an exception occurs mid-turn |
+
+**Reasoning & discovery:**
+1. The static `"Thinking..."` label was a placeholder from the original `send()` implementation. The pipeline has three distinct phases (retrieve, personalize, generate) that take meaningfully different amounts of time — surfacing them gives the user accurate progress signal rather than an undifferentiated wait.
+2. Viktor flagged the original teardown: `thinking.delete()` was placed after `stage_timer.cancel()` but outside `finally`. Any exception between the `await` and `cancel()` would leave the label element alive in the DOM with the timer still running. Moving both into `finally` was the first fix.
+3. The `cancel()`-doesn't-drain problem was identified because NiceGUI's event loop runs timer callbacks on the next tick. A callback queued on tick N can fire on tick N+1 even after `cancel()` is called on tick N. The `stage_active` flag closes this window: the callback checks the flag synchronously before doing anything, so the race condition cannot produce a UI write regardless of event-loop scheduling.
+
+**The key change:**
+```python
+# src/app/ui.py — send() function
+
+_STAGE_LABELS = [
+    "Retrieving context...",
+    "Personalizing your answer...",
+    "Generating response...",
+]
+
+# ... inside send():
+stage_idx = [0]
+stage_active = [True]          # mutable flag — same idiom as stage_idx
+thinking = ui.label(_STAGE_LABELS[0]).style("color:#64748b; font-style:italic")
+
+def _advance():
+    if not stage_active[0]:    # guard: fires if cancel() missed a queued callback
+        return
+    stage_idx[0] = min(stage_idx[0] + 1, len(_STAGE_LABELS) - 1)
+    thinking.set_text(_STAGE_LABELS[stage_idx[0]])
+
+stage_timer = ui.timer(2.5, _advance)
+
+try:
+    # ... SSE streaming logic ...
+finally:
+    stage_active[0] = False    # set BEFORE cancel — any in-flight callback hits early return
+    stage_timer.cancel()
+    thinking.delete()
+    profile_panel.refresh()    # always refresh profile after turn completes
+```
+
+**Files touched:**
+- `src/app/ui.py` — `send()` function: `_STAGE_LABELS` constant, `ui.timer` with `stage_active` guard, `profile_panel.refresh()` in `finally`, adaptation badge in response card
+
+---

@@ -254,6 +254,41 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 20 — `dynamic-chat-ui` · 2026-05-10 · Aria
+
+> Gate wave: Viktor + Quinn + Mira (user-facing UI change; no auth/external API → Sage not triggered).
+> Gate-fix pass required — Viktor BLOCKED on two concerns (thinking.delete() placement, _advance use-after-delete).
+> Full gate wave re-ran after fix. Two Viktor passes, two Quinn passes, two Mira passes.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target |
+|---|---|---|---|---|
+| Aria (implementation — resumed from prior session) | Sonnet | — | — | not captured (prior session) |
+| Viktor (pass 1 — BLOCKED) | Sonnet | 17,937 | 0 | **+3k** over ≤15k |
+| Quinn (pass 1 — ADEQUATE) | Sonnet | 23,970 | 4 | **+9k** over ≤15k |
+| Mira (pass 1) | Sonnet | 22,326 | 3 | **+7k** over ≤15k |
+| Aria (gate-fix) | Sonnet | 26,274 | 6 | ✅ minimal fix pass |
+| Viktor (pass 2 — PASS) | Sonnet | 17,755 | 0 | **+3k** over ≤15k |
+| Quinn (pass 2 — ADEQUATE) | Sonnet | 18,014 | 0 | **+3k** over ≤15k |
+| Mira (pass 2) | Sonnet | 15,873 | 3 | **+1k** over ≤15k |
+| Aria (product fix — label rename + badge phrasing) | Sonnet | 31,819 | 6 | ✅ minimal fix pass |
+| Viktor (pass 3 — PASS) | Sonnet | 17,731 | 0 | **+3k** over ≤15k |
+| Quinn (pass 3 — ADEQUATE) | Sonnet | 17,324 | 0 | **+2k** over ≤15k |
+| Mira (pass 3 — recommends proceed) | Sonnet | 20,698 | 4 | **+6k** over ≤15k |
+| Ryan | Haiku | 39,990 | 9 | **+25k** over ≤15k (full entry) |
+| **Total (excl. implementation)** | | **222,666** | **44** | over — 3 gate cycles; all Sonnet |
+
+**Notes:**
+- All reviewers on Sonnet (not Haiku). Sonnet gate reviewers cost ~2–3× more than Haiku; reviewers are near target despite the model.
+- Viktor pass 1 BLOCKED on two concerns: `thinking.delete()` outside `finally` (fragile cleanup path) and `_advance` use-after-delete race. Both resolved in Aria's gate-fix pass.
+- Aria gate-fix: 26k / 6 tool uses — minimal, targeted fix. No implementation drift.
+- Gate-fix pass added `stage_active = [True]` guard (mutable-list pattern) + moved `thinking.delete()` into `finally`. DECISIONS.md updated to document the full pattern.
+- Aria implementation cost not captured (implementation was completed in prior session; this session resumed at the quality gate phase).
+- Three gate cycles total: Viktor gate-fix block → product redirect from Team Lead → all clean on pass 3.
+- Ryan: 39,990 tokens for full entry — lower than prior full entries (~50–60k); execution constraints effective.
+- All reviewers on Sonnet (not Haiku). Running Haiku reviewers would reduce gate costs ~3× per pass.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -268,6 +303,7 @@ No token data recorded. Tracking began at Commit 10.
 | 17 | adaptive-prompt-templates | 123,531 | none | over ≤75k | Ryan full-entry cost; Nova marginal over |
 | 18 | adaptive-graph-integration | ~456k (excl. Ryan) | all 4 (Sonnet) | **well over** | worktree confusion + 2 gate cycles + reviewers on Sonnet not Haiku |
 | 19 | profile-ui-panel | ~182k (excl. Ryan) | Viktor+Quinn+Mira | over ≤75k | Haiku reviewers reading beyond diff; no gate-fix cycle |
+| 20 | dynamic-chat-ui | ~223k (excl. impl) | Viktor+Quinn+Mira (3×) | over — 3 gate cycles | Viktor block + product redirect; all Sonnet; Aria impl from prior session |
 
 ---
 

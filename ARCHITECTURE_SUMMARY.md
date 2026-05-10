@@ -4,7 +4,7 @@
 
 ---
 
-- **UI layer** (C19): `src/app/ui.py` — `ui.row` layout: 280px profile sidebar (left) + `flex:1` chat column (right). Profile sidebar is `@ui.refreshable async def profile_panel()` — fetches `GET /api/profile/me`; handles anonymous / failure / empty / active states. Call `profile_panel.refresh()` from Commit 20 to update live. Duplicate login form removed.
+- **UI layer** (C19–C20): `src/app/ui.py` — `ui.row` layout: 280px profile sidebar (left) + `flex:1` chat column (right). Profile sidebar is `@ui.refreshable async def profile_panel()` — fetches `GET /api/profile/me`; handles all user states. `send()` cycles stage labels via `ui.timer` (try/finally cancel), refreshes sidebar after each turn, adds adaptation badge from `done_data["user_level"]`.
 - **API layer**: FastAPI + lifespan-managed services (init_user_db, init_profile_db, build_graph). All shared state on `app.state`. Blocking calls wrapped in `asyncio.to_thread()`.
 - **Scoring service**: `src/app/profile/scoring.py` — pure function, no DB. `compute_topic_scores(current_profile, assessed_topics, interaction_count) → TopicScoreUpdate`. Merges deltas, clamps to [0,1], computes mastery level and strengths/gaps. Contract between Rex's profile domain and Nova's `update_profile_node`.
 - **Graph**: LangGraph `StateGraph` — retrieve → generate → assess → update_profile → END. `MemorySaver` checkpointer; `session_id` passed as `thread_id` in config. `assess_node` runs a second LLM call via `assessment_prompt | llm.with_structured_output(AssessmentOutput)`; prompts live in `src/agents/prompts/`. `update_profile_node` (C16, synchronous) calls `compute_topic_scores()` then `update_profile()` — fast-exits on `user_id=None` or `assessment_error=True`.

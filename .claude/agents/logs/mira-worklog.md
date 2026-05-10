@@ -5,14 +5,14 @@
 ---
 
 ## Current State
-*Last updated: Commit 18 second-pass review · 2026-05-10*
+*Last updated: Commit 20 `dynamic-chat-ui` final gate review · 2026-05-10*
 
-**Last completed:** Commit 18 `adaptive-graph-integration` — second-pass product review
+**Last completed:** Commit 20 `dynamic-chat-ui` — final product gate (fix pass confirmation)
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
-- Commit 19 spec should clarify: (1) `assessed_topics` values are score-deltas, not absolute scores — UI must not render them as mastery percentages; (2) `answer` field duplication in `done` event needs explicit de-duplication contract; (3) mid-session cache seam on level upgrade needs a defined behavior (stale vs. flush).
+- Commit 20 post-commit backlog: (1) badge string "Standard depth" is positional, not benefit-oriented — suggest "Balanced depth and detail"; (2) unknown-value fallback "Adapted for: {user_level}" exposes raw internal values — suggest "Adapted for you"; (3) profile panel visual cue and onboarding tooltip deferred per Team Lead acknowledgment.
 
 **Open Handoffs — Inbound:**
 - none
@@ -27,6 +27,7 @@ No archived sessions yet.
 | # | Commit | Status | Key Observation |
 |---|--------|--------|-----------------|
 | 01 | 03 `wire-conversation-history` | Done | Cache/history interaction is a real product defect, not an edge case; session ephemerality needs explicit UI communication |
+| 02 | 20 `dynamic-chat-ui` (fix pass) | Done | Both original notes confirmed resolved; two low-stakes copy concerns flagged for post-commit backlog |
 
 ---
 

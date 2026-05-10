@@ -57,6 +57,9 @@
 44. **DEFAULT_PROMPT separate from PROMPT_TEMPLATES dict** — enables `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)`; prevents `None` key in dict; makes fallback intent explicit at every call site
 45. **Single `{context}` variable per template** — question is already in `state["messages"]` as HumanMessage; double injection would confuse model priority; only retrieved context needs injection
 
+## Dynamic Chat UI (C20)
+52. **`ui.timer` lifecycle: `stage_active` flag + `finally` ordering** — flag set to `False` before `cancel()` in `finally`; guards `_advance` against use-after-delete race; project-wide pattern for timers paired with deletable UI elements
+
 ## Profile UI Panel (C19)
 50. **Nested `@ui.refreshable` for profile panel** — nested inside `index()` to close over request-scoped `http()`/`auth_headers()` without parameter threading; idiomatic NiceGUI pattern
 51. **All 6 modules always rendered (missing → 0.0)** — shows full curriculum scope; progressive disclosure deferred if telemetry shows disengagement
