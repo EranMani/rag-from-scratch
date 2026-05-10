@@ -9,6 +9,15 @@
             "command": "python hooks/pre_commit_check.py"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/tool_cap_enforce.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [
