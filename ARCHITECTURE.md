@@ -95,9 +95,18 @@ responsive to who they are, not a static Q&A tool.
 ### User Profile Service
 - **Type:** service
 - **Owner:** Rex
-- **Purpose:** CRUD for user learning profiles; topic scoring; mastery level computation
+- **Purpose:** CRUD for user learning profiles; persists topic scores, mastery level, strengths, gaps
 - **Depends on:** SQLite (user_profiles table)
-- **Introduced in:** Commits 04–06, 14
+- **Introduced in:** Commits 04–06
+
+### Topic Scoring Service
+- **Type:** pure-function service
+- **Owner:** Rex
+- **Purpose:** Merges topic score deltas, computes mastery level, strengths, and gaps — no DB access
+- **Contract:** `compute_topic_scores(current_profile, assessed_topics, interaction_count) → TopicScoreUpdate`
+- **Depends on:** nothing (pure function, zero imports outside stdlib/typing)
+- **Introduced in:** Commit 14
+- **Consumed by:** Nova's `update_profile_node` (Commit 15)
 
 ### Redis Cache
 - **Type:** cache
@@ -254,9 +263,34 @@ Streaming: graph.astream_events(version="v2") — on_chat_model_stream events �
 
 ---
 
+## Profile Scoring Algorithm
+
+Implemented in `src/app/profile/scoring.py` (Commit 14). Pure function — no DB access.
+
+**Delta merge strategy:**
+- `current_profile["topic_scores"]` is already `dict[str, float]` (deserialized by profile DB layer)
+- Each entry in `assessed_topics` overwrites the matching key in the merged copy
+- Invalid values (non-numeric, None, list) are silently dropped — unknown-but-numeric slugs are stored
+- Out-of-range scores are clamped to [0.0, 1.0] before storage
+
+**Mastery level thresholds (average of all topic scores):**
+| Range | Level |
+|---|---|
+| avg < 0.2 | novice |
+| 0.2 ≤ avg < 0.4 | beginner |
+| 0.4 ≤ avg < 0.6 | intermediate |
+| 0.6 ≤ avg < 0.8 | advanced |
+| avg ≥ 0.8 | expert |
+| empty dict | novice |
+
+**Strengths / gaps thresholds:**
+- Strength: score ≥ 0.7
+- Gap: score ≤ 0.3
+
+---
+
 ## Sections to Complete During Build
 
-- **Profile scoring algorithm** — threshold table and delta merge strategy — after Commit 14
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 
-*Last updated: 2026-05-10 — Commit 13 complete (assess_node real LLM chain; assessment_prompt module; LangGraph graph diagram added)*
+*Last updated: 2026-05-10 — Commit 14 complete (topic scoring service; scoring algorithm thresholds documented)*

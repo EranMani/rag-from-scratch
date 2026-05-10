@@ -16,3 +16,5 @@
 - **C10** langgraph-graph-assembly — build_graph(checkpointer) factory pattern; blocking I/O (get_user_level) hoisted outside async generator; graph.astream_events(v2) + SSE StreamingResponse; SessionMemory deleted
 - **C11** langgraph-graph-smoke-test — 14 smoke tests gate Phase 4; fresh MemorySaver per test class prevents state bleed between test runs
 - **C12** langgraph-assessment-scaffold — stub pattern proves wiring before real LLM call; try/except wraps construction not just LLM call; add_conditional_edges with named routing hook _route_after_assess
+- **C13** langgraph-assessment-llm — assess_node real LangChain chain: assessment_prompt | llm.with_structured_output(AssessmentOutput); prompt in src/agents/prompts/; prompt.__or__ patch pattern for LCEL chain tests; user_level not written mid-graph to avoid circular turn-update
+- **C14** topic-scoring-service — TopicScoreUpdate TypedDict is Rex→Nova domain contract; compute_topic_scores pure function merges delta, clamps to [0,1], computes mastery; value-type filter (not allowlist) decouples scoring from curriculum; silent clamping defends against out-of-range LLM output

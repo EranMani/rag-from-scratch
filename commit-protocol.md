@@ -23,7 +23,7 @@
 | 11 | langgraph-graph-smoke-test | ai-engineer | ✅ done · 2026-05-10 |
 | 12 | langgraph-assessment-scaffold | ai-engineer | ✅ done · 2026-05-10 |
 | 13 | langgraph-assessment-llm | ai-engineer | ✅ done · 2026-05-10 |
-| 14 | topic-scoring-service | backend | pending |
+| 14 | topic-scoring-service | backend | ✅ done · 2026-05-10 |
 | 15 | profile-update-node | ai-engineer | pending |
 | 16 | adaptive-prompt-templates | ai-engineer | pending |
 | 17 | adaptive-graph-integration | ai-engineer | pending |

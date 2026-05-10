@@ -906,3 +906,61 @@ except Exception:
 - `src/agents/prompts/assessment.py` — new: `ChatPromptTemplate` with system + human messages, topic scoring task, structured output format
 - `tests/test_assess_node.py` — add 15 tests: 8 validate real chain output shape and score ranges; 4 test circuit breaker provider switching; 3 validate fallback triggers on parse errors
 - `src/agents/nodes/assess.py` — documentation: add docstring explaining user_level deferral and fallback mechanism
+
+---
+
+**Commit 14 — topic-scoring-service** · 2026-05-10 · Rex · `new feature`
+
+> **In one sentence:** A pure-function scoring service establishes the typed contract between the profile domain and the LangGraph agent layer, keeping curriculum awareness out of score computation and domain logic out of the agent graph.
+
+**Interview talking point:**
+> **Q:** How do you enforce a clean domain boundary between a persistence layer and an orchestration layer when they need to share computed state?
+>
+> **A:** We introduced a pure-function service with a TypedDict return type — no DB imports, no FastAPI imports, no side effects — so the agent layer can call it freely without acquiring infrastructure dependencies, and the profile domain owns the scoring formula exclusively.
+
+**What happened and why:**
+- `compute_topic_scores()` merges a sparse `assessed_topics` delta into the existing profile, then derives mastery level, strengths (score >= 0.7), and gaps (score <= 0.3) in one pass.
+- Without this service, Nova's `update_profile_node` (Commit 15) would have had to implement its own scoring logic — duplicating domain decisions across a domain boundary.
+- Unknown-but-numeric slugs are stored; non-numeric values are silently dropped — the service filters on value type rather than an allowlist, so it stays decoupled from the curriculum definition. An allowlist would silently drop valid scores whenever Nova added a topic before the list was updated.
+- Score clamping to [0.0, 1.0] is applied silently at the last writeable boundary before profile persistence, guarding against out-of-range LLM output that would corrupt mastery thresholds without raising an immediate error.
+
+**Reasoning & discovery:**
+1. The problem was framed as: what is the minimal interface Nova needs from Rex's domain in order to write profile updates without knowing how scores are computed?
+2. An allowlist of known module slugs was ruled out — it would couple the scoring service to the curriculum definition and cause silent data loss whenever a new topic was added before the list was updated; curriculum enforcement belongs at Nova's `assess_node` boundary.
+3. Value-type filtering (`isinstance(score, (int, float))`) settled the contract: the invariant is "numeric value for any slug," not "only slugs we already know about," which keeps the service stable as the curriculum grows.
+
+**The key change:**
+```python
+# src/app/profile/scoring.py
+# Before: no service existed; scoring logic would have lived in Nova's update_profile_node
+
+# After:
+def compute_topic_scores(
+    current_profile: dict[str, float],
+    assessed_topics: dict[str, float],
+    interaction_count: int,  # accepted but unused — part of orchestration contract for Commit 15
+) -> TopicScoreUpdate:
+    merged = {**current_profile}
+    for slug, score in assessed_topics.items():
+        if isinstance(score, (int, float)):
+            merged[slug] = max(0.0, min(1.0, float(score)))  # silent clamp
+    mastery = get_mastery_level(merged)
+    return TopicScoreUpdate(
+        topic_scores=merged,
+        strengths=[s for s, v in merged.items() if v >= 0.7],
+        gaps=[s for s, v in merged.items() if v <= 0.3],
+        mastery_level=mastery,
+    )
+```
+
+**Design pattern:**
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Pure function service | `scoring.py` has no DB access, no FastAPI imports, no side effects | Nova can call it from the agent layer without acquiring infrastructure dependencies; trivially unit-testable |
+| Typed contract (TypedDict) | `TopicScoreUpdate` is the shared return type between domains | Gives Nova a stable, inspectable interface; prevents implicit dict conventions from drifting across the domain boundary |
+| Boundary enforcement over allowlist | Non-numeric slugs dropped; unknown-but-numeric slugs stored | Decouples scoring from curriculum definition; curriculum enforcement delegated to the correct boundary (Nova's assess_node) |
+| Defensive clamping | `max(0.0, min(1.0, score))` at last writeable point | LLM output may be out-of-range; clamping prevents silent corruption of threshold-based mastery logic downstream |
+
+**Files touched:**
+- `src/app/profile/scoring.py` — new: `TopicScoreUpdate` TypedDict, `compute_topic_scores()`, `get_mastery_level()`
+- `tests/test_scoring.py` — new: 17 unit tests across 4 classes; 172/172 full suite pass

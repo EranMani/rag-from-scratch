@@ -334,4 +334,21 @@
 - **Reason:** The pipe operator (`|`) in `assessment_prompt | llm.with_structured_output(AssessmentOutput)` produces a `RunnableSequence` at the object level. A `MagicMock` returned from `with_structured_output()` is not a `Runnable` — it has no `ainvoke()` protocol that `RunnableSequence` can call. Patching `__or__` on the prompt object intercepts before `RunnableSequence` is constructed, giving full chain control without touching `RunnableSequence` internals.
 - **Consequences:** This is the established mock pattern for any future test of a LangChain LCEL chain in this project. Any test that needs to control the output of a `prompt | llm.method()` chain should patch `prompt.__or__` to return a mock that exposes `ainvoke()`.
 
-*Last updated: 2026-05-10 — Commit 13 complete (assess_node real LLM chain; assessment prompt module)*
+### Invalid slug filter by value type, not curriculum allowlist (Commit 14)
+- **Date:** 2026-05-10
+- **Commit:** 14
+- **Decided by:** Rex
+- **Decision:** `compute_topic_scores` silently drops entries in `assessed_topics` where the value is not `isinstance(score, (int, float))`. Unknown-but-numeric slugs are stored. Non-numeric values are dropped.
+- **Alternatives considered:** Validating slug names against a known curriculum allowlist (e.g., a `frozenset` of module names).
+- **Reason:** An allowlist couples the scoring service to the curriculum definition. When Nova adds new assessment topics in a future commit before the allowlist is updated, valid scores would be silently dropped with no error signal. Value-type filtering is the correct invariant — the scoring contract is "numeric values for any slug name," not "only slugs from a known list."
+- **Consequences:** The scoring service will accumulate entries for topic slugs that don't exist in any curriculum. Consumers (UI, profile display) must handle unexpected keys gracefully. If curriculum enforcement is needed in the future, it belongs at the LangGraph node boundary (Nova's `assess_node`), not in the scoring service.
+
+### Silent score clamping to [0.0, 1.0] (Commit 14)
+- **Date:** 2026-05-10
+- **Commit:** 14
+- **Decided by:** Rex (defensive addition, not in spec)
+- **Decision:** `compute_topic_scores` clamps any numeric score from `assessed_topics` to `max(0.0, min(1.0, score))` before merging. Out-of-range values (e.g., 1.2 from a hallucinating LLM) are stored as 1.0 rather than propagating upstream.
+- **Reason:** The scoring service is the last writeable boundary before profile persistence. Out-of-range scores would cause `get_mastery_level` to return correct-looking results that violate the documented threshold invariants. The LLM is the source of `assessed_topics` — defensive clamping prevents malformed LLM output from corrupting the profile.
+- **Consequences:** Spec-compliant callers (scores in [0.0, 1.0]) observe no change. Clamping is silent — there is no warning log when a value is clamped. If monitoring of out-of-range values is needed later, a log call should be added here.
+
+*Last updated: 2026-05-10 — Commit 14 complete (topic scoring service; invalid slug handling; score clamping)*

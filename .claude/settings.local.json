@@ -59,7 +59,16 @@
       "Bash(\"D:/AI/_My_Projects/rag-from-scratch/.venv/Scripts/pytest.exe\" tests/test_assess_node.py -v --tb=short)",
       "Bash(\"D:/AI/_My_Projects/rag-from-scratch/.venv/Scripts/pytest.exe\" tests/test_generate_node.py -v --tb=short)",
       "Bash(\"D:/AI/_My_Projects/rag-from-scratch/.venv/Scripts/pytest.exe\" -v --tb=short)",
-      "Bash(\"D:/AI/_My_Projects/rag-from-scratch/.venv/Scripts/pytest.exe\" tests/test_graph_smoke.py -v --tb=short)"
+      "Bash(\"D:/AI/_My_Projects/rag-from-scratch/.venv/Scripts/pytest.exe\" tests/test_graph_smoke.py -v --tb=short)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_scoring.py -v)",
+      "Bash(cat .python-version)",
+      "Bash(ls *.toml *.cfg *.ini)",
+      "Bash(ls .venv)",
+      "Bash(ls venv *)",
+      "Bash(venv/Scripts/python.exe -m pytest tests/test_scoring.py -v)",
+      "PowerShell(& \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\.venv\\\\Scripts\\\\python.exe\" -m pytest \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\tests\\\\test_scoring.py\" -v)",
+      "PowerShell(& \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\.venv\\\\Scripts\\\\python.exe\" -m pytest \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\tests\\\\\" -v --tb=short 2>&1 | Select-Object -Last 20)",
+      "Bash(powershell -Command \"\\(Get-Content 'D:\\\\\\\\AI\\\\\\\\_My_Projects\\\\\\\\rag-from-scratch\\\\\\\\LEARNING_LOG.md'\\).Count\")"
     ]
   }
 }
