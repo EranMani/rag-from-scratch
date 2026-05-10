@@ -224,7 +224,7 @@ Agents most likely to hit threshold first: Rex (Phases 1–3), Nova (Phases 2–
 
 ## Quality Gate Trigger Rules (updated 2026-05-10)
 
-**Token budget target: 11–15k per commit total.**
+**Token budget target: ≤60k for implementation commits (Nova, Rex, Aria, Adam); ≤15k per review/doc agent (Viktor, Sage, Quinn, Mira, Ryan).**
 
 ### Viktor — every 5 commits, Haiku
 Run on commits 5, 10, 15, 20 (every 5th commit). In a single pass, review all accumulated diffs since the last Viktor wave. Token target: ≤20k per wave.
@@ -368,6 +368,27 @@ This costs ~100 tokens per invocation and routinely prevents an entire Viktor bl
 
 ---
 
+## Implementor Execution Constraints
+
+Include these verbatim in every implementor invocation (Nova, Rex, Aria, Adam):
+
+```
+EXECUTION CONSTRAINTS:
+- Max tool uses: 25. Plan your reads upfront. Batch your writes. If you hit 25 and aren't done, stop and report.
+- Two phases only: Phase 1 — all reads. Phase 2 — all writes. No reads in Phase 2.
+- Do not re-read any file you have already read this session.
+- Worklog: one write at task completion only. No mid-task worklog updates.
+- Test runs: maximum 2. On second failure, report what failed and stop — do not loop.
+- Code comments: one line max, functional only. No explanatory prose, no narration.
+```
+
+**Why these constraints exist:**
+Nova's Commit 13 ran 73 tool uses at 122k tokens — ~1,700 tokens of context-echo overhead per tool call.
+The two-phase protocol eliminates the read-modify-read spiral. The worklog constraint eliminates mid-task context bloat.
+The test budget prevents fix loops that compound context without producing new information.
+
+---
+
 ## Orchestrator Read Discipline
 
 Do NOT read files speculatively in the main context. Read a file only at the moment
@@ -432,3 +453,4 @@ Tech Writer:    Ryan
 | 2026-05-10 | Viktor blocking criteria narrowed to system-breaking only; everything else logged | Ghost if-else triggered a full gate-fix pass — disproportionate for a non-breaking issue |
 | 2026-05-10 | Sage blocking criteria updated to match Viktor model (block only on critical exploitable issues) | Consistency with new Viktor model; LOW/MEDIUM findings go to deferred log |
 | 2026-05-10 | Ryan template trimmed — pass Full Entry format block only (~38 lines), not lines 1–99 | Ryan consumed 54k tokens in Commit 12 largely due to oversized template in prompt |
+| 2026-05-10 | Implementor Execution Constraints section added; token budget target revised to ≤60k/≤15k | Nova hit 122k / 73 tool uses in Commit 13 — read-modify-read spiral and mid-task worklog writes are the root cause |
