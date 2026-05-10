@@ -5,19 +5,22 @@
 ---
 
 ## Current State
-*Last updated: Commit 06 · 2026-05-09*
+*Last updated: Commit 14 · 2026-05-10*
 
-**Last completed:** Commit 06 `user-profile-api` ✅
+**Last completed:** Commit 14 `topic-scoring-service` ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
 - Nova (Commit 10): when LangGraph replaces `chain.py`, `format_history(session_id)` injection MUST be carried forward — pass `conversation_history` into `AgentState` before `graph.invoke()`. This is a named deliverable of Commit 10. Already logged in `project-state.json`.
+- Nova (Commit 15): `compute_topic_scores` and `TopicScoreUpdate` are live in `src/app/profile/scoring.py`. Import exactly as: `from app.profile.scoring import compute_topic_scores, TopicScoreUpdate`. `current_profile["topic_scores"]` is already `dict[str, float]` when retrieved via `get_profile_by_user_id` — do not JSON-parse it again.
 
 **Open Handoffs — Inbound:**
 - (none)
 
 **Key Interfaces I Own (for teammates):**
+- `src/app/profile/scoring.py` — `compute_topic_scores(current_profile, assessed_topics, interaction_count) -> TopicScoreUpdate` and `get_mastery_level(topic_scores) -> str`. Pure functions, no DB, no FastAPI deps. Safe to call from any context including LangGraph nodes.
+- `TopicScoreUpdate` TypedDict fields: `topic_scores: dict[str, float]`, `strengths: list[str]`, `gaps: list[str]`, `mastery_level: str`.
 - `GET /api/profile/me` — requires Bearer token; returns `UserProfilePublic`; 404 if profile missing (should not happen for registered users)
 - `src/app/api/routes/profile.py` — profile router; single GET endpoint
 - `src/app/profile/db.py` — full CRUD: `create_profile(user_id)`, `get_profile_by_user_id(user_id)`, `update_profile(user_id, **fields)`, `get_or_create_profile(user_id)`. All follow the existing `_connect()` pattern.
@@ -62,6 +65,7 @@ No archived sessions yet.
 | 04 | Commit 04 `feat: user_profiles table in SQLite with WAL mode and lifespan init` | ✅ Done | `PRAGMA foreign_keys=ON` added alongside WAL — SQLite FK enforcement is off by default; both pragmas set in `_connect()` in both auth and profile modules |
 | 05 | Commit 05 `feat: user profile CRUD service, UserProfilePublic schema, delete JSON stub` | ✅ Done | Patched `_connect` in tests to point at temp DB rather than monkeypatching settings; `jwt_secret` default removed from config — `.env` updated to provide the value |
 | 06 | Commit 06 `feat: GET /api/profile/me endpoint and auto-create profile on registration` | ✅ Done | `asyncio.to_thread` wraps the synchronous DB call in the async route; register route's `create_profile` call wraps `sqlite3.IntegrityError` to handle duplicate races without surfacing 500 |
+| 07 | Commit 14 `topic-scoring-service` | ✅ Done | Pure function design — no DB imports; invalid slug filtering via `isinstance` check; score clamping to [0,1] as a silent defensive invariant |
 
 ---
 
@@ -658,6 +662,43 @@ The test isolation design was the only decision requiring thought. The key const
 The `create_profile` patch target took one re-read of the auth route to confirm: the route does `from app.profile.db import create_profile`, which binds the name `create_profile` in `app.api.routes.auth`'s namespace. Patching `app.api.routes.auth.create_profile` intercepts the call at the point of use; patching `app.profile.db.create_profile` would not, because the name was already bound at import time.
 
 *Gate remediation complete. 53/53 tests passing. No domain boundary violations.*
+
+— Rex
+Co-Authored-By: Rex <rex.stockagent@gmail.com>
+
+---
+
+## Session 07 — Commit 14: `topic-scoring-service`
+
+**Date:** 2026-05-10
+**Status:** ✅ Done
+
+### Task Brief
+
+Build a pure-function scoring service (`src/app/profile/scoring.py`) with `TopicScoreUpdate` TypedDict, `compute_topic_scores()`, and `get_mastery_level()`. Write `tests/test_scoring.py` covering all 4 spec conditions. Nova imports this in Commit 15.
+
+### What Was Built
+
+- `src/app/profile/scoring.py` — `TopicScoreUpdate` TypedDict with `topic_scores: dict[str, float]`, `strengths: list[str]`, `gaps: list[str]`, `mastery_level: str`. `get_mastery_level()` with empty-dict guard returning `"novice"`. `compute_topic_scores()` merging deltas, filtering invalid slugs, clamping scores to [0.0, 1.0], computing strengths (>= 0.7) and gaps (<= 0.3).
+- `tests/test_scoring.py` — 17 tests across 4 test classes: fresh profile merge, mastery level thresholds (all 5 bands), purity + mutation guard, invalid slug handling (string, None, list values). All 17 passed on first run.
+
+### Non-Obvious Decisions
+
+**Invalid slug filtering via `isinstance` check, not allowlist.** The spec says invalid slugs are ignored gracefully. Two approaches: (1) maintain a known-slugs allowlist and reject anything not in it, or (2) check that the value is numeric and accept any slug name. An allowlist would require keeping it in sync with the curriculum and would break Nova's node if new topics were added before the allowlist was updated. The `isinstance(score, (int, float))` guard accepts any slug name with a numeric value — this is deliberately permissive on slug identity and strict on value type. A `None` check for the value is implicitly handled because `isinstance(None, (int, float))` is `False`.
+
+**Score clamping to [0.0, 1.0].** The spec does not specify clamping, but the profile invariant is that scores are normalized floats. If Nova's LLM returns 1.2 for an overconfident assessment, silently clamping is safer than either crashing or storing an out-of-range value that downstream consumers don't expect. This is a defensive addition within the pure-function contract — no observable difference for spec-compliant callers.
+
+**`interaction_count` accepted but not used.** The spec includes it in the function signature (Nova needs it in the call). It is accepted and silently ignored in the scoring computation — the parameter belongs to Nova's orchestration contract, not the scoring formula. Documented with an inline comment.
+
+### Approach Note
+
+The initial question was whether `compute_topic_scores` needed to know about valid module slugs — that is, whether it should enforce a curriculum allowlist. The answer is no: the scoring service's job is math, not curriculum validation. If a slug arrives that isn't in the curriculum, it gets scored and stored; that's a curriculum problem, not a scoring problem. Filtering on value type (must be numeric) is the right gate because a non-numeric value is definitively malformed, whereas an unknown-but-numeric slug might be a legitimate future topic. This distinction clinched the `isinstance` approach over an allowlist.
+
+The purity test also served as a mutation guard — the second assertion in `TestComputeTopicScoresPurity` confirms the incoming `current_profile["topic_scores"]` dict is not modified in place. This required using `dict(...)` to copy the existing scores before merging, which is a two-line detail but a correctness invariant: callers who hold a reference to `current_profile["topic_scores"]` must not see it change after calling `compute_topic_scores`.
+
+### Test Results
+
+17/17 passed. First run. No fixes required.
 
 — Rex
 Co-Authored-By: Rex <rex.stockagent@gmail.com>
