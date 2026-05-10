@@ -2,7 +2,7 @@
 > Records all methods applied (or considered) to reduce token cost in this project.
 > Each entry explains why it works, when to apply it, and a real example from this project.
 > Extend this document as new techniques are tried.
-> Last updated: 2026-05-10
+> Last updated: 2026-05-10 (Methods 14–16 added — constraint enforcement hardening)
 
 ---
 
@@ -295,6 +295,82 @@ Token budget target revised: ≤60k for implementation agents (Sonnet), ≤15k p
 
 ---
 
+### 14. Constraints Baked into Agent Identity Files
+
+**Why / When:** Apply once, permanently. Execution constraints existed only in `team-preferences.md` and required Claude to manually copy them into every agent invocation prompt. Viktor hit 59 tool uses in the Commit 15 wave (61k tokens) and Nova hit 34 uses (over the 25 cap) in the same session — both because Claude omitted the constraint block. A rule that depends on orchestrator memory will be forgotten.
+
+**What changed:** The verbatim constraint block for each agent type was added directly to the agent's identity file (`.claude/agents/*.md`) in a dedicated `## Execution Constraints` section:
+
+- **Implementors (Nova, Rex, Aria, Adam):** 25-tool cap, two-phase read/write, no mid-task worklog writes, max 2 test runs — added to `ai-engineer.md`, `backend.md`, `frontend.md`, `devops.md`
+- **Reviewers (Viktor, Sage, Quinn):** 25-tool cap, diff-only, targeted reads only — added to `reviewer.md`, `security.md`, `qa.md`
+- **Ryan:** 5-tool cap, Edit-only — added to `tech-writer.md`
+- **Mira:** 5-tool cap, no file reads — added to `product.md`
+
+**Why this works:** Agent identity files are loaded automatically by the runtime when `subagent_type` is specified — before the prompt is even read. The constraints now fire unconditionally, regardless of what Claude includes or omits in the invocation prompt.
+
+**Estimated saving:** Prevents the Viktor-59-tool-use scenario (61k tokens) and Nova-34-tool-use scenario. Across remaining commits, preventing one such overrun per commit = 30–60k tokens saved per occurrence.
+
+**Status:** Active — implemented 2026-05-10, committed 731860e
+
+**Notes:** This is a defense-in-depth layer. The constraint block in the identity file + the runtime hook (Method 15) + Claude including the constraint in the invocation prompt = three independent layers. All three must fail simultaneously for an overrun to occur.
+
+**Example:** Viktor's Commit 15 wave used 59 tool uses (61k tokens, 2.4× over the ≤25 cap). Root cause: Claude's invocation prompt omitted the reviewer constraint block. With constraints in the identity file, Viktor reads his constraint on boot — before any invocation prompt is processed. Same finding quality, 25 tool uses max.
+
+---
+
+### 15. Runtime Tool-Use Cap (PreToolUse Hard Block)
+
+**Why / When:** Methods 13 and 14 rely on the LLM following instructions. An LLM can lose track of a constraint as context grows — it's probabilistic, not deterministic. A runtime hook that intercepts tool calls before they execute provides a hard guarantee that no agent can exceed 25 tool uses, regardless of whether it "remembers" the constraint.
+
+**What changed:** `hooks/tool_cap_enforce.py` registered as `PreToolUse` with empty-string matcher (fires on all tool calls). Logic:
+
+1. If `tool_cap.json` has `active: false` → exit 0 (not in a subagent session, skip)
+2. If the tool call is Write/Read/Edit to `tool_cap.json` itself → exit 0 (always allow orchestrator file management)
+3. If the tool call is `Agent` spawning → exit 0 (orchestrator action, not a subagent tool use)
+4. Increment counter. If count > 25 → exit 2 (BLOCK with message). Agent cannot proceed.
+
+Exit code 2 in Claude Code's hook system means the tool call is hard-blocked — it does not execute. The agent receives the stderr message and must stop.
+
+**Estimated saving:** Prevents runaway agents. At the token rates observed (Nova: ~1,700 tokens overhead per tool call at 73 uses), blocking at 26 instead of 73 saves ~80k tokens on a Nova spiral. For Viktor at 59 uses vs 25: ~56k tokens saved.
+
+**Status:** Active — implemented 2026-05-10, committed ac29adf
+
+**Notes:** Fail-open by design: any I/O error reading/writing `tool_cap.json` causes exit 0 (allow through). A broken hook must never block legitimate work. The counter file `hooks/tool_cap.json` is committed to the repo and holds `active: false` at rest.
+
+**Example:** Nova exceeds 25 tool calls while reading files speculatively. Tool call #26 triggers `tool_cap_enforce.py`. Script reads `active: true`, count becomes 26, 26 > 25 → exit 2. Nova receives: "TOOL CAP REACHED — nova has used 25/25 tools. STOP NOW. Report what you completed, what files changed, and what remains." Nova stops. Orchestrator reads the partial report.
+
+---
+
+### 16. Auto-Wired Cap Lifecycle (Agent Tool Hooks)
+
+**Why / When:** Method 15 requires `tool_cap.json` to have `active: true` during agent execution. The original design had the orchestrator write this flag manually before/after each `Agent()` invocation. That reintroduced a human-error vector — if Claude forgot the Write call, no enforcement. The fix: wire the flag to the `Agent` tool itself so it sets and clears automatically with zero orchestrator action.
+
+**What changed:** Two new hooks registered in `.claude/settings.json`:
+
+- `PreToolUse:Agent` → `hooks/tool_cap_start.py` — fires before every `Agent()` call; sets `active: true`, extracts agent name from `subagent_type`, resets `count: 0`
+- `PostToolUse:Agent` → `hooks/tool_cap_end.py` — fires after every `Agent()` returns (success or error); resets `active: false`, `count: 0`
+
+The orchestrator no longer touches `tool_cap.json`. The runtime manages it.
+
+**Execution sequence:**
+```
+Orchestrator calls Agent(subagent_type="nova")
+  PreToolUse:Agent  → tool_cap_start.py  → active=true,  count=0   (automatic)
+  PreToolUse:""     → tool_cap_enforce.py → Agent call excluded     (automatic)
+  [subagent runs — each tool call counted and blocked at 26]
+  PostToolUse:Agent → tool_cap_end.py    → active=false, count=0   (automatic)
+```
+
+**Estimated saving:** Eliminates one entire failure mode (forgot-to-set-flag). No direct token saving — it's a correctness guarantee that ensures Method 15 actually fires on every subagent invocation.
+
+**Status:** Active — implemented 2026-05-10, committed 873ee14
+
+**Notes:** Limitation: not safe for nested `Agent()` calls — the inner Agent spawn would reset count to 0 and then PostToolUse would set active=false, breaking the outer agent's cap. This project does not use nested agents. If it ever does, per-agent counter files are the fix.
+
+**Example:** Without Method 16, the sequence was: Claude writes `tool_cap.json` (active=true) → calls `Agent()` → agent runs → Claude writes `tool_cap.json` (active=false). If Claude forgot step 1, the entire cap was inactive. With Method 16: PreToolUse:Agent fires unconditionally when `Agent()` is called — there is no step 1 for Claude to forget.
+
+---
+
 ## Planned / Not Yet Applied
 
 ### `/compact` Mid-Session
@@ -412,6 +488,15 @@ Gate-fix passes eliminated · Viktor/Quinn cadence every 5 commits · Ryan templ
 | 11 | ~35k | — | good | Test-only, Viktor only |
 | 12 | ~297k | 55k | 5.4× | Gate-fix pass + oversized prompts |
 | 13 | **188k** | ≤90k | **2.1×** | Nova read-modify-read spiral (rules not yet applied) |
-| 14+ | TBD | ≤90k | — | Execution constraints active from this commit |
+| 14 | **72k** | ≤75k | **✅ under** | First commit with Method 13 applied — Rex hit 25 cap exactly |
+| 15 (attempt) | **260k** | ≤90k | **2.9×** | Viktor 59 tool uses (61k) — constraint block omitted from invocation; Nova 34 tool uses (+35k); Viktor hard-blocked |
+| 15 (fix) | **112k** | ≤75k | over | Rex 11 tool uses ✅; Ryan anomaly 50k for one-liner (root cause: large Edit anchor) |
+| 16 | TBD | ≤75k | — | First commit with Methods 14+15+16 all active |
+| 17+ | TBD | ≤75k | — | Full three-layer enforcement |
 
-*Updated 2026-05-10 — Commit 13 actual measured: 188k subagent tokens. Execution Constraints (Method 13) added post-commit; C14 is first commit where they apply.*
+**What changed after Commit 15:**
+Methods 14 (constraints in identity files) + 15 (PreToolUse hard block) + 16 (auto-wired lifecycle) all implemented. Commit 16 is the first commit where all three layers fire together.
+
+**Viktor anomaly (Commit 15 attempt):** 59 tool uses / 61k tokens against a ≤25 / ≤20k target. Root cause: Claude omitted the reviewer constraint block from the invocation prompt. Fixed by Method 14 (baked into `reviewer.md`) + Method 15 (hard block at 26). Not possible to repeat under the current setup.
+
+*Updated 2026-05-10 — Methods 14, 15, 16 added post-Commit 15 session. Commit 14 actual: 72k ✅. Commit 15 attempt: 260k (Viktor hard block). Commit 15 fix: 112k.*
