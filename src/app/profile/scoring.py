@@ -1,7 +1,7 @@
 """
 Pure-function scoring service for profile mastery computation.
 
-Nova's update_profile_node (Commit 15) imports compute_topic_scores and
+Nova's update_profile_node (Commit 16) imports compute_topic_scores and
 TopicScoreUpdate from this module. No DB access, no FastAPI imports, no side effects.
 """
 
@@ -39,17 +39,20 @@ def compute_topic_scores(
     assessed_topics: dict[str, float],
     interaction_count: int,
 ) -> TopicScoreUpdate:
-    """Merge assessed_topics deltas into current_profile['topic_scores'] and compute mastery.
+    """Merge assessed_topics deltas additively into current_profile['topic_scores'] and compute mastery.
 
-    Invalid module slugs in assessed_topics are ignored gracefully — no exception raised.
+    assessed_topics contains deltas in [-1.0, 1.0] — values are added to the existing score
+    for each slug, not used as replacements. Result is clamped to [0.0, 1.0].
+    Invalid (non-numeric) values in assessed_topics are ignored gracefully — no exception raised.
     current_profile['topic_scores'] is expected to be dict[str, float] (already deserialized).
     interaction_count is accepted but not used in scoring computation; reserved for Nova's node.
     """
     merged: dict[str, float] = dict(current_profile.get("topic_scores", {}))
     for slug, score in assessed_topics.items():
-        # Accept any float in [0.0, 1.0]; clamp silently to keep invariants
+        # Add delta to existing score; clamp to [0.0, 1.0] to preserve invariant
         if isinstance(score, (int, float)):
-            merged[slug] = float(max(0.0, min(1.0, score)))
+            existing = merged.get(slug, 0.0)
+            merged[slug] = float(max(0.0, min(1.0, existing + score)))
 
     strengths: list[str] = [slug for slug, score in merged.items() if score >= 0.7]
     gaps: list[str] = [slug for slug, score in merged.items() if score <= 0.3]
