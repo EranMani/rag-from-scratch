@@ -51,7 +51,15 @@
       "Bash(conda run *)",
       "Bash(conda env *)",
       "Bash(D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\.venv\\\\Scripts\\\\python.exe *)",
-      "Bash(D:/AI/_My_Projects/rag-from-scratch/.venv/Scripts/python.exe *)"
+      "Bash(D:/AI/_My_Projects/rag-from-scratch/.venv/Scripts/python.exe *)",
+      "Bash(New-Item *)",
+      "Bash(ls .venv/Scripts/pytest*)",
+      "Bash(ls venv/Scripts/pytest*)",
+      "Bash(ls .venv/bin/pytest)",
+      "Bash(\"D:/AI/_My_Projects/rag-from-scratch/.venv/Scripts/pytest.exe\" tests/test_assess_node.py -v --tb=short)",
+      "Bash(\"D:/AI/_My_Projects/rag-from-scratch/.venv/Scripts/pytest.exe\" tests/test_generate_node.py -v --tb=short)",
+      "Bash(\"D:/AI/_My_Projects/rag-from-scratch/.venv/Scripts/pytest.exe\" -v --tb=short)",
+      "Bash(\"D:/AI/_My_Projects/rag-from-scratch/.venv/Scripts/pytest.exe\" tests/test_graph_smoke.py -v --tb=short)"
     ]
   }
 }

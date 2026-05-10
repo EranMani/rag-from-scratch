@@ -1,6 +1,6 @@
 # Decisions Index
 *Always-loaded companion to DECISIONS.md. One-liner per decision — full prose in DECISIONS.md.*
-*Last updated: 2026-05-10 — Commit 12*
+*Last updated: 2026-05-10 — Commit 13*
 
 ---
 
@@ -49,3 +49,6 @@
 34. **assessed_topics as SSE public key** — internal state field is `topic_scores_delta`; SSE consumers see `assessed_topics` (intention-revealing); this is the locked contract from C10
 35. **add_conditional_edges with named routing hook** — both paths route to same node today (C12); diverges in C15; routing function `_route_after_assess` is independently testable
 36. **update_profile_node stub in graph.py** — one-commit temporary placement; C15 creates `src/agents/nodes/update_profile.py` and moves it
+37. **Assessment prompt in `src/agents/prompts/`** — prompts are code; separate module = independent versioning, testability, and review surface (C13)
+38. **user_level not written from assess_node to AgentState** — avoids circular turn-update; user_level ownership deferred to update_profile_node in C15
+39. **LangChain chain mock via `prompt.__or__` patch** — `MagicMock` is not a `Runnable`; patching `__or__` intercepts before `RunnableSequence` construction; established pattern for LCEL chain tests (C13)

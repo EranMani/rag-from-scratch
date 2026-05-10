@@ -223,10 +223,40 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 
 ---
 
+## LangGraph Graph Topology
+
+```
+START
+  │
+  ▼
+retrieve_node          — reads question from state; calls retrieve(); writes docs, retrieval_source
+  │
+  ▼
+generate_node          — builds SystemMessage(context) + messages; calls LLM (async ainvoke); writes messages, answer
+  │
+  ▼
+assess_node            — calls assessment_prompt | llm.with_structured_output(AssessmentOutput);
+  │                       writes topic_scores_delta, identified_gaps, assessment_error
+  │
+  ├─ assessment_error=False ──┐
+  │                           │
+  └─ assessment_error=True ───┤  (both paths: _route_after_assess → "update_profile")
+                              ▼
+update_profile_node    — stub (Commit 12–14); Commit 15: calls profile service to merge delta
+  │
+  ▼
+END
+
+Checkpointer: MemorySaver — persists AgentState under thread_id=session_id between turns
+Recursion limit: 10 (baked into compiled graph config via .with_config())
+Streaming: graph.astream_events(version="v2") — on_chat_model_stream events → SSE tokens
+```
+
+---
+
 ## Sections to Complete During Build
 
-- **LangGraph graph diagram** — detailed node/edge map — after Commit 13
 - **Profile scoring algorithm** — threshold table and delta merge strategy — after Commit 14
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 
-*Last updated: 2026-05-10 — Commit 12 complete (assess_node scaffold + conditional edge wired; update_profile_node passthrough stub in graph.py)*
+*Last updated: 2026-05-10 — Commit 13 complete (assess_node real LLM chain; assessment_prompt module; LangGraph graph diagram added)*

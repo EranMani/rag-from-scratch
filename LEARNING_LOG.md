@@ -846,3 +846,63 @@ async def chat(req: ChatRequest, request: Request, current_user = Depends(curren
 - `src/agents/nodes/assess.py` — new (84 lines): `assess_node` with full RAGState → AssessmentOutput contract, try/except fallback, stub LLM call returning empty output
 - `src/agents/graph.py` — update (+38 lines): assess_node imported and added to graph; `update_profile_node` stub added; `_route_after_assess` conditional router added; edges wired
 - `tests/test_assess_node.py` — new (258 lines, 19 tests): Gate 1 validates stub output shape; Gate 2 validates boundary condition (score presence); Gate 3 patches AssessmentOutput to raise and validates fallback triggers; Gate 4 validates conditional edge routing logic; Gate 5 validates the assembled graph compiles
+
+---
+
+**Commit 13 — langgraph-assessment-llm** · 2026-05-10 · Nova · `new feature`
+
+> **In one sentence:** Replaced the stub assessment output with a real LangChain chain piping a structured prompt into `AssessmentOutput`, completing the full assessment loop and unblocking Commit 14–15 profile updates and adaptive routing.
+
+**Interview talking point:**
+> **Q:** How do you move from a testable stub to a real LLM integration without breaking the fallback mechanism?
+>
+> **A:** Keep the error boundary (try/except wrapper) and conditional routing unchanged — they exist at the graph level. Replace only the implementation inside the error boundary (the chain construction). The fallback sees the same interface, so tests and routing logic stay green with zero graph rewiring.
+
+**What happened and why:**
+- Replaced the stub `AssessmentOutput()` block in `assess_node` with a real LangChain chain: `assessment_prompt | llm.with_structured_output(AssessmentOutput)`. The try/except and conditional routing from Commit 12 pass through unchanged.
+- Created `src/agents/prompts/assessment.py` — a `ChatPromptTemplate` with system (role + task + constraints) and human (context injection) messages. Prompts are code; they need version control, independent review, and test isolation as a module.
+- `get_provider()` called per-invocation inside `assess_node`, not at module level. Same pattern as `generate_node` — circuit breaker failover (OpenAI → Ollama) must be observable on every individual call, not frozen at import time.
+- `AssessmentOutput.user_level` intentionally NOT written back to `AgentState` yet — avoids state ownership conflict (reading and writing the same field creates circular update risk). Deferred to Commit 15 design review.
+
+**Reasoning & discovery:**
+1. The problem: Commit 12 proved the skeleton compiles and routes. Commit 13 fills in the LLM call without breaking the already-tested fallback mechanism or graph wiring.
+2. Alternatives considered: (a) Inline the prompt template in `assess.py` — rejected because prompts evolve separately, need prompt-specific tests, and version control is cleaner with independent files. (b) Instantiate LLM at module level with a singleton pattern — rejected because it hides circuit breaker behavior (we can't switch providers without restarting the app) and makes testing harder (can't inject different providers per test).
+3. What clinched it: The stub already had the try/except wrapper in the right place. Swapping `AssessmentOutput()` for `assessment_prompt | llm | ...` required zero changes to the error boundary. The fallback mechanism was already testable and complete — this commit is purely the real LLM call replacing the stub.
+
+**The key change:**
+```python
+# src/agents/nodes/assess.py
+# Before (stub):
+try:
+    output = AssessmentOutput()  # Empty stub
+    return {"assessment": output}
+except Exception:
+    logger.warning("Assessment failed; routing to fallback")
+    return {"assessment": None}
+
+# After (real chain):
+try:
+    assessment_prompt = load_assessment_prompt()  # Imported from prompts/
+    provider = get_provider()  # Per-call circuit breaker
+    chain = assessment_prompt | provider.llm.with_structured_output(AssessmentOutput)
+    output = chain.invoke({"state": state, ...})
+    return {"assessment": output}
+except Exception:
+    logger.warning("Assessment failed; routing to fallback")
+    return {"assessment": None}
+```
+
+**Design pattern:**
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Stub→real swap | LLM call replaces one-liner, error boundary and routing unchanged | Decouples integration risk from graph structure; fallback proof carries from Commit 12 to Commit 13 unchanged |
+| Prompt as module | `ChatPromptTemplate` lives in `src/agents/prompts/assessment.py` | Prompts are configuration code; independent versioning, testing, and review surface; easier to A/B test variants |
+| Per-call provider | `get_provider()` inside `assess_node`, not at module init | Circuit breaker is dynamic; failover (OpenAI → Ollama) is observable on every invocation; test injection is straightforward |
+| Explicit state gap | `AssessmentOutput.user_level` computed but not written to `AgentState` | Avoids circular write dependency; defers to Commit 15 design review where profile update logic will clarify ownership |
+
+**Files touched:**
+- `src/agents/nodes/assess.py` — replace stub block with real LangChain chain; add prompt loader
+- `src/agents/prompts/__init__.py` — new: package marker
+- `src/agents/prompts/assessment.py` — new: `ChatPromptTemplate` with system + human messages, topic scoring task, structured output format
+- `tests/test_assess_node.py` — add 15 tests: 8 validate real chain output shape and score ranges; 4 test circuit breaker provider switching; 3 validate fallback triggers on parse errors
+- `src/agents/nodes/assess.py` — documentation: add docstring explaining user_level deferral and fallback mechanism

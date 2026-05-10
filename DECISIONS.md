@@ -310,4 +310,28 @@
 - **Reason:** A separate file for a 1-line passthrough implies it is a permanent resident. Keeping the stub in `graph.py` with a `# STUB (Commit 12)` docstring clearly signals its temporary status and prevents Commit 15 from needing to restructure file ownership. Commit 15 will replace the inline stub with a real implementation and move it to its own file at that point.
 - **Consequences:** Commit 15 will create `src/agents/nodes/update_profile.py`, import it, and replace the inline stub in `graph.py`. This is a deliberate two-step — the stub in `graph.py` is not meant to grow in place.
 
-*Last updated: 2026-05-10 — Commit 12 complete (assess_node scaffold + conditional edge; update_profile_node stub)*
+### Assessment prompt in `src/agents/prompts/` — not inlined in the node (Commit 13)
+- **Date:** 2026-05-10
+- **Commit:** 13
+- **Decided by:** Nova (applied) + identity file standard
+- **Decision:** The assessment `ChatPromptTemplate` lives in `src/agents/prompts/assessment.py`, not inside `assess.py`. The module exposes a single `assessment_prompt` constant imported by the node.
+- **Reason:** Prompts are code — they need version control, independent review, and testability as a unit. Inlining the prompt in the node conflates two concerns: the graph contract (node inputs/outputs) and the LLM interface design (what the model sees). The prompts module is the established home for all future prompt templates.
+- **Consequences:** Any commit that changes the assessment prompt must touch `src/agents/prompts/assessment.py`. The node file remains stable — it only changes when the chain interface (not the prompt wording) changes.
+
+### `user_level` not written back to `AgentState` from `assess_node` (Commit 13)
+- **Date:** 2026-05-10
+- **Commit:** 13
+- **Decided by:** Nova (applied) + commit spec
+- **Decision:** `AssessmentOutput.user_level` is used inside the assessment chain call but is intentionally discarded — `assess_node` returns only `topic_scores_delta`, `identified_gaps`, and `assessment_error`. It does not write `user_level` back to `AgentState`.
+- **Reason:** `user_level` is currently a "turn input" field loaded from the profile before graph entry. If `assess_node` overwrites it mid-graph, the next node sees an assessed level rather than the stored level — a circular update where the LLM's assessment of this turn immediately shifts the context for the next. This is deferred to the Commit 15 design review where the full profile-update cycle is wired.
+- **Consequences:** The `user_level` in `AgentState` does not update within a turn. `update_profile_node` (Commit 15) is responsible for recomputing `mastery_level` from the updated `topic_scores` and writing it back — at turn boundaries, not mid-graph.
+
+### LangChain chain mock via `assessment_prompt.__or__` patch (Commit 13)
+- **Date:** 2026-05-10
+- **Commit:** 13
+- **Decided by:** Nova (discovered in testing)
+- **Decision:** Tests mock `assess_node`'s LangChain chain by patching `assessment_prompt.__or__ = MagicMock(return_value=mock_chain)`, not by patching `llm.with_structured_output()` and expecting `RunnableSequence` to propagate it.
+- **Reason:** The pipe operator (`|`) in `assessment_prompt | llm.with_structured_output(AssessmentOutput)` produces a `RunnableSequence` at the object level. A `MagicMock` returned from `with_structured_output()` is not a `Runnable` — it has no `ainvoke()` protocol that `RunnableSequence` can call. Patching `__or__` on the prompt object intercepts before `RunnableSequence` is constructed, giving full chain control without touching `RunnableSequence` internals.
+- **Consequences:** This is the established mock pattern for any future test of a LangChain LCEL chain in this project. Any test that needs to control the output of a `prompt | llm.method()` chain should patch `prompt.__or__` to return a mock that exposes `ainvoke()`.
+
+*Last updated: 2026-05-10 — Commit 13 complete (assess_node real LLM chain; assessment prompt module)*
