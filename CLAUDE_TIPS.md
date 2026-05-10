@@ -2,7 +2,7 @@
 > Reference guide for getting the most out of Claude Code's agentic capabilities.
 > Each technique includes why it matters, when to use it, and a real-world example.
 > Extend this document as new techniques are discovered.
-> Last updated: 2026-05-09
+> Last updated: 2026-05-10
 
 ---
 
@@ -12,18 +12,20 @@
 
 | Shorthand | Full model ID | Cost | Best for |
 |---|---|---|---|
-| `"haiku"` | claude-haiku-4-5 | ~20× cheaper than Opus | Docs, worklog updates, one-liners, GLOSSARY entries |
+| `"haiku"` | claude-haiku-4-5 | Lowest cost | All reviewers and writers: Viktor, Sage, Quinn, Mira, Ryan |
 | `"sonnet"` | claude-sonnet-4-6 | Mid-tier (default) | All implementation work — Rex, Nova, Aria, Adam |
-| `"opus"` | claude-opus-4-7 | Most expensive | Deep code review (Viktor), security analysis (Sage) |
+| `"opus"` | claude-opus-4-7 | **Banned** | Never used — too expensive at scale |
 
-**How to apply:** Pass `model: "haiku"` (or `"sonnet"`, `"opus"`) to the Agent tool call.
+**How to apply:** Pass `model: "haiku"` or `"sonnet"` to the Agent tool call.
 If omitted, the agent inherits the parent session's model — currently Sonnet.
+**Opus is never specified — not for any agent, not for any commit.**
 
-**Example:** Ryan writing a one-liner LEARNING_LOG entry after Commit 07 ("AgentState
-designed for full arc — schema changes cascade in compiled LangGraph graphs") doesn't
-need Sonnet's full reasoning. Haiku produces a clean one-liner for a fraction of the cost.
-Viktor reviewing a subtle async/thread interaction in `chain.py`, by contrast, warrants Opus —
-the reasoning chain matters.
+**Example (updated 2026-05-10):** Viktor (Haiku) reviewing Commit 10's async streaming
+code found all three advisories at ~8k tokens. The same review at Opus cost ~60k tokens
+in earlier commits with equivalent findings. Haiku is sufficient for structured review
+tasks — reviewers apply a checklist, they don't solve open-ended reasoning problems.
+Ryan writes LEARNING_LOG entries from a template Claude provides — pure formatting task,
+Haiku is exactly right.
 
 ---
 
@@ -100,35 +102,34 @@ context package loads 50 lines instead of 700.
 
 ## 5. Quality Gate Optimization
 
-**Why / When:** Reviewers don't need to know who they are (already loaded from their agent definition) and they don't need the history of unrelated commits. Sending only the diff and active spec gives them everything required for the review — nothing more.
+**Why / When:** The parallel gate wave is the single largest token cost in the commit loop. Running all 4 reviewers on every commit at Opus/Sonnet was costing ~180k tokens per wave. Two fixes: (1) only trigger reviewers when the commit touches their domain, and (2) use Haiku for all reviewers.
+
+**All reviewers run on Haiku — no exceptions.**
+
+**Trigger rules (updated 2026-05-10):**
+
+| Reviewer | Trigger condition | Skip when |
+|---|---|---|
+| Viktor | Every commit — always | Never |
+| Sage | Auth / secrets / external APIs / file ops / new public routes | Node internals, schemas, test additions, infra config |
+| Quinn | New service / new route / behavior change / new LangGraph node | Schema-only, pure refactor, doc-only, test-only |
+| Mira | User-facing API shape / UI / data the user sees | Internal plumbing, schemas, infra, scoring functions |
+| Ryan | Every commit — always | Never |
+
+**Gate-fix pass rule:** When a reviewer blocks, fix and re-run **only the blocking reviewer**, not the full wave. Exception: if the fix touches a different domain, re-run all triggered reviewers.
 
 **Reviewer context package — send only:**
-- The diff
-- The active commit spec
-- Relevant interface contracts (what the agent promises to produce/consume)
+- Targeted file paths (not the full diff for every reviewer)
+- The active commit spec summary
+- Relevant interface contracts
 
 **Do NOT send:**
-- Agent identity files (the agent definition already provides personality + role)
+- Agent identity files (loaded automatically from `subagent_type`)
 - Full worklog history
 - Unrelated commit specs
+- The raw diff to all reviewers — give each reviewer only the files relevant to their domain
 
-Stripping identity files from reviewer context packages saves ~1–2k tokens per reviewer
-per gate wave.
-
-**Selective Mira invocation:** Only invoke Mira on commits with user-facing behavior
-changes — new API endpoints, UI changes, data the user sees, interaction model shifts.
-Skip her on internal plumbing (schemas, tests, infra, scoring functions).
-
-**Sage trigger rule:** Only invoked on commits touching auth, secrets, external API calls,
-file operations, or any trust boundary crossing.
-
-**Quinn trigger rule:** New services, new routes, behavior changes. Not needed on
-documentation-only or pure refactor commits.
-
-**Example:** Viktor's identity file (`.claude/agents/viktor.md`) is ~150 lines. If sent
-to Viktor in every gate wave across all 24 commits, that's 3,600 wasted lines —
-Viktor knows who he is. What he needs for Commit 07 is: the `state.py` diff, the Commit 07
-spec, and the AgentState interface contract. That's it.
+**Example:** Commit 11 (graph smoke test, no new routes, no auth, no API changes): Viktor (Haiku) only. 3 agents skipped entirely. Estimated gate cost: ~5–8k tokens. The same commit under the old rules would have triggered 4 agents on Opus/Sonnet: ~180k tokens. A 20–36× saving on a single commit.
 
 ---
 

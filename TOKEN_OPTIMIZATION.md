@@ -2,7 +2,7 @@
 > Records all methods applied (or considered) to reduce token cost in this project.
 > Each entry explains why it works, when to apply it, and a real example from this project.
 > Extend this document as new techniques are tried.
-> Last updated: 2026-05-09
+> Last updated: 2026-05-10
 
 ---
 
@@ -61,29 +61,20 @@ what the user sees in their profile panel. Mira runs on 17, not 07.
 
 ### 3. Model Tiering
 
-**Why / When:** Use this when you can predict the output shape before the agent starts. If the task is "write a one-line LEARNING_LOG entry", the output structure is known — Haiku handles it at ~5× less cost than Sonnet. If the task is "find the subtle async race condition in this LangGraph node", you need Opus's reasoning depth. Match the model to the cognitive demand.
+**Why / When:** Use this when you can predict the output shape before the agent starts. If the task is "write a one-line LEARNING_LOG entry", the output structure is known — Haiku handles it at ~5× less cost than Sonnet. Match the model to the cognitive demand, and never pay for reasoning you don't need.
 
-**What changed:** Not every agent runs at Sonnet. Model assignments:
-- **Haiku:** Ryan (tech writer), worklog-only updates, GLOSSARY one-liners
-- **Sonnet:** Rex, Nova, Aria, Adam (all implementation work) — default
-- **Opus:** Viktor (code review), Sage (security) — deep reasoning, use selectively
+**What changed (updated 2026-05-10):** Two tiers only — Opus is banned entirely.
+- **Haiku:** Viktor, Sage, Quinn, Mira, Ryan — all reviewers and writers
+- **Sonnet:** Rex, Nova, Aria, Adam — all implementation work
+- **Opus:** ~~banned~~ — Commit 10 gate wave proved Opus at scale is unsustainable
 
-**Estimated saving:** Haiku costs ~20× less than Opus, ~5× less than Sonnet.
-Ryan runs on every commit (LEARNING_LOG entry). Switching Ryan to Haiku alone
-saves significant cost across all 24 commits.
+**Estimated saving:** Commit 10's gate wave cost ~180k tokens on 4 Opus/Sonnet reviewer agents run twice. At Haiku, the same wave costs ~15–20k. Over 14 remaining commits, banning Opus saves hundreds of thousands of tokens.
 
-**Status:** Active — model assignment table added to `team-preferences.md` 2026-05-09
+**Status:** Active — updated `team-preferences.md` 2026-05-10
 
-**Notes:** Model is specified at Agent tool call time, not in agent definition files.
-Default (unspecified) is Sonnet. Opus is invoked selectively — not every commit
-needs deep review reasoning.
+**Notes:** Model is specified at Agent tool call time. Default (unspecified) inherits parent model (Sonnet). Haiku is sufficient for reviewers because their task is structured: read a diff, apply a checklist, report findings. They don't need deep open-ended reasoning — they need pattern recognition and rule application.
 
-**Example:** Ryan's job on every commit is to write a LEARNING_LOG entry — format is
-fixed, inputs are provided (diff + context), no reasoning challenge. Haiku. Viktor
-reviewing the cross-domain touches in Commit 17 (Nova writing to Rex's `redis_cache.py`
-and `chat.py`) needs to reason about contract violations, cache correctness, and domain
-boundary intent. That's Opus. Using Haiku for Viktor or Opus for Ryan are both wrong
-in opposite directions.
+**Example:** Viktor reviewing Commit 10's async streaming code on Haiku found all three advisories (dead code, stale comment, chain.py placeholder) and confirmed the two gate fixes were correct. The same findings that previously cost ~60k tokens on Opus cost ~8k on Haiku. The quality difference on well-defined review tasks is smaller than expected.
 
 ---
 
@@ -139,19 +130,29 @@ forward, open handoffs to Nova. 90% smaller, zero information loss for current w
 
 ---
 
-### 6. Viktor Model Tiering by Commit Complexity
+### 6. Conditional Quality Gate Triggers
 
-**Why / When:** Viktor on Opus ran twice for a TypedDict file (107k tokens combined). Opus costs 3–5× Sonnet. Most commits don't require Opus-level reasoning depth — schema files, CRUD routes, simple nodes, and test files are well within Sonnet's capability. Opus only pays off when the review requires reasoning about subtle concurrent interactions, multi-domain contracts, or security attack surfaces.
+**Why / When:** Running Viktor + Sage + Quinn + Mira on every commit regardless of what changed is the single largest avoidable token cost in the loop. A commit that adds a LangGraph node has no auth surface, no new routes, and no user-facing API change — Sage, Quinn, and Mira have nothing to evaluate. Invoking them produces zero findings at real cost.
 
-**What changed:** Viktor's model is now determined per-commit based on complexity, not set globally to Opus.
-- **Sonnet:** schemas, TypedDicts, Pydantic models, CRUD routes, simple LangGraph nodes, test files, documentation
-- **Opus:** auth logic, JWT handling, secrets management, cross-domain wiring (Nova → Rex contracts), async/concurrent patterns, streaming state machines, multi-domain commits
+**What changed (updated 2026-05-10):** Each reviewer now has an explicit trigger condition.
 
-**Estimated saving:** ~40–60k tokens on simple commits where Viktor ran at Opus unnecessarily.
+| Reviewer | Trigger | Skip when |
+|---|---|---|
+| Viktor | **Every commit** | Never skip |
+| Sage | Auth/secrets/external APIs/file ops/new public routes with user input | Node internals, schema files, test additions, infra config, doc-only |
+| Quinn | New service, new route, behavior change to existing route, new LangGraph node | Schema-only, infra, test-only additions, pure refactors |
+| Mira | User-facing API shape, UI, data the user sees | Internal plumbing (nodes, schemas, infra, scoring functions) |
+| Ryan | **Every commit** — tight brief, no raw diff | Never skip |
 
-**Status:** Active — Viktor model tier rule added to `team-preferences.md` 2026-05-09
+**Gate-fix pass rule:** If a reviewer blocks, fix and re-run **only the blocking reviewer** — not the full wave. Exception: if the fix touches a different domain, re-run all triggered reviewers.
 
-**Example:** Commit 07 was a TypedDict file with a Pydantic model. Viktor's first Opus pass (60k tokens) found real issues, but they were not subtle — untyped `list`, missing `Literal`, no test file. Sonnet would have found all four. The second Opus pass (47k tokens) confirmed fixes on a diff that was 50 lines. 107k tokens on Opus for findings that Sonnet handles. Compare: Commit 17 (cross-domain, Nova writes to Redis cache with user_level key logic) warrants Opus because the cache correctness argument requires reasoning across the profile service, the cache key strategy, and the streaming response contract simultaneously.
+**Estimated saving:** Commit 10 ran 4 agents twice = 8 reviewer passes. Under the new rules, Commit 10 would trigger Viktor + Sage (external API call, new public route, secrets) + Quinn (new route, behavior change) + Mira (API shape changed JSON → SSE) — so all 4 triggered, but on Haiku instead of Opus/Sonnet, and the fix pass re-runs only Quinn (the blocker). 4 + 1 = 5 passes at Haiku ≈ 30k tokens vs the actual 290k.
+
+For a typical internal commit (e.g., Commit 11 graph smoke test): Viktor only. 3 agents skipped entirely.
+
+**Status:** Active — Quality Gate Trigger Rules added to `team-preferences.md` 2026-05-10
+
+**Example:** Commit 11 (`langgraph-graph-smoke-test`) adds integration tests, no new routes, no auth touches, no API shape changes. Gate wave: Viktor (Haiku) only. Sage, Quinn, and Mira all skip. Estimated: 5–8k tokens for the entire gate wave.
 
 ---
 
@@ -174,20 +175,24 @@ forward, open handoffs to Nova. 90% smaller, zero information loss for current w
 
 ---
 
-### 8. Ryan Context Restriction
+### 8. Ryan Context Restriction (updated 2026-05-10)
 
-**Why / When:** Ryan reads the full `LEARNING_LOG.md` before writing each entry to match the format. The file grows by ~100 lines per commit. By Commit 24 it will be 2,400+ lines — Ryan will read all of it just to append 10 lines. Even on Haiku, this compounds to thousands of wasted tokens per commit.
+**Why / When:** Ryan reads the full `LEARNING_LOG.md` before writing each entry to match the format. The file grows by ~100 lines per commit. By Commit 24 it will be 2,400+ lines — Ryan reads all of it just to append 10 lines. Even on Haiku, this compounds to thousands of wasted tokens per commit. The fix is template injection, not skipping Ryan — the LEARNING_LOG is the Team Lead's primary learning artifact and must be updated every commit.
 
-**What changed:** Ryan no longer reads `LEARNING_LOG.md`. The invocation prompt includes:
-1. The entry format template inline (~25 lines)
-2. The diff and commit context
-3. Instruction to `Write` (append) without reading the existing file
+**What changed:** Ryan never reads `LEARNING_LOG.md`. Instead:
+1. **Claude** reads lines 1–99 only (the header + Entry Format Reference — the template section, not the entries)
+2. Claude embeds those lines verbatim in Ryan's prompt — this guarantees format consistency without reading entries
+3. Claude passes a 150–200 word commit brief (written by Claude, not the raw diff)
+4. Claude signals entry type: "full" or "one-liner"
+5. Ryan appends using `Write` — never reads the file first
 
-**Estimated saving:** ~50k tokens on Commit 07 (file was already 400+ lines). Grows with each commit.
+**Why lines 1–99 only:** The template section is stable and small. The entries section grows without bound. Separating them means Ryan's context is always ~100 lines of template + ~200 word brief, regardless of how many commits have been made.
 
-**Status:** Active — Ryan context rule added to `team-preferences.md` 2026-05-09
+**Estimated saving:** Commit 07 Ryan: 55k tokens (read 400-line file, wrote 50 lines). New approach: ~3k tokens (100-line template + brief + write). Saving: ~52k tokens for that one Ryan call. Across 14 remaining commits: ~728k tokens saved.
 
-**Example:** Commit 07 Ryan invocation: 55k tokens, 9 tool uses. The LEARNING_LOG was ~400 lines and Ryan read the whole thing. The entry Ryan wrote was ~50 lines. 90% of Ryan's tokens were spent reading history that added nothing to the output. Passing the 25-line format template inline brings this to ~5k tokens regardless of how long the file grows.
+**Status:** Active — Ryan context rule updated in `team-preferences.md` 2026-05-10
+
+**Example:** At Commit 24, LEARNING_LOG.md will be ~2,400 lines. Old approach: Ryan reads all 2,400 lines on Haiku before writing 10 new lines. New approach: Claude reads lines 1–99 (the template), passes a 200-word brief, Ryan appends. Ryan's context is identical at Commit 1 and Commit 24 — the template doesn't grow.
 
 ---
 
@@ -278,12 +283,18 @@ cost of the 40 lines saved.
 
 ## Token Budget Benchmarks
 
-| Session type | Estimated tokens (before optimization) | Estimated tokens (after) |
+| Session type | Before (Commits 01–10) | Target (Commit 11+) |
 |---|---|---|
 | Boot sequence only | ~10k | ~3k |
-| Full commit loop (one agent) | ~30–40k | ~18–22k |
-| Quality gate wave (4 reviewers parallel) | ~10–15k | ~6–9k |
-| Documentation commit (Ryan on Haiku) | ~5k | ~1–2k |
+| Full commit loop — implementation (Sonnet) | ~30–50k | ~8–12k |
+| Gate wave — all 4 triggered (Haiku) | ~180k | ~15–20k |
+| Gate wave — Viktor only (Haiku) | ~60k | ~5–8k |
+| Gate-fix re-run — blocking reviewer only | ~60k | ~3–5k |
+| Ryan LEARNING_LOG entry | ~50k | ~2–3k |
+| **Full commit end-to-end (typical internal)** | **~200k** | **~12–18k** |
+| **Full commit end-to-end (complex, all gates)** | **~300k** | **~25–35k** |
 
-*Estimates based on observed session costs through Commit 06. Actual costs vary
-by diff size and agent worklog length. Update this table as real measurements are collected.*
+**Hard target:** 11–15k per commit for internal/plumbing commits. ≤35k for complex
+commits where all gates are triggered.
+
+*Updated 2026-05-10 based on Commit 10 actual cost (~220k) and new Haiku + conditional-gate rules.*

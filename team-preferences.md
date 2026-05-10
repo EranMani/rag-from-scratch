@@ -120,37 +120,64 @@ config, scoring pure functions, LangGraph node internals, worklog/doc-only commi
 ## Model Assignments
 
 ```
-Haiku  (fast, low cost):     Ryan, worklog-only updates, GLOSSARY one-liners
+Haiku  (fast, low cost):     Viktor, Sage, Quinn, Mira, Ryan — all reviewers and writers
 Sonnet (default, balanced):  Rex, Nova, Aria, Adam — all implementation work
-Opus   (deep reasoning):     Viktor and Sage — selectively, by commit complexity (see below)
+Opus   (never):              Banned — too expensive for any use in this project
 ```
 
-Specify at Agent invocation time via `model: "haiku" | "sonnet" | "opus"`.
-Default if unspecified: Sonnet.
+Specify at Agent invocation time via `model: "haiku" | "sonnet"`.
+**Opus is never used. No exceptions.**
 
-### Viktor model tier rule
+### Viktor model rule
 
-| Commit type | Viktor model |
-|---|---|
-| Schema / TypedDict / Pydantic models / constants | Sonnet |
-| Single-domain CRUD routes, simple nodes, test files | Sonnet |
-| Multi-domain wiring, cross-agent contracts, async patterns | Opus |
-| Auth logic, JWT, secrets, security-sensitive code | Opus |
-| Complex state machines, concurrent patterns, streaming | Opus |
+**Always Haiku.** Viktor reads only the diff and key files, not full worklogs or history.
+Pass Viktor the diff path + commit spec summary (not full spec). Viktor must work within
+a tight context package — no speculative file reads.
 
-Default to **Sonnet**. Upgrade to **Opus** only when the commit crosses multiple domains,
-touches auth/secrets, or involves subtle async/concurrent logic where shallow review misses
-the real risk.
+### Sage model rule
+
+**Always Haiku when triggered.** Sage reads only security-relevant files (auth routes,
+config, env handling) — not the full diff. Pass targeted file list, not everything.
+
+### Quinn model rule
+
+**Always Haiku when triggered.** Quinn reads only the test file and the source file it tests.
+No full codebase scans.
+
+### Mira model rule
+
+**Always Haiku when triggered.** One paragraph prompt max. Mira does not read files.
 
 ### Ryan context rule
 
-Do NOT pass Ryan the full `LEARNING_LOG.md`. Instead, pass:
-1. The format template inline in the prompt (copy from the Entry Format Reference section)
-2. The diff + commit context
-3. Instruction to `Write` (append) to the file — not to read it first
+**Ryan runs every commit — no exceptions.** The LEARNING_LOG is the Team Lead's primary
+learning artifact and must stay current.
 
-LEARNING_LOG.md grows with every commit. Reading the whole file on Haiku for a one-liner
-entry wastes 50k+ tokens per commit. The format template in the prompt is sufficient.
+**How to invoke Ryan (token-efficient, consistent format):**
+
+Step 1 — Claude reads `LEARNING_LOG.md` lines 1–99 only (the header + Entry Format Reference).
+         This is the template section. Do not read the entries below line 100.
+
+Step 2 — Claude embeds those lines verbatim in Ryan's prompt so Ryan sees the exact
+         template structure, Full Entry format, One-liner format, and section headers.
+         This is what enforces consistency — Ryan matches the template, not the prior entries.
+
+Step 3 — Claude passes a tight commit brief (150–200 words max, written by Claude):
+         - Commit number, name, date, assignee
+         - What changed (2–3 sentences)
+         - Key decisions or non-obvious constraints (bullet points)
+         - Files touched (list)
+         - Entry type: "full" or "one-liner"
+
+Step 4 — Ryan appends using `Write` (read current content first to get offset, then append).
+         Ryan never reads the full file — only Claude reads lines 1–99 for the template.
+
+**Entry type rule:**
+- Full entry: commit updated ARCHITECTURE.md or DECISIONS.md, had a security finding,
+  involved a non-obvious design decision, or introduced a new pattern
+- One-liner: routine test addition, config tweak, minor refactor, doc-only commit
+
+Ryan never reads the raw diff. Claude summarizes it. Target: Ryan under 3k tokens per commit.
 
 ---
 
@@ -166,10 +193,53 @@ Agents most likely to hit threshold first: Rex (Phases 1–3), Nova (Phases 2–
 
 ---
 
+## Quality Gate Trigger Rules (updated 2026-05-10)
+
+**Token budget target: 11–15k per commit total.**
+
+### Viktor — always, Haiku
+Run on every commit. Read diff + targeted files only. No full worklog reads.
+
+### Sage — conditional, Haiku
+Trigger **only** when the commit touches:
+- Auth dependencies (`get_current_user`, JWT decode, login/register routes)
+- Secrets or env var handling (`config.py`, `.env.example`, secret fields)
+- External API calls (OpenAI, httpx to third parties)
+- File upload or path operations
+- Any new public-facing route with user input
+
+Skip Sage on: node internals, schema files, pure test additions, infra config with no secrets,
+doc-only commits.
+
+### Quinn — conditional, Haiku
+Trigger **only** when the commit introduces:
+- A new service with business logic
+- A new API route or endpoint
+- A behavior change to an existing route (not just a refactor)
+- A new LangGraph node
+
+Skip Quinn on: schema-only commits, infra config, test-only additions, doc/worklog commits,
+pure cleanup with no logic changes.
+
+### Mira — conditional, Haiku (unchanged rule, model now explicit)
+Trigger only on user-facing behavior changes (API shape, UI, data fields the user sees).
+Skip on internal plumbing.
+
+### Gate wave execution
+Run triggered agents in parallel. If only Viktor is triggered — no parallel wave needed.
+Do not spin up a gate agent just to confirm "not triggered" — make that call yourself.
+
+### Second gate wave (gate-fix pass)
+If a reviewer blocks, fix and re-run **only the blocking reviewer** — not the full wave.
+Exception: if the fix touches a different domain than the original block, re-run all
+triggered reviewers.
+
+---
+
 ## Parallelization Preferences
 
 ```
-Quality gate wave:       always parallel (Viktor + Sage + Quinn simultaneously)
+Quality gate wave:       parallel among triggered agents only (not always all 4)
 Commit parallelization:  use when possible (Wave A: commits 01/02/03, Wave B: 08/09)
 Parallel commits:        use worktree isolation (isolation: "worktree") to prevent file conflicts
 ```
@@ -269,3 +339,7 @@ Tech Writer:    Ryan
 | 2026-05-09 | Ryan context rule added | Ryan read full LEARNING_LOG (55k tokens) just to append one entry — pass format template inline instead |
 | 2026-05-09 | Quality Gate Pre-Brief section added | Nova ran twice on Commit 07 — pre-brief prevents Viktor blocks by front-loading what he checks |
 | 2026-05-09 | Orchestrator Read Discipline section added | Speculative file reads compound across session history — read only when about to edit |
+| 2026-05-10 | Opus banned entirely; all reviewers → Haiku | Commit 10 used ~220k tokens — 4-agent Opus/Sonnet gate wave is unsustainable |
+| 2026-05-10 | Quality Gate Trigger Rules added | Conditional gates: Sage/Quinn only on specific commit types; re-run only the blocking reviewer on fix pass |
+| 2026-05-10 | Ryan runs every commit — tight brief only, no raw diff | LEARNING_LOG is the Team Lead's primary learning artifact; must stay current |
+| 2026-05-10 | Token budget target set: 11–15k per commit | Team Lead hard requirement — current 60–70k average is unsustainable |

@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-09",
+  "last_updated": "2026-05-10",
   "status": "active",
   "current_commit": {
-    "number": "10",
-    "name": "langgraph-graph-assembly",
+    "number": "11",
+    "name": "langgraph-graph-smoke-test",
     "status": "pending",
     "assignee": "nova"
   },
@@ -17,10 +17,10 @@
     "06",
     "07",
     "08",
-    "09"
+    "09",
+    "10"
   ],
   "commits_pending": [
-    "10",
     "11",
     "12",
     "13",
@@ -36,7 +36,7 @@
     "23",
     "24"
   ],
-  "next_commit": "10",
+  "next_commit": "11",
   "open_handoffs": [
     {
       "from": "commit-05",
@@ -48,6 +48,15 @@
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
+      "number": "10",
+      "tests": "107/107 PASS \u2014 +13 new (test_graph.py \u00d76, test_chat_route.py \u00d74), \u22125 deleted (test_conversation_memory.py)",
+      "viktor": "PASS WITH COMMENTS \u2014 3 advisories: dead code in generator.py (stale SessionMemory docstring), stale forward-ref comment in state.py, chain.py placeholder circular justification",
+      "sage": "PASS \u2014 MEDIUM resolved (NiceGUI storage_secret moved to env var); LOW standing: session_id as MemorySaver key without user-identity binding",
+      "quinn": "ADEQUATE (after gate-fix pass adding 4 route-layer tests)",
+      "mira": "non-blocking \u2014 assessed_topics naming documented in DECISIONS.md; streaming render gap flagged for Aria (Commit 19)",
+      "gate_wave": "viktor (Opus) + sage + quinn + mira (streaming/async/multi-domain commit)"
+    },
+    "commit_09": {
       "number": "09",
       "tests": "98/98 PASS \u2014 18 new tests in test_generate_node.py",
       "viktor": "PASS WITH COMMENTS \u2014 4 advisories: bare dict return annotation, response:AIMessage type narrowing, empty-docs silent path, import-inside-test pattern",
