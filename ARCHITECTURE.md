@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-10 (Commit 20 — dynamic-chat-ui)
+> Last updated: 2026-05-10 (Commit 21 — production-compose)
 
 ---
 
@@ -320,8 +320,42 @@ Implemented in `src/app/profile/scoring.py` (Commit 14). Pure function — no DB
 
 ---
 
+## Production Compose Topology
+
+Introduced in Commit 21. `docker-compose.prod.yml` is a standalone file (not a compose override).
+
+**Service inventory (prod):**
+| Service | Image | Host port | Container port | Notes |
+|---|---|---|---|---|
+| app | local build | 8000 | 8000 | entry point; `env_file: .env.prod` |
+| chroma | chromadb/chroma:latest | — | 8000 (expose) | vector store; `condition: service_healthy` |
+| redis | redis:7-alpine | — | 6379 (expose) | cache; `condition: service_healthy` |
+| ollama | ollama/ollama:latest | — | 11434 (expose) | local LLM; `condition: service_started`; memory limit: 5G |
+| prometheus | prom/prometheus:latest | — | 9090 (expose) | metrics scraper |
+| grafana | grafana/grafana:latest | 3000 | 3000 | dashboard UI; admin pw from env |
+| elasticsearch | docker.elastic.co/…:8.13.0 | — | 9200 (expose) | log store; xpack.security off (TODO) |
+| logstash | docker.elastic.co/…:8.13.0 | — | 5044, 9600 (expose) | log pipeline |
+| kibana | docker.elastic.co/…:8.13.0 | — | 5601 (expose) | log UI |
+
+**Key prod-vs-dev differences:**
+- `./src:/app/src` bind mount removed — prod runs the baked image only
+- All data/monitoring services use `expose:` not `ports:` (internal-only), except app:8000 and grafana:3000
+- `restart: always` on all services (EC2 reboot survivability)
+- Log rotation: `json-file` driver, `max-size: 10m`, `max-file: 5` on every service (via `x-logging` YAML anchor)
+- `CHROMA_PORT=8000` explicit in app service environment (container-internal; dev host maps 8001→8000)
+
+**Dev compose change (Commit 21):**
+- ELK + Prometheus + Grafana services added `profiles: [monitoring]`
+- `docker compose up` now starts only core stack (app, chroma, redis, ollama)
+- `docker compose up --profile monitoring` activates full stack
+
+**Deployment env vars:** `.env.prod.example` — secrets have empty values; all non-secret fields carry defaults. Four required secrets: `JWT_SECRET`, `NICEGUI_STORAGE_SECRET`, `OPENAI_API_KEY`, `GRAFANA_ADMIN_PASSWORD`.
+
+---
+
 ## Sections to Complete During Build
 
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
+- **Grafana dashboards** — pre-built dashboard exports for request latency / cache hit rate — Commit 22 or 23
 
-*Last updated: 2026-05-10 — Commit 17 complete (adaptive prompt template library; PROMPT_TEMPLATES + DEFAULT_PROMPT)*
+*Last updated: 2026-05-10 — Commit 21 complete (production Docker Compose topology; dev monitoring profiles opt-in)*

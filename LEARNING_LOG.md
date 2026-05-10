@@ -1304,3 +1304,36 @@ finally:
 - `src/app/ui.py` — `send()` function: `_STAGE_LABELS` constant, `ui.timer` with `stage_active` guard, `profile_panel.refresh()` in `finally`, adaptation badge in response card
 
 ---
+
+**Commit 21 — `production-compose`** · 2026-05-10 · Adam · `architectural | config`
+
+> **In one sentence:** A standalone production Docker Compose file was created with hardened defaults — no bind mounts, internal-only ports, log rotation, and memory caps — separating the deployment artifact from the developer-convenience dev compose.
+
+**Interview talking point:**
+> **Q:** How do you prevent developer shortcuts from leaking into production deployments when both use Docker Compose?
+>
+> **A:** By maintaining two separate Compose files: `docker-compose.yml` for dev (bind mounts, exposed ports, monitoring always on) and `docker-compose.prod.yml` for prod (baked image only, `expose:` not `ports:`, `restart: always`, log rotation). Sharing a file with overrides risks a dev default slipping through — separate files make the production surface explicit and reviewable.
+
+**What happened and why:**
+- A new `docker-compose.prod.yml` defines all 10 services with production-safe defaults rather than overriding the dev file
+- The `./src:/app/src` bind mount is absent from prod: the container runs the baked image, so a source file edited on the host cannot silently change production behavior
+- All services except `app` (port 8000) and `grafana` (port 3000) use `expose:` instead of `ports:` — this means they are reachable container-to-container but not from the host, shrinking the network attack surface
+- An `x-logging` YAML anchor applies `json-file` log rotation (`max-size: 10m`, `max-file: 5`) to every service in one declaration, preventing unbounded disk fill under sustained load
+- Ollama is capped at 5 GB memory; Elasticsearch JVM heap is bounded to 512 MB max — both prevent an overloaded service from starving other containers on the same host
+- Dev monitoring (ELK + Prometheus + Grafana) was moved behind `profiles: [monitoring]` in `docker-compose.yml`, so `docker compose up` no longer starts those services for contributors who don't need them
+
+**Why it wasn't obvious:**
+- The `CHROMA_PORT` variable exists in two contexts that mean different things: `8001` is the dev *host* port (the port the developer's laptop uses to reach Chroma through Docker's port mapping), but inside the container network every service talks to Chroma on its *container* port `8000`. Pointing `CHROMA_PORT=8001` in prod would cause the app service to attempt connections to `chroma:8001` — a port nothing is listening on. The fix is to set `CHROMA_PORT=8000` explicitly in the prod app service's `environment:` block and document why 8000 and 8001 are both mentioned in different places.
+- The original Chroma healthcheck used `bash -c 'echo > /dev/tcp/127.0.0.1/8000'` — a TCP probe written as a Bash built-in. The Chroma image uses BusyBox, which ships `sh`, not `bash`. The healthcheck silently failed on every startup. Replacing it with `curl -sf http://localhost:8000/api/v1/heartbeat || exit 1` uses a binary available in the image and checks the actual API path.
+- The `ALLOW_ANNONYMOUS_CHAT` typo in `.env.prod.example` matched neither the Pydantic field name (`ALLOW_ANONYMOUS_CHAT`) nor any settings lookup — so the feature flag was silently ignored in any deployment that relied on the example file. Corrected spelling propagates to every future deployment that copies the example.
+
+**What to watch for in future commits:**
+- Any commit that adds a new service to `docker-compose.yml` must also add it to `docker-compose.prod.yml` with `restart: always`, the `x-logging` anchor, and `expose:` instead of `ports:` (unless it is intentionally host-accessible).
+- New environment variables added to `.env.prod.example` must use the exact spelling of the corresponding Pydantic field — mismatch causes silent no-ops, not startup errors.
+- If Ollama's memory cap of `5g` is hit under load, the OOM killer will terminate the container and `restart: always` will bring it back — but in-flight requests will be lost. Future commits that add streaming or long inference should document this failure mode.
+
+**Code reference:**
+- `docker-compose.prod.yml` — the `x-logging` YAML anchor at the top of the file and its `<<: *logging` references on each service show the DRY pattern for log rotation; the `chroma` service's `healthcheck` shows the corrected curl probe; the `app` service's `environment:` block shows the explicit `CHROMA_PORT=8000` override
+- `.env.prod.example` — compare `CHROMA_PORT` comment ("container port — not the host mapping") against the dev compose `ports:` declaration (`8001:8000`) to see why the two values differ
+
+---

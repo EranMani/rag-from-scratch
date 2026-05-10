@@ -15,3 +15,4 @@
 - **LLM providers**: OpenAI primary (gpt-4o, configurable), Ollama fallback (gemma3:4b). Per-invocation `get_provider().get_llm()` — never module-level singleton.
 - **Security**: JWT auth via `Depends(get_current_user)` or `current_user_optional`; path confinement on ingest; frozenset allowlist on all dynamic SQL; secrets in env vars only.
 - **Deployment**: EC2 t3.xlarge (16GB); nginx reverse proxy (WebSocket, SSL, proxy_read_timeout 86400); Prometheus + Grafana + ELK in both dev and prod.
+- **Production compose** (C21): `docker-compose.prod.yml` standalone (not override). All internal services `expose:` only; only app:8000 and grafana:3000 host-mapped. Log rotation via `x-logging` YAML anchor on all services. Dev monitoring gated behind `profiles: [monitoring]` — `docker compose up` runs core stack only.

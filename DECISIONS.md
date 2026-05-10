@@ -441,4 +441,24 @@
 - **Why not rely on `cancel()` alone:** NiceGUI timers run in the background event loop. `cancel()` prevents future scheduling but cannot guarantee it drains a callback already queued before cancel was called. The flag provides a hard synchronous barrier independent of the event-loop's internal callback queue.
 - **Consequences:** This is the project-wide pattern for any `ui.timer` paired with a UI element that may be deleted before the timer's natural expiry. The create → `stage_active=[True]` → `try` → `finally: flag=False / cancel / delete` sequence is the correct lifecycle. Relying on `cancel()` alone without a guard flag is incorrect for NiceGUI's event model.
 
-*Last updated: 2026-05-10 — Commit 20 complete (dynamic chat UI: stage labels, profile refresh, adaptation badge)*
+## Production Compose Patterns (C21)
+
+### Dev monitoring services behind `profiles: [monitoring]` (Commit 21)
+- **Date:** 2026-05-10
+- **Commit:** 21
+- **Decided by:** Adam (applied) + commit spec
+- **Decision:** ELK (elasticsearch, logstash, kibana), Prometheus, and Grafana services in `docker-compose.yml` (dev) are placed behind `profiles: [monitoring]`. `docker compose up` runs only the core stack (app, chroma, redis, ollama). `docker compose up --profile monitoring` activates the full stack.
+- **Alternatives considered:** Keeping all services always-on in dev (prior behavior); creating a separate `docker-compose.monitoring.yml` override.
+- **Reason:** A new contributor should be able to run the application without pulling and starting five additional containers (3.5GB+ combined). The monitoring stack adds friction to `git clone && make up` with no benefit for contributors focused on application code. The profile flag is explicit and discoverable — the overhead is opt-in, not invisible.
+- **Consequences:** Operators running full end-to-end logging tests in dev must remember `--profile monitoring`. `Makefile` targets for the monitoring stack should expose this flag (future Commit 22/23 scope).
+
+### CHROMA_PORT: container-internal (8000) vs. dev host mapping (8001:8000) (Commit 21)
+- **Date:** 2026-05-10
+- **Commit:** 21
+- **Decided by:** Viktor (gate finding) + Adam (resolved)
+- **Decision:** `config.py` defaults `chroma_port: int = 8001`. This value matches the dev compose host mapping (`ports: "8001:8000"`) for external tooling access. For container-to-container communication (both dev and prod), the correct port is 8000 — the container's listening port. In `docker-compose.prod.yml`, `CHROMA_PORT=8000` is explicitly set in the app service `environment:` block. `.env.prod.example` documents `CHROMA_PORT=8000` with a comment explaining the distinction.
+- **Alternatives considered:** Changing the config.py default to 8000; changing the dev compose mapping to `"8000:8000"`.
+- **Reason:** The config.py default of 8001 is used for local (host-side) tooling — e.g., connecting a ChromaDB client from a terminal session while compose is running. Changing the default would break that use case. Changing the compose mapping would remove host-side access. The correct fix is to be explicit in prod: the `environment:` override in `docker-compose.prod.yml` takes precedence over `.env.prod` and guarantees the container-internal port regardless of what an operator puts in their env file.
+- **Consequences:** Any future prod compose environment that expects to use `CHROMA_PORT` from `.env.prod` will be silently overridden to 8000. This is intentional — the prod compose is authoritative about container topology, and `.env.prod` should not be able to break inter-service connectivity.
+
+*Last updated: 2026-05-10 — Commit 21 complete (production Docker Compose topology; dev monitoring profiles opt-in)*

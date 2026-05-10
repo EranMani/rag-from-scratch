@@ -97,7 +97,14 @@
       "Bash(powershell *)",
       "Bash(PYTHONPATH=src .venv/Scripts/python.exe -c \"from app.ui import setup_ui; print\\('OK'\\)\")",
       "Bash(xargs cat)",
-      "Bash(cat Makefile)"
+      "Bash(cat Makefile)",
+      "Bash(docker compose *)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/ -q --tb=short)",
+      "PowerShell(docker compose *)",
+      "PowerShell(Copy-Item *)",
+      "PowerShell(New-Item *)",
+      "Bash(ls docker-compose*.yml .env.prod.example)",
+      "Bash(dir /b docker-compose*.yml .env.prod.example)"
     ]
   }
 }

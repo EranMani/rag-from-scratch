@@ -289,6 +289,38 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 21 — `production-compose` · 2026-05-10 · Adam
+
+> Gate wave: Viktor + Sage + Quinn + Mira (all 4 — infra commit touching secrets, host exposure, env vars).
+> Hard Block on pass 1 (Viktor: chroma healthcheck bash/dev-tcp; CHROMA_PORT mismatch). Gate-fix pass ran. Full gate wave re-ran on updated diff (pass 2). Two complete gate cycles.
+> Ryan: full entry (ARCHITECTURE.md + DECISIONS.md updated).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Adam (implementation) | Sonnet | 33,491 | 21 | ✅ under ≤60k | first Adam invocation; clean two-phase discipline |
+| Viktor (pass 1 — HARD BLOCK) | Sonnet | 22,740 | 0 | **+8k** over ≤15k | two hard blocks: chroma healthcheck + CHROMA_PORT |
+| Sage (pass 1) | Sonnet | 29,181 | 5 | **+14k** over ≤15k | NON-BLOCKING; 2 LOW + 2 INFO |
+| Quinn (pass 1) | Sonnet | 26,669 | 7 | **+12k** over ≤15k | ADEQUATE; one debt item (typo) |
+| Mira (pass 1) | Sonnet | 22,698 | 6 | **+8k** over ≤15k | non-blocking; 3 carry-forwards |
+| Adam (gate-fix) | Sonnet | 31,804 | 18 | **+32k** over ≤15k* | 3 code fixes + gate re-runs |
+| Viktor (pass 2 — PASS WITH COMMENTS) | Sonnet | 31,293 | 10 | **+16k** over ≤15k | 2 advisories: latest tags, ELK healthchecks |
+| Sage (pass 2) | Sonnet | 28,057 | 9 | **+13k** over ≤15k | NON-BLOCKING confirmed |
+| Quinn (pass 2) | Sonnet | 26,653 | 8 | **+12k** over ≤15k | ADEQUATE; all Pass 1 gaps resolved |
+| Mira (pass 2) | Sonnet | 20,292 | 2 | **+5k** over ≤15k | carry-forwards confirmed |
+| Ryan | Haiku | 25,669 | 6 | **+11k** over ≤15k | full entry (ARCHITECTURE.md + DECISIONS.md) |
+| **Total** | | **298,547** | **92** | over — two gate cycles; all Sonnet |
+
+*Adam gate-fix is compared to ≤15k reviewer target because it was a targeted fix pass, not full implementation.
+
+**Notes:**
+- Two gate cycles (Viktor hard block pass 1 → gate-fix → full re-run pass 2) accounts for the bulk of cost.
+- All reviewers on Sonnet (not Haiku). Haiku gate reviewers would reduce cost ~2–3× per reviewer.
+- Adam implementation: 21 tool uses (within 25 cap); clean two-phase discipline on first Adam invocation.
+- Viktor pass 1 read-only (0 tool uses) — correct; provided diff inline, no file reads needed.
+- Hard Block root causes: chroma healthcheck fragility (bash-specific /dev/tcp in busybox image) and CHROMA_PORT host-vs-container distinction.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -304,6 +336,7 @@ No token data recorded. Tracking began at Commit 10.
 | 18 | adaptive-graph-integration | ~456k (excl. Ryan) | all 4 (Sonnet) | **well over** | worktree confusion + 2 gate cycles + reviewers on Sonnet not Haiku |
 | 19 | profile-ui-panel | ~182k (excl. Ryan) | Viktor+Quinn+Mira | over ≤75k | Haiku reviewers reading beyond diff; no gate-fix cycle |
 | 20 | dynamic-chat-ui | ~223k (excl. impl) | Viktor+Quinn+Mira (3×) | over — 3 gate cycles | Viktor block + product redirect; all Sonnet; Aria impl from prior session |
+| 21 | production-compose | 298,547 | all 4 (2×) | over — 2 gate cycles | Viktor hard block (chroma healthcheck + CHROMA_PORT); all Sonnet reviewers |
 
 ---
 

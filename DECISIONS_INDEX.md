@@ -60,6 +60,10 @@
 ## Dynamic Chat UI (C20)
 52. **`ui.timer` lifecycle: `stage_active` flag + `finally` ordering** — flag set to `False` before `cancel()` in `finally`; guards `_advance` against use-after-delete race; project-wide pattern for timers paired with deletable UI elements
 
+## Production Compose Patterns (C21)
+53. **Dev monitoring behind `profiles: [monitoring]`** — `docker compose up` runs core stack only; monitoring opt-in; reduces cold-start friction for contributors
+54. **CHROMA_PORT=8000 in prod compose env block** — container listens on 8000; config.py default of 8001 is for dev host-side tooling only; prod `environment:` overrides `.env.prod` to guarantee correct port
+
 ## Profile UI Panel (C19)
 50. **Nested `@ui.refreshable` for profile panel** — nested inside `index()` to close over request-scoped `http()`/`auth_headers()` without parameter threading; idiomatic NiceGUI pattern
 51. **All 6 modules always rendered (missing → 0.0)** — shows full curriculum scope; progressive disclosure deferred if telemetry shows disengagement
