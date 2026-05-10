@@ -57,6 +57,10 @@
 44. **DEFAULT_PROMPT separate from PROMPT_TEMPLATES dict** — enables `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)`; prevents `None` key in dict; makes fallback intent explicit at every call site
 45. **Single `{context}` variable per template** — question is already in `state["messages"]` as HumanMessage; double injection would confuse model priority; only retrieved context needs injection
 
+## Profile UI Panel (C19)
+50. **Nested `@ui.refreshable` for profile panel** — nested inside `index()` to close over request-scoped `http()`/`auth_headers()` without parameter threading; idiomatic NiceGUI pattern
+51. **All 6 modules always rendered (missing → 0.0)** — shows full curriculum scope; progressive disclosure deferred if telemetry shows disengagement
+
 ## Adaptive Graph Integration (C18)
 46. **Null-byte separator in query cache key** — `f"{question}\x00{user_level}"` before SHA-256; naive concatenation (`question + user_level`) is not injective and allows cross-level cache collisions
 47. **ChatResponse typed schema over hand-constructed dict** — single source of truth for SSE `done` wire format; Pydantic enforces types; field renames cause compile-time errors not silent wire breaks

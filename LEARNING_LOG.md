@@ -1140,3 +1140,101 @@ system_msg = template.format_messages(context=context)[0]
 - `tests/test_rag_prompts.py` — new: 25 tests across templates; all 3 spec gates covered (correctness, fallback, regression)
 - `ARCHITECTURE.md` — modified: added section "Prompt Templating & Mastery-Level Adaptation" with data flow diagram
 - `DECISIONS.md` — modified: new entry "Why template selection happens at application layer, not in the LLM"
+
+---
+
+**Commit 19 — `profile-ui-panel`** · 2026-05-10 · Aria · `architectural`
+
+> **In one sentence:** The NiceGUI chat interface was refactored to a two-column layout with a profile sidebar, wired with a nested refreshable panel that displays user mastery level, progress bars, and activity timestamps — and dead code removal eliminated a duplicate 37-line login form that was no longer used.
+
+**Interview talking point:**
+> **Q:** Why did you define the profile panel as a nested `@ui.refreshable` inside the main index function instead of extracting it as a module-level function?
+>
+> **A:** The panel needs to read the HTTP client and auth headers from the enclosing scope without threading them as parameters. A module-level function would need those injected as arguments, which couples the UI rendering to infrastructure details. The nested pattern closes over the dependencies it needs — it's the idiomatic NiceGUI approach and keeps the boundary between UI and services clean.
+
+**What happened and why:**
+- Replaced the single-column `ui.column` layout with `ui.row` containing a 280px profile sidebar (left) and a `flex:1` main chat column (right). This gives the profile panel space to breathe and keeps chat scrolling independent from profile updates.
+- Built `@ui.refreshable async def profile_panel()` nested inside `index()`. It reads the HTTP client and auth headers from the enclosing function scope, calls `GET /api/profile/me`, and handles four states: anonymous user (prompts sign-in), API failure (generic message), fresh user with no topic scores (prompts interaction), and active user (renders mastery level, 6 progress bars with mastery-specific colors, identified gaps, query count, and last active timestamp).
+- Removed 37 lines of duplicated inline login form with a duplicate `do_login()` closure that was unreachable dead code. Replaced with `ui.navigate.to("/login"); return` — single-call routing instead of form re-implementation.
+- All 6 modules always render as progress bars, even when missing (defaulting to 0.0). This shows the full curriculum scope but risks appearing discouraging; accepted for now as the UI evolves.
+- Used `profile.get("mastery_level") or "—"` for null-safety — prevents the string `"None"` from appearing in the rendered output if the DB returns a null value.
+- Wired `@ui.refreshable` at definition time so that Commit 20's `send()` closure can call `profile_panel.refresh()` without layout surgery later.
+
+**Reasoning & discovery:**
+1. The problem: the layout was centered on chat; profile state had nowhere to display. The first instinct was to add a floating overlay or modal, but modals interrupt the chat flow. A persistent sidebar emerged as the cleaner UX because the profile doesn't compete with chat for screen space.
+2. Nested vs. module-level was ruled by dependency closure: a module-level `profile_panel()` function would need `http_client` and `auth_headers` injected as parameters. NiceGUI's closure-aware scoping lets the nested version read them from the enclosing scope — simpler and more idiomatic.
+3. The dead login form removal was discovered in code review when Viktor flagged unreachable branches. The form had been replaced by the simpler `ui.navigate.to("/login")` pattern in an earlier refactor, but the old 37 lines were never deleted.
+
+**The key change:**
+
+```python
+# src/app/ui.py
+# Before — single-column layout, no profile rendering:
+async def index():
+    ui.label("Adaptive RAG Chat")
+    with ui.column().classes("max-w-4xl mx-auto"):
+        # chat messages rendered here ...
+        # no profile state visible
+
+# After — two-column layout with refreshable profile panel:
+async def index():
+    ui.label("Adaptive RAG Chat")
+    with ui.row().classes("w-full h-full"):
+        # 280px sidebar for profile
+        with ui.column().classes("w-80 border-r"):
+            @ui.refreshable
+            async def profile_panel():
+                headers = auth_headers()
+                if not headers:
+                    ui.label("Sign in to track your progress.")
+                    return
+                try:
+                    r = await http().get("/api/profile/me", headers=headers)
+                    profile = r.json()
+                except Exception:
+                    ui.label("Profile unavailable.")
+                    return
+                
+                mastery = profile.get("mastery_level") or "—"
+                ui.label(f"Mastery: {mastery}")
+                
+                # Render 6 topic progress bars
+                for module in ["rag_fundamentals", "vector_databases", "langchain", 
+                               "chunking_strategies", "retrieval_methods", "production_patterns"]:
+                    score = profile.get("topic_scores", {}).get(module, 0.0)
+                    ui.linear_progress(value=score)
+                
+                gaps = profile.get("gaps", [])
+                if gaps:
+                    ui.label(f"Gaps: {', '.join(gaps)}")
+                
+                last_active = profile.get("last_activity_at")
+                if last_active:
+                    ui.label(f"Last active: {last_active}")
+            
+            await profile_panel()
+        
+        # flex:1 chat column (existing chat logic)
+        with ui.column().classes("flex-1"):
+            # chat messages, input box ...
+```
+
+**Design pattern:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Nested refreshable component | `@ui.refreshable` defined inside `index()` closes over `http()` and `auth_headers()` | Avoids parameter threading; NiceGUI's event system automatically wires the refresh trigger; Commit 20 can call `profile_panel.refresh()` without layout knowledge |
+| Sidebar + main column layout | `ui.row` with `w-80` sidebar and `flex-1` main content | Persistent profile visibility without modal interruption; independent scroll contexts; responsive to screen width changes |
+| Null-safe rendering | `profile.get("mastery_level") or "—"` and `.get(key, 0.0)` defaults | Prevents null strings and missing scores from crashing the UI; graceful degradation when the backend returns partial data |
+| Always-render-all-topics pattern | All 6 modules display as progress bars, even with 0.0 scores | Shows the full curriculum scope; accepted visual discouragement in favor of transparency; future work may hide zero-score modules progressively |
+
+**What to watch:**
+
+- The bare `except Exception` pattern in `profile_panel()` is a recurring pattern across `ui.py`. Viktor flagged this in gate review as too broad — future hardening should catch specific exceptions (network, auth, parsing) and handle each distinctly.
+- `profile_panel.refresh()` is wired in Commit 20's `send()` closure and fires after SSE `done` event. Verify in testing that the refresh callback is called and the UI updates without re-rendering the entire layout.
+- String slice fragility: if the backend schema changes and `topic_scores` structure shifts, the `.get(module, 0.0)` calls will silently return 0.0 instead of alerting. Consider a schema validation layer between the HTTP response and UI rendering in future work.
+
+**Files touched:**
+- `src/app/ui.py` — layout refactor from single column to two-column row; nested `profile_panel()` with HTTP client and auth header closure; dead 37-line login form removed
+
+---

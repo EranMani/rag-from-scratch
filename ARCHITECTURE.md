@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-10 (Commit 18 — adaptive-graph-integration)
+> Last updated: 2026-05-10 (Commit 19 — profile-ui-panel)
 
 ---
 
@@ -67,7 +67,9 @@ responsive to who they are, not a static Q&A tool.
 ### NiceGUI UI
 - **Type:** frontend
 - **Owner:** Aria
-- **Purpose:** Browser-based chat interface; auth pages; profile panel (Commit 18+)
+- **Purpose:** Browser-based chat interface; auth pages; profile sidebar panel
+- **Layout:** `ui.row` with 280px profile sidebar (left) and `flex:1` chat column (right), introduced Commit 19
+- **Profile panel:** `@ui.refreshable async def profile_panel()` nested inside `index()`; fetches `GET /api/profile/me` on load; handles anonymous / API failure / empty / active user states; call `profile_panel.refresh()` from Commit 20 to update live after each turn
 - **Depends on:** FastAPI app (mounted via ui.run_with())
 - **Introduced in:** existing codebase
 

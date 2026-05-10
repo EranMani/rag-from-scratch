@@ -231,6 +231,29 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 19 — `profile-ui-panel` · 2026-05-10 · Aria
+
+> Gate wave: Viktor + Quinn + Mira (user-facing UI change; no auth/external API → Sage not triggered).
+> No gate-fix pass required — all reviewers PASS/ADEQUATE.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target |
+|---|---|---|---|---|
+| Aria (implementation) | Sonnet | 35,911 | 9 | ✅ under ≤60k |
+| Viktor | Haiku | 39,140 | 4 | **+24k** over ≤15k |
+| Quinn | Haiku | 59,310 | 17 | **+44k** over ≤15k |
+| Mira | Haiku | 47,493 | 22 | **+32k** over ≤15k |
+| Ryan | Haiku | TBD | TBD | TBD |
+| **Total (excl. Ryan)** | | **181,854** | **52** | over ≤75k |
+
+**Notes:**
+- Aria: 9 tool uses — two-phase discipline held cleanly. Lowest tool-use count of any implementation agent this project.
+- Viktor: 39k for a Haiku reviewer is well over target. Viktor did extensive file reads to verify `auth_headers()` behavior — reviewers should receive the diff + key files, not have free rein to explore.
+- Quinn: 59k / 17 tool uses — nearly 4× the reviewer target. Quinn independently analyzed 5 conditional branches and generated a full coverage table. Over-engineered for a UI-only commit where the spec already declared visual/integration as the testing gate.
+- Mira: 47k / 22 tool uses — well over target. Mira read files to find the `send()` closure and identify the missing `profile_panel.refresh()` call. Finding was valid but reading was expensive.
+- **Pattern:** Haiku reviewers consistently overshoot ≤15k when given open-ended prompts. Future reviewer briefs should be more prescriptive: provide the diff inline, prohibit unsolicited file reads beyond the diff, and cap the finding count.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -244,6 +267,7 @@ No token data recorded. Tracking began at Commit 10.
 | 15 | profile-update-node | TBD | Viktor + Quinn (Haiku) | target ≤90k | first gate wave at new cadence |
 | 17 | adaptive-prompt-templates | 123,531 | none | over ≤75k | Ryan full-entry cost; Nova marginal over |
 | 18 | adaptive-graph-integration | ~456k (excl. Ryan) | all 4 (Sonnet) | **well over** | worktree confusion + 2 gate cycles + reviewers on Sonnet not Haiku |
+| 19 | profile-ui-panel | ~182k (excl. Ryan) | Viktor+Quinn+Mira | over ≤75k | Haiku reviewers reading beyond diff; no gate-fix cycle |
 
 ---
 

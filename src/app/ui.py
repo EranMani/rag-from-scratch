@@ -6,6 +6,16 @@ import httpx
 from nicegui import app, ui
 from app.core.config import settings
 
+# Canonical module display names for topic_scores keys
+_MODULE_LABELS: dict[str, str] = {
+    "rag_fundamentals": "RAG Fundamentals",
+    "vector_databases": "Vector Databases",
+    "retrieval_methods": "Retrieval Methods",
+    "chunking_strategies": "Chunking Strategies",
+    "langchain": "LangChain",
+    "production_patterns": "Production Patterns",
+}
+
 
 def create_session() -> dict:
     return {"session_id": str(uuid.uuid4()), "messages": []}
@@ -193,67 +203,127 @@ def setup_ui(fastapi_app):
                         ui.link("Register", "/register").classes("text-sky-400 text-sm")
 
         if not can_use_chat:
-            with ui.column().style(
-                "width:100%; max-width:420px; margin:2rem auto; padding:1.5rem; gap:1rem"
-            ):
-                ui.label("Sign in").style("font-size:1.5rem; font-weight:600; color:#38bdf8")
-                email = ui.input("Email").props("type=email").classes("w-full").style(
-                    "background:#1e293b; border:1px solid #334155; border-radius:8px"
-                )
-                password = ui.input(
-                    "Password", password=True, password_toggle_button=True
-                ).classes("w-full").style(
-                    "background:#1e293b; border:1px solid #334155; border-radius:8px"
-                )
-
-                async def do_login():
-                    try:
-                        r = await http().post(
-                            "/api/auth/login",
-                            json={"email": email.value, "password": password.value},
-                        )
-                    except Exception as e:
-                        ui.notify(f"Network error: {e}", type="negative")
-                        return
-                    if r.status_code != 200:
-                        ui.notify("Invalid email or password", type="negative")
-                        return
-                    data = r.json()
-                    app.storage.user["access_token"] = data["access_token"]
-                    app.storage.user["user_id"] = data["user_id"]
-                    await fetch_profile_email()
-                    ui.navigate.to("/")
-
-                ui.button("Login", on_click=do_login).style(
-                    "background:#0369a1; color:white; width:100%"
-                )
-                ui.link("Create an account", "/register").classes("text-sky-400 text-sm")
+            ui.navigate.to("/login")
             return
 
         session = create_session()
 
-        with ui.column().style("flex:1; width:100%; max-width:900px; margin:0 auto; padding:1.5rem"):
-            chat_area = ui.column().style("width:100%; gap:1rem")
+        # Outer row: profile sidebar (left) + chat area (right)
+        with ui.row().style("width:100%; height:calc(100vh - 120px); gap:0; overflow:hidden"):
 
-            with chat_area:
-                with ui.card().style(
-                    "background:#1e293b; border:1px solid #334155; max-width:75%; border-radius:12px"
+            # --- Profile sidebar ---
+            @ui.refreshable
+            async def profile_panel():
+                with ui.column().style(
+                    "width:280px; min-width:280px; height:100%; background:#1e293b; "
+                    "border-right:1px solid #334155; padding:1rem; gap:0.75rem; overflow-y:auto"
                 ):
-                    ui.markdown(
-                        "Welcome! I am a RAG system that answers questions about how RAG systems work.\n\n"
-                        "Try asking: **How does chunking work?** or **What is a circuit breaker?**"
+                    ui.label("Knowledge Profile").style(
+                        "font-size:0.9rem; font-weight:600; color:#38bdf8"
                     )
 
-        with ui.footer().style("background:#1e293b; border-top:1px solid #334155; padding:1rem 2rem"):
-            with ui.row().style("width:100%; max-width:900px; margin:0 auto; gap:0.75rem"):
-                question_input = ui.input(
-                    placeholder="Ask about RAG, vector databases, LangChain..."
-                ).style(
-                    "flex:1; background:#0f172a; border:1px solid #334155; color:#e2e8f0; border-radius:8px"
-                )
-                send_btn = ui.button("Send").style(
-                    "background:#0369a1; color:white; border-radius:8px"
-                )
+                    headers = auth_headers()
+                    if not headers:
+                        # Anonymous user — no profile to display
+                        ui.label("Sign in to track your progress.").style(
+                            "font-size:0.8rem; color:#64748b"
+                        )
+                        return
+
+                    try:
+                        r = await http().get("/api/profile/me", headers=headers)
+                        if r.status_code != 200:
+                            raise ValueError(f"status {r.status_code}")
+                        profile = r.json()
+                    except Exception:
+                        ui.label("Profile unavailable.").style(
+                            "font-size:0.8rem; color:#94a3b8"
+                        )
+                        return
+
+                    # Mastery level — null-safe
+                    mastery = profile.get("mastery_level") or "—"
+                    ui.label(f"Level: {mastery.capitalize() if mastery != '—' else '—'}").style(
+                        "font-size:0.8rem; color:#94a3b8"
+                    )
+
+                    topic_scores: dict = profile.get("topic_scores") or {}
+
+                    if not topic_scores:
+                        # Empty state for fresh users
+                        ui.label("Start chatting to build your profile.").style(
+                            "font-size:0.8rem; color:#64748b; font-style:italic"
+                        )
+                    else:
+                        ui.label("Topic Scores").style(
+                            "font-size:0.75rem; font-weight:600; color:#64748b; margin-top:0.25rem"
+                        )
+                        for slug, label in _MODULE_LABELS.items():
+                            score: float = topic_scores.get(slug, 0.0)
+                            with ui.column().style("gap:0.15rem; width:100%"):
+                                ui.label(label).style("font-size:0.72rem; color:#94a3b8")
+                                ui.linear_progress(value=score).style(
+                                    "width:100%; height:6px"
+                                ).props("color=sky-600 track-color=slate-700")
+
+                    # Gaps tag list
+                    gaps: list = profile.get("gaps") or []
+                    if gaps:
+                        ui.label("Gaps").style(
+                            "font-size:0.75rem; font-weight:600; color:#64748b; margin-top:0.5rem"
+                        )
+                        with ui.row().style("flex-wrap:wrap; gap:0.3rem"):
+                            for gap in gaps:
+                                display = _MODULE_LABELS.get(gap, gap.replace("_", " ").title())
+                                ui.badge(display).style(
+                                    "background:#1e3a5f; color:#93c5fd; font-size:0.65rem; "
+                                    "border-radius:4px; padding:0.1rem 0.4rem"
+                                )
+
+                    # Query count and last active
+                    interaction_count = profile.get("interaction_count", 0)
+                    last_activity = profile.get("last_activity_at")
+                    ui.label(f"Queries: {interaction_count}").style(
+                        "font-size:0.72rem; color:#64748b; margin-top:0.5rem"
+                    )
+                    if last_activity:
+                        # Show date portion only for brevity
+                        last_str = last_activity[:10] if len(last_activity) >= 10 else last_activity
+                        ui.label(f"Last active: {last_str}").style(
+                            "font-size:0.72rem; color:#64748b"
+                        )
+
+            await profile_panel()
+
+            # --- Chat area ---
+            with ui.column().style("flex:1; height:100%; overflow:hidden; position:relative"):
+                with ui.column().style(
+                    "flex:1; width:100%; max-width:900px; margin:0 auto; padding:1.5rem; "
+                    "overflow-y:auto; height:calc(100% - 80px)"
+                ):
+                    chat_area = ui.column().style("width:100%; gap:1rem")
+
+                    with chat_area:
+                        with ui.card().style(
+                            "background:#1e293b; border:1px solid #334155; max-width:75%; border-radius:12px"
+                        ):
+                            ui.markdown(
+                                "Welcome! I am a RAG system that answers questions about how RAG systems work.\n\n"
+                                "Try asking: **How does chunking work?** or **What is a circuit breaker?**"
+                            )
+
+                with ui.footer().style(
+                    "background:#1e293b; border-top:1px solid #334155; padding:1rem 2rem"
+                ):
+                    with ui.row().style("width:100%; max-width:900px; margin:0 auto; gap:0.75rem"):
+                        question_input = ui.input(
+                            placeholder="Ask about RAG, vector databases, LangChain..."
+                        ).style(
+                            "flex:1; background:#0f172a; border:1px solid #334155; color:#e2e8f0; border-radius:8px"
+                        )
+                        send_btn = ui.button("Send").style(
+                            "background:#0369a1; color:white; border-radius:8px"
+                        )
 
         async def send():
             question = question_input.value.strip()

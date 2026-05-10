@@ -413,4 +413,22 @@
 - **Reason:** Using `"novice"` would conflate two distinct states: "user is a novice" and "assessment failed." A UI panel that shows the mastery level must be able to display "unknown" or "—" when assessment didn't run — which requires `None` to be distinguishable from any real level. Collapsing both states to `"novice"` would mislead users whose assessment failed into thinking they have a confirmed novice profile.
 - **Consequences:** Any SSE consumer must handle `user_level: null` explicitly. Commit 19 spec must define the null display state before Aria starts. The inline docstring on `ChatResponse.user_level` carries this contract for future maintainers.
 
-*Last updated: 2026-05-10 — Commit 18 complete (adaptive graph integration; cache key collision fix; typed SSE schema)*
+### Nested `@ui.refreshable` pattern for profile panel (Commit 19)
+- **Date:** 2026-05-10
+- **Commit:** 19
+- **Decided by:** Aria
+- **Decision:** `profile_panel` is defined as a nested `@ui.refreshable async def` inside `index()`. It closes over `http()` and `auth_headers()` without parameter threading.
+- **Alternatives considered:** Module-level function accepting the closures as arguments; separate NiceGUI component class.
+- **Reason:** NiceGUI's `@ui.refreshable` decorator requires the function to be in scope of the caller that invokes `.refresh()`. Nesting it inside `index()` gives it access to all request-scoped closures (`http()`, `auth_headers()`, `session`) without passing them as arguments. A module-level function would require argument threading or global state — both add coupling. The nested pattern is the idiomatic NiceGUI approach for per-page refreshable components.
+- **Consequences:** `profile_panel.refresh()` must be called from within `index()` — Commit 20's `send()` closure has access because it is also nested in `index()`. The function is not independently testable without a NiceGUI test harness.
+
+### All 6 topic modules always rendered in profile panel (Commit 19)
+- **Date:** 2026-05-10
+- **Commit:** 19
+- **Decided by:** Aria
+- **Decision:** When `topic_scores` is non-empty, all 6 modules in `_MODULE_LABELS` are rendered as progress bars. Modules with no score yet default to `0.0`.
+- **Alternatives considered:** Only render modules where the user has a non-zero score (progressive disclosure).
+- **Reason:** Showing all 6 modules sets the user's expectations about the full scope of the curriculum. A user who has explored only 2 topics can see exactly which 4 remain — supporting goal-directed learning. Hiding unvisited modules would require a second "Topics to explore" list or tooltip, adding UI complexity for little gain.
+- **Consequences:** A fresh user who has interacted at least once (so `topic_scores` is non-empty) will see 4 bars at 0.0 alongside 2 partial bars. Mira flagged this as potentially discouraging — accepted tradeoff. If telemetry suggests users disengage at this point, move to progressive disclosure in a future commit.
+
+*Last updated: 2026-05-10 — Commit 19 complete (profile sidebar panel; layout refactor; @ui.refreshable pattern)*
