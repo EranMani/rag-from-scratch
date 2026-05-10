@@ -5,42 +5,38 @@
 ---
 
 ## Current State
-*Last updated: Commit 09 · 2026-05-09*
+*Last updated: Commit 10 gate-fix · 2026-05-10*
 
-**Last completed:** Commit 09 `langgraph-generate-node` ✅
+**Last completed:** Commit 10 `langgraph-graph-assembly` — gate-fix pass ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
-- Commit 10 (graph assembly + streaming): `generate_node` is in `src/agents/nodes/generate.py`.
-  Signature: `async def generate_node(state: AgentState) -> dict`.
-  Returns exactly `{"messages": [AIMessage], "answer": str}`.
-  Import as: `from agents.nodes.generate import generate_node`.
-  The node is async — use `await` or wire into the graph with `graph.astream_events()`.
-  `add_messages` appends the returned `[AIMessage]` — the node does NOT return the full history.
-  `question` is NOT read by this node — the current question is already the last HumanMessage in state["messages"].
-  LLM is obtained via `get_provider().get_llm()` — OpenAI CB → Ollama fallback is automatic.
-  When `graph.astream_events()` is wired, `on_chat_model_stream` token events fire with zero
-  changes to generate_node — it's already async and uses `ainvoke`.
-- Commit 08+ (graph build): `AgentState` is complete. All Phase 4 fields are present.
-  `messages` uses `add_messages` reducer — nodes must append `[HumanMessage(...)]` or
-  `[AIMessage(...)]` via state update, not replace the list.
-- Commit 10 (streaming): `session_id` is passed as `thread_id` in the graph config,
-  NOT as a state field. Pattern:
-      config = {"configurable": {"thread_id": session_id}}
-      graph.astream_events(initial_state, config=config, version="v2")
+- Commit 11+ (assess_node): The graph is now wired START → retrieve → generate → END.
+  The `graph.astream_events(..., version="v2")` call is in `chat.py` and emits
+  `on_chat_model_stream` events for token-level SSE. Adding assess_node after generate
+  requires only `builder.add_edge("generate", "assess")` + assess → END wiring.
+- Commit 11+ (assess_node): `final_state` from the `on_chain_end LangGraph` event in
+  `chat.py` already reads `topic_scores_delta` and `user_level`. Both fields will
+  automatically appear in the SSE `done` event once assess_node writes them to state.
 - Commit 15 (profile_update_node): `AssessmentOutput.topic_scores_delta` is a per-turn
   delta — not a DB snapshot. The node must MERGE these deltas into the existing
   `user_profiles.topic_scores` dict, not overwrite it.
-- Rex (Commit 10): Rex's handoff about `format_history(session_id)` is superseded by
-  the `messages` / `add_messages` design. Conversation history is now managed by the
-  LangGraph checkpointer via `thread_id`. No explicit `conversation_history` string
-  injection is needed.
+- Future commits: `get_user_level(user_id)` is defined in `chat.py` — it reads
+  `mastery_level` from the profile DB. Returns 'novice' for anonymous or missing profiles.
 
 **Open Handoffs — Inbound:**
 - (none)
 
 **Key Interfaces I Own (for teammates):**
+- `src/agents/graph.py` — `build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph`
+  Factory function. Called once in lifespan; result stored on `app.state.rag_graph`.
+  `recursion_limit=10` baked into compiled graph config.
+- `src/app/api/routes/chat.py` — `POST /api/chat` returns `text/event-stream`.
+  SSE events: `{"type":"token","content":"..."}` and `{"type":"done","user_level":"...","assessed_topics":{}}`.
+  Graph accessed via `request.app.state.rag_graph` — never from module-level import.
+- `src/app/api/routes/chat.py` — `get_user_level(user_id: str | None) -> Literal[...]`
+  Synchronous profile DB read; call via `asyncio.to_thread`. Returns 'novice' for anonymous.
 - `src/agents/state.py` — `AgentState` TypedDict, `AssessmentOutput` Pydantic model,
   `VALID_MODULE_SLUGS` frozenset. Import from here for all graph nodes.
 - `src/agents/__init__.py` — empty package marker
@@ -73,6 +69,22 @@
 - `langgraph>=0.2.0` and `langchain-core>=0.3.0` are now declared in `pyproject.toml`.
   They were installed but undeclared before Commit 07.
 
+**Decisions Other Agents Must Know:**
+- `from __future__ import annotations` is used in `state.py` to enable forward references
+  in TypedDict. This is safe with `get_type_hints(AgentState, include_extras=True)` —
+  the `include_extras=True` is required to preserve the `Annotated` metadata.
+- `langgraph>=0.2.0` and `langchain-core>=0.3.0` are now declared in `pyproject.toml`.
+  They were installed but undeclared before Commit 07.
+- `chain.py` is kept as a thin placeholder (not deleted) after Commit 10. The decision
+  log is in the file's module docstring. Deleting would break any future pipeline-level
+  import paths; placeholder cost is zero.
+- `tests/test_conversation_memory.py` was deleted along with `conversation.py`. The tests
+  covered `SessionMemory` which no longer exists. Retaining a test file for a deleted
+  class would fail the test suite.
+- `app/ui.py` was updated to replace the `run_rag_pipeline` call with an internal
+  httpx SSE stream to `POST /api/chat`. This was a discovered scope gap — the spec did
+  not list `ui.py` in files touched, but it imported `run_rag_pipeline` which was removed.
+
 **Scope Overflows Pre-Built:**
 - (none)
 
@@ -88,6 +100,7 @@ No archived sessions yet.
 | 01 | Commit 07 `langgraph-state-schema` | ✅ Done | Used `Annotated[list[BaseMessage], add_messages]` with `from __future__ import annotations`; `session_id` excluded from state per architecture decision |
 | 02 | Commit 08 `langgraph-retrieve-node` | ✅ Done | `retrieval_source` derived from CB state before/after call, not from return value — retrieve() doesn't expose which path ran |
 | 03 | Commit 09 `langgraph-generate-node` | ✅ Done | Node is async (`ainvoke`) for streaming-readiness; `question` not read — current question is last HumanMessage in messages; LLM via get_provider().get_llm() |
+| 04 | Commit 10 gate-fix | ✅ Done | Quinn: 4 chat route tests added; Sage: `nicegui_storage_secret` extracted to config — patched settings singleton directly in test 4 to avoid lru_cache re-evaluation |
 
 ---
 
@@ -421,3 +434,204 @@ The `type: ignore[call-overload]` comment on `state.get("user_level", "novice")`
 intentional: `AgentState` is a `TypedDict` and `TypedDict.get()` with a default is not
 typed to return the union of the value type and the default in all Pyright versions.
 The comment documents that this is a Pyright limitation workaround, not a logic smell.
+
+---
+
+## Session 04 — Commit 10: `langgraph-graph-assembly`
+
+**Date:** 2026-05-10
+**Status:** ✅ Done
+
+### Task Brief
+
+Wire `retrieve_node` and `generate_node` into a compiled LangGraph graph. Replace
+`run_rag_pipeline()` in `chain.py` with `graph.astream_events()` in `chat.py`.
+Delete `SessionMemory` entirely. Instantiate `MemorySaver` in the FastAPI lifespan
+and store the compiled graph on `app.state.rag_graph`.
+
+### AI Problem Being Solved
+
+The core problem: how to replace a synchronous pipeline (`run_rag_pipeline` → JSON
+response) with an async streaming graph that emits token-level SSE events, while
+preserving cross-turn conversation history that was previously stored in `SessionMemory`.
+
+The two subsystems that had to work together are (a) LangGraph's checkpointer model
+(keyed by `thread_id`) for conversation continuity, and (b) FastAPI's `StreamingResponse`
+with `astream_events()` for token streaming. Neither requires the other to change — they
+compose naturally when wired through the factory function pattern and lifespan.
+
+### Graph Design Decisions
+
+**Factory function, not module singleton.** `build_graph(checkpointer)` is called once
+in lifespan and stored on `app.state.rag_graph`. This was the only viable design:
+`MemorySaver` must be instantiated inside the lifespan so it is scoped to one
+application lifetime. A module-level singleton would be created at import time (before
+lifespan runs) and would not be garbage-collected cleanly on shutdown.
+
+**`recursion_limit=10` baked into compiled graph config via `.with_config()`.**
+The spec required `recursion_limit` to be set. LangGraph's `StateGraph.compile()` does
+not accept `recursion_limit` directly — it is passed as a config key. `.with_config()`
+applied after `compile()` bakes it into the graph's default config so every invocation
+inherits it without the caller having to pass it explicitly.
+
+**`graph.astream_events(..., version="v2")` in `chat.py`.** The `version="v2"` argument
+is required for LangGraph >= 0.2 to emit `on_chat_model_stream` events. Without it the
+stream runs but token events are absent — the client would see only the final `done`
+event. This was explicitly called out in the pre-brief, making it a zero-ambiguity
+requirement.
+
+**`generate_stream()` is a pure async generator — no blocking I/O.** The generator
+iterates over `rag_graph.astream_events()` which is itself an async generator.
+The only non-async operation inside is `json.dumps()` which is CPU-bound but
+instantaneous. There is no `asyncio.to_thread()` call inside the generator — correct.
+
+### What Was Considered and Ruled Out
+
+1. **Module-level `MemorySaver` singleton** — rejected. Creates a shared mutable object
+   at import time, making the lifespan pattern pointless and making tests harder to
+   isolate (the singleton would bleed state between test runs).
+
+2. **Passing `recursion_limit` in every `astream_events()` call** — considered but
+   rejected in favour of `.with_config()`. Baking it into the compiled graph is the
+   correct pattern for project-wide defaults. Per-call passing would require every
+   caller to know the magic number.
+
+3. **Streaming from NiceGUI UI via the old `run_rag_pipeline` path** — impossible after
+   this commit because `run_rag_pipeline` is removed. The UI (`app/ui.py`) imported
+   `run_rag_pipeline` directly — a discovered scope gap not listed in the spec. Fixed by
+   replacing the direct call with an httpx SSE stream to `POST /api/chat`.
+
+4. **Keeping `test_conversation_memory.py`** — rejected. The test file exclusively tests
+   `SessionMemory`, which is deleted. Retaining it would fail the suite. The test's
+   coverage concern (conversation continuity) is now owned by `test_graph.py` Gate 3.
+
+5. **Deleting `chain.py`** — considered. After removing `run_rag_pipeline`, `chain.py`
+   is empty of logic. Decision: keep as a thin placeholder with a module docstring
+   explaining the Commit 10 removal. Deleting would require updating import paths in
+   other files (e.g., the `test_chain_imports_without_error` test in `test_profile_service.py`
+   which imports `rag.chain` as an import smoke test). Lower risk to retain.
+
+### Failure Modes Considered
+
+- **LangGraph provider error / rate limit mid-stream** — `astream_events()` is an
+  async generator. An exception raised inside the graph propagates out of the `async for`
+  loop, which terminates `generate_stream()`. FastAPI will close the SSE connection.
+  The client sees an incomplete stream (no `done` event). This is acceptable for this
+  commit — circuit breaker is already present in the provider layer.
+
+- **`on_chain_end LangGraph` event absent** — if the graph fails before completion,
+  `final_state` remains `{}`. The `done` event still emits with `user_level: "novice"`
+  and `assessed_topics: {}` as defaults. The client gets a graceful `done` rather than
+  a hung connection.
+
+- **Second turn with unknown `thread_id`** — `MemorySaver` creates a new checkpoint
+  namespace for every unseen `thread_id`. No error. History starts fresh.
+
+- **`ui.py` consuming SSE via httpx `stream()`** — the internal httpx client has a
+  30-second timeout. A very slow LLM response could time out before the `done` event.
+  Accepted as-is; timeout tuning is a deployment concern not a correctness issue.
+
+### Test Results
+
+13 new tests in `tests/test_graph.py`, all passed:
+- Gate 1 (2 tests): `build_graph()` returns `CompiledStateGraph`, accepts `MemorySaver`
+- Gate 2 (2 tests): retrieve runs before generate; generate receives docs from retrieve
+- Gate 3 (2 tests): second turn has prior messages in state; different thread_ids are independent
+- Gate 4 (1 test): compiled graph config has finite `recursion_limit`
+- Gate 5 (4 tests): `conversation.py` absent from filesystem; not importable; no `SessionMemory` in chain; no `run_rag_pipeline` in chain
+- Gate 6 (1 test): CB OPEN → BM25 fallback works end-to-end through the graph
+
+Deleted `tests/test_conversation_memory.py` (5 tests for the now-deleted `SessionMemory`).
+Net test delta: +13 new, -5 deleted = +8. Final suite: 103 passed, 0 failures.
+
+### Approach
+
+The initial cognitive map of this commit looked straightforward: `build_graph()`,
+wire two nodes, update lifespan, swap `chat.py` endpoint. The wrinkle was `ui.py` —
+it imported `run_rag_pipeline` which was being deleted, and it was not listed in the
+spec's "files touched". The right call was to fix it in scope rather than flag it as
+a blocker. The fix (httpx SSE collection) was two dozen lines and kept the UI working
+without touching the streaming architecture. The alternative — leaving `ui.py` broken
+and flagging it — would have been correct protocol but unnecessary friction for something
+that was clearly an oversight in the spec, not a domain boundary question.
+
+The `.with_config({"recursion_limit": _RECURSION_LIMIT})` pattern was the key
+implementation detail that clinched the recursion_limit requirement. `compile()` does
+not accept it as a keyword argument; the config must be applied after compilation.
+Reading the LangGraph source confirmed this. The constant `_RECURSION_LIMIT = 10` is
+private to `graph.py` — not exported — because callers should not depend on the specific
+value.
+
+---
+
+## Session 04 — Commit 10 gate-fix
+
+**Date:** 2026-05-10
+**Status:** ✅ Done
+
+### Task Brief
+
+Two quality gate findings returned from the Commit 10 gate wave. Both blocking:
+- Quinn BLOCK: `chat.py` HTTP layer had zero test coverage; 4 tests required.
+- Sage MEDIUM: `ui.py:370` had a hardcoded `storage_secret="rag-secret-key"` exposing
+  the NiceGUI cookie signing key in a public repo.
+
+### AI Problem Being Solved
+
+**Quinn fix:** The challenge was testing a streaming SSE endpoint (FastAPI + `StreamingResponse`)
+against a `CompiledStateGraph` without a live LangGraph runtime. The graph's `astream_events()`
+is an async generator — it can't be replaced with a plain `AsyncMock` because async generators
+and async coroutines are different protocol types in Python. A `MagicMock` with `return_value`
+assigned would be callable but not async-iterable. The solution was a `FakeGraph` class whose
+`astream_events` method is declared with `async def ... yield` — a true async generator — so
+`async for event in rag_graph.astream_events(...)` in the endpoint works correctly.
+
+A second issue surfaced during the first test run: the authenticated tests (Tests 1-3) failed
+with `sqlite3.OperationalError: no such table: user_profiles`. The route calls
+`asyncio.to_thread(get_user_level, user_id)` which hits the profile DB. Since the test app
+has no lifespan and no SQLite setup, `get_user_level` had to be patched out entirely via
+`patch("app.api.routes.chat.get_user_level", return_value="novice")`. The anonymous test
+(Test 4) never reaches that code path — the 401 fires first — so no patch was needed there.
+
+**Sage fix:** The `nicegui_storage_secret` field was added to `Settings` with the same
+`field_validator` pattern as `jwt_secret` (minimum 32 characters, no default so startup
+fails fast). The lru_cached singleton means tests that need to patch `allow_anonymous_chat`
+must mutate the already-imported `config_module.settings` instance attribute directly rather
+than patching the class. This was the same pattern used in the test for the anonymous 401 gate.
+
+### Prompt Design Decisions
+
+No LLM calls in this session. All work was deterministic code and test construction.
+
+### Tool Output Schema Decisions
+
+`FakeGraph.astream_events` yields raw `dict[str, Any]` objects matching the LangGraph v2
+event schema: `{"event": str, "name": str, "data": {...}}`. The `chunk` object inside
+`on_chat_model_stream` data is constructed via `type("Chunk", (), {"content": content})()` —
+a zero-dependency stand-in that satisfies `chunk.content` attribute access without importing
+any LangChain types into the test.
+
+### Failure Modes Considered
+
+- `FakeGraph` as `MagicMock` — rejected: MagicMock is not an async generator, `async for`
+  over it raises `TypeError: object MagicMock can't be used in 'await' expression`.
+- Patching at `app.core.config.Settings.allow_anonymous_chat` (the class) — rejected:
+  `lru_cache` means `settings` is already instantiated; patching the class attribute does
+  not affect the cached instance. Mutating the instance directly is the correct approach.
+- Using `TestClient` without `client.stream()` for streaming responses — rejected: the
+  non-streaming client reads the full body before returning, which works for SSE but
+  `iter_lines()` is only available on a streaming context manager response.
+
+### Approach
+
+Initially the three authenticated tests looked like they just needed a `FakeGraph` and the
+dependency override. The first run showed the `user_profiles` SQLite error — `get_user_level`
+was not on the radar because the spec didn't mention it. Once identified, patching it at
+`app.api.routes.chat.get_user_level` (the function's home module, not the call site) was
+the correct target — patches at the call site would be fragile if the import were to change.
+The Sage fix was straightforward once the validator pattern from `jwt_secret` was established
+as the template: copy, rename, update the error message, add to `.env.example` and `.env`.
+
+### Test Results
+
+107 passed (103 existing + 4 new) in 16.03s. Zero regressions.

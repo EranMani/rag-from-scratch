@@ -693,3 +693,116 @@ async def generate_node(state: AgentState) -> dict:
 - `tests/test_generate_node.py` — new: 18 tests covering return shape (answer str, AIMessage in messages, exactly 2 keys), add_messages contract (exactly 1 AIMessage returned), first turn single HumanMessage, second turn full prior conversation forwarded, get_provider() called once per invocation and ainvoke() called not invoke()
 
 ---
+
+**Commit 10 — `langgraph-graph-assembly`** · 2026-05-10 · Nova · `architectural | security`
+
+> **In one sentence:** The retrieve and generate nodes were assembled into a LangGraph graph with `MemorySaver` checkpointer for cross-turn persistence, `SessionMemory` was deleted entirely, and `graph.astream_events()` replaced `run_rag_pipeline()` to stream tokens to clients in real time — with two non-obvious decisions: `build_graph(checkpointer)` as a factory function to keep checkpointers isolated between test and production instances, and hoisting the blocking `get_user_level()` call outside the async generator to prevent event loop stalls.
+
+**Interview talking point:**
+> **Q:** Why does `build_graph()` take the checkpointer as a parameter instead of using a module-level singleton?
+>
+> **A:** Each test needs an isolated in-memory `MemorySaver` so thread histories don't bleed across test cases. A module-level graph would share the same checkpointer, causing tests to inherit prior turns from earlier test runs. By injecting the checkpointer, tests instantiate their own `MemorySaver`, and production passes a single instance bound to the server lifespan. When we need to upgrade to `SqliteSaver` or `PostgresSaver` for persistence, we change one line in `main.py` — the graph doesn't care which checkpointer backs it.
+
+**What happened and why:**
+- `src/agents/graph.py` exposes `build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph` — a factory function, not a module-level singleton. This allows tests to pass isolated `MemorySaver` instances and production to manage the checkpointer lifecycle in the FastAPI lifespan.
+- The LangGraph graph nodes (retrieve, generate) are wired with `graph.add_node()` and connected with edges. The compiled graph is bound to the checkpointer at build time so multi-turn conversations can retrieve message history via `thread_id` without manual session lookups.
+- `chat.py` no longer calls `run_rag_pipeline()` — it creates a `StreamingResponse` wrapping an async generator that iterates `rag_graph.astream_events(version="v2")`. Token events (`on_chat_model_stream`) fire as the LLM generates each word, yielding SSE messages to the client immediately.
+- Blocking DB call `get_user_level(user_id)` is hoisted **outside** the async generator body and awaited with `asyncio.to_thread()` before `astream_events()` starts. Any blocking call inside the generator body stalls the event loop and prevents token streaming.
+- `src/rag/memory/conversation.py` (the `SessionMemory` class) is deleted. LangGraph's `MemorySaver` checkpointer reconstructs conversation history automatically when `thread_id` is passed in the graph config — no manual session fetching needed.
+- The public-repo secret exposure (hardcoded `storage_secret="rag-secret-key"` in `ui.py`) was moved to `NICEGUI_STORAGE_SECRET` environment variable with a 32-character minimum validator matching the `jwt_secret` pattern.
+
+**Design pattern / architectural principle:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Factory function over module singleton | `build_graph(checkpointer)` takes the checkpointer as a parameter | Tests pass isolated instances; production passes a lifespan-managed instance; swapping to `SqliteSaver` or `PostgresSaver` requires one-line change in `main.py`, not graph rebuild |
+| Blocking call hoisting | `get_user_level()` runs with `asyncio.to_thread()` before the generator starts, not inside it | Blocking calls in async generators block the entire event loop, preventing token streaming. Hoisting keeps I/O off the critical path. |
+| Checkpointer-based session identity | `thread_id` in graph config (derived from `session_id`) tells the checkpointer which turn history to load | No session table queries needed; checkpointer is the single source of truth for conversation state. |
+| SSE streaming via event iteration | The async generator yields SSE `data:` lines for each `on_chat_model_stream` event | Client receives tokens as they arrive, not buffered until the full response is ready. |
+| Environment variable for secrets | `NICEGUI_STORAGE_SECRET` is loaded from env, not hardcoded | No secrets in source code; 32-char minimum validator prevents weak keys. |
+
+**Reasoning & discovery:**
+1. The factory pattern was not obvious initially — the design began with a module-level compiled graph. Tests discovered the problem: the singleton's checkpointer was shared across test cases, causing message history to leak between independent tests. Injecting the checkpointer solved this and enabled multi-backend support.
+2. Token streaming was breaking because the initial design ran `get_user_level()` inside the async generator. This blocks the event loop for 10–100ms per call, causing the LLM's token events to queue up and arrive in large batches instead of streaming. Moving the call outside the generator freed the event loop for the duration of token iteration.
+3. The `version="v2"` parameter on `astream_events()` was necessary because v1 events had a different structure. This was discovered during integration testing when token events arrived in an unexpected format.
+
+**Security note:** Hardcoded `storage_secret` in `ui.py` was moved to `NICEGUI_STORAGE_SECRET` environment variable. A Pydantic validator ensures the secret is at least 32 characters — matching the strength requirement for `jwt_secret`. Any missing or weak `NICEGUI_STORAGE_SECRET` causes the application to fail at startup with a clear error message.
+
+**Watch for:** Any blocking I/O added inside `generate_stream()` (the async generator) will stall the event loop and cause token events to batch instead of streaming. Similarly, if test setup forgets to pass a fresh `MemorySaver` instance to `build_graph()`, message history will bleed across test cases. The checkpointer parameter is non-negotiable for test isolation.
+
+**The key change:**
+
+```python
+# src/agents/graph.py — factory function, not module-level singleton
+
+def build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph:
+    """Assemble retrieve and generate nodes, compile with the provided checkpointer."""
+    graph = StateGraph(AgentState)
+    graph.add_node("retrieve", retrieve_node)
+    graph.add_node("generate", generate_node)
+    graph.add_edge(START, "retrieve")
+    graph.add_edge("retrieve", "generate")
+    graph.add_edge("generate", END)
+    return graph.compile(checkpointer=checkpointer)
+```
+
+```python
+# src/app/main.py — checkpointer instantiated in lifespan, bound to app.state
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ... init_user_db, init_profile_db, set_bm25_fallback ...
+    
+    checkpointer = MemorySaver()  # Swap to SqliteSaver or PostgresSaver here for persistence
+    app.state.rag_graph = build_graph(checkpointer)
+    
+    yield
+```
+
+```python
+# src/app/api/routes/chat.py — blocking I/O hoisted outside the generator
+
+async def chat(req: ChatRequest, request: Request, current_user = Depends(current_user_optional)):
+    rag_graph = request.app.state.rag_graph
+    session_id = req.session_id or str(uuid.uuid4())
+    user_id = current_user.id if current_user else None
+    
+    # Hoist the blocking call — run it with asyncio.to_thread BEFORE the generator starts.
+    # Any blocking call inside the async generator stalls the event loop.
+    user_level = await asyncio.to_thread(get_user_level, user_id)
+    
+    initial_state = {
+        "messages": [HumanMessage(content=req.question)],
+        "question": req.question,
+        "user_id": user_id,
+        "user_level": user_level,
+        # ... rest of state ...
+    }
+    
+    config = {"configurable": {"thread_id": session_id}}
+    
+    async def generate_stream():
+        """No blocking I/O here — only async iteration."""
+        async for event in rag_graph.astream_events(initial_state, config=config, version="v2"):
+            if event["event"] == "on_chat_model_stream":
+                chunk = event["data"]["chunk"]
+                if chunk.content:
+                    yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
+            elif event["event"] == "on_chain_end" and event.get("name") == "LangGraph":
+                final_state = event["data"].get("output", {})
+        yield f"data: {json.dumps({'type': 'done', 'assessed_topics': final_state.get('topic_scores_delta', {})})}\n\n"
+    
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")
+```
+
+**Files touched:**
+- `src/agents/graph.py` — new: `build_graph(checkpointer)` factory function with retrieve/generate wiring
+- `src/app/main.py` — lifespan: `MemorySaver` instantiated, passed to `build_graph()`, result bound to `app.state.rag_graph`
+- `src/app/api/routes/chat.py` — replace `run_rag_pipeline()` with `StreamingResponse` wrapping `astream_events()` generator; hoist `get_user_level()` outside generator
+- `src/rag/chain.py` — `run_rag_pipeline()` removed; `SessionMemory` import removed
+- `src/rag/memory/conversation.py` — deleted entirely
+- `src/app/core/config.py` — `NICEGUI_STORAGE_SECRET` added with 32-char minimum validator
+- `src/app/ui.py` — `storage_secret` parameter now reads from env: `NICEGUI_STORAGE_SECRET`
+- `tests/test_chat_streaming.py` — new: 12 tests covering end-to-end SSE streaming, token-by-token arrival, done event structure, multi-turn session persistence via `thread_id`, fallback to BM25 on ChromaDB unavailability
+
+---

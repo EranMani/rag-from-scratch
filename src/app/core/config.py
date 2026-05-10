@@ -53,12 +53,28 @@ class Settings(BaseSettings):
     sqlite_db_path: str = "data/app_users.db"
     allow_anonymous_chat: bool = False
 
+    # NiceGUI — no default: startup fails if NICEGUI_STORAGE_SECRET is not set.
+    # Minimum 32 characters enforced by require_strong_nicegui_secret below.
+    # This value is used to sign the NiceGUI session-storage cookie, which stores
+    # the JWT access token after login. A weak or shared secret allows cookie forgery.
+    nicegui_storage_secret: str
+
     @field_validator("jwt_secret")
     @classmethod
     def require_strong_secret(cls, v: str) -> str:
         if len(v) < 32:
             raise ValueError(
                 f"JWT_SECRET must be at least 32 characters — "
+                f"got {len(v)}. Set a strong secret in your .env file."
+            )
+        return v
+
+    @field_validator("nicegui_storage_secret")
+    @classmethod
+    def require_strong_nicegui_secret(cls, v: str) -> str:
+        if len(v) < 32:
+            raise ValueError(
+                f"NICEGUI_STORAGE_SECRET must be at least 32 characters — "
                 f"got {len(v)}. Set a strong secret in your .env file."
             )
         return v

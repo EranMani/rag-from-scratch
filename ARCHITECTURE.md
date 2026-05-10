@@ -183,7 +183,7 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 | API authentication | JWT Bearer token + Depends(get_current_user) | Applied to /api/auth/me, /api/profile/me, /api/ingest |
 | Chat auth | Optional auth + allow_anonymous_chat setting | Anonymous chat configurable; ingest is always mandatory auth |
 | File upload path confinement | Path(filename).name + is_relative_to(UPLOAD_DIR) | Two-layer defense against path traversal on /api/ingest |
-| Secrets | .env file; never in code | JWT secret, OpenAI API key |
+| Secrets | .env file; never in code | JWT secret, OpenAI API key, NiceGUI storage secret (added Commit 10) |
 | Monitoring endpoints | nginx reverse proxy with auth | /grafana, /kibana, /prometheus not publicly browsable |
 | /metrics | nginx deny rule | Prometheus scrape endpoint blocked from public internet |
 
@@ -229,4 +229,4 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 - **Profile scoring algorithm** — threshold table and delta merge strategy — after Commit 14
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 
-*Last updated: 2026-05-09 — Commit 07 complete*
+*Last updated: 2026-05-10 — Commit 10 complete (graph assembly, SSE streaming, MemorySaver)*

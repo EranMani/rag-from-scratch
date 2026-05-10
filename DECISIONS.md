@@ -275,4 +275,21 @@
 - **Reason:** A module-level singleton freezes the provider at import time. If the OpenAI circuit breaker opens after startup, the module-level `llm` would still point to the OpenAI instance. Per-invocation resolution means every LLM call observes the current CB state — the Ollama fallback actually activates when needed.
 - **Consequences:** One extra function-call overhead per generation turn (negligible vs LLM latency). This is the correct pattern for any node that uses a circuit-breaker-guarded provider. All future nodes using `get_provider()` must follow the same pattern.
 
-*Last updated: 2026-05-09 — Commit 09 complete (generate_node per-invocation provider pattern)*
+### `build_graph()` factory pattern — no module-level compiled graph singleton
+- **Date:** 2026-05-10
+- **Commit:** 10
+- **Decided by:** Nova (applied) + commit spec (Claude)
+- **Decision:** `src/agents/graph.py` exposes `build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph`. The checkpointer is injected as a parameter; the graph is compiled and returned. No module-level `graph = build_graph(...)` singleton.
+- **Alternatives considered:** Module-level singleton compiled at import time; singleton with a default `MemorySaver()` argument.
+- **Reason:** A module-level singleton makes the checkpointer invisible to tests — every test run would share one `MemorySaver` instance and bleed state between threads. The factory pattern lets each test construct an isolated graph with its own checkpointer. It also makes the swap to `SqliteSaver` or `PostgresSaver` a one-line change in `lifespan`, not a surgery on `graph.py`.
+- **Consequences:** Callers (currently only `lifespan` in `main.py`) are responsible for constructing the checkpointer and calling `build_graph()`. Tests construct fresh graphs per test class. The `BaseCheckpointSaver` type parameter is the correct abstraction — it accepts any LangGraph-compatible checkpointer.
+
+### `assessed_topics` as the SSE public key for `topic_scores_delta`
+- **Date:** 2026-05-10
+- **Commit:** 10
+- **Decided by:** Nova (applied) + Mira (flagged for documentation)
+- **Decision:** The final SSE `done` event exposes `topic_scores_delta` from `AgentState` under the key `assessed_topics`: `{"type": "done", "user_level": ..., "assessed_topics": {...}}`. The internal `AgentState` field name (`topic_scores_delta`) is not exposed in the SSE schema.
+- **Reason:** `topic_scores_delta` describes implementation detail (a sparse delta, not the full score). `assessed_topics` is closer to the consumer's mental model (which topics were just assessed). The renaming at the serialization boundary keeps the internal state field name accurate while giving the SSE consumer a more stable, intention-revealing name.
+- **Consequences:** Any consumer of the `done` event must use `assessed_topics`, not `topic_scores_delta`. This is the locked SSE contract from Commit 10 forward. Commit 19 (Aria) will render `user_level` from this event — if `assessed_topics` is also needed there, Aria must use this key name. A future rename would require coordinated changes in `chat.py` and all SSE consumers.
+
+*Last updated: 2026-05-10 — Commit 10 complete (graph assembly, SSE streaming, MemorySaver)*

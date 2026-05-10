@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
+from langgraph.checkpoint.memory import MemorySaver
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from app.core.config import settings
 from app.core.logging_config import logger
@@ -13,6 +14,7 @@ from app.auth.db import init_user_db
 from app.profile.db import init_profile_db
 from rag.pipeline.indexer import load_knowledge_base, get_vectorstore, ingest_documents
 from rag.pipeline.retriever import set_bm25_fallback
+from agents.graph import build_graph
 
 
 
@@ -37,6 +39,12 @@ async def lifespan(app: FastAPI):
             ingest_documents(docs)
     except Exception as e:
         logger.warning("Could not check ChromaDB on startup", extra={"error": str(e)})
+
+    # LangGraph — build graph with MemorySaver checkpointer.
+    # MemorySaver is instantiated here (not at module level) so that it is
+    # scoped to a single application lifetime and garbage-collected on shutdown.
+    checkpointer = MemorySaver()
+    app.state.rag_graph = build_graph(checkpointer)
 
     app.state.internal_http_client = httpx.AsyncClient(
         base_url=f"http://127.0.0.1:{settings.app_port}",

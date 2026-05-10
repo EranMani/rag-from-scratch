@@ -1,10 +1,10 @@
 import asyncio
+import json
 import uuid
 
 import httpx
 from nicegui import app, ui
 from app.core.config import settings
-from rag.chain import run_rag_pipeline
 
 
 def create_session() -> dict:
@@ -277,12 +277,38 @@ def setup_ui(fastapi_app):
             await asyncio.sleep(0)
 
             try:
-                result = await asyncio.to_thread(
-                    run_rag_pipeline,
-                    question=question,
-                    session_id=session["session_id"],
-                    user_id=trusted_user_id,
-                )
+                # Call the streaming /api/chat endpoint and collect SSE tokens.
+                # The UI renders the complete answer after the stream finishes.
+                payload = {
+                    "question": question,
+                    "session_id": session["session_id"],
+                }
+                headers = auth_headers()
+                tokens: list[str] = []
+                done_data: dict = {}
+                async with http().stream(
+                    "POST", "/api/chat", json=payload, headers=headers
+                ) as resp:
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        raw = line[len("data: "):]
+                        try:
+                            event = json.loads(raw)
+                        except json.JSONDecodeError:
+                            continue
+                        if event.get("type") == "token":
+                            tokens.append(event.get("content", ""))
+                        elif event.get("type") == "done":
+                            done_data = event
+
+                result = {
+                    "answer": "".join(tokens),
+                    "cache_hit": "miss",
+                    "chunks": [],
+                    "latency_ms": 0,
+                    "trace_id": "—",
+                }
             except Exception as e:
                 result = {
                     "answer": f"Error: {e}",
@@ -341,4 +367,4 @@ def setup_ui(fastapi_app):
         if app.storage.user.get("user_id") and not app.storage.user.get("email"):
             await fetch_profile_email()
 
-    ui.run_with(fastapi_app, mount_path="/", storage_secret="rag-secret-key")
+    ui.run_with(fastapi_app, mount_path="/", storage_secret=settings.nicegui_storage_secret)

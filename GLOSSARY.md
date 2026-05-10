@@ -108,6 +108,30 @@
 **Used in:** `src/agents/graph.py` (Commit 10), LangGraph internals
 **Introduced in:** Commit 10
 
+### SSE (Server-Sent Events)
+**Meaning on this project:** A one-way HTTP streaming protocol where the server pushes events to the client over a persistent connection. `Content-Type: text/event-stream`. Each event is a line of the form `data: <json>\n\n`. Used in this project to stream LLM tokens from `POST /api/chat` as they are generated, so the client receives tokens progressively rather than waiting for the full answer.
+**Distinct from:** WebSocket (bidirectional); chunked transfer encoding (raw bytes, no event structure); HTTP/2 push (server-initiated, not response-streaming).
+**Used in:** `src/app/api/routes/chat.py` (`StreamingResponse(media_type="text/event-stream")`), `src/app/ui.py` (httpx SSE consumer)
+**Introduced in:** Commit 10
+
+### CompiledStateGraph
+**Meaning on this project:** The type returned by `graph.compile(checkpointer=...)` in LangGraph. A fully wired, executable graph object. In this project produced by `build_graph(checkpointer)` in `src/agents/graph.py` and stored on `app.state.rag_graph` during lifespan. Exposes `astream_events()` for async streaming invocation.
+**Distinct from:** `StateGraph` (the builder object used to define nodes and edges before compilation).
+**Used in:** `src/agents/graph.py`, `src/app/main.py`
+**Introduced in:** Commit 10
+
+### thread_id (graph config)
+**Meaning on this project:** The key within `{"configurable": {"thread_id": value}}` passed to `graph.astream_events()`. LangGraph's checkpointer uses this value to identify which conversation thread to save and restore. In this project, `session_id` from the request is used as `thread_id`. Each unique `session_id` → independent conversation thread with its own `AgentState` history.
+**Distinct from:** `session_id` in the HTTP request body (which is the source value); `user_id` from JWT (which identifies the user, not the conversation thread).
+**Used in:** `src/app/api/routes/chat.py` (`config = {"configurable": {"thread_id": session_id}}`)
+**Introduced in:** Commit 10
+
+### assessed_topics (SSE schema key)
+**Meaning on this project:** The key name for `topic_scores_delta` in the final SSE `done` event: `{"type": "done", "user_level": ..., "assessed_topics": {...}}`. Renamed at the serialization boundary to better reflect consumer intent (which topics were assessed this turn) rather than implementation detail (the delta values). Values are `dict[str, float]` — same structure as `topic_scores_delta` in `AgentState`.
+**Distinct from:** `topic_scores_delta` (the internal `AgentState` field name — a sparse per-turn delta, not exposed directly in SSE).
+**Used in:** `src/app/api/routes/chat.py` (emitted in `generate_stream()`), `tests/test_chat_route.py`
+**Introduced in:** Commit 10
+
 ### WAL Mode
 **Meaning on this project:** SQLite Write-Ahead Logging journal mode. Enables concurrent reads during a write operation. Enabled via `PRAGMA journal_mode=WAL` in `_connect()`. Required because the LangGraph agent thread writes profile updates while FastAPI request threads read user data concurrently.
 **Used in:** `src/app/auth/db.py`, `src/app/profile/db.py`
