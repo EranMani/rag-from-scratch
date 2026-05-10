@@ -80,7 +80,18 @@
       "Bash(.venv/Scripts/python.exe -m pytest tests/test_rag_prompts.py -v)",
       "Bash(.venv/Scripts/python.exe -m pytest --tb=short -q)",
       "PowerShell(git *)",
-      "PowerShell(Get-Content *)"
+      "PowerShell(Get-Content *)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest --version)",
+      "Bash(python3 -m pytest --version)",
+      "Bash(\"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\.venv\\\\Scripts\\\\python.exe\" -m pytest tests/ -x -q)",
+      "Bash(py -m pytest --version)",
+      "Bash(dir venv *)",
+      "Bash(.venv\\\\Scripts\\\\python -m pytest tests/test_generate_node.py -q)",
+      "Bash(.venv/Scripts/pytest tests/test_generate_node.py -q)",
+      "Bash(.venv/Scripts/pytest -q)",
+      "Bash(Get-Content \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\LEARNING_LOG.md\")",
+      "Bash(Measure-Object -Line)",
+      "Bash(Select-Object -ExpandProperty Lines)"
     ]
   }
 }
