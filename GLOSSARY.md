@@ -126,6 +126,12 @@
 **Used in:** `src/app/api/routes/chat.py` (`config = {"configurable": {"thread_id": session_id}}`)
 **Introduced in:** Commit 10
 
+### assessment_error
+**Meaning on this project:** A boolean field in `AgentState`. Set to `True` by `assess_node` when the LLM call or structured-output parsing fails during assessment. When `True`, the conditional edge `_route_after_assess` in `graph.py` routes to `update_profile_node` with empty deltas — the profile is not updated but the graph continues cleanly to END. When `False`, the normal path applies the assessment delta to the profile.
+**Distinct from:** A Python exception (which is caught inside `assess_node`; `assessment_error` is the state-level signal emitted after the exception is handled).
+**Used in:** `src/agents/state.py`, `src/agents/nodes/assess.py`, `src/agents/graph.py`
+**Introduced in:** Commit 12
+
 ### assessed_topics (SSE schema key)
 **Meaning on this project:** The key name for `topic_scores_delta` in the final SSE `done` event: `{"type": "done", "user_level": ..., "assessed_topics": {...}}`. Renamed at the serialization boundary to better reflect consumer intent (which topics were assessed this turn) rather than implementation detail (the delta values). Values are `dict[str, float]` — same structure as `topic_scores_delta` in `AgentState`.
 **Distinct from:** `topic_scores_delta` (the internal `AgentState` field name — a sparse per-turn delta, not exposed directly in SSE).

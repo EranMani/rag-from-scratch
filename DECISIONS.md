@@ -292,4 +292,22 @@
 - **Reason:** `topic_scores_delta` describes implementation detail (a sparse delta, not the full score). `assessed_topics` is closer to the consumer's mental model (which topics were just assessed). The renaming at the serialization boundary keeps the internal state field name accurate while giving the SSE consumer a more stable, intention-revealing name.
 - **Consequences:** Any consumer of the `done` event must use `assessed_topics`, not `topic_scores_delta`. This is the locked SSE contract from Commit 10 forward. Commit 19 (Aria) will render `user_level` from this event — if `assessed_topics` is also needed there, Aria must use this key name. A future rename would require coordinated changes in `chat.py` and all SSE consumers.
 
-*Last updated: 2026-05-10 — Commit 10 complete (graph assembly, SSE streaming, MemorySaver)*
+### `add_conditional_edges` with both paths to the same node (Commit 12)
+- **Date:** 2026-05-10
+- **Commit:** 12
+- **Decided by:** Nova (applied) + Viktor (gate-fix pass)
+- **Decision:** `_route_after_assess` in `graph.py` uses `add_conditional_edges` even though both branches (assessment_error True and False) route to the same destination (`update_profile_node`). The routing function returns `"update_profile"` unconditionally — no dead conditional.
+- **Alternatives considered:** Plain `builder.add_edge("assess", "update_profile")` — technically correct and simpler; `add_conditional_edges` with a redundant `if` statement — rejected by Viktor as dead code.
+- **Reason:** `add_conditional_edges` makes the fallback pattern visible in LangGraph's graph inspector (`.get_graph()` shows two labeled edges from `assess` instead of one). The named function `_route_after_assess` is independently testable. When Commit 15 potentially diverges the paths, the routing logic lives in an established function — no structural change to `build_graph` required.
+- **Consequences:** The routing function must never contain a dead `if` statement (Viktor hard block). Both paths must be listed in the mapping dict passed to `add_conditional_edges`. Future commits that extend the conditional must update only `_route_after_assess` — not the graph wiring.
+
+### `update_profile_node` stub in `graph.py`, not a separate file (Commit 12)
+- **Date:** 2026-05-10
+- **Commit:** 12
+- **Decided by:** Nova (applied) + commit spec (Claude)
+- **Decision:** The passthrough stub for `update_profile_node` is declared as a function directly in `src/agents/graph.py` — not in a separate `src/agents/nodes/update_profile.py` file.
+- **Alternatives considered:** Creating `src/agents/nodes/update_profile.py` with a stub that will be replaced in Commit 15.
+- **Reason:** A separate file for a 1-line passthrough implies it is a permanent resident. Keeping the stub in `graph.py` with a `# STUB (Commit 12)` docstring clearly signals its temporary status and prevents Commit 15 from needing to restructure file ownership. Commit 15 will replace the inline stub with a real implementation and move it to its own file at that point.
+- **Consequences:** Commit 15 will create `src/agents/nodes/update_profile.py`, import it, and replace the inline stub in `graph.py`. This is a deliberate two-step — the stub in `graph.py` is not meant to grow in place.
+
+*Last updated: 2026-05-10 — Commit 12 complete (assess_node scaffold + conditional edge; update_profile_node stub)*

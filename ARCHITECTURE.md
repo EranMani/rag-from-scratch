@@ -229,4 +229,4 @@ GET /api/profile/me → current profile → NiceGUI profile panel
 - **Profile scoring algorithm** — threshold table and delta merge strategy — after Commit 14
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 
-*Last updated: 2026-05-10 — Commit 10 complete (graph assembly, SSE streaming, MemorySaver)*
+*Last updated: 2026-05-10 — Commit 12 complete (assess_node scaffold + conditional edge wired; update_profile_node passthrough stub in graph.py)*

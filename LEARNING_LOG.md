@@ -810,3 +810,39 @@ async def chat(req: ChatRequest, request: Request, current_user = Depends(curren
 **Commit 11 — langgraph-graph-smoke-test** · 2026-05-10 · Nova · `test`
 
 > **In one sentence:** Fourteen smoke tests validate the fully assembled LangGraph graph end-to-end without external services, covering state dict return, non-empty answers, docs lists, retrieval source types, and MemorySaver cross-turn conversation threading — establishing the hard gate before Phase 4 adaptive intelligence commits.
+
+---
+
+**Commit 12 — langgraph-assessment-scaffold** · 2026-05-10 · Nova · `architectural`
+
+> **In one sentence:** Wired the assessment node into the graph as a fully-contracted stub with deterministic fallback, proving the adaptive reasoning pathway compiles and testing infrastructure works before the real LLM call lands in Commit 13.
+
+**Interview talking point:**
+> **Q:** How do you structure a commit when a component isn't finished yet but needs to be integrated?
+>
+> **A:** Build the full skeleton first — input/output contracts, error handling, routing logic — with a stub implementation. This proves the wiring compiles, tests pass, and the fallback mechanism works before the complex part (the real LLM call) arrives. It also makes the real logic *replace* the stub without any structural changes, and makes the fallback path visible and testable from day one.
+
+**What happened and why:**
+- Added `assess_node` to `src/agents/nodes/assess.py` with the full input/output contract (`AgentState` → `AssessmentOutput`) and a try/except wrapper around the entire output construction block.
+- The LLM call is a stub returning an empty `AssessmentOutput` — the point is proving the signature works, the error handling activates on exception, and the graph compiles.
+- Wired `assess_node` into the graph with a conditional edge (`_route_after_assess`) that examines the assessment result and routes to the next node. Both paths currently go to the same destination — that's intentional, making the routing function visible without overcomplicating the decision logic yet.
+- Added `update_profile_node` as a one-line passthrough stub in `graph.py` — temporary placement signals this will be extracted and fully implemented in Commit 15.
+- The try/except wraps construction, not just an LLM call, so when the real LLM chain replaces the stub in Commit 13, the fallback mechanism works unchanged.
+
+**Reasoning & discovery:**
+1. The problem: Commits 13–15 will add assessment logic, profile updates, and adaptive routing, but the graph structure was complete. We needed to prove the assessment node could slot in cleanly without later structural changes.
+2. Alternatives considered: (a) Skip the stub and jump straight to the real LLM call — rejected because it couples assessment logic to graph wiring, makes testing fallback harder, and hides integration risk. (b) Use `add_edge` instead of `add_conditional_edges` — rejected because it hides the fallback path in the graph inspector and requires structural changes if Commit 15 diverges the two paths. (c) Wrap only the LLM call, not the entire construction — rejected because real parse errors will happen during `AssessmentOutput` creation, and we want the fallback to catch those too.
+3. What clinched it: Viktor's review flagged a dead `if` statement in the first version of `_route_after_assess` (both branches did the same thing). Removing the conditional logic entirely and just returning `"update_profile"` unconditionally was the fix — the point of the function is the named routing hook, not the decision logic (which will come in Commit 15).
+
+**Design pattern:**
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Stub implementation | assess_node returns an empty `AssessmentOutput` until the real LLM call lands in Commit 13 | Proves the signature and error handling work before the expensive part is written; fallback is testable from day one |
+| Explicit error boundary | try/except wraps the entire `AssessmentOutput` construction, not just a hypothetical LLM call | Real parse failures happen during construction, not the call itself; fallback mechanism must be robust to the real failure modes |
+| Named routing hook | `_route_after_assess` exists even though both branches route the same way today | Makes the routing decision visible and testable; supports divergence in Commit 15 without graph rewiring; keeps the conditional edge explicit in graph inspection tools |
+| Temporary placement | `update_profile_node` stub lives in `graph.py` rather than its own file | Signals one-commit status; Commit 15 creates the real file and moves it, keeping graph.py clean |
+
+**Files touched:**
+- `src/agents/nodes/assess.py` — new (84 lines): `assess_node` with full RAGState → AssessmentOutput contract, try/except fallback, stub LLM call returning empty output
+- `src/agents/graph.py` — update (+38 lines): assess_node imported and added to graph; `update_profile_node` stub added; `_route_after_assess` conditional router added; edges wired
+- `tests/test_assess_node.py` — new (258 lines, 19 tests): Gate 1 validates stub output shape; Gate 2 validates boundary condition (score presence); Gate 3 patches AssessmentOutput to raise and validates fallback triggers; Gate 4 validates conditional edge routing logic; Gate 5 validates the assembled graph compiles

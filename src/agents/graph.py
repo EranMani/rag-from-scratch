@@ -5,27 +5,61 @@ Factory function pattern: build_graph() is called once at application startup
 inside the FastAPI lifespan and stored on app.state.rag_graph.  No module-level
 singleton is created here.
 
-Graph topology (Commit 10 — linear):
-    START → retrieve_node → generate_node → END
+Graph topology (Commit 12):
+    START → retrieve_node → generate_node → assess_node
+                                                ↓ (assessment_error == False)
+                                          update_profile_node → END
+                                                ↓ (assessment_error == True)
+                                          update_profile_node → END   (fallback: empty delta)
 
-Later commits will add assess_node and profile_update_node between generate and END.
+Both the normal path and the fallback path converge at update_profile_node.
+update_profile_node is a passthrough stub in this commit (replaced in Commit 15).
 
 Recursion limit is set defensively at compile time via graph_config to prevent
 an unconstrained loop from blocking a user request indefinitely.
 """
 
+from typing import Any
+
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from agents.nodes.assess import assess_node
 from agents.nodes.generate import generate_node
 from agents.nodes.retrieve import retrieve_node
 from agents.state import AgentState
 
 # Maximum number of node transitions before LangGraph raises GraphRecursionError.
-# A linear 2-node graph cannot legitimately exceed this value; it exists as a
-# hard guardrail against graph wiring bugs or future conditional edge cycles.
+# With a 4-node linear graph this limit cannot be reached legitimately; it guards
+# against graph wiring bugs or future conditional edge cycles.
 _RECURSION_LIMIT: int = 10
+
+
+# ---------------------------------------------------------------------------
+# Stub node — will be replaced in Commit 15
+# ---------------------------------------------------------------------------
+
+def update_profile_node(state: AgentState) -> dict[str, Any]:
+    """STUB (Commit 12): passthrough node that will apply topic_scores_delta to the
+    persistent user profile in Commit 15.  Returns an empty dict so the graph
+    continues to END without modifying any state fields.
+    """
+    return {}
+
+
+# ---------------------------------------------------------------------------
+# Conditional edge — reads assessment_error from state
+# ---------------------------------------------------------------------------
+
+def _route_after_assess(state: AgentState) -> str:
+    """Routes assess_node output to update_profile_node.
+
+    Both paths (assessment_error True and False) converge at update_profile_node
+    in Commit 12.  The conditional edge is kept for graph visualization — when
+    Commit 15 potentially diverges the paths, the routing logic lives here.
+    """
+    return "update_profile"
 
 
 def build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph:
@@ -46,11 +80,26 @@ def build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph:
     # Nodes
     builder.add_node("retrieve", retrieve_node)
     builder.add_node("generate", generate_node)
+    builder.add_node("assess", assess_node)
+    builder.add_node("update_profile", update_profile_node)  # stub — Commit 15
 
     # Edges
     builder.add_edge(START, "retrieve")
     builder.add_edge("retrieve", "generate")
-    builder.add_edge("generate", END)
+    builder.add_edge("generate", "assess")
+
+    # Conditional edge: both True and False paths lead to update_profile.
+    # Using add_conditional_edges makes the branching explicit and inspectable
+    # (LangGraph visualization / get_graph() will show both paths).
+    builder.add_conditional_edges(
+        "assess",
+        _route_after_assess,
+        {
+            "update_profile": "update_profile",
+        },
+    )
+
+    builder.add_edge("update_profile", END)
 
     return builder.compile(
         checkpointer=checkpointer,

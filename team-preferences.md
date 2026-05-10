@@ -153,56 +153,40 @@ No full codebase scans.
 **Ryan runs every commit — no exceptions.** The LEARNING_LOG is the Team Lead's primary
 learning artifact and must stay current.
 
+**Ryan is always invoked. Every commit gets a real entry — not a one-liner from Claude.**
+The LEARNING_LOG is the Team Lead's primary learning artifact. Depth scales with commit
+complexity (full entry vs. one-liner), but Ryan always writes it — never Claude.
+
 **Entry type rule:**
 - Full entry: commit updated ARCHITECTURE.md or DECISIONS.md, had a security finding,
   involved a non-obvious design decision, or introduced a new pattern
 - One-liner: routine test addition, config tweak, minor refactor, doc-only commit
 
----
-
-### One-liner entries — Claude writes directly, Ryan NOT invoked
-
-For one-liner commits, Claude composes the entry and appends it using Edit. No agent needed.
-
-Format (Claude writes this verbatim):
-```
----
-
-**Commit [N] — [commit-name]** · [date] · [agent] · `test|fix|config|refactor|docs`
-
-> **In one sentence:** [One recruiter-ready line.]
-
----
-```
-
-Claude uses Edit with `old_string` = the last `---` separator in the file,
-`new_string` = that separator + the new entry. No file read required — Claude already
-has the template from lines 1–99.
-
----
-
-### Full entries — Ryan invoked with Edit anchor, never reads the file
+**How to invoke Ryan — token-efficient, no file reads:**
 
 Step 1 — Claude reads `LEARNING_LOG.md` lines 1–99 only (template section).
 
-Step 2 — Claude reads the **last 15 lines** of `LEARNING_LOG.md` (use Read with
-         `offset = file_line_count - 15`). These are the Edit anchor Ryan will use.
+Step 2 — Claude reads the **last 15 lines** of `LEARNING_LOG.md` (Read with
+         `offset = file_line_count - 15`). These are the Edit anchor.
 
-Step 3 — Claude passes Ryan a prompt containing:
-         a) Lines 1–99 verbatim (the full entry template, so Ryan matches the format exactly)
-         b) The last 15 lines verbatim (the Edit anchor — Ryan inserts after these)
-         c) A tight commit brief (150–200 words max):
+Step 3 — Claude builds Ryan's prompt containing:
+         a) Lines 1–99 verbatim — so Ryan sees the exact template and matches the format
+         b) The last 15 lines verbatim — so Ryan can Edit without reading the file
+         c) A commit brief (150–200 words max, written by Claude):
             - Commit number, name, date, assignee
             - What changed (2–3 sentences)
             - Key decisions or non-obvious constraints (bullet points)
-            - Files touched (list)
+            - Nova/Rex/agent approach notes (from their worklog — Ryan reads thinking, not just outcome)
+            - Files touched
+            - Entry type: "full" or "one-liner"
 
-Step 4 — Ryan uses Edit ONLY:
-         old_string = [last 15 lines Claude provided]
-         new_string = [those same 15 lines] + [new full entry]
-         Ryan NEVER reads the file. Claude provides everything Ryan needs in the prompt.
+Step 4 — Ryan composes the entry and appends via Edit ONLY:
+         old_string = [exact last 15 lines Claude provided]
+         new_string = [those same 15 lines] + [new entry]
+         Ryan NEVER reads LEARNING_LOG.md himself. All context comes from Claude's prompt.
 
-Ryan never reads the raw diff. Claude summarizes it. Target: Ryan under 5k tokens per full entry.
+Ryan never reads the raw diff. Claude summarizes it.
+Target: Ryan under 8k tokens per full entry, under 3k tokens per one-liner.
 
 ---
 
@@ -285,6 +269,22 @@ Do not spin up a gate agent just to confirm "not triggered" — make that call y
 If a reviewer blocks, fix and re-run **only the blocking reviewer** — not the full wave.
 Exception: if the fix touches a different domain than the original block, re-run all
 triggered reviewers.
+
+### Commit message format (required for post-commit hook)
+Every commit message must include `Commit #NN` on its own line in the body.
+The post-commit hook parses this to auto-update commit-protocol.md and project-state.json.
+Without it, state must be updated manually.
+
+```
+[conventional-commit subject line]
+
+[body — what and why]
+
+Commit #NN
+-- AgentName
+
+Co-Authored-By: AgentName <email>
+```
 
 ---
 
@@ -395,5 +395,5 @@ Tech Writer:    Ryan
 | 2026-05-10 | Quality Gate Trigger Rules added | Conditional gates: Sage/Quinn only on specific commit types; re-run only the blocking reviewer on fix pass |
 | 2026-05-10 | Ryan runs every commit — tight brief only, no raw diff | LEARNING_LOG is the Team Lead's primary learning artifact; must stay current |
 | 2026-05-10 | Token budget target set: 11–15k per commit | Team Lead hard requirement — current 60–70k average is unsustainable |
-| 2026-05-10 | Ryan protocol overhauled — one-liners written by Claude directly, full entries use Edit anchor (no file read) | Ryan read 48k tokens just to append a one-liner by reading the full LEARNING_LOG |
+| 2026-05-10 | Ryan protocol overhauled — always invoked, uses Edit anchor Claude provides, never reads the file | Ryan read 48k tokens to append one entry by reading the full LEARNING_LOG; fix: Claude hands Ryan the last 15 lines as anchor |
 | 2026-05-10 | Viktor token target set to ≤25k; Claude passes git diff not full file contents | Claude pasting 532-line test file into Viktor prompt wasted ~20k tokens |
