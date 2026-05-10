@@ -1,39 +1,43 @@
-# Commit 19 Spec — `dynamic-chat-ui`
+﻿# Commit 19 Spec — `profile-ui-panel`
 > **Project:** rag-from-scratch · **Assignee:** Aria · **Load only for the active commit.**
 
 ---
 
-### Commit 19 — `dynamic-chat-ui`
+### Commit 19 — `profile-ui-panel`
 
-**Commit message:** `feat: agent state stage labels and profile refresh after each turn`
+**Commit message:** `feat: profile sidebar panel with refreshable knowledge profile display`
 
 **Body:**
-Two additions to the chat send flow:
+Adds a profile sidebar to the main chat page. Structural changes:
 
-1. **Agent stage indicators**: replaces the single `"Thinking..."` label with a
-   timer-driven sequence of stage labels while `asyncio.to_thread(graph.invoke, ...)`
-   runs: `"Retrieving context..."` → `"Assessing your level..."` → `"Generating response..."`.
-   A `ui.timer` at 2.5s intervals advances the label. Timer is cancelled when the
-   thread returns. Labels are honest about the pipeline existing without requiring
-   real-time graph callbacks.
+1. **Layout refactor**: replaces the single centered `ui.column` container with a
+   `ui.row` containing a left sidebar (~280px) and right chat area (`flex:1`).
 
-2. **Profile refresh**: after each turn, calls `profile_panel.refresh()` so the
-   sidebar reflects any topic score updates from the completed turn. The refresh
-   makes a new `GET /api/profile/me` request.
+2. **Dead code removal**: the duplicate inline login form in `index()` (lines ~195–231
+   in the current `ui.py`) is removed and replaced with `ui.navigate.to("/login")`.
+   This also removes the duplicate `do_login()` closure.
 
-3. **Adaptation badge**: if `user_level` is present in the response, adds a small
-   badge to the response card: `"Adapted for: [level]"` in addition to the existing
-   cache/latency/chunks badges.
+3. **Profile panel**: built with `@ui.refreshable` decorator from day one so Commit 19
+   can call `.refresh()` without layout surgery. Fetches `GET /api/profile/me` on
+   page load. Displays:
+   - Mastery level label
+   - Topic scores as `ui.linear_progress` bars (one per module)
+   - Identified gaps as a short tag list
+   - Query count and "Last active" timestamp
+
+Panel handles the case where `topic_scores` is empty (fresh user) gracefully —
+shows "Start chatting to build your profile" message.
 
 **Assignee:** Aria (`aria.stockagent@gmail.com`)
 
 **Files touched:**
 - `src/app/ui.py`
 
-**Depends on:** 18
+**Depends on:** 06 (profile API), 17 (ChatResponse extended)
 
 **Testing — done when:**
-- [ ] Stage labels cycle visibly while a response is being generated
-- [ ] Profile panel updates after a turn completes (topic scores change after first substantive interaction)
-- [ ] `"Adapted for:"` badge appears when `user_level` is in the response
-- [ ] UI does not break when `user_level` is absent (anonymous or pre-assessment turn)
+- [ ] Logged-in user sees profile panel on the left side of the chat page
+- [ ] Fresh user (no interactions yet) sees the empty-state message, not an error
+- [ ] Profile panel loads without blocking the chat area
+- [ ] Logging out clears the profile panel
+- [ ] Duplicate inline login form is gone from `index()`

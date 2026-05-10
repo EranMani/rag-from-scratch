@@ -53,6 +53,10 @@
 38. **user_level not written from assess_node to AgentState** — avoids circular turn-update; user_level ownership deferred to update_profile_node in C15
 39. **LangChain chain mock via `prompt.__or__` patch** — `MagicMock` is not a `Runnable`; patching `__or__` intercepts before `RunnableSequence` construction; established pattern for LCEL chain tests (C13)
 
+## Adaptive Prompt Library (C17)
+44. **DEFAULT_PROMPT separate from PROMPT_TEMPLATES dict** — enables `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)`; prevents `None` key in dict; makes fallback intent explicit at every call site
+45. **Single `{context}` variable per template** — question is already in `state["messages"]` as HumanMessage; double injection would confuse model priority; only retrieved context needs injection
+
 ## Scoring Service Patterns (C14)
 40. **Invalid slug filter by value type, not allowlist** — allowlist couples scoring to curriculum; value-type check (`isinstance(score, (int, float))`) is the correct scoring invariant; unknown-but-numeric slugs stored; enforcement belongs at Nova's assess_node boundary
 41. **Silent score clamping to [0.0, 1.0]** — defensive last-writeable boundary before profile persistence; LLM may produce out-of-range values; no log on clamp (add later if monitoring needed)

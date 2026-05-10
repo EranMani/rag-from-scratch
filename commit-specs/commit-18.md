@@ -1,43 +1,46 @@
-# Commit 18 Spec — `profile-ui-panel`
-> **Project:** rag-from-scratch · **Assignee:** Aria · **Load only for the active commit.**
+﻿# Commit 18 Spec — `adaptive-graph-integration`
+> **Project:** rag-from-scratch · **Assignee:** Nova · **Load only for the active commit.**
 
 ---
 
-### Commit 18 — `profile-ui-panel`
+### Commit 18 — `adaptive-graph-integration`
 
-**Commit message:** `feat: profile sidebar panel with refreshable knowledge profile display`
+**Commit message:** `feat: wire adaptive prompts into graph, fix cache key, extend ChatResponse`
 
 **Body:**
-Adds a profile sidebar to the main chat page. Structural changes:
+Three related wiring changes that complete the adaptive intelligence system:
 
-1. **Layout refactor**: replaces the single centered `ui.column` container with a
-   `ui.row` containing a left sidebar (~280px) and right chat area (`flex:1`).
+1. **`generate_node` updated**: reads `user_level` from `AgentState`, selects the
+   matching prompt template from `src/agents/prompts.py`, uses it for the LLM call.
 
-2. **Dead code removal**: the duplicate inline login form in `index()` (lines ~195–231
-   in the current `ui.py`) is removed and replaced with `ui.navigate.to("/login")`.
-   This also removes the duplicate `do_login()` closure.
+2. **Cache key fix**: the Redis query-level cache key now incorporates `user_level`.
+   Without this, two users at different mastery levels asking the same question
+   receive the same cached response. New key: `rag:query:{sha256(question + user_level)}`.
+   For anonymous users (no `user_id`), behavior is unchanged.
 
-3. **Profile panel**: built with `@ui.refreshable` decorator from day one so Commit 19
-   can call `.refresh()` without layout surgery. Fetches `GET /api/profile/me` on
-   page load. Displays:
-   - Mastery level label
-   - Topic scores as `ui.linear_progress` bars (one per module)
-   - Identified gaps as a short tag list
-   - Query count and "Last active" timestamp
+3. **`ChatResponse` extended**: `src/app/api/routes/chat.py` gains two new optional
+   fields that the UI uses in Commit 19:
+   ```python
+   user_level: str | None = None
+   assessed_topics: list[str] = []
+   ```
+   These are populated from `AgentState` by the graph wrapper in `chain.py`.
 
-Panel handles the case where `topic_scores` is empty (fresh user) gracefully —
-shows "Start chatting to build your profile" message.
+Cross-domain note: items 2 and 3 touch Rex's files (`redis_cache.py`, `chat.py`).
+Nova writes the diff; Rex reviews it in the quality gate before approval.
 
-**Assignee:** Aria (`aria.stockagent@gmail.com`)
+**Assignee:** Nova (`nova.nodegraph@gmail.com`)
 
 **Files touched:**
-- `src/app/ui.py`
+- `src/agents/nodes/generate.py` (select adaptive template)
+- `src/rag/cache/redis_cache.py` (update query cache key)
+- `src/app/api/routes/chat.py` (extend ChatResponse)
+- `src/rag/chain.py` (populate new ChatResponse fields from AgentState)
 
-**Depends on:** 06 (profile API), 17 (ChatResponse extended)
+**Depends on:** 15, 16
 
 **Testing — done when:**
-- [ ] Logged-in user sees profile panel on the left side of the chat page
-- [ ] Fresh user (no interactions yet) sees the empty-state message, not an error
-- [ ] Profile panel loads without blocking the chat area
-- [ ] Logging out clears the profile panel
-- [ ] Duplicate inline login form is gone from `index()`
+- [ ] Two users at different mastery levels asking the same question receive different responses (not served from the same cache entry)
+- [ ] Anonymous user chat behavior is unchanged
+- [ ] `ChatResponse` includes `user_level` and `assessed_topics` in JSON output
+- [ ] Novice user receives an answer with simpler vocabulary than expert user (manual review)

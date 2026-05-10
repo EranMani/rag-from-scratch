@@ -116,6 +116,14 @@ responsive to who they are, not a static Q&A tool.
 - **Depends on:** Topic Scoring Service (`compute_topic_scores`), User Profile Service (`get_profile_by_user_id`, `update_profile`)
 - **Introduced in:** Commit 15 (stub from Commit 12 replaced)
 
+### Adaptive Prompt Template Library
+- **Type:** prompt library
+- **Owner:** Nova
+- **Purpose:** 5 mastery-level `ChatPromptTemplate` objects (novice → expert) and a `DEFAULT_PROMPT` fallback. Templates vary in explanation depth, assumed prior knowledge, and vocabulary level. Commit 18 wires them into `generate_node`.
+- **Interface:** `PROMPT_TEMPLATES: dict[str, ChatPromptTemplate]` and `DEFAULT_PROMPT: ChatPromptTemplate` — both importable from `agents.prompts`
+- **Contract:** each template takes a single `{context}` input variable; `.format_messages(context=...)` returns `[SystemMessage]`
+- **Introduced in:** Commit 17
+
 ### Redis Cache
 - **Type:** cache
 - **Owner:** Nova (logic), Adam (infrastructure)
@@ -304,4 +312,4 @@ Implemented in `src/app/profile/scoring.py` (Commit 14). Pure function — no DB
 
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 
-*Last updated: 2026-05-10 — Commit 14 complete (topic scoring service; scoring algorithm thresholds documented)*
+*Last updated: 2026-05-10 — Commit 17 complete (adaptive prompt template library; PROMPT_TEMPLATES + DEFAULT_PROMPT)*

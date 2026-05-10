@@ -1036,3 +1036,39 @@ def update_profile_node(state: AgentState) -> dict:
 
 **Commit 16 — `fix-score-delta-semantics`** · 2026-05-10 · Rex · `fix`
 > `compute_topic_scores` was treating LLM deltas as absolute scores, silently clamping negatives to 0.0 and losing user weakness signal; fixed to additive merge with clamping to [0.0, 1.0], added 14 isolation tests, 208/208 tests pass.
+
+---
+
+**Commit 17 — `adaptive-prompt-templates`** · 2026-05-10 · Nova · `new feature`
+
+> **In one sentence:** Built a mastery-level–aware prompt templating system that adapts explanation depth and technical vocabulary to the user's demonstrated knowledge, enabling better LLM responses across the full skill spectrum.
+
+**Interview talking point:**
+> **Q:** How did you handle the problem of one-size-fits-all prompts failing for both novices and experts?
+>
+> **A:** We moved the prompt choice logic from the LLM (implicit) to the application layer (explicit). Five templates keyed by mastery level — novice gets analogies and step-by-step structure, expert gets maximum technical density. The fallback is a clean `.get(level, DEFAULT_PROMPT)` pattern, so new users default to the original behavior with zero regression.
+
+**What happened and why:**
+- Created `src/agents/prompts/rag.py` with 5 `ChatPromptTemplate` objects and a `DEFAULT_PROMPT` sentinel keyed by mastery level (`novice`, `beginner`, `intermediate`, `advanced`, `expert`)
+- Solves the core problem: LLMs produce bad output when the prompt assumes more (or less) knowledge than the user has; Commit 15 measured this; now we adapt the prompt itself rather than hoping post-processing fixes it
+- Chose keying by explicit mastery level over implicit detection during generation — the mastery score already exists in state; asking the LLM to self-assess while generating is cheaper in compute but higher variance in quality
+- `DEFAULT_PROMPT` stays separate from `PROMPT_TEMPLATES` dict to prevent `None` key lookups and enable the clean fallback; mirrors the existing inline `SystemMessage` from `generate_node` exactly to guarantee zero regression for unassessed users
+
+**Reasoning & discovery:**
+1. Commit 15 showed that "one prompt for all users" produces either surface-level or too-technical output depending on audience; the problem was first understood as "prompt quality variance by skill level" but testing revealed it was actually "prompt semantic misalignment"
+2. Ruled out: runtime prompt generation (LLM-based), hardcoded if-else branching (unmaintainable), and embedding templates in the node itself (violates Commit 13's architecture — prompts belong in `src/agents/prompts/`)
+3. Clinched by the realization that mastery score is already in graph state and trusted; using it directly for template selection is the lowest-latency, highest-signal approach
+
+**Design pattern:**
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Template registry with fallback | `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)` — templates stored in dict, fallback is explicit | Enables easy addition of new mastery levels without code change; fallback prevents `None` and ensures backwards compatibility |
+| Prompt-as-artifact principle | Prompts live in `src/agents/prompts/`, imported and passed to nodes, never inlined | Decouples prompt iteration from node logic; same prompt is reusable, versionable, and testable in isolation |
+| Graduated explanation depth | Templates differ in: vocabulary, assumed prior knowledge, analogy richness, structure guidance | Users at different levels learn differently; the *prompt itself* must vary, not just the response |
+
+**Files touched:**
+- `src/agents/prompts/rag.py` — new: 5 `ChatPromptTemplate` objects + `DEFAULT_PROMPT` constant
+- `src/agents/prompts/__init__.py` — modified: re-exports all templates and default for use in nodes
+- `tests/test_rag_prompts.py` — new: 25 tests across templates; all 3 spec gates covered (correctness, fallback, regression)
+- `ARCHITECTURE.md` — modified: added section "Prompt Templating & Mastery-Level Adaptation" with data flow diagram
+- `DECISIONS.md` — modified: new entry "Why template selection happens at application layer, not in the LLM"

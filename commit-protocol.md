@@ -26,7 +26,7 @@
 | 14 | topic-scoring-service | backend | ✅ done · 2026-05-10 |
 | 15 | fix-score-delta-semantics | backend | ✅ done · 2026-05-10 |
 | 16 | profile-update-node | ai-engineer | ✅ done · 2026-05-10 |
-| 17 | adaptive-prompt-templates | ai-engineer | pending |
+| 17 | adaptive-prompt-templates | ai-engineer | ✅ done · 2026-05-10 |
 | 18 | adaptive-graph-integration | ai-engineer | pending |
 | 19 | profile-ui-panel | frontend | pending |
 | 20 | dynamic-chat-ui | frontend | pending |

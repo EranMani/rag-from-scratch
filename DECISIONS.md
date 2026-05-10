@@ -351,6 +351,24 @@
 - **Reason:** The scoring service is the last writeable boundary before profile persistence. Out-of-range scores would cause `get_mastery_level` to return correct-looking results that violate the documented threshold invariants. The LLM is the source of `assessed_topics` — defensive clamping prevents malformed LLM output from corrupting the profile.
 - **Consequences:** Spec-compliant callers (scores in [0.0, 1.0]) observe no change. Clamping is silent — there is no warning log when a value is clamped. If monitoring of out-of-range values is needed later, a log call should be added here.
 
+### `DEFAULT_PROMPT` is separate from `PROMPT_TEMPLATES` dict (Commit 17)
+- **Date:** 2026-05-10
+- **Commit:** 17
+- **Decided by:** Nova (applied)
+- **Decision:** `DEFAULT_PROMPT` is a standalone `ChatPromptTemplate` object — not a key in `PROMPT_TEMPLATES`. Callers use `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)` to resolve the correct template with a single call.
+- **Alternatives considered:** Including `DEFAULT_PROMPT` as `PROMPT_TEMPLATES["default"]` and using `.get(user_level, PROMPT_TEMPLATES["default"])`.
+- **Reason:** A `"default"` key would silently pass if an unknown level string matched exactly (e.g., `None` or `""`). Keeping `DEFAULT_PROMPT` outside the dict makes the fallback contract explicit at the call site and prevents callers from accidentally indexing the dict directly without a fallback.
+- **Consequences:** All callers must use `.get(user_level, DEFAULT_PROMPT)` — not `PROMPT_TEMPLATES[user_level]`. The `DEFAULT_PROMPT` import is always required alongside `PROMPT_TEMPLATES`. Any new level added to `PROMPT_TEMPLATES` does not affect the fallback behavior.
+
+### Single `{context}` variable per adaptive template (Commit 17)
+- **Date:** 2026-05-10
+- **Commit:** 17
+- **Decided by:** Nova (applied)
+- **Decision:** Each template in `PROMPT_TEMPLATES` (and `DEFAULT_PROMPT`) has exactly one input variable: `{context}`. The user question is not a template variable — it is already present in `state["messages"]` as a `HumanMessage`.
+- **Alternatives considered:** Two-variable templates with both `{context}` and `{question}` for explicit question repetition in the system prompt.
+- **Reason:** The question is in the message list that the LLM already sees. Injecting it again as a template variable would duplicate it in the system prompt, potentially confusing the model about which occurrence to prioritize. The only thing not already in the conversation that the template must inject is the retrieved context.
+- **Consequences:** `generate_node` calls `template.format_messages(context=context)` with exactly one argument. Passing any other variable raises a `KeyError` from `ChatPromptTemplate`. Tests verify this single-variable contract for all 5 levels and the default.
+
 ### Scoring-derived `gaps` written to DB, not LLM `identified_gaps` (Commit 15)
 - **Date:** 2026-05-10
 - **Commit:** 15

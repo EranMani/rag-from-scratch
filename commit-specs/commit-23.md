@@ -1,32 +1,61 @@
-# Commit 23 Spec — `integration-tests`
-> **Project:** rag-from-scratch · **Assignee:** Rex + Nova · **Load only for the active commit.**
+﻿# Commit 23 Spec — `aws-ec2-deployment`
+> **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
 
 ---
 
-### Commit 23 — `integration-tests`
+### Commit 23 — `aws-ec2-deployment`
 
-**Commit message:** `test: full graph integration tests and edge case coverage`
+**Commit message:** `feat: EC2 deployment scripts — systemd, SSL, swapfile, backup`
 
 **Body:**
-Integration tests that exercise the full LangGraph pipeline with real profile state
-transitions. These are end-to-end tests, not unit tests — they verify that commits
-07–17 work correctly as a system.
+All scripts and config needed for a clean first deploy on a fresh EC2 instance.
 
-Test scenarios:
-- Fresh user (no profile): graph runs, assessment runs, profile created with first scores
-- Return user (existing profile): graph runs, assessment merges delta into existing scores
-- Assessment failure: graph takes fallback edge, profile not updated, answer still returned
-- Anonymous user (`user_id=None`): graph runs, no profile writes, no error
-- Empty knowledge base (no docs): graph returns graceful "no information" answer
+`scripts/deploy.sh`:
+- Install Docker + Docker Compose plugin (not v1)
+- Clone repository to `/opt/rag-from-scratch`
+- `.env.prod` validation guard: `grep JWT_SECRET .env.prod || (echo "FATAL: JWT_SECRET missing" && exit 1)`
+- `docker compose -f docker-compose.prod.yml build`
+- `docker compose -f docker-compose.prod.yml up -d`
+- Ollama model pre-pull: `docker exec rag-ollama ollama pull gemma3:4b`
+- Run Certbot initial cert acquisition
 
-**Assignee:** Rex + Nova (coordinate — Rex owns profile assertions, Nova owns graph assertions)
+`systemd/rag-app.service`:
+- `After=docker.service`, `Requires=docker.service`
+- `ExecStart` runs `docker compose -f docker-compose.prod.yml up -d`
+- `ExecStop` runs `docker compose -f docker-compose.prod.yml down`
+- Ensures stack restarts after EC2 reboot
+
+`scripts/setup-swap.sh`:
+- Creates 4 GB swapfile at `/swapfile`
+- Cheap insurance against OOM kills during Ollama model loading spikes
+
+`scripts/backup.sh`:
+- Tarballs `data/app_users.db` (SQLite) and `chroma_data` Docker volume to S3
+- Intended to run via daily cron: `0 3 * * * /opt/rag-from-scratch/scripts/backup.sh`
+- S3 bucket and IAM role documented in script header
+
+`scripts/health-check.sh`:
+- Hits `https://{domain}/api/health`
+- Returns 0 on success, 1 on failure
+
+Target EC2 instance: **t3.xlarge** (4 vCPU, 16 GB RAM) with 32 GB gp3 EBS volume.
+Rationale: Ollama (gemma3:4b) needs ~3.5 GB RAM, ELK stack needs ~2 GB, app + ChromaDB
++ Redis need ~1 GB. t3.large (8 GB) is insufficient with monitoring running.
+
+**Assignee:** Adam (`adam.stockagent@gmail.com`)
 
 **Files touched:**
-- `tests/test_integration.py` (new)
+- `scripts/deploy.sh` (new)
+- `scripts/health-check.sh` (new)
+- `scripts/backup.sh` (new)
+- `scripts/setup-swap.sh` (new)
+- `systemd/rag-app.service` (new)
 
-**Depends on:** 17 (all features complete)
+**Depends on:** 21
 
 **Testing — done when:**
-- [ ] All 5 test scenarios pass
-- [ ] Tests do not require a live OpenAI key (Ollama or stubbed provider)
-- [ ] Profile state in SQLite is verifiably correct after each scenario
+- [ ] `scripts/deploy.sh` runs on a fresh Ubuntu EC2 instance without errors
+- [ ] `systemctl status rag-app` shows active after reboot
+- [ ] `scripts/health-check.sh` returns 0 on a running stack
+- [ ] Ollama responds with `gemma3:4b` after deploy (not on-demand pull)
+- [ ] `.env.prod` missing → deploy.sh exits with FATAL message, not silently continues

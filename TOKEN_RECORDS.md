@@ -176,6 +176,25 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 17 — `adaptive-prompt-templates` · 2026-05-10 · Nova
+
+> Gate wave: none (Viktor/Quinn cadence at Commit 20).
+> Sage not triggered (no auth/secrets/external API — pure prompt library).
+> Mira not triggered (internal module — not user-facing behavior).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target |
+|---|---|---|---|---|
+| Nova (implementation) | Sonnet | 63,858 | 26 | **+4k** over ≤60k (marginal); 26 tool uses (1 over 25 cap) |
+| Ryan | Haiku | 59,673 | 5 | **+45k** over ≤15k (consistent with full entries) |
+| **Total** | | **123,531** | **31** | over ≤75k combined |
+
+**Notes:**
+- Nova: +4k over target — marginal. 26 tool uses slightly over the 25 cap. Single new file with well-structured prompt library; no read-modify-read spiral.
+- Ryan: 59,673 tokens for a full entry is consistent with prior full-entry cost (~50–60k). Full entries with ARCHITECTURE.md + DECISIONS.md updates reliably cost this much. One-liners would cost ~3–5k.
+- No gate wave = low-cost commit profile (implementation + Ryan only).
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -187,6 +206,7 @@ No token data recorded. Tracking began at Commit 10.
 | 13 | langgraph-assessment-llm | 188,605 | Sage only | **2.1× over** | Nova spiral + Ryan full LEARNING_LOG |
 | 14 | topic-scoring-service | 71,923 | none | **✅ under** | Execution Constraints working |
 | 15 | profile-update-node | TBD | Viktor + Quinn (Haiku) | target ≤90k | first gate wave at new cadence |
+| 17 | adaptive-prompt-templates | 123,531 | none | over ≤75k | Ryan full-entry cost; Nova marginal over |
 
 ---
 

@@ -138,6 +138,18 @@
 **Used in:** `src/app/api/routes/chat.py` (emitted in `generate_stream()`), `tests/test_chat_route.py`
 **Introduced in:** Commit 10
 
+### PROMPT_TEMPLATES
+**Meaning on this project:** A `dict[str, ChatPromptTemplate]` defined in `src/agents/prompts/rag.py` and exported from `agents.prompts`. Keys are the 5 mastery level strings (`"novice"`, `"beginner"`, `"intermediate"`, `"advanced"`, `"expert"`). Each value is a `ChatPromptTemplate` with a single `{context}` input variable. `generate_node` calls `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)` to select the correct template before each LLM call.
+**Distinct from:** `DEFAULT_PROMPT` (the fallback template — not in the dict); `assessment_prompt` (the assessment node's prompt in `src/agents/prompts/assessment.py`).
+**Used in:** `src/agents/prompts/rag.py`, `src/agents/prompts/__init__.py` (Commit 17); `src/agents/nodes/generate.py` (Commit 18)
+**Introduced in:** Commit 17
+
+### DEFAULT_PROMPT
+**Meaning on this project:** A `ChatPromptTemplate` defined in `src/agents/prompts/rag.py` that mirrors the existing inline `SystemMessage` in `generate_node`. Used as the fallback when `PROMPT_TEMPLATES.get(user_level)` returns `None` (unset or unknown mastery level). Contains the same "Answer using ONLY the provided context" constraint and RAG domain framing as the original inline message — ensures zero regression for users who haven't been assessed yet.
+**Distinct from:** `PROMPT_TEMPLATES` (the mastery-level dict — `DEFAULT_PROMPT` is not a key in it); a bare string (it is a `ChatPromptTemplate` with a `{context}` variable).
+**Used in:** `src/agents/prompts/rag.py`, `src/agents/prompts/__init__.py` (Commit 17)
+**Introduced in:** Commit 17
+
 ### WAL Mode
 **Meaning on this project:** SQLite Write-Ahead Logging journal mode. Enables concurrent reads during a write operation. Enabled via `PRAGMA journal_mode=WAL` in `_connect()`. Required because the LangGraph agent thread writes profile updates while FastAPI request threads read user data concurrently.
 **Used in:** `src/app/auth/db.py`, `src/app/profile/db.py`

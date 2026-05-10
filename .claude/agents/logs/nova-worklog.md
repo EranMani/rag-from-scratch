@@ -5,13 +5,26 @@
 ---
 
 ## Current State
-*Last updated: Commit 15 `profile-update-node` · 2026-05-10*
+*Last updated: Commit 17 `adaptive-prompt-templates` · 2026-05-10*
 
-**Last completed:** Commit 15 `profile-update-node` ✅
+**Last completed:** Commit 17 `adaptive-prompt-templates` ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
+- Commit 18 (generate_node wiring): consume `PROMPT_TEMPLATES` and `DEFAULT_PROMPT` from
+  `agents.prompts`. Usage pattern:
+  ```python
+  from agents.prompts import PROMPT_TEMPLATES, DEFAULT_PROMPT
+  template = PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)
+  system_msg = template.format_messages(context=context)[0]
+  ```
+  Every template has exactly one input variable: `{context}`. The returned list is always
+  `[SystemMessage]` — take index 0. Replace the inline `SystemMessage(content=...)` in
+  `generate_node` with this call.
+- Commit 18: `DEFAULT_PROMPT` is the zero-regression fallback. It contains the same
+  "Answer using ONLY the provided context" constraint and "RAG systems" framing as the
+  current inline SystemMessage. No behavior change when `user_level` is unset.
 - Commit 18 (UI profile panel): `update_profile_node` sets `last_activity_at` on every
   successful assessment turn using `datetime.now(timezone.utc).isoformat()`. The field is
   guaranteed to be a valid ISO 8601 UTC string after any authenticated turn with no
@@ -30,6 +43,9 @@
   passed directly without json.loads.
 
 **Key Interfaces I Own (for teammates):**
+- `src/agents/prompts/rag.py` — `PROMPT_TEMPLATES: dict[str, ChatPromptTemplate]` (5 keys: novice/beginner/intermediate/advanced/expert)
+  and `DEFAULT_PROMPT: ChatPromptTemplate`. Both exported from `agents.prompts` package `__init__.py`.
+  Single input variable per template: `{context}`. Returns `[SystemMessage]` on `.format_messages(context=...)`.
 - `src/agents/graph.py` — `build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph`
   Factory function. Called once in lifespan; result stored on `app.state.rag_graph`.
   `recursion_limit=10` baked into compiled graph config.
@@ -106,6 +122,7 @@ No archived sessions yet.
 | 06 | Commit 12 `langgraph-assessment-scaffold` | ✅ Done | Conditional edge: both error and non-error paths route to update_profile — structural branching now explicit via add_conditional_edges; update_profile_node is a passthrough stub declared in graph.py, not a separate file. |
 | 07 | Commit 13 `langgraph-assessment-llm` | ✅ Done | Prompt in dedicated file; assessment_prompt.__or__ mock pattern avoids RunnableSequence internals in tests; user_level NOT written back to state. |
 | 08 | Commit 15 `profile-update-node` | ✅ Done | Synchronous node in its own file; two fast-exit paths (None user_id, assessment_error=True); identified_gaps state field maps to `gaps` DB column; no json.loads on topic_scores. |
+| 09 | Commit 17 `adaptive-prompt-templates` | ✅ Done | Five mastery-level ChatPromptTemplates + DEFAULT_PROMPT in src/agents/prompts/rag.py; exported via package __init__; single {context} variable; system-message-only templates for Commit 18 wiring. |
 
 ---
 
@@ -1128,3 +1145,130 @@ functions (`patch("agents.nodes.update_profile.get_profile_by_user_id", ...)`) r
 a real SQLite database. This is the correct choice for a unit test — the DB round-trip is
 tested in `test_profile_service.py` where it belongs. The gate tests verify behavioral
 contracts, not DB internals.
+
+---
+
+## Session 09 — Commit 17: `adaptive-prompt-templates`
+
+**Date:** 2026-05-10
+**Status:** ✅ Done
+
+### Task Brief
+
+Create `src/agents/prompts/rag.py` — a prompt template library for the RAG pipeline.
+Five mastery-level `ChatPromptTemplate` objects keyed by user_level string, plus a
+`DEFAULT_PROMPT` that replicates the current inline `SystemMessage` in `generate_node`.
+Commit 18 wires these into the generate node.
+
+### AI Problem Being Solved
+
+This commit is prompt engineering, not AI inference. The engineering challenge is:
+how to structure five variants of the same prompt constraint so they differ in pedagogical
+depth without relaxing the factual constraint ("Answer using ONLY the provided context").
+Every level must carry that constraint — it cannot be a "novice gets gentle framing but
+expert skips it" situation. The constraint is safety, not style.
+
+The secondary challenge: what template shape does Commit 18 need? The current `generate_node`
+builds a `SystemMessage` inline and passes it as the first element of the messages list to
+`llm.ainvoke()`. Commit 18's replacement will call `template.format_messages(context=context)[0]`
+to get the same `SystemMessage`. That means each template should be a single-system-message
+`ChatPromptTemplate` with `{context}` as its only input variable — not a multi-turn template.
+
+### Prompt Design Decisions
+
+**Template shape: system-message-only `ChatPromptTemplate`.**
+Each template is `ChatPromptTemplate.from_messages([("system", _SYSTEM_TEXT)])`.
+The human messages come from `state["messages"]` — the template only provides the
+framing context. This mirrors the existing `generate_node` pattern exactly.
+
+**Single input variable `{context}`.**
+The `user_level` framing is baked into each template's system text rather than
+being a runtime variable. This is correct: each template is *already* the
+user_level-specific framing. Passing `user_level` as a variable would require a
+conditional inside the template, defeating the purpose of having separate templates.
+
+**`DEFAULT_PROMPT` is not aliased to any level in `PROMPT_TEMPLATES`.**
+It is a distinct object. This allows `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)`
+in Commit 18 to unambiguously signal "level not set / unrecognised" vs "level is novice."
+If the default were aliased to the novice template, the test assertion
+`test_default_prompt_is_not_in_prompt_templates` would fail — and Commit 18 would not
+be able to distinguish a "novice explicitly assessed" case from a "not yet assessed" case.
+
+**Negative constraint language is explicit in every template.**
+"Do NOT invent facts or go beyond it" appears in novice and beginner. "Do NOT invent
+facts" is implied by "ONLY the provided context" in intermediate/advanced/expert. Both
+phrasings are correct; the longer form is used where the user may not know what "ONLY
+the provided context" means in practice.
+
+**Level differentiation strategy:**
+- novice: analogies, define every term, short sentences, numbered steps
+- beginner: can assume LLM familiarity, one concept at a time, concrete examples
+- intermediate: why behind design choices, tradeoffs, precision over verbosity
+- advanced: skip framing, surface edge cases and failure modes, precise vocabulary
+- expert: maximum density, no analogies, highlight subtle/non-obvious implications
+
+### What Was Considered and Ruled Out
+
+1. **Parameterized single template with `{user_level}` variable** — rejected. A single
+   template with an instruction like "adapt depth for {user_level}" is what `generate_node`
+   already does inline. The spec explicitly asks for five distinct templates because the
+   actual vocabulary, structure, and assumed prior knowledge differ in ways that a single
+   parameterized instruction cannot capture reliably without turning into a meta-prompt.
+
+2. **Storing templates as `PromptTemplate` (string-only) instead of `ChatPromptTemplate`**
+   — rejected. The rest of the codebase (assessment.py) uses `ChatPromptTemplate`. LangGraph
+   nodes work with LangChain message types. Consistency matters for Commit 18.
+
+3. **Exporting from `agents.prompts.rag` directly without `__init__.py` re-export** — rejected.
+   The spec says `from agents.prompts import PROMPT_TEMPLATES, DEFAULT_PROMPT`. That requires
+   the package `__init__.py` to re-export. The alternative (requiring Commit 18 to import from
+   `agents.prompts.rag` directly) would be a longer path and would break the spec's stated import.
+
+4. **Including `{question}` as a template variable** — considered. If the human message came
+   from the template rather than `state["messages"]`, the template would need `{question}`.
+   Rejected: the current `generate_node` prepends a system message and then passes the full
+   `state["messages"]` list (which already contains the question as `HumanMessage`). Adding
+   `{question}` to the template would require Commit 18 to restructure how messages are passed
+   to `llm.ainvoke()`, which is beyond this commit's scope.
+
+### Failure Modes Considered
+
+- **Commit 18 passes wrong variable name** — if Commit 18 calls `template.format_messages(ctx=...)`
+  instead of `template.format_messages(context=...)`, LangChain raises `KeyError`. The tests
+  document `{context}` as the only variable, and the handoff note makes this explicit.
+- **`DEFAULT_PROMPT` drifts from `generate_node` inline behavior** — the test
+  `test_default_prompt_contains_rag_constraint` checks verbatim for "ONLY the provided context"
+  and `test_default_prompt_references_rag_domain` checks for "RAG". These pin the behavioral
+  contract without coupling to the exact string.
+- **New mastery level added to `user_level` Literal in state.py** — `PROMPT_TEMPLATES` would
+  not have a key for it; `PROMPT_TEMPLATES.get(new_level, DEFAULT_PROMPT)` returns `DEFAULT_PROMPT`.
+  Acceptable degradation — the default is a reasonable fallback.
+
+### Test Results
+
+25 new tests in `tests/test_rag_prompts.py`, all passed on first run:
+- Gate 1 (12 tests): dict type, all 5 keys, each key individually, values are ChatPromptTemplate,
+  no extra keys, context variable accepted, SystemMessage produced, context embedded in output,
+  RAG constraint present in all templates
+- Gate 2 (9 tests): DEFAULT_PROMPT is ChatPromptTemplate, accepts context variable, produces
+  SystemMessage, embeds context, contains RAG constraint, references RAG domain, not aliased
+  to any level in dict, unknown level falls back to default, None level falls back to default
+- Gate 3 (3 tests): package-level import works, objects importable, submodule import path also works
+
+Full suite: 233 passed (208 prior + 25 new), 0 failures.
+
+### Approach
+
+The first question was template shape. The current `generate_node` uses an inline `SystemMessage`
+with the full conversation history passed separately — not a multi-turn `ChatPromptTemplate`.
+Replicating that pattern means each template is a single-message template that produces one
+`SystemMessage`. The handoff for Commit 18 is therefore clean: `template.format_messages(context=context)[0]`
+drops into the exact slot the inline `SystemMessage(content=...)` currently occupies.
+
+The second question was what differentiation actually matters across levels. Generic academic
+level descriptions ("novice uses simple language") are useless — an LLM produces nearly identical
+output for "simple" vs "accessible." The differentiation that actually changes LLM output is:
+(a) explicit assumed prior knowledge ("you can assume the user knows what an LLM is but not how
+retrieval works"), (b) explicit vocabulary instructions ("define every technical term the first time"),
+and (c) structural guidance ("break into numbered steps" vs "precision over verbosity"). All five
+templates use one or more of these levers rather than generic tone labels.

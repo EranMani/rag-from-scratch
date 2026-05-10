@@ -1,61 +1,43 @@
-# Commit 22 Spec — `aws-ec2-deployment`
+﻿# Commit 22 Spec — `nginx-config`
 > **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
 
 ---
 
-### Commit 22 — `aws-ec2-deployment`
+### Commit 22 — `nginx-config`
 
-**Commit message:** `feat: EC2 deployment scripts — systemd, SSL, swapfile, backup`
+**Commit message:** `feat: nginx reverse proxy with WebSocket support, HTTPS, and monitoring routes`
 
 **Body:**
-All scripts and config needed for a clean first deploy on a fresh EC2 instance.
+Adds nginx as a service in `docker-compose.prod.yml` and writes `nginx/nginx.conf`.
 
-`scripts/deploy.sh`:
-- Install Docker + Docker Compose plugin (not v1)
-- Clone repository to `/opt/rag-from-scratch`
-- `.env.prod` validation guard: `grep JWT_SECRET .env.prod || (echo "FATAL: JWT_SECRET missing" && exit 1)`
-- `docker compose -f docker-compose.prod.yml build`
-- `docker compose -f docker-compose.prod.yml up -d`
-- Ollama model pre-pull: `docker exec rag-ollama ollama pull gemma3:4b`
-- Run Certbot initial cert acquisition
+Required config (non-negotiable):
+- HTTP → HTTPS redirect (301), except `/.well-known/acme-challenge/` for Certbot renewal
+- SSL termination with Let's Encrypt certs at `/etc/letsencrypt/live/{domain}/`
+- `proxy_read_timeout 86400` — **critical**: NiceGUI WebSocket silently disconnects
+  at the default 60s timeout without this
+- `proxy_buffering off` — required for NiceGUI SSE fallback and any streaming responses
+- WebSocket upgrade headers: `Upgrade`, `Connection: upgrade`
+- `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto` headers
 
-`systemd/rag-app.service`:
-- `After=docker.service`, `Requires=docker.service`
-- `ExecStart` runs `docker compose -f docker-compose.prod.yml up -d`
-- `ExecStop` runs `docker compose -f docker-compose.prod.yml down`
-- Ensures stack restarts after EC2 reboot
-
-`scripts/setup-swap.sh`:
-- Creates 4 GB swapfile at `/swapfile`
-- Cheap insurance against OOM kills during Ollama model loading spikes
-
-`scripts/backup.sh`:
-- Tarballs `data/app_users.db` (SQLite) and `chroma_data` Docker volume to S3
-- Intended to run via daily cron: `0 3 * * * /opt/rag-from-scratch/scripts/backup.sh`
-- S3 bucket and IAM role documented in script header
-
-`scripts/health-check.sh`:
-- Hits `https://{domain}/api/health`
-- Returns 0 on success, 1 on failure
-
-Target EC2 instance: **t3.xlarge** (4 vCPU, 16 GB RAM) with 32 GB gp3 EBS volume.
-Rationale: Ollama (gemma3:4b) needs ~3.5 GB RAM, ELK stack needs ~2 GB, app + ChromaDB
-+ Redis need ~1 GB. t3.large (8 GB) is insufficient with monitoring running.
+Security:
+- `location /metrics { deny all; return 403; }` — Prometheus scrape endpoint must
+  not be publicly accessible
+- Monitoring dashboards proxied at internal paths with HTTP basic auth:
+  `/grafana/` → Grafana, `/kibana/` → Kibana, `/prometheus/` → Prometheus
+- Security headers: `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`,
+  `Strict-Transport-Security max-age=31536000`
 
 **Assignee:** Adam (`adam.stockagent@gmail.com`)
 
 **Files touched:**
-- `scripts/deploy.sh` (new)
-- `scripts/health-check.sh` (new)
-- `scripts/backup.sh` (new)
-- `scripts/setup-swap.sh` (new)
-- `systemd/rag-app.service` (new)
+- `nginx/nginx.conf` (new)
+- `docker-compose.prod.yml` (add nginx service with cert volumes)
 
-**Depends on:** 21
+**Depends on:** 20
 
 **Testing — done when:**
-- [ ] `scripts/deploy.sh` runs on a fresh Ubuntu EC2 instance without errors
-- [ ] `systemctl status rag-app` shows active after reboot
-- [ ] `scripts/health-check.sh` returns 0 on a running stack
-- [ ] Ollama responds with `gemma3:4b` after deploy (not on-demand pull)
-- [ ] `.env.prod` missing → deploy.sh exits with FATAL message, not silently continues
+- [ ] `nginx -t` (config test) passes inside the nginx container
+- [ ] `curl -I http://domain` returns 301 redirect to https
+- [ ] NiceGUI chat page remains connected for > 60 seconds without disconnect
+- [ ] `GET /metrics` returns 403 from outside the Docker network
+- [ ] WebSocket connection established (check browser DevTools Network tab)

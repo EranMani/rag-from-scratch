@@ -1,48 +1,39 @@
-# Commit 20 Spec — `production-compose`
-> **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
+﻿# Commit 20 Spec — `dynamic-chat-ui`
+> **Project:** rag-from-scratch · **Assignee:** Aria · **Load only for the active commit.**
 
 ---
 
-### Commit 20 — `production-compose`
+### Commit 20 — `dynamic-chat-ui`
 
-**Commit message:** `chore: production docker-compose with monitoring, hardened config, log rotation`
+**Commit message:** `feat: agent state stage labels and profile refresh after each turn`
 
 **Body:**
-Creates `docker-compose.prod.yml` as a standalone file (not a compose override).
-Key differences from dev compose:
+Two additions to the chat send flow:
 
-- `./src:/app/src` bind mount **removed** — prod runs the baked image
-- All internal service ports (`chroma`, `redis`, `ollama`, `elasticsearch`) use
-  `expose:` only — not mapped to host
-- `restart: always` on all services (survives EC2 reboots)
-- Logging driver on every service: `json-file` with `max-size: 10m`, `max-file: 5`
-- Memory limits: `ollama` capped at `5G` (t3.xlarge has 16 GB), `elasticsearch` JVM
-  heap reduced to `-Xms256m -Xmx512m`
-- Grafana: `GF_SECURITY_ADMIN_PASSWORD` read from env, not hardcoded
-- Elasticsearch: `xpack.security.enabled=false` flagged with a TODO comment for the
-  monitoring hardening commit — Team Lead decision to leave as-is for portfolio demo
-- Monitoring services (Prometheus, Grafana, ELK) **remain in prod compose** — portfolio
-  decision: the system should show it can evaluate itself in production
+1. **Agent stage indicators**: replaces the single `"Thinking..."` label with a
+   timer-driven sequence of stage labels while `asyncio.to_thread(graph.invoke, ...)`
+   runs: `"Retrieving context..."` → `"Assessing your level..."` → `"Generating response..."`.
+   A `ui.timer` at 2.5s intervals advances the label. Timer is cancelled when the
+   thread returns. Labels are honest about the pipeline existing without requiring
+   real-time graph callbacks.
 
-Also:
-- `docker-compose.yml` (dev): adds `profiles: [monitoring]` to ELK + Prometheus +
-  Grafana services so local dev can run `docker compose up` without the monitoring stack
-  and opt in with `--profile monitoring`
-- `.env.prod.example` created — all env vars required in production with no defaults
-  for secrets (JWT_SECRET, OPENAI_API_KEY, GRAFANA_ADMIN_PASSWORD documented as required)
+2. **Profile refresh**: after each turn, calls `profile_panel.refresh()` so the
+   sidebar reflects any topic score updates from the completed turn. The refresh
+   makes a new `GET /api/profile/me` request.
 
-**Assignee:** Adam (`adam.stockagent@gmail.com`)
+3. **Adaptation badge**: if `user_level` is present in the response, adds a small
+   badge to the response card: `"Adapted for: [level]"` in addition to the existing
+   cache/latency/chunks badges.
+
+**Assignee:** Aria (`aria.stockagent@gmail.com`)
 
 **Files touched:**
-- `docker-compose.prod.yml` (new)
-- `.env.prod.example` (new)
-- `docker-compose.yml` (add profiles: [monitoring] to monitoring services)
+- `src/app/ui.py`
 
-**Depends on:** 17 (all application features complete before production config is written)
+**Depends on:** 18
 
 **Testing — done when:**
-- [ ] `docker compose -f docker-compose.prod.yml config` validates without errors
-- [ ] No `./src:/app/src` bind mount present in prod compose
-- [ ] All monitoring service ports are internal-only (`expose:`, not `ports:`)
-- [ ] `.env.prod.example` contains every env var referenced in config.py with no secret defaults
-- [ ] Dev compose `docker compose up` starts without ELK/Prometheus (monitoring profile opt-in)
+- [ ] Stage labels cycle visibly while a response is being generated
+- [ ] Profile panel updates after a turn completes (topic scores change after first substantive interaction)
+- [ ] `"Adapted for:"` badge appears when `user_level` is in the response
+- [ ] UI does not break when `user_level` is absent (anonymous or pre-assessment turn)

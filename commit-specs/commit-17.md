@@ -1,46 +1,34 @@
-# Commit 17 Spec — `adaptive-graph-integration`
+﻿# Commit 17 Spec — `adaptive-prompt-templates`
 > **Project:** rag-from-scratch · **Assignee:** Nova · **Load only for the active commit.**
 
 ---
 
-### Commit 17 — `adaptive-graph-integration`
+### Commit 17 — `adaptive-prompt-templates`
 
-**Commit message:** `feat: wire adaptive prompts into graph, fix cache key, extend ChatResponse`
+**Commit message:** `feat: adaptive prompt templates per mastery level`
 
 **Body:**
-Three related wiring changes that complete the adaptive intelligence system:
+Creates the prompt template library used by `generate_node` (Commit 18 will wire
+them in). One template variant per mastery level. Templates differ in:
+- Explanation depth (novice: analogies + definitions; expert: technical detail only)
+- Assumed prior knowledge
+- Vocabulary level
 
-1. **`generate_node` updated**: reads `user_level` from `AgentState`, selects the
-   matching prompt template from `src/agents/prompts.py`, uses it for the LLM call.
+Templates are defined as a dict keyed on mastery level string. The `generate_node`
+selects the correct template based on `user_level` from `AgentState`.
 
-2. **Cache key fix**: the Redis query-level cache key now incorporates `user_level`.
-   Without this, two users at different mastery levels asking the same question
-   receive the same cached response. New key: `rag:query:{sha256(question + user_level)}`.
-   For anonymous users (no `user_id`), behavior is unchanged.
-
-3. **`ChatResponse` extended**: `src/app/api/routes/chat.py` gains two new optional
-   fields that the UI uses in Commit 19:
-   ```python
-   user_level: str | None = None
-   assessed_topics: list[str] = []
-   ```
-   These are populated from `AgentState` by the graph wrapper in `chain.py`.
-
-Cross-domain note: items 2 and 3 touch Rex's files (`redis_cache.py`, `chat.py`).
-Nova writes the diff; Rex reviews it in the quality gate before approval.
+Also includes a default template (used when `user_level` is not set) — identical
+to the current `RAG_PROMPT` in `generator.py`, ensuring no regression if the
+assessment hasn't run yet.
 
 **Assignee:** Nova (`nova.nodegraph@gmail.com`)
 
 **Files touched:**
-- `src/agents/nodes/generate.py` (select adaptive template)
-- `src/rag/cache/redis_cache.py` (update query cache key)
-- `src/app/api/routes/chat.py` (extend ChatResponse)
-- `src/rag/chain.py` (populate new ChatResponse fields from AgentState)
+- `src/agents/prompts.py` (new)
 
-**Depends on:** 15, 16
+**Depends on:** 07 (needs AgentState with `user_level`)
 
 **Testing — done when:**
-- [ ] Two users at different mastery levels asking the same question receive different responses (not served from the same cache entry)
-- [ ] Anonymous user chat behavior is unchanged
-- [ ] `ChatResponse` includes `user_level` and `assessed_topics` in JSON output
-- [ ] Novice user receives an answer with simpler vocabulary than expert user (manual review)
+- [ ] All 5 mastery level keys (`novice`, `beginner`, `intermediate`, `advanced`, `expert`) have a defined template
+- [ ] Default template (no user_level) matches existing `RAG_PROMPT` behavior
+- [ ] Templates import without error

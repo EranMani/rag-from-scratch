@@ -1,43 +1,48 @@
-# Commit 21 Spec — `nginx-config`
+﻿# Commit 21 Spec — `production-compose`
 > **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
 
 ---
 
-### Commit 21 — `nginx-config`
+### Commit 21 — `production-compose`
 
-**Commit message:** `feat: nginx reverse proxy with WebSocket support, HTTPS, and monitoring routes`
+**Commit message:** `chore: production docker-compose with monitoring, hardened config, log rotation`
 
 **Body:**
-Adds nginx as a service in `docker-compose.prod.yml` and writes `nginx/nginx.conf`.
+Creates `docker-compose.prod.yml` as a standalone file (not a compose override).
+Key differences from dev compose:
 
-Required config (non-negotiable):
-- HTTP → HTTPS redirect (301), except `/.well-known/acme-challenge/` for Certbot renewal
-- SSL termination with Let's Encrypt certs at `/etc/letsencrypt/live/{domain}/`
-- `proxy_read_timeout 86400` — **critical**: NiceGUI WebSocket silently disconnects
-  at the default 60s timeout without this
-- `proxy_buffering off` — required for NiceGUI SSE fallback and any streaming responses
-- WebSocket upgrade headers: `Upgrade`, `Connection: upgrade`
-- `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto` headers
+- `./src:/app/src` bind mount **removed** — prod runs the baked image
+- All internal service ports (`chroma`, `redis`, `ollama`, `elasticsearch`) use
+  `expose:` only — not mapped to host
+- `restart: always` on all services (survives EC2 reboots)
+- Logging driver on every service: `json-file` with `max-size: 10m`, `max-file: 5`
+- Memory limits: `ollama` capped at `5G` (t3.xlarge has 16 GB), `elasticsearch` JVM
+  heap reduced to `-Xms256m -Xmx512m`
+- Grafana: `GF_SECURITY_ADMIN_PASSWORD` read from env, not hardcoded
+- Elasticsearch: `xpack.security.enabled=false` flagged with a TODO comment for the
+  monitoring hardening commit — Team Lead decision to leave as-is for portfolio demo
+- Monitoring services (Prometheus, Grafana, ELK) **remain in prod compose** — portfolio
+  decision: the system should show it can evaluate itself in production
 
-Security:
-- `location /metrics { deny all; return 403; }` — Prometheus scrape endpoint must
-  not be publicly accessible
-- Monitoring dashboards proxied at internal paths with HTTP basic auth:
-  `/grafana/` → Grafana, `/kibana/` → Kibana, `/prometheus/` → Prometheus
-- Security headers: `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`,
-  `Strict-Transport-Security max-age=31536000`
+Also:
+- `docker-compose.yml` (dev): adds `profiles: [monitoring]` to ELK + Prometheus +
+  Grafana services so local dev can run `docker compose up` without the monitoring stack
+  and opt in with `--profile monitoring`
+- `.env.prod.example` created — all env vars required in production with no defaults
+  for secrets (JWT_SECRET, OPENAI_API_KEY, GRAFANA_ADMIN_PASSWORD documented as required)
 
 **Assignee:** Adam (`adam.stockagent@gmail.com`)
 
 **Files touched:**
-- `nginx/nginx.conf` (new)
-- `docker-compose.prod.yml` (add nginx service with cert volumes)
+- `docker-compose.prod.yml` (new)
+- `.env.prod.example` (new)
+- `docker-compose.yml` (add profiles: [monitoring] to monitoring services)
 
-**Depends on:** 20
+**Depends on:** 17 (all application features complete before production config is written)
 
 **Testing — done when:**
-- [ ] `nginx -t` (config test) passes inside the nginx container
-- [ ] `curl -I http://domain` returns 301 redirect to https
-- [ ] NiceGUI chat page remains connected for > 60 seconds without disconnect
-- [ ] `GET /metrics` returns 403 from outside the Docker network
-- [ ] WebSocket connection established (check browser DevTools Network tab)
+- [ ] `docker compose -f docker-compose.prod.yml config` validates without errors
+- [ ] No `./src:/app/src` bind mount present in prod compose
+- [ ] All monitoring service ports are internal-only (`expose:`, not `ports:`)
+- [ ] `.env.prod.example` contains every env var referenced in config.py with no secret defaults
+- [ ] Dev compose `docker compose up` starts without ELK/Prometheus (monitoring profile opt-in)
