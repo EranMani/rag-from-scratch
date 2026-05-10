@@ -236,6 +236,39 @@ Over the 12 remaining commits: Viktor/Quinn run 2–3 times total instead of 12 
 
 ---
 
+### 11. Tiered Context Loading — Summary Companion Files
+
+**Why / When:** Every agent invocation was loading LEARNING_LOG.md (848 lines at C12, ~1700 by C24), DECISIONS.md (313 lines), and ARCHITECTURE.md (232 lines) by default — even when the agent only needed a quick structural overview. This is a flat tax that compounds with project age: every new commit adds to these files, so every subsequent invocation costs more. The fix is to convert flat taxes into usage-based costs.
+
+**What changed:** Four new files created and wired into ORCHESTRATION.md + CLAUDE.md:
+- `LEARNING_LOG_SUMMARY.md` — one-liner per entry (C01–C12); Ryan appends one line per commit in the same pass as the full entry
+- `ARCHITECTURE_SUMMARY.md` — 8-line system overview; Claude updates when ARCHITECTURE.md changes
+- `DECISIONS_INDEX.md` — 36 one-liner decisions; replaces DECISIONS.md as the always-loaded file
+
+All three summaries are always loaded (~50 lines total). Full docs loaded on demand only — e.g., an agent building a node that touches AgentState pulls the relevant DECISIONS.md section, not all 313 lines.
+
+**LEARNING_LOG eviction rule:** When entry count reaches 40, Ryan compresses the oldest 20 into an era block (`learning-log-archive-era[N].md`) before writing the new entry. The file never grows unbounded.
+
+**Maintenance obligation:** Every agent that writes to a full doc updates its summary in the same pass. Enforced by the Step 9 checklist. An outdated summary is worse than none — it actively misleads.
+
+**Estimated saving:** ~1,400 lines of docs replaced by ~50 lines of summaries on typical invocations. Across 12 remaining commits, most agents never need the full docs — estimated 300–500k tokens saved in total invocation overhead.
+
+**Status:** Active — implemented 2026-05-10, committed f0a64d7
+
+---
+
+### 12. Pre-Commit Contract Validation (Linter Gate)
+
+**Why / When:** Pattern mistakes — wrong node signature, sync LLM call, blocking I/O inside async generator — were caught by Viktor at commit N but may have propagated across commits N-1 through N-4 before the 5-commit review fires. A pattern present in 4 commits means 4 files to fix instead of 1. The linter catches violations at the commit they're introduced, when the blast radius is 1 file.
+
+**What changed:** `CONTRACTS.md` created with all project-wide interface contracts (node function signatures, LLM invocation pattern, blocking I/O placement, state key constraints, dynamic SQL allowlist standard, SSE event schema, auth dependency rules). Step 7.5 added to the commit loop in ORCHESTRATION.md: a lightweight linter subagent runs after tests pass, before the gate wave. Context: diff + CONTRACTS.md only — no identity file, no history. If it fails, it returns the exact violated rule to the owning agent immediately, without spending any Viktor tokens.
+
+**Estimated saving:** Each prevented gate-fix cycle saves ~66k tokens (Commit 12 actual cost of a fix pass). The linter costs ~2–3k tokens per commit (12 commits × ~2.5k = ~30k total). Break-even: it needs to prevent one gate-fix cycle across the remaining 12 commits. Expected to prevent 2–4 based on the pattern of Viktor findings in commits 07–12.
+
+**Status:** Active — CONTRACTS.md + ORCHESTRATION.md Step 7.5 implemented 2026-05-10, committed f0a64d7
+
+---
+
 ## Planned / Not Yet Applied
 
 ### `/compact` Mid-Session
