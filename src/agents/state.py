@@ -21,6 +21,26 @@ from langgraph.graph.message import add_messages
 from pydantic import BaseModel, field_validator
 from typing_extensions import TypedDict
 
+# ---------------------------------------------------------------------------
+# TopicScoresDelta — fixed-key schema compatible with OpenAI structured output.
+# dict[str, float] produces additionalProperties which OpenAI rejects at schema
+# validation time.  Explicit fields generate a closed object schema.
+# ---------------------------------------------------------------------------
+
+class TopicScoresDelta(BaseModel):
+    """Per-turn topic score deltas with one explicit field per valid slug.
+
+    Default 0.0 means no assessment occurred for that topic this turn.
+    assess_node filters out zero-value fields before writing to AgentState
+    so downstream consumers continue to receive a sparse dict[str, float].
+    """
+    rag_fundamentals: float = 0.0
+    vector_databases: float = 0.0
+    langchain: float = 0.0
+    chunking_strategies: float = 0.0
+    retrieval_methods: float = 0.0
+    production_patterns: float = 0.0
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -119,11 +139,17 @@ class AssessmentOutput(BaseModel):
     This is a per-turn delta — it captures what the model assessed this turn,
     not a cumulative DB read.  profile_update_node (Commit 15) applies these
     deltas to the persistent user_profiles table.
+
+    topic_scores_delta uses TopicScoresDelta (explicit fields) rather than
+    dict[str, float] because OpenAI's structured output endpoint rejects any
+    schema that contains additionalProperties, which is what dict[str, float]
+    serialises to.  assess_node converts TopicScoresDelta back to a sparse
+    dict[str, float] before writing to AgentState.
     """
 
-    topic_scores_delta: dict[str, float]
-    """Sparse dict of assessed module slug → score delta this turn.
-    Valid keys: see VALID_MODULE_SLUGS.  Unknown keys are silently dropped."""
+    topic_scores_delta: TopicScoresDelta
+    """Fixed-key topic score deltas this turn.  Zero-value fields are filtered
+    out by assess_node before writing to AgentState.topic_scores_delta."""
 
     identified_gaps: list[str]
     """Module slugs where understanding is judged to be low this turn.
@@ -131,19 +157,6 @@ class AssessmentOutput(BaseModel):
 
     user_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
     """Assessed user mastery level for this turn."""
-
-    @field_validator("topic_scores_delta", mode="before")
-    @classmethod
-    def filter_topic_scores_slugs(cls, v: object) -> object:
-        if not isinstance(v, dict):
-            return v
-        filtered = {k: val for k, val in v.items() if k in VALID_MODULE_SLUGS}
-        dropped = set(v) - set(filtered)
-        if dropped:
-            logger.warning(
-                "AssessmentOutput.topic_scores_delta: dropped unknown slugs %s", dropped
-            )
-        return filtered
 
     @field_validator("identified_gaps", mode="before")
     @classmethod

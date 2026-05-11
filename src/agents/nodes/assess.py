@@ -35,7 +35,7 @@ import logging
 from typing import Any
 
 from agents.prompts.assessment import assessment_prompt
-from agents.state import VALID_MODULE_SLUGS, AgentState, AssessmentOutput
+from agents.state import VALID_MODULE_SLUGS, AgentState, AssessmentOutput, TopicScoresDelta
 from rag.providers import get_provider
 
 logger = logging.getLogger(__name__)
@@ -46,6 +46,13 @@ async def assess_node(state: AgentState) -> dict[str, Any]:
 
     Calls the LLM via get_provider().get_llm().with_structured_output(AssessmentOutput)
     to extract topic understanding from the user's question and the generated answer.
+
+    AssessmentOutput.topic_scores_delta is a TopicScoresDelta (explicit fixed fields)
+    rather than dict[str, float].  OpenAI's structured output endpoint rejects any schema
+    that uses additionalProperties, which dict[str, float] generates.  After the LLM call
+    this node converts TopicScoresDelta back to a sparse dict[str, float] by filtering
+    out zero-value fields — AgentState.topic_scores_delta and all downstream consumers
+    (update_profile_node, scoring.py) continue to receive dict[str, float] unchanged.
 
     On any assessment failure the node catches the exception, logs a warning,
     sets assessment_error=True, and returns empty deltas.  The conditional edge
@@ -59,7 +66,7 @@ async def assess_node(state: AgentState) -> dict[str, Any]:
         # get_provider() is called here (not at module level) so every invocation
         # observes the current circuit breaker state: OpenAI primary → Ollama fallback.
         llm = get_provider().get_llm()
-        chain = assessment_prompt | llm.with_structured_output(AssessmentOutput)
+        chain = assessment_prompt | llm.with_structured_output(AssessmentOutput, strict=False)
 
         result: AssessmentOutput = await chain.ainvoke({
             "question": state["question"],
@@ -67,8 +74,16 @@ async def assess_node(state: AgentState) -> dict[str, Any]:
             "valid_slugs": sorted(VALID_MODULE_SLUGS),
         })
 
+        # Convert TopicScoresDelta → sparse dict[str, float]; drop zero-value fields.
+        delta: TopicScoresDelta = result.topic_scores_delta
+        sparse_delta: dict[str, float] = {
+            slug: val
+            for slug, val in delta.model_dump().items()
+            if val != 0.0
+        }
+
         return {
-            "topic_scores_delta": result.topic_scores_delta,
+            "topic_scores_delta": sparse_delta,
             "identified_gaps": result.identified_gaps,
             "assessment_error": False,
         }
