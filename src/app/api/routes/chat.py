@@ -159,7 +159,10 @@ async def chat(
         async for event in rag_graph.astream_events(
             initial_state, config=config, version="v2"
         ):
-            if event["event"] == "on_chat_model_stream":
+            if (
+                event["event"] == "on_chat_model_stream"
+                and event.get("metadata", {}).get("langgraph_node") == "generate"
+            ):
                 chunk = event["data"]["chunk"]
                 if chunk.content:
                     yield (
