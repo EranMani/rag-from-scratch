@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-10 (Commit 21 complete)",
+  "last_updated": "2026-05-11 (Commit 22 complete)",
   "status": "active",
   "current_commit": {
-    "number": "22",
-    "name": "rag-curriculum-design",
+    "number": "23",
+    "name": "scoring-model-product-spec",
     "status": "pending",
-    "assignee": "curriculum-specialist"
+    "assignee": "product + curriculum-specialist"
   },
   "commits_done": [
     "01",
@@ -29,10 +29,10 @@
     "18",
     "19",
     "20",
-    "21"
+    "21",
+    "22"
   ],
   "commits_pending": [
-    "22",
     "23",
     "24",
     "25",
@@ -41,7 +41,7 @@
     "28",
     "29"
   ],
-  "next_commit": "22",
+  "next_commit": "23",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

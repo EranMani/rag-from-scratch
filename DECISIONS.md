@@ -162,6 +162,88 @@
 
 ---
 
+## Curriculum Design (Commit 22 — Lara)
+
+### Phase 2 dual gate (per-topic 0.70 AND mean 0.75)
+- **Date:** 2026-05-11
+- **Commit:** 22
+- **Decided by:** Lara
+- **Decision:** Phase 2 requires each of its four topics to reach 0.70 individually AND their mean to reach 0.75. Phase 1 and Phase 3 have only per-topic minimums.
+- **Reason:** Phase 2 topics (chunking, vector databases, retrieval methods, context and prompting) are interdependent — a learner who aces vector databases but barely passes retrieval methods will struggle in Phase 3 where both are assumed as fluent foundation. The mean floor ensures balanced competency, not just that each topic crosses the bare minimum.
+
+### Phase 3 minimum raised to 0.75
+- **Date:** 2026-05-11
+- **Commit:** 22
+- **Decided by:** Lara
+- **Decision:** Phase 3 topics (`evaluation_and_metrics`, `production_patterns`) require 0.75 per-topic, not 0.70.
+- **Reason:** Phase 3 represents operational competency — knowledge errors here (e.g., misunderstanding cache invalidation or index staleness) have downstream consequences in a production system. The 0.75 floor reflects higher stakes for production knowledge.
+
+### Spaced repetition scoring: `0.7 × current + 0.3 × best_prior`
+- **Date:** 2026-05-11
+- **Commit:** 22
+- **Decided by:** Lara
+- **Decision:** Topic score formula: `topic_score = 0.7 × current_session_score + 0.3 × best_prior_session_score`. Best prior is the highest session score ever achieved for that topic, not the most recent.
+- **Alternatives considered:** Simple current-session average; running mean across all sessions.
+- **Reason:** The 0.7/0.3 split primarily reflects current performance (most recent knowledge state) while rewarding persistence — a learner who scores 0.80 after a 0.60 start is not identical to one who scored 0.80 first try. Running mean would penalize early struggle indefinitely.
+
+### Null vs. 0.0 for unassessed topics
+- **Date:** 2026-05-11
+- **Commit:** 22
+- **Decided by:** Lara
+- **Decision:** Topics with no completed sessions have score `null`, not `0.0`. Gate logic must treat `null` as failing — `null >= 0.70` is `false`.
+- **Reason:** `0.0` means the learner attempted assessment and scored zero. `null` means they have not attempted it. These are meaningfully different states for remediation logic: a learner at 0.0 needs different support than one who hasn't tried yet. Conflating them would also risk a gate-passing bug where a null topic satisfies no threshold check.
+
+### Minimum 3 questions per session for a valid score update
+- **Date:** 2026-05-11
+- **Commit:** 22
+- **Decided by:** Lara
+- **Decision:** Sessions with fewer than 3 questions produce no score update. The existing score is unchanged and the incomplete session is discarded.
+- **Reason:** A single question can score 0.0, 0.5, or 1.0 — each anchors the score to an extreme. Three questions is the minimum for a score with meaningful granularity (nine distinct outcomes from all-correct to all-incorrect with partial credit). Fewer questions produce misleadingly high or low scores from a single unlucky/lucky answer.
+
+---
+
+## Scoring Model Product Spec (Commit 23 — Mira + Lara)
+
+### Assessment trigger: readiness score 0.60 OR 5 content turns
+- **Date:** 2026-05-11
+- **Commit:** 23
+- **Decided by:** Mira (product) + Lara (curriculum)
+- **Decision:** Assessment mode triggers when (A) the user's topic score reaches 0.60 or above, or (B) the user has exchanged 5+ content turns on a topic with no prior assessment. Explicit user request ("quiz me") is always honored immediately.
+- **Reason:** 0.60 sits above chance-correct territory and below the gate minimum (0.70) — testing here is timely, not premature. The 5-turn engagement rule catches first-time learners who are ready by depth of interaction even without a prior score. Neither trigger alone covers all entry paths.
+
+### No score decay
+- **Date:** 2026-05-11
+- **Commit:** 23
+- **Decided by:** Mira
+- **Decision:** Topic scores do not decrease due to inactivity. Scores persist until a new valid assessment session updates them.
+- **Alternatives considered:** Time-based decay (score drops each week of inactivity); event-triggered decay (downweight prior score after N days away).
+- **Reason:** The 0.7/0.3 spaced-repetition formula already handles recency — a poor current session at 0.7 weight reduces the score even without explicit decay. Time-based decay punishes learners who pause for personal reasons (illness, work deadlines) without reflecting any change in their actual knowledge. Decay is an output of new assessment, not a time-based penalty.
+
+### `user_level` mapped to phase gate state, not score average
+- **Date:** 2026-05-11
+- **Commit:** 23
+- **Decided by:** Mira (product) + Lara (curriculum)
+- **Decision:** `user_level` is determined entirely by phase gate state (`phase_1_passed`, `phase_2_passed`, `phase_3_passed`), not by score average. Evaluation order: `expert` → `advanced` → `intermediate` → `beginner` → `novice`.
+- **Alternatives considered:** Average-based mapping (current implementation): novice <0.2, beginner 0.2–0.4, intermediate 0.4–0.6, advanced 0.6–0.8, expert ≥0.8.
+- **Reason:** Score-average mapping conflates "scored high on two topics" with "scored adequately across eight." A learner who passed Phase 1 at 0.70 each and hasn't touched Phase 2 would read as `advanced` under the average formula (mean = 0.70 on two topics). Phase gate state is the correct unit of curriculum position for the adaptive prompt system.
+
+### One deferral per topic per session (bounded avoidance)
+- **Date:** 2026-05-11
+- **Commit:** 23
+- **Decided by:** Mira
+- **Decision:** The user may defer assessment once per topic per session. A second deferral in the same session is not honored — the agent delivers the first question anyway. Deferral state resets at the start of each new session.
+- **Alternatives considered:** Unlimited deferrals; no deferral allowed.
+- **Reason:** Unlimited deferrals create an avoidance loop where a user never gets assessed despite trigger conditions continuously firing. No deferral would feel coercive for a learner who genuinely needs more time. One deferral balances respect for learner readiness with prevention of indefinite avoidance.
+
+### Transparent assessment — no mid-session numeric exposure
+- **Date:** 2026-05-11
+- **Commit:** 23
+- **Decided by:** Mira
+- **Decision:** Assessment is fully transparent (the agent announces when it is testing the user, names the topic, and reports results after the session). The agent does not expose numeric score thresholds (e.g., "you need 0.70 to pass") or per-question score deltas mid-session.
+- **Reason:** Hidden assessment erodes trust in an educational tool where users can see their profile scores — a fully opaque system would be internally inconsistent. Showing thresholds during assessment creates gaming: learners calibrate answers to hit a number rather than demonstrate understanding. The post-session summary is the correct reveal point.
+
+---
+
 ## Deferred Decisions
 
 | Decision | Why deferred | Revisit at |

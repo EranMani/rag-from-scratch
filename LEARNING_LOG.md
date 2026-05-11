@@ -1391,3 +1391,40 @@ This is architectural. The entire assessment and scoring pipeline depends on the
 - The verdict vocabulary (`correct`, `partial`, `incorrect`) is canonical in gates.md. If the LLM evaluator in Commit 24 produces any other value, it gets flagged as incorrect *and* logged as an error for debugging.
 
 ---
+
+**Commit 23 — `scoring-model-product-spec`** · 2026-05-11 · Mira + Lara · `architectural`
+
+> **In one sentence:** Created `docs/scoring-model.md` — the canonical implementation contract for Nova (Commit 24) and Rex (Commit 25), defining when assessment triggers, how scores are computed, and how gate progression works.
+
+**Interview talking point:**
+> **Q:** How do you ensure a product spec actually constrains the implementation instead of becoming a wiki?
+>
+> **A:** Answer seven concrete questions that the downstream engineers must solve anyway: when does assessment trigger (0.60 score OR 5+ null turns), what does the user see (transparent 3–5 question format), how is score computed (0.7×current + 0.3×best), what are the gate thresholds (0.70 per topic for Phase 1–2, 0.75 for Phase 3), and crucially—what signal drives user_level in the adaptive prompt system (gate position, not score average). Every rule is implementable; every rule is testable.
+
+**What happened and why:**
+- Created `docs/scoring-model.md` with 7 concrete rules that answer the questions downstream commits must solve
+- This is the contract: Nova's assessment engine must conform to the trigger conditions and user-visible behavior specified in the doc; Rex's profile scoring must conform to the formula and gate definitions
+- User-level mapping decision was critical: discovered that current `get_mastery_level()` incorrectly uses score average instead of gate state; a user at Phase 1 with 0.70 score would be labeled "advanced" when they should be "beginner" — this doc forces C24/C25 to fix it
+- The spec also surfaced three immediate codebase discrepancies that C24/C25 must resolve: deprecated slugs still in VALID_MODULE_SLUGS, `compute_topic_scores` using wrong delta formula, and `get_mastery_level` using wrong signal
+
+**Reasoning & discovery:**
+1. The problem: Nova and Rex were scheduled back-to-back with no shared understanding of the scoring/assessment contract. Each could implement differently. The gate thresholds alone weren't enough—we needed to define trigger conditions, user-visible behavior, and which signal drives adaptive prompt routing
+2. What was ruled out: a shared Slack doc or a verbal agreement—both disappear. This needed to be canonical, version-controlled, and specific enough that a code reviewer could spot a violation
+3. What clinched the solution: Mira ran through the system end-to-end and asked "what if a user scores 0.60, defers assessment, then returns 2 weeks later"—that forced us to clarify: no score decay (0.7/0.3 formula handles it), assessment deferral allowed once per topic per session, and the gate state (not score average) drives adaptive prompting. Those answers are now in the doc; C24 and C25 can't miss them
+
+**Design pattern:**
+| Contract-Driven Implementation | What it means here | Why it was chosen |
+|---|---|---|
+| Product spec as executable constraint | Each scoring rule is a testable assertion; implementation violations are code review catches, not post-ship bugs | Two engineers (Nova, Rex) building interdependent systems need a shared grammar. The spec is that grammar |
+| Specification by concrete example | Every rule includes a worked example (e.g., "score delta: 0.7×0.75 + 0.3×0.65 = 0.72") | Formulas are ambiguous; examples are not. A reviewer can check implementation against the worked examples |
+
+**Files touched:**
+- `docs/scoring-model.md` — new: 7-question canonical spec for C24/C25
+- `DECISIONS.md` — updated: 5 new entries for C23 (user-level mapping, no decay rationale, trigger conditions, gate semantics, deferral behavior)
+- `DECISIONS_INDEX.md` — updated: added entries 60–64
+- `GLOSSARY.md` — updated: added Assessment Session, Readiness Score Threshold, Assessment Deferral
+
+**Handoff to Commit 24 (Nova):**
+Commit 24's assessment engine must conform to three rules from the spec: (1) trigger when `topic_score >= 0.60 OR count_null_scores >= 5`, (2) deliver assessment transparently (user sees start announcement, 3–5 questions, summary), (3) one deferral allowed per topic per session. The verdict vocabulary in gates.md is canonical: `correct`, `partial`, `incorrect`. Any other value from the LLM evaluator is an error. `get_mastery_level()` must be rewritten to map user_level from gate state (Phase 1/2/3/4/5 → novice/beginner/intermediate/advanced/expert), not from score average.
+
+---

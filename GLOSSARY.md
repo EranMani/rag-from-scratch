@@ -206,4 +206,22 @@
 **Used in:** `knowledge-base/curriculum/questions/evaluation_and_metrics.md`
 **Introduced in:** Commit 22 (curriculum definition)
 
-*Last updated: 2026-05-11 — Commit 22 complete (8-slug curriculum; Phase Gate, Topic Score (curriculum-based), RAGAS metrics added)*
+### Assessment Session
+**Meaning on this project:** A structured sequence of test questions (minimum 3) administered by the agent for a single topic. An assessment session produces a `session_score` (mean of per-question scores) which updates the `topic_score` via the spaced repetition formula. Sessions with fewer than 3 questions are discarded without updating the score. Assessment sessions are transparent — the agent announces when one is starting.
+**Distinct from:** A content turn (a regular question-and-answer exchange where the user asks about RAG concepts); an incomplete session (fewer than 3 questions, no score update).
+**Used in:** `docs/scoring-model.md` (behavioral spec); implemented by Nova in Commit 24
+**Introduced in:** Commit 23 (behavioral definition)
+
+### Readiness Score Threshold
+**Meaning on this project:** The topic score value (0.60) at which the agent switches from content delivery to assessment mode for a given topic. A topic at 0.60 is above chance-correct territory and below the phase gate minimum (0.70 or 0.75), making it the ideal moment to test. The second trigger for assessment is 5 content turns with no prior score.
+**Distinct from:** Phase gate threshold (the score required to pass a gate and advance to the next phase); a mastery threshold (the gate minimum).
+**Used in:** `docs/scoring-model.md` (Section 9 machine-readable reference); implemented by Nova in Commit 24
+**Introduced in:** Commit 23
+
+### Assessment Deferral
+**Meaning on this project:** A one-time postponement of an assessment session offered to the user when the readiness trigger fires. The user may defer once per topic per session; a second deferral attempt in the same session is not honored and the agent delivers the first question anyway. Deferral state resets at the start of each new conversation session.
+**Distinct from:** Declining assessment entirely (not possible); a session ending before assessment (which simply means the trigger fires again next time).
+**Used in:** `docs/scoring-model.md` (Section 6.2); implemented by Nova in Commit 24
+**Introduced in:** Commit 23
+
+*Last updated: 2026-05-11 — Commit 23 complete (Assessment Session, Readiness Score Threshold, Assessment Deferral added)*

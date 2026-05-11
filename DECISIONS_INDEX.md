@@ -64,6 +64,13 @@
 53. **Dev monitoring behind `profiles: [monitoring]`** — `docker compose up` runs core stack only; monitoring opt-in; reduces cold-start friction for contributors
 54. **CHROMA_PORT=8000 in prod compose env block** — container listens on 8000; config.py default of 8001 is for dev host-side tooling only; prod `environment:` overrides `.env.prod` to guarantee correct port
 
+## Scoring Model Product Spec (C23)
+60. **Assessment trigger: 0.60 readiness OR 5 content turns** — 0.60 is above chance, below gate minimum; 5 turns catches first-time learners ready by engagement depth; explicit "quiz me" always honored
+61. **No score decay** — spaced repetition formula handles recency; time-based decay punishes paused learners without reflecting real knowledge change
+62. **user_level by phase gate state, not score average** — average conflates "high on few topics" with "adequate across many"; gate position is the correct adaptive-prompt signal
+63. **One deferral per topic per session** — unlimited deferrals create avoidance loops; zero deferrals is coercive; one balances learner readiness with anti-avoidance
+64. **Transparent assessment, no mid-session numeric exposure** — hidden testing erodes trust; showing thresholds during assessment invites gaming; post-session summary is the correct reveal point
+
 ## Profile UI Panel (C19)
 50. **Nested `@ui.refreshable` for profile panel** — nested inside `index()` to close over request-scoped `http()`/`auth_headers()` without parameter threading; idiomatic NiceGUI pattern
 51. **All 6 modules always rendered (missing → 0.0)** — shows full curriculum scope; progressive disclosure deferred if telemetry shows disengagement

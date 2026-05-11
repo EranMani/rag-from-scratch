@@ -341,6 +341,27 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 23 — `scoring-model-product-spec` · 2026-05-11 · Mira + Lara
+
+> Gate wave: none triggered — doc-only commit; Viktor+Quinn cadence falls on Commit 25; Sage not triggered (no auth/secrets); Mira was co-author (not a reviewer role this commit).
+> Ryan: full entry (DECISIONS.md + DECISIONS_INDEX.md + GLOSSARY.md all updated for C22 and C23 decisions).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Mira (co-author) | Sonnet* | 38,369 | 12 | **+23k** over ≤15k | should have been Haiku; ran Sonnet (no model specified in invocation) |
+| Lara/general-purpose (curriculum notes) | Sonnet* | 41,654 | 18 | **+27k** over ≤15k | should have been Haiku; hit tool cap at 18 (max 25) |
+| Ryan | Haiku | 44,083 | 8 | **+29k** over ≤15k; 3 over 5-tool cap | full entry; tool cap exceeded (5 specified, 8 used) |
+| **Total** | | **124,106** | **38** | over ≤30k doc-only target | both impl agents on Sonnet; Ryan over tool cap |
+
+*Intended model: Haiku (per team-preferences.md — all reviewer/writer agents run Haiku). Orchestrator omitted `model: "haiku"` from Agent invocations. Both agents defaulted to Sonnet.
+
+**Notes:**
+- No gate wave: doc-only commit not on Viktor+Quinn cadence (next wave at C25); Sage and Mira-as-reviewer not triggered.
+- Lara hit 18 tool uses before completing (max allowed: 25 via tool cap in team-preferences). Agent reported remaining work in output — no information lost; orchestrator synthesized final doc.
+- **Orchestrator error:** Both agents invoked without `model: "haiku"`. A doc-only commit with two Haiku agents would have cost ~15–20k total vs. 80k on Sonnet. Corrective: always specify `model: "haiku"` when invoking Mira, Ryan, Viktor, Sage, Quinn, or any writer agent.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -358,6 +379,7 @@ No token data recorded. Tracking began at Commit 10.
 | 20 | dynamic-chat-ui | ~223k (excl. impl) | Viktor+Quinn+Mira (3×) | over — 3 gate cycles | Viktor block + product redirect; all Sonnet; Aria impl from prior session |
 | 21 | production-compose | 298,547 | all 4 (2×) | over — 2 gate cycles | Viktor hard block (chroma healthcheck + CHROMA_PORT); all Sonnet reviewers |
 | 22 | rag-curriculum-design | 110,831 | none | over — docs-only | first Lara invocation + full Ryan entry (arch/decisions/glossary all updated) |
+| 23 | scoring-model-product-spec | 124,106 | none | over — doc-only | both impl agents on Sonnet (should be Haiku); Ryan over 5-tool cap (used 8) |
 
 ---
 
