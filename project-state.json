@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-11 (Commit 24 complete)",
+  "last_updated": "2026-05-12 (Commit 25 complete)",
   "status": "active",
   "current_commit": {
-    "number": "25",
-    "name": "profile-scoring-rewrite",
+    "number": "26",
+    "name": "nginx-config",
     "status": "pending",
-    "assignee": "backend"
+    "assignee": "devops"
   },
   "commits_done": [
     "01",
@@ -32,27 +32,27 @@
     "21",
     "22",
     "23",
-    "24"
+    "24",
+    "25"
   ],
   "commits_pending": [
-    "25",
     "26",
     "27",
     "28",
     "29"
   ],
-  "next_commit": "25",
+  "next_commit": "26",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "24",
-      "tests": "37/37 PASS — full rewrite of test_assess_node.py (8 gate classes, two-mode coverage)",
-      "viktor": "not triggered — cadence fires at Commit 25",
-      "sage": "PASS — all 4 surfaces clear (path traversal, OpenAI API key, prompt injection, LLM output to state)",
-      "quinn": "not triggered — cadence fires at Commit 25",
-      "mira": "not triggered — node internals, no API shape change",
-      "gate_wave": "Sage only (OpenAI API call trigger); retroactive — Nova committed before TL approval (Option A accepted)"
+      "number": "25",
+      "tests": "264/264 PASS — 52 new tests in test_scoring.py (full rewrite); pre-existing failures fixed in test_agent_state.py and test_chat_route.py",
+      "viktor": "PASS WITH COMMENTS — 6 advisories (stale docstring, magic number, silent discard, JSON type guard, comment suggestion, session_history param coverage)",
+      "sage": "not triggered — pure backend compute, no auth/secrets/external API",
+      "quinn": "NEEDS ADDITIONS (non-blocking) — 3 gaps logged for C28: cross-session persistence, migration idempotency, mastery level regression",
+      "mira": "not triggered — internal scoring service, no user-facing behavior",
+      "gate_wave": "Viktor + Quinn (5-commit cadence wave at C25)"
     },
     "commit_10": {
       "number": "10",

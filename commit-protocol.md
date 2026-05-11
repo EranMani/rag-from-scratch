@@ -34,7 +34,7 @@
 | 22 | rag-curriculum-design | curriculum-specialist | ✅ done · 2026-05-11 |
 | 23 | scoring-model-product-spec | product + curriculum-specialist | ✅ done · 2026-05-11 |
 | 24 | assessment-engine-rewrite | ai-engineer | ✅ done · 2026-05-11 |
-| 25 | profile-scoring-rewrite | backend | pending |
+| 25 | profile-scoring-rewrite | backend | ✅ done · 2026-05-12 |
 | 26 | nginx-config | devops | pending |
 | 27 | aws-ec2-deployment | devops | pending |
 | 28 | integration-tests | backend + ai-engineer | pending |

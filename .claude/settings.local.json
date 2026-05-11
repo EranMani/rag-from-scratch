@@ -115,7 +115,13 @@
       "PowerShell(\\(Get-Content \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\LEARNING_LOG.md\" | Measure-Object -Line\\).Lines)",
       "PowerShell(\\(Get-Content \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\.claude\\\\agents\\\\logs\\\\nova-worklog.md\" | Measure-Object -Line\\).Lines)",
       "PowerShell(\\(Get-Content \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\TOKEN_RECORDS.md\" | Measure-Object -Line\\).Lines)",
-      "PowerShell(Get-Content \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\TOKEN_RECORDS.md\" | Select-Object -Index \\(248..280\\) | ForEach-Object { $_ })"
+      "PowerShell(Get-Content \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\TOKEN_RECORDS.md\" | Select-Object -Index \\(248..280\\) | ForEach-Object { $_ })",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_scoring.py -v)",
+      "Bash(conda info *)",
+      "Bash(docker cp *)",
+      "Bash(git diff *)",
+      "Read(//tmp/**)",
+      "Bash(grep *)"
     ]
   }
 }
