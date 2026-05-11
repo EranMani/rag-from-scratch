@@ -32,7 +32,7 @@
 | 20 | dynamic-chat-ui | frontend | ✅ done · 2026-05-10 |
 | 21 | production-compose | devops | ✅ done · 2026-05-10 |
 | 22 | rag-curriculum-design | curriculum-specialist | ✅ done · 2026-05-11 |
-| 23 | scoring-model-product-spec | product + curriculum-specialist | pending |
+| 23 | scoring-model-product-spec | product + curriculum-specialist | ✅ done · 2026-05-11 |
 | 24 | assessment-engine-rewrite | ai-engineer | pending |
 | 25 | profile-scoring-rewrite | backend | pending |
 | 26 | nginx-config | devops | pending |

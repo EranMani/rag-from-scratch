@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 21 `production-compose` gate-fix pass 2 confirmation · 2026-05-10*
+*Last updated: Commit 23 `scoring-model-product-spec` · 2026-05-11*
 
-**Last completed:** Commit 21 `production-compose` — gate-fix pass 2 confirmation
+**Last completed:** Commit 23 `scoring-model-product-spec` — product spec draft for scoring-model.md (co-authored with Lara)
 **Currently active:** none
 **Blocked by:** none
 
@@ -29,6 +29,7 @@ No archived sessions yet.
 | 01 | 03 `wire-conversation-history` | Done | Cache/history interaction is a real product defect, not an edge case; session ephemerality needs explicit UI communication |
 | 02 | 20 `dynamic-chat-ui` (fix pass) | Done | Both original notes confirmed resolved; two low-stakes copy concerns flagged for post-commit backlog |
 | 03 | 21 `production-compose` | Done | Monitoring profile opt-in in dev is a net positive; .env.prod.example needs a deployment order callout; portfolio signal is strong |
+| 04 | 23 `scoring-model-product-spec` | Done | Produced full product spec draft for docs/scoring-model.md; decided trigger threshold (0.60), opt-in test framing, no score decay, user_level mapping |
 
 ---
 
@@ -96,6 +97,60 @@ See output block in final response.
   leaving it silently wrong for 14 commits is a risk in a demo context.
 - Is session continuity across page refreshes in scope for any commit? If not, should
   the UI display a session indicator so a user knows when they are starting fresh?
+
+---
+
+## Session 04 — Commit 23: `scoring-model-product-spec`
+
+**Date:** 2026-05-11
+**Status:** Complete
+
+### Trigger
+
+Co-author `docs/scoring-model.md` with Lara. This is the canonical implementation
+contract for Nova (Commit 24, assessment engine rewrite) and Rex (Commit 25, profile
+scoring rewrite). Mira owns Questions 1, 2, 6, and 7 of the 7-question contract.
+Questions 3–5 are answered by gates.md and are cited, not redefined.
+
+### Product Question
+
+How does testing feel to a user — transparent or hidden? When does it happen?
+Does score decay make sense for a learning tool? What user level label belongs
+at each point in the curriculum?
+
+### Decisions Made
+
+**Q1 — When does the agent administer a test question?**
+Trigger: the user's topic score (or inferred readiness) crosses 0.60 on a topic,
+OR the user has had 5+ content exchanges on a topic with no assessment on record.
+Decision rationale: 0.60 is above random-correct territory (50% if guessing on
+a binary question) but below the 0.70 passing gate — it means the user has been
+engaging meaningfully and is ready to be tested without being ambushed before
+they have encountered the material.
+
+**Q2 — Test transparency**
+Tests are fully transparent. The agent announces the switch to assessment mode with
+a brief framing line before the first question. The user can defer once per topic per
+session. They cannot defer indefinitely — after one deferral, the next content reply
+on that topic re-triggers the assessment offer and cannot be deferred again in the
+same session.
+
+**Q6 — Score decay**
+No score decay. The spaced repetition formula already handles recency implicitly —
+the 0.7 weight on current session means a strong recent performance outweighs a weak
+historical one. Decay would punish users who pause their learning for life reasons
+(holidays, deadlines), which is the wrong user signal for a self-paced tool.
+
+**Q7 — user_level mapping**
+- novice: no phase started (all topics null)
+- beginner: Phase 1 in progress (at least one Phase 1 topic scored, phase_1_passed = false)
+- intermediate: Phase 1 passed (phase_1_passed = true), Phase 2 not yet passed
+- advanced: Phase 2 passed (phase_2_passed = true), Phase 3 not yet passed
+- expert: Phase 3 passed (phase_3_passed = true)
+
+### Open Questions for Team Lead
+
+None. All decisions are concrete and implementable.
 
 ---
 

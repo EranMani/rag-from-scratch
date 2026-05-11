@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-11 (Commit 22 complete)",
+  "last_updated": "2026-05-11 (Commit 23 complete)",
   "status": "active",
   "current_commit": {
-    "number": "23",
-    "name": "scoring-model-product-spec",
+    "number": "24",
+    "name": "assessment-engine-rewrite",
     "status": "pending",
-    "assignee": "product + curriculum-specialist"
+    "assignee": "ai-engineer"
   },
   "commits_done": [
     "01",
@@ -30,10 +30,10 @@
     "19",
     "20",
     "21",
-    "22"
+    "22",
+    "23"
   ],
   "commits_pending": [
-    "23",
     "24",
     "25",
     "26",
@@ -41,7 +41,7 @@
     "28",
     "29"
   ],
-  "next_commit": "23",
+  "next_commit": "24",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
