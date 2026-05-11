@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Bug fix · 2026-05-11*
+*Last updated: UI polish · 2026-05-11*
 
-**Last completed:** Bug fix — NiceGUI footer nesting + register_page guard ✅
+**Last completed:** UI polish — last active datetime, chat scroll padding, sender labels in bubbles ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -34,6 +34,85 @@
 | 1 | 19 | ✅ Done | Profile panel as nested @ui.refreshable; redirect unauthenticated users to /login |
 | 2 | 20 | ✅ Done | _STAGE_LABELS at module level; ui.timer(2.5) with mutable closure list for stage advancement |
 | 3 | bug fix | ✅ Done | Footer hoisted to page level; register_page guard simplified to verify_stored_bearer() only |
+| 4 | bug fix | ✅ Done | body overflow:hidden; progress bar height+gap; chat card word-break; gap badge contrast |
+| 5 | UI polish | ✅ Done | display_name stored at verify_stored_bearer(); bubble column wrappers for sender labels |
+
+---
+
+## Session 05 — UI polish: last active datetime, scroll padding, sender labels
+
+**Date:** 2026-05-11
+**Status:** ✅ Done
+
+### Task Brief
+Three targeted improvements to `src/app/ui.py`: (1) show HH:MM in last active instead of date-only, (2) add bottom padding to the chat scroll column so content is not hidden behind the footer, (3) add sender name labels above each chat bubble.
+
+### Approach
+The datetime truncation fix was trivial once the raw field format (`2026-05-11T09:42:16.543000+00:00`) was confirmed — `[:16].replace("T", " ")` produces exactly the desired `YYYY-MM-DD HH:MM` format with no imports needed. The `[:10]` guard logic was kept for the short-string fallback case.
+
+The footer overlap issue required the chat scroll column to have `padding-bottom:90px`. The outer wrapper column already had `overflow-y:auto`, so padding on the inner column (the one that holds `chat_area`) was the right insertion point. The padding-bottom value intentionally exceeds the footer's 80px padding height by 10px to give comfortable clearance.
+
+The sender label work surfaced a storage gap: `verify_stored_bearer()` and `fetch_profile_email()` both called `/api/auth/me` but neither captured `display_name` from the response. `/api/auth/me` does return `display_name` in its payload. The cleanest fix was to add `app.storage.user["display_name"] = data.get("display_name", "")` in both places — `verify_stored_bearer()` (session restore path) and `fetch_profile_email()` (post-login/register path). The stale-auth cleanup list in `verify_stored_bearer()` was extended to include `display_name` so orphaned data is cleared on token expiry.
+
+For the bubble labels, wrapping each bubble's card in a `ui.column()` with a small label element above was the natural NiceGUI approach. The alternative of adding a label directly inside the card changes the card's internal layout and requires compensating padding. The column wrapper is zero-cost and keeps card styles untouched. The user label uses `align-self:flex-end` on both the column and the label to maintain right-alignment. `max-width:75%` was moved from the card to the column wrapper so it still caps bubble width. The AI label uses `align-self:flex-start` (default for the chat column's flex direction).
+
+### Changes Made
+
+**`src/app/ui.py`**
+
+| Location | What changed |
+|---|---|
+| `verify_stored_bearer()` — line 55 | Added `display_name` to user storage from `/api/auth/me` response |
+| `verify_stored_bearer()` — cleanup loop | Added `"display_name"` to the stale-key eviction list |
+| `fetch_profile_email()` — line 69 | Added `display_name` to user storage from `/api/auth/me` response |
+| Profile panel last active | `[:10]` → `[:16].replace("T", " ")` for `YYYY-MM-DD HH:MM` format |
+| Chat scroll column | Added `padding-bottom:90px` to inner column style |
+| `send()` user bubble | Wrapped card in `ui.column(align-self:flex-end)` with sender name label above |
+| `send()` AI response | Wrapped card in `ui.column(align-self:flex-start)` with "RAG Assistant" label above |
+
+### Decisions Made
+1. **`display_name` stored at both `verify_stored_bearer()` and `fetch_profile_email()`** — the two functions cover distinct auth paths (token restore vs. post-login/register). Both must store it or the label is absent after a page refresh.
+2. **Bubble column wrapper, not label inside card** — keeps card styles unchanged; wrapper carries `max-width:75%` so the existing width constraint is preserved.
+3. **Fallback to email then "You"** — `display_name` may be an empty string (users who registered without providing one). The double fallback `display_name or email or "You"` ensures a label always renders.
+
+---
+
+## Session 04 — Bug Fix: four UI issues
+
+**Date:** 2026-05-11
+**Status:** ✅ Done
+
+### Task Brief
+Fix four visual regressions in `src/app/ui.py`: progress bar labels squeezed, chat card text overflow, gap badge contrast too low, and two vertical scrollbars.
+
+### Approach
+The four issues were all pure CSS / style-attribute problems with no logic change required. The initial read of the file identified each fix site precisely before touching anything.
+
+The double scrollbar was the most interesting case. The outer `ui.row()` already had `overflow:hidden` and a viewport-locked height, so it could not itself produce a scrollbar. The source was `body` — NiceGUI pages inherit a scrollable body by default, and nothing in the existing code suppressed it. Adding `overflow:hidden` to the `ui.query("body").style(...)` call on line 181 removed the page-level scrollbar with zero structural change. The chat column's `overflow-y:auto` remains the only scrollable element.
+
+The progress bar squeeze was a combination of a `6px` bar height (too thin for the label to visually anchor to) and a `0.15rem` column gap (not enough vertical separation between label and bar). Raising both to `10px` and `0.4rem` respectively gives each topic row a comfortable read without eating sidebar space.
+
+Chat card overflow was caused by cards having `max-width:75%` but no word-break instruction — long words or URLs would push the card wider than its container. Adding `word-break:break-word; overflow-wrap:break-word; overflow:hidden` to both cards (user bubble and AI response) and `width:100%` to the inner `ui.markdown()` closes all overflow paths. The `width:fit-content` addition prevents the card from stretching to `max-width:75%` on short messages.
+
+The gap badge contrast fix was straightforward: `#93c5fd` (blue-300) on `#1e3a5f` (dark navy) has adequate but not great contrast. Switching to `#bfdbfe` (blue-200) improves legibility. Font size moved from `0.65rem` to `0.75rem` and padding from `0.1rem 0.4rem` to `0.25rem 0.6rem` for better tap target and visual weight.
+
+### Changes Made
+
+**`src/app/ui.py`**
+
+| Location | What changed |
+|---|---|
+| Line 181 — body style | Added `overflow:hidden` |
+| Line 272 — topic row column gap | `0.15rem` → `0.4rem` |
+| Lines 274–275 — progress bar height | `6px` → `10px` |
+| Lines 287–290 — gap badge style | color `#93c5fd` → `#bfdbfe`; font-size `0.65rem` → `0.75rem`; padding `0.1rem 0.4rem` → `0.25rem 0.6rem` |
+| Lines 348–352 — user bubble card | Added `width:fit-content; word-break:break-word; overflow-wrap:break-word; overflow:hidden`; label gets `word-break` + `max-width:100%` |
+| Lines 416–420 — AI response card | Added `width:fit-content; word-break:break-word; overflow-wrap:break-word; overflow:hidden`; markdown gets `width:100%; word-break:break-word; overflow-wrap:break-word` |
+
+### Decisions Made
+1. **`overflow:hidden` on body, not a wrapper div** — the body is the only element that NiceGUI cannot place inside a container, so the fix goes there.
+2. **`width:fit-content` on both cards** — prevents short messages from stretching to `max-width:75%`; `max-width` still caps long content correctly.
+3. **`overflow:hidden` on card container + `word-break` on both container and child** — belt-and-suspenders: if the markdown component's inner elements resist the parent `word-break`, the card's `overflow:hidden` clips any bleed.
 
 ---
 

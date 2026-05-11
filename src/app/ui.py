@@ -52,10 +52,11 @@ def setup_ui(fastapi_app):
                 data = r.json()
                 app.storage.user["user_id"] = data["user_id"]
                 app.storage.user["email"] = data.get("email", "")
+                app.storage.user["display_name"] = data.get("display_name", "")
                 return True
         except Exception:
             pass
-        for key in ("access_token", "user_id", "email"):
+        for key in ("access_token", "user_id", "email", "display_name"):
             app.storage.user.pop(key, None)
         return False
 
@@ -63,7 +64,9 @@ def setup_ui(fastapi_app):
         try:
             r = await http().get("/api/auth/me", headers=auth_headers())
             if r.status_code == 200:
-                app.storage.user["email"] = r.json().get("email", "")
+                data = r.json()
+                app.storage.user["email"] = data.get("email", "")
+                app.storage.user["display_name"] = data.get("display_name", "")
         except Exception:
             pass
 
@@ -178,7 +181,7 @@ def setup_ui(fastapi_app):
 
     @ui.page("/")
     async def index():
-        ui.query("body").style("background:#0f172a; color:#e2e8f0; font-family:system-ui")
+        ui.query("body").style("background:#0f172a; color:#e2e8f0; font-family:system-ui; overflow:hidden")
 
         bearer_ok = await verify_stored_bearer()
         can_use_chat = settings.allow_anonymous_chat or bearer_ok
@@ -269,10 +272,10 @@ def setup_ui(fastapi_app):
                         )
                         for slug, label in _MODULE_LABELS.items():
                             score: float = topic_scores.get(slug, 0.0)
-                            with ui.column().style("gap:0.15rem; width:100%"):
+                            with ui.column().style("gap:0.4rem; width:100%"):
                                 ui.label(label).style("font-size:0.72rem; color:#94a3b8")
                                 ui.linear_progress(value=score).style(
-                                    "width:100%; height:6px"
+                                    "width:100%; height:10px"
                                 ).props("color=sky-600 track-color=slate-700")
 
                     # Gaps tag list
@@ -285,8 +288,8 @@ def setup_ui(fastapi_app):
                             for gap in gaps:
                                 display = _MODULE_LABELS.get(gap, gap.replace("_", " ").title())
                                 ui.badge(display).style(
-                                    "background:#1e3a5f; color:#93c5fd; font-size:0.65rem; "
-                                    "border-radius:4px; padding:0.1rem 0.4rem"
+                                    "background:#1e3a5f; color:#bfdbfe; font-size:0.75rem; "
+                                    "border-radius:4px; padding:0.25rem 0.6rem"
                                 )
 
                     # Query count and last active
@@ -296,8 +299,8 @@ def setup_ui(fastapi_app):
                         "font-size:0.72rem; color:#64748b; margin-top:0.5rem"
                     )
                     if last_activity:
-                        # Show date portion only for brevity
-                        last_str = last_activity[:10] if len(last_activity) >= 10 else last_activity
+                        # Show date + HH:MM; raw value is UTC ISO 8601 e.g. 2026-05-11T09:42:16.543000+00:00
+                        last_str = (last_activity[:16].replace("T", " ") if len(last_activity) >= 16 else last_activity)
                         ui.label(f"Last active: {last_str}").style(
                             "font-size:0.72rem; color:#64748b"
                         )
@@ -308,7 +311,7 @@ def setup_ui(fastapi_app):
             with ui.column().style("flex:1; height:100%; overflow:hidden; position:relative"):
                 with ui.column().style(
                     "flex:1; width:100%; max-width:900px; margin:0 auto; padding:1.5rem; "
-                    "overflow-y:auto; height:100%"
+                    "padding-bottom:90px; overflow-y:auto; height:100%"
                 ):
                     chat_area = ui.column().style("width:100%; gap:1rem")
 
@@ -345,10 +348,16 @@ def setup_ui(fastapi_app):
             trusted_user_id = app.storage.user.get("user_id")
 
             with chat_area:
-                with ui.card().style(
-                    "background:#0369a1; color:#f0f9ff; max-width:75%; align-self:flex-end; border-radius:12px"
-                ):
-                    ui.label(question)
+                _dn = app.storage.user.get("display_name") or app.storage.user.get("email", "You")
+                with ui.column().style("align-self:flex-end; max-width:75%; gap:0.2rem"):
+                    ui.label(_dn).style(
+                        "font-size:0.7rem; color:#64748b; text-align:right; align-self:flex-end"
+                    )
+                    with ui.card().style(
+                        "background:#0369a1; color:#f0f9ff; width:fit-content; align-self:flex-end; "
+                        "border-radius:12px; word-break:break-word; overflow-wrap:break-word; overflow:hidden"
+                    ):
+                        ui.label(question).style("word-break:break-word; overflow-wrap:break-word; max-width:100%")
 
                 stage_idx = [0]
                 stage_active = [True]
@@ -412,10 +421,13 @@ def setup_ui(fastapi_app):
                 thinking.delete()
 
             with chat_area:
-                with ui.card().style(
-                    "background:#1e293b; border:1px solid #334155; max-width:75%; border-radius:12px"
-                ):
-                    ui.markdown(result["answer"])
+                with ui.column().style("align-self:flex-start; max-width:75%; gap:0.2rem"):
+                    ui.label("RAG Assistant").style("font-size:0.7rem; color:#64748b")
+                    with ui.card().style(
+                        "background:#1e293b; border:1px solid #334155; width:fit-content; "
+                        "border-radius:12px; word-break:break-word; overflow-wrap:break-word; overflow:hidden"
+                    ):
+                        ui.markdown(result["answer"]).style("width:100%; word-break:break-word; overflow-wrap:break-word")
 
                     cache_color = "#14532d" if result["cache_hit"] != "none" else "#1e293b"
                     with ui.row().style("gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap"):
