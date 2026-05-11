@@ -69,7 +69,7 @@ def setup_ui(fastapi_app):
 
     @ui.page("/login")
     async def login_page():
-        if not settings.allow_anonymous_chat:
+        if settings.allow_anonymous_chat or await verify_stored_bearer():
             ui.navigate.to("/")
             return
 
@@ -113,7 +113,7 @@ def setup_ui(fastapi_app):
 
     @ui.page("/register")
     async def register_page():
-        if not settings.allow_anonymous_chat and await verify_stored_bearer():
+        if await verify_stored_bearer():
             ui.navigate.to("/")
             return
 
@@ -218,7 +218,7 @@ def setup_ui(fastapi_app):
         session = create_session()
 
         # Outer row: profile sidebar (left) + chat area (right)
-        with ui.row().style("width:100%; height:calc(100vh - 120px); gap:0; overflow:hidden"):
+        with ui.row().style("width:100%; height:calc(100vh - 144px); gap:0; overflow:hidden"):
 
             # --- Profile sidebar ---
             @ui.refreshable
@@ -308,7 +308,7 @@ def setup_ui(fastapi_app):
             with ui.column().style("flex:1; height:100%; overflow:hidden; position:relative"):
                 with ui.column().style(
                     "flex:1; width:100%; max-width:900px; margin:0 auto; padding:1.5rem; "
-                    "overflow-y:auto; height:calc(100% - 80px)"
+                    "overflow-y:auto; height:100%"
                 ):
                     chat_area = ui.column().style("width:100%; gap:1rem")
 
@@ -321,18 +321,18 @@ def setup_ui(fastapi_app):
                                 "Try asking: **How does chunking work?** or **What is a circuit breaker?**"
                             )
 
-                with ui.footer().style(
-                    "background:#1e293b; border-top:1px solid #334155; padding:1rem 2rem"
-                ):
-                    with ui.row().style("width:100%; max-width:900px; margin:0 auto; gap:0.75rem"):
-                        question_input = ui.input(
-                            placeholder="Ask about RAG, vector databases, LangChain..."
-                        ).style(
-                            "flex:1; background:#0f172a; border:1px solid #334155; color:#e2e8f0; border-radius:8px"
-                        )
-                        send_btn = ui.button("Send").style(
-                            "background:#0369a1; color:white; border-radius:8px"
-                        )
+        with ui.footer().style(
+            "background:#1e293b; border-top:1px solid #334155; padding:1rem 2rem"
+        ):
+            with ui.row().style("width:100%; max-width:900px; margin:0 auto; gap:0.75rem"):
+                question_input = ui.input(
+                    placeholder="Ask about RAG, vector databases, LangChain..."
+                ).style(
+                    "flex:1; background:#0f172a; border:1px solid #334155; color:#e2e8f0; border-radius:8px"
+                )
+                send_btn = ui.button("Send").style(
+                    "background:#0369a1; color:white; border-radius:8px"
+                )
 
         async def send():
             question = question_input.value.strip()

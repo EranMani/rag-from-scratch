@@ -104,7 +104,8 @@
       "PowerShell(Copy-Item *)",
       "PowerShell(New-Item *)",
       "Bash(ls docker-compose*.yml .env.prod.example)",
-      "Bash(dir /b docker-compose*.yml .env.prod.example)"
+      "Bash(dir /b docker-compose*.yml .env.prod.example)",
+      "Bash(docker exec rag-chroma *)"
     ]
   }
 }

@@ -52,3 +52,18 @@
 - `docker compose -f docker-compose.prod.yml config` — PASS (exit 0)
 - Rendered config confirms `CHROMA_PORT: "8000"` in app service and `curl -sf http://localhost:8000/api/v1/heartbeat || exit 1` in chroma healthcheck
 - No `./src:/app/src` in prod compose — PASS
+
+---
+
+## Ad-hoc Fix — ChromaDB health check — 2026-05-11
+
+**Approach:** The symptom was `dependency failed to start: container rag-chroma is unhealthy`. Two hypotheses going in: wrong API path (v1 vs v2) or missing curl. `docker inspect` health log answered immediately — every check returned `/bin/sh: 1: curl: not found` with exit 1. The container is a native Go/Rust binary (`chroma` ELF, no Python interpreter, no curl, no wget, no netcat). The server itself was healthy: `docker logs` showed it binding on 8000 and accepting connections. Ruled out fixing the image (upstream, not ours to patch) and installing curl at runtime (wrong layer — health check runs in the existing container, not a new one). Bash `/dev/tcp` built-in was the only available HTTP mechanism; confirmed it works with a manual exec producing HTTP/1.0 200 from `/api/v2/heartbeat`. Also confirmed `/api/v1/heartbeat` — the previous path — also returns 200 on chromadb 1.5.8 (backward-compatible alias exists), so the endpoint path was not the failure mode. Both failures were the `curl` binary. Replaced health check in both `docker-compose.yml` and `docker-compose.prod.yml` with the `/dev/tcp` bash built-in pattern. Container transitioned from `unhealthy` to `healthy` on the first check after restart (failing streak: 0).
+
+**Failure mode:** `curl: not found` — the chromadb/chroma:latest image ships a native binary with no HTTP client tools.
+
+**Changes made:**
+- `docker-compose.yml` line 61 — health check: `curl` replaced with bash `/dev/tcp` against `/api/v2/heartbeat`
+- `docker-compose.prod.yml` line 69 — same replacement
+
+**Verification:**
+- `docker inspect rag-chroma` health log: ExitCode 0, FailingStreak 0, Status `healthy` on first probe after restart

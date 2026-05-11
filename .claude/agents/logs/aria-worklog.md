@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 20 · 2026-05-10*
+*Last updated: Bug fix · 2026-05-11*
 
-**Last completed:** Commit 20 `dynamic-chat-ui` ✅
+**Last completed:** Bug fix — NiceGUI footer nesting + register_page guard ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -23,6 +23,8 @@
 **Decisions Other Agents Must Know:**
 - The profile panel is defined as a nested `@ui.refreshable` async function inside `index()`. This keeps it in scope of both `auth_headers()` and `http()` closures without threading those as parameters. Commit 20 must call `profile_panel.refresh()` (not re-invoke `await profile_panel()`) to trigger a re-render.
 - The `not can_use_chat` branch now redirects to `/login` instead of rendering an inline form. This eliminates the duplicate `do_login()` closure that previously lived in `index()`.
+- `ui.footer()` must be a direct child of the page, not nested inside any `ui.row()` or `ui.column()`. The same constraint applies to `ui.header()`, `ui.left_drawer()`, and `ui.right_drawer()`.
+- `register_page` guard is now `if await verify_stored_bearer()` — redirects authenticated users regardless of `allow_anonymous_chat`, matching the symmetry of `login_page`.
 
 ---
 
@@ -31,6 +33,7 @@
 |---|--------|--------|--------------|
 | 1 | 19 | ✅ Done | Profile panel as nested @ui.refreshable; redirect unauthenticated users to /login |
 | 2 | 20 | ✅ Done | _STAGE_LABELS at module level; ui.timer(2.5) with mutable closure list for stage advancement |
+| 3 | bug fix | ✅ Done | Footer hoisted to page level; register_page guard simplified to verify_stored_bearer() only |
 
 ---
 
@@ -87,6 +90,45 @@ None. Import check passed on first run.
 **ARCHITECTURE.md:**
 - `send()` now calls `profile_panel.refresh()` after each completed turn — sidebar live-updates topic scores without a page reload.
 - Cycling stage labels (`ui.timer`, 2.5s interval) replace the static "Thinking..." label during SSE streaming.
+
+---
+
+## Session 03 — Bug Fix: NiceGUI footer nesting + register guard
+
+**Date:** 2026-05-11
+**Status:** ✅ Done
+
+### Task Brief
+Fix `RuntimeError: Found top level layout element "Footer" inside element "Column"`. Audit the full file for similar constraint violations, and check the `register_page` guard for logic parity with `login_page`.
+
+### Approach
+The `ui.footer()` was nested two levels deep: inside the outer `ui.row()` and then inside the chat area `ui.column()`. NiceGUI enforces that `ui.header()`, `ui.footer()`, `ui.left_drawer()`, and `ui.right_drawer()` must be direct page children — not inside any container. The Commit 19 session notes actually recorded the intent to place footer inside the chat column for sidebar scroll independence, which was a misread of the NiceGUI constraint at the time; the constraint is unconditional.
+
+The fix is structural: the `with ui.footer()` block is a sibling of `with ui.row()`, not a child of any `ui.column()`. This means the outer row's height calculation had to be updated from `calc(100vh - 120px)` (header-only deduction) to `calc(100vh - 144px)` (header ~64px + footer ~80px). The chat scroll column's `height:calc(100% - 80px)` was subtracting an already-absent footer — changed to `height:100%` so it fills its parent correctly.
+
+The `register_page` guard `if not settings.allow_anonymous_chat and await verify_stored_bearer()` only redirected authenticated users when anon chat was disabled — meaning an authenticated user on an anon-enabled instance could hit `/register` again and re-register. The `login_page` guard uses `if settings.allow_anonymous_chat or await verify_stored_bearer()`, which redirects anyone who can use chat (anon-allowed OR authenticated). For `/register` the correct rule is simpler: redirect if already authenticated, full stop. Changed to `if await verify_stored_bearer()`.
+
+Audit of the full 468-line file found no other `ui.header()`, `ui.left_drawer()`, or `ui.right_drawer()` nesting violations. The two `ui.update()` calls (lines 365 and 459) are retained — they are harmless no-ops in current NiceGUI but removing them is a cosmetic change not requested by the brief.
+
+### Changes Made
+
+**`src/app/ui.py`**
+
+| Location | Before | After |
+|---|---|---|
+| Line 221 — outer row height | `height:calc(100vh - 120px)` | `height:calc(100vh - 144px)` |
+| Line 311 — chat scroll column height | `height:calc(100% - 80px)` | `height:100%` |
+| Lines 308–335 — footer nesting | `ui.footer()` inside `ui.column()` inside `ui.row()` | `ui.footer()` as direct page sibling of `ui.row()` |
+| Line 116 — register_page guard | `if not settings.allow_anonymous_chat and await verify_stored_bearer()` | `if await verify_stored_bearer()` |
+
+### Decisions Made
+1. **Footer hoisted to page level** — NiceGUI constraint is unconditional; no workaround exists.
+2. **Outer row height set to `calc(100vh - 144px)`** — 64px header + 80px footer. Sidebar and chat column now fill available viewport without overflow.
+3. **Chat scroll column set to `height:100%`** — the magic 80px subtraction was compensating for a footer that is no longer inside the column.
+4. **`register_page` guard simplified to `if await verify_stored_bearer()`** — consistent with the principle that `/register` is for unauthenticated users only, regardless of anon-chat setting.
+
+### Issues Found Mid-Task
+No other layout constraint violations found. `ui.update()` calls left in place per audit scope.
 
 ---
 
