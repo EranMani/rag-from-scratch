@@ -18,12 +18,6 @@ _MODULE_LABELS: dict[str, str] = {
     "production_patterns": "Production Patterns",
 }
 
-# Benefit-oriented labels for user_level adaptation badge
-_LEVEL_LABELS: dict[str, str] = {
-    "beginner": "Simplified for clarity",
-    "intermediate": "Standard depth",
-    "advanced": "Full technical detail",
-}
 
 
 def create_session() -> dict:
@@ -182,6 +176,27 @@ def setup_ui(fastapi_app):
     @ui.page("/")
     async def index():
         ui.query("body").style("background:#0f172a; color:#e2e8f0; font-family:system-ui; overflow:hidden")
+
+        ui.add_head_html("""
+<style>
+.nicegui-markdown h1,.nicegui-markdown h2,.nicegui-markdown h3{
+  color:#38bdf8;font-weight:600;margin-top:1rem;margin-bottom:0.4rem}
+.nicegui-markdown h1{font-size:1.4em}
+.nicegui-markdown h2{font-size:1.2em}
+.nicegui-markdown h3{font-size:1.05em}
+.nicegui-markdown code{
+  background:#0f172a;font-family:ui-monospace,monospace;
+  border:1px solid #334155;border-radius:4px;
+  padding:0.1em 0.35em;font-size:0.875em}
+.nicegui-markdown pre{
+  background:#0f172a;border:1px solid #334155;border-radius:6px;
+  padding:0.75rem 1rem;overflow-x:auto;margin:0.5rem 0}
+.nicegui-markdown pre code{border:none;padding:0;font-size:0.85em}
+.nicegui-markdown ul,.nicegui-markdown ol{
+  padding-left:1.5rem;margin:0.4rem 0}
+.nicegui-markdown li{margin:0.2rem 0}
+</style>
+""")
 
         bearer_ok = await verify_stored_bearer()
         can_use_chat = settings.allow_anonymous_chat or bearer_ok
@@ -430,23 +445,26 @@ def setup_ui(fastapi_app):
                         ui.markdown(result["answer"]).style("width:100%; word-break:break-word; overflow-wrap:break-word")
 
                     cache_color = "#14532d" if result["cache_hit"] != "none" else "#1e293b"
-                    with ui.row().style("gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap"):
-                        ui.badge(f"cache: {result['cache_hit']}").style(
-                            f"background:{cache_color}; color:#86efac; font-size:0.7rem"
-                        )
-                        ui.badge(f"{result['latency_ms']}ms").style(
-                            "background:#0f172a; color:#94a3b8; font-size:0.7rem"
-                        )
-                        ui.badge(f"{len(result['chunks'])} chunks").style(
-                            "background:#0f172a; color:#94a3b8; font-size:0.7rem"
-                        )
-                        ui.badge(f"trace: {result['trace_id']}").style(
-                            "background:#0f172a; color:#94a3b8; font-size:0.7rem"
-                        )
-                        user_level = done_data.get("user_level")
-                        if user_level:
-                            ui.badge(_LEVEL_LABELS.get(user_level, f"Adapted for: {user_level}")).style(
-                                "background:#1e3a5f; color:#93c5fd; font-size:0.7rem"
+                    with ui.expansion("Debug info").style(
+                        "font-size:0.7rem; color:#64748b; margin-top:0.4rem; width:fit-content"
+                    ):
+                        with ui.row().style("gap:0.5rem; flex-wrap:wrap; padding:0.25rem 0"):
+                            user_level = done_data.get("user_level")
+                            if user_level:
+                                ui.badge(f"Tailored for {user_level}").style(
+                                    "background:#1e3a5f; color:#93c5fd; font-size:0.7rem"
+                                )
+                            ui.badge(f"cache: {result['cache_hit']}").style(
+                                f"background:{cache_color}; color:#86efac; font-size:0.7rem"
+                            )
+                            ui.badge(f"{result['latency_ms']}ms").style(
+                                "background:#0f172a; color:#64748b; font-size:0.7rem"
+                            )
+                            ui.badge(f"{len(result['chunks'])} chunks").style(
+                                "background:#0f172a; color:#64748b; font-size:0.7rem"
+                            )
+                            ui.badge(f"trace: {result['trace_id']}").style(
+                                "background:#0f172a; color:#64748b; font-size:0.7rem"
                             )
 
                     if result["chunks"]:

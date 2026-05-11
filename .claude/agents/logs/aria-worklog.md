@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: UI polish · 2026-05-11*
+*Last updated: UI polish — debug collapse, markdown CSS · 2026-05-11*
 
-**Last completed:** UI polish — last active datetime, chat scroll padding, sender labels in bubbles ✅
+**Last completed:** Debug info collapse + markdown rendering improvements ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -36,6 +36,40 @@
 | 3 | bug fix | ✅ Done | Footer hoisted to page level; register_page guard simplified to verify_stored_bearer() only |
 | 4 | bug fix | ✅ Done | body overflow:hidden; progress bar height+gap; chat card word-break; gap badge contrast |
 | 5 | UI polish | ✅ Done | display_name stored at verify_stored_bearer(); bubble column wrappers for sender labels |
+| 6 | UI polish | ✅ Done | debug badges collapsed; _LEVEL_LABELS removed; markdown CSS via ui.add_head_html() |
+
+---
+
+## Session 06 — UI polish: debug collapse, markdown CSS
+
+**Date:** 2026-05-11
+**Status:** ✅ Done
+
+### Task Brief
+Two targeted improvements to the AI response card: (1) move raw telemetry badges into a collapsed debug section hidden by default, rewrite the user-level adaptation label; (2) improve markdown heading, code block, and list rendering via scoped CSS.
+
+### Approach
+The debug badge row was a flat `ui.row()` directly in the card column — fully visible to users. The cleanest NiceGUI pattern for "hidden by default" is `ui.expansion()`, which renders a collapsed accordion. The four telemetry badges (cache, latency, chunks, trace) were nested inside it. The expansion header text "Debug info" is intentionally lowercase and styled with `color:#64748b` (muted slate) so it reads as a secondary control, not a meaningful label. Badges inside got their colour dropped from `#94a3b8` to `#64748b` to reinforce that this is secondary information.
+
+The `_LEVEL_LABELS` module-level dict mapped `beginner/intermediate/advanced` to marketing copy ("Simplified for clarity"). That copy was confusing — it describes the output style, not who the user is, so a user who is told "Simplified for clarity" might feel patronised without understanding why. The replacement "Tailored for novice/intermediate/advanced" is direct: it says what happened and implies personalisation without implying a judgment. The dict was removed and the string built inline as `f"Tailored for {user_level}"`.
+
+For markdown CSS the options were: (a) `.style()` on every `ui.markdown()` call, (b) a global CSS file, or (c) `ui.add_head_html()` with a `<style>` block scoped to `.nicegui-markdown`. Option (c) wins on locality and cleanliness — one injection in `index()`, zero repetition at call sites, zero risk of touching login/register pages. The class selector `.nicegui-markdown` is the class NiceGUI adds to the `div` wrapping every `ui.markdown()` element (confirmed by reading the NiceGUI source patterns in prior sessions). The rules cover h1–h3 colouring, inline code and pre/code block backgrounds with borders, and list left-padding.
+
+### Changes Made
+
+**`src/app/ui.py`**
+
+| Location | What changed |
+|---|---|
+| Module level | Removed `_LEVEL_LABELS` dict |
+| `index()` — after `ui.query("body")` | Added `ui.add_head_html()` with `.nicegui-markdown` scoped CSS |
+| `send()` AI response card | Moved cache/latency/chunks/trace badges into `ui.expansion("Debug info")` |
+| `send()` AI response card | User-level badge rewritten: `f"Tailored for {user_level}"` instead of `_LEVEL_LABELS` lookup |
+
+### Decisions Made
+1. **`ui.add_head_html()` over per-element `.style()`** — single injection, no repetition; scoped to `.nicegui-markdown` so it cannot affect other page elements.
+2. **Level badge kept visible, rewritten** — "Tailored for novice" communicates personalisation without the condescending framing of "Simplified for clarity". Removing it entirely was considered but rejected because it is the only user-visible signal that the system is adapting to them.
+3. **Debug expansion label lowercase + muted** — visual weight signals it is not part of the answer; users who want it can find it, users who don't are not distracted.
 
 ---
 
