@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 18 `adaptive-graph-integration` · 2026-05-10*
+*Last updated: hotfix `assess-node-openai-schema` · 2026-05-11*
 
-**Last completed:** Commit 18 `adaptive-graph-integration` ✅
+**Last completed:** hotfix `assess-node-openai-schema` ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -60,8 +60,13 @@
     - `trace_id: str`, `latency_ms: int` — observability
     - `cache_hit: Literal["hit","miss","bypass"]` — cache status (contract for Commit 10+)
 - `session_id` is NOT in state. Passed as thread_id in config.
-- `AssessmentOutput`: `topic_scores_delta`, `identified_gaps`, `user_level` — all required.
+- `AssessmentOutput`: `topic_scores_delta: TopicScoresDelta`, `identified_gaps`, `user_level` — all required.
+  `topic_scores_delta` is now `TopicScoresDelta` (explicit fixed fields), NOT `dict[str, float]`.
+  assess_node converts to sparse `dict[str, float]` before writing to AgentState.
   Use with `.with_structured_output(AssessmentOutput)` in assess_node.
+- `TopicScoresDelta`: explicit Pydantic model with one `float = 0.0` field per VALID_MODULE_SLUGS slug.
+  Required because OpenAI structured output rejects `additionalProperties` in any schema,
+  which is what `dict[str, float]` serialises to. AgentState.topic_scores_delta stays `dict[str, float]`.
 
 **Decisions Other Agents Must Know:**
 - `from __future__ import annotations` is used in `state.py` to enable forward references
@@ -108,6 +113,67 @@ No archived sessions yet.
 | 08 | Commit 15 `profile-update-node` | ✅ Done | Synchronous node in its own file; two fast-exit paths (None user_id, assessment_error=True); identified_gaps state field maps to `gaps` DB column; no json.loads on topic_scores. |
 | 09 | Commit 17 `adaptive-prompt-templates` | ✅ Done | Five mastery-level ChatPromptTemplates + DEFAULT_PROMPT in src/agents/prompts/rag.py; exported via package __init__; single {context} variable; system-message-only templates for Commit 18 wiring. |
 | 10 | Commit 18 `adaptive-graph-integration` | ✅ Done | Template lookup via PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT); cache key includes user_level; ChatResponse Pydantic model added to chain.py; assessed_topics is dict[str, float] not list. |
+| 11 | hotfix `assess-node-openai-schema` | ✅ Done | Replaced dict[str, float] in AssessmentOutput with TopicScoresDelta (explicit fixed-field Pydantic model); assess_node converts back to sparse dict before state write. |
+
+---
+
+## Session 11 — Hotfix: `assess-node-openai-schema`
+
+**Date:** 2026-05-11
+**Status:** ✅ Done
+
+### AI Problem Being Solved
+
+`assess_node` was setting `assessment_error=True` on every call due to an
+`openai.BadRequestError 400` — OpenAI's structured output endpoint rejected the
+JSON schema generated for `AssessmentOutput` because `dict[str, float]` serialises
+to `{"type": "object", "additionalProperties": {"type": "number"}}`, and OpenAI
+rejects any schema containing `additionalProperties` at schema validation time
+(before the model even runs). The downstream effect was that `update_profile_node`
+always hit its fast-exit path, so no user profiles (query count, mastery level)
+ever updated.
+
+### Failure Modes Considered
+
+- Switching to `strict=True` — does not help; the rejection is at schema validation,
+  not model execution; strict mode changes model behaviour not schema acceptance.
+- Wrapping `dict[str, float]` in a `RootModel` — still produces `additionalProperties`.
+- Using `Any` type — loses structured output contract entirely.
+- Inline conversion in assess_node without touching AssessmentOutput schema — not viable;
+  the schema is what OpenAI sees.
+
+### What Was Deterministic
+
+Everything except the LLM call itself. Schema design, field validation, dict-to-model
+conversion — all pure code. The fix moved all risk surface out of the serialisation
+layer.
+
+### Changes Made
+
+1. `src/agents/state.py` — added `TopicScoresDelta` Pydantic model with one explicit
+   `float = 0.0` field per slug in `VALID_MODULE_SLUGS`. Changed
+   `AssessmentOutput.topic_scores_delta` from `dict[str, float]` to `TopicScoresDelta`.
+   Removed the `filter_topic_scores_slugs` validator (now redundant — no unknown keys
+   possible with explicit fields). Updated `AssessmentOutput` docstring.
+
+2. `src/agents/nodes/assess.py` — added `TopicScoresDelta` to import. After the LLM
+   call, converts `result.topic_scores_delta` (a `TopicScoresDelta`) to a sparse
+   `dict[str, float]` via `model_dump()` with zero-value filtering. `AgentState`,
+   `update_profile_node`, and `scoring.py` all receive `dict[str, float]` unchanged.
+
+### Approach
+
+The problem initially looked like it might require switching LLM providers or disabling
+structured output. Reading the OpenAI error message carefully — "required is required to
+be supplied and to be an array including every key in properties. Extra required key
+topic_scores_delta supplied" — clarified the real constraint: OpenAI's structured output
+parser requires a closed object schema where every property is declared explicitly and
+listed in `required`. `additionalProperties` violates this. The `dict[str, float]` type
+always generates `additionalProperties`; there is no Pydantic config flag that suppresses
+it. The only correct solution is a concrete model. `TopicScoresDelta` with six explicit
+float fields generates `{"type": "object", "properties": {...}, "required": [...]}` with
+no `additionalProperties` — exactly what OpenAI needs. The conversion back to a sparse
+dict in assess_node keeps all downstream contracts intact at zero cost.
 
 ---
 
