@@ -192,7 +192,9 @@ responsive to who they are, not a static Q&A tool.
 7.   retrieve_node → ChromaDB (or BM25 fallback) → docs, retrieval_source
 8.   generate_node → PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT) → SystemMessage(context) + messages → LLM → streams tokens
 9.       ↳ on_chat_model_stream events → SSE "token" events to client
-10.  assess_node → second LLM call → AssessmentOutput (topic_scores_delta, user_level)
+10.  assess_node → two modes: (A) test mode — deterministic question selection from curriculum,
+       no LLM call, returns pending_test_question/slug; (B) evaluation mode — LLM call →
+       EvaluationOutput verdict → test_answer_score, topic_scores_delta
 11.  update_profile_node → compute_topic_scores() → update_profile() → SQLite
 12. build_chat_response(final_state) → ChatResponse → SSE "done" event: { answer, user_level, assessed_topics }
 13. MemorySaver checkpointer persists messages under thread_id for next turn
@@ -283,8 +285,12 @@ retrieve_node          — reads question from state; calls retrieve(); writes d
 generate_node          — builds SystemMessage(context) + messages; calls LLM (async ainvoke); writes messages, answer
   │
   ▼
-assess_node            — calls assessment_prompt | llm.with_structured_output(AssessmentOutput);
-  │                       writes topic_scores_delta, identified_gaps, assessment_error
+assess_node            — two modes: (A) test mode: deterministic question load from
+  │                       knowledge-base/curriculum/questions/<slug>.md, no LLM call;
+  │                       (B) eval mode: assessment_prompt | llm.with_structured_output(EvaluationOutput)
+  │                       → verdict → test_answer_score (1.0/0.5/0.0); writes topic_scores_delta,
+  │                       identified_gaps, assessment_error, test_mode, pending_test_question,
+  │                       pending_test_slug, test_answer_score
   │
   ├─ assessment_error=False ──┐
   │                           │
@@ -368,4 +374,4 @@ Introduced in Commit 21. `docker-compose.prod.yml` is a standalone file (not a c
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 - **Grafana dashboards** — pre-built dashboard exports for request latency / cache hit rate — Commit 26 or 27
 
-*Last updated: 2026-05-11 — Commit 22 complete (RAG curriculum directory; Lara onboarded as Curriculum domain owner)*
+*Last updated: 2026-05-11 — Commit 24 complete (assessment-engine-rewrite: two-mode assess_node, EvaluationOutput, 4 new AgentState fields)*

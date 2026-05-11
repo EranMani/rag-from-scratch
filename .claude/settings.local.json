@@ -109,7 +109,13 @@
       "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --msg-filter 'sed \"s/Co-Authored-By: Nova <nova@anthropic.com>/Co-Authored-By: Nova <nova.nodegraph@gmail.com>/g; s/Co-Authored-By: Rex <rex@anthropic.com>/Co-Authored-By: Rex <rex.stockagent@gmail.com>/g\"' -- --all)",
       "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --msg-filter 'sed \"s/Co-Authored-By: Eran Mani <erdimanerdi20@gmail.com>/Co-Authored-By: EranMani <eranmanim@gmail.com>/g\"' -- --all)",
       "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --msg-filter 'sed \"s/Co-Authored-By: Claude <claude@anthropic.com>/Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>/g\"' -- --all)",
-      "Bash(Select-Object FullName, Length)"
+      "Bash(Select-Object FullName, Length)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_assess_node.py -v)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_assess_node.py -v)",
+      "PowerShell(\\(Get-Content \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\LEARNING_LOG.md\" | Measure-Object -Line\\).Lines)",
+      "PowerShell(\\(Get-Content \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\.claude\\\\agents\\\\logs\\\\nova-worklog.md\" | Measure-Object -Line\\).Lines)",
+      "PowerShell(\\(Get-Content \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\TOKEN_RECORDS.md\" | Measure-Object -Line\\).Lines)",
+      "PowerShell(Get-Content \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\TOKEN_RECORDS.md\" | Select-Object -Index \\(248..280\\) | ForEach-Object { $_ })"
     ]
   }
 }

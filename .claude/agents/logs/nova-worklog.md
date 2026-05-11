@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: hotfix `assess-node-openai-schema` · 2026-05-11*
+*Last updated: Commit 24 `assessment-engine-rewrite` · 2026-05-11*
 
-**Last completed:** hotfix `assess-node-openai-schema` ✅
+**Last completed:** Commit 24 `assessment-engine-rewrite` ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -138,6 +138,82 @@ The commit plan has been updated. Here is what changed for you:
 | 09 | Commit 17 `adaptive-prompt-templates` | ✅ Done | Five mastery-level ChatPromptTemplates + DEFAULT_PROMPT in src/agents/prompts/rag.py; exported via package __init__; single {context} variable; system-message-only templates for Commit 18 wiring. |
 | 10 | Commit 18 `adaptive-graph-integration` | ✅ Done | Template lookup via PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT); cache key includes user_level; ChatResponse Pydantic model added to chain.py; assessed_topics is dict[str, float] not list. |
 | 11 | hotfix `assess-node-openai-schema` | ✅ Done | Replaced dict[str, float] in AssessmentOutput with TopicScoresDelta (explicit fixed-field Pydantic model); assess_node converts back to sparse dict before state write. |
+| 12 | Commit 24 `assessment-engine-rewrite` | ✅ Done | New EvaluationOutput model (not AssessmentOutput) for eval mode; _is_evaluation_mode() uses last-message HumanMessage inspection; regex-based curriculum file parser; TopicScoresDelta + VALID_MODULE_SLUGS updated to canonical 8 slugs. |
+
+---
+
+## Session 12 — Commit 24: `assessment-engine-rewrite`
+
+**Date:** 2026-05-11
+**Status:** ✅ Done
+
+### AI Problem Being Solved
+
+Full rewrite of `assess_node` from the broken Q&A-observation model (LLM infers understanding
+from question content) to a curriculum-driven two-mode pipeline. The new model must:
+1. **Test mode** — deterministically select a curriculum question and inject it into the flow without an LLM call.
+2. **Evaluation mode** — receive the user's answer, load the rubric, call the LLM for a verdict (`correct/partial/incorrect`), and derive a `test_answer_score` (1.0/0.5/0.0).
+
+### Key Decisions
+
+**`EvaluationOutput` as a separate schema.** The initial question was whether to repurpose
+`AssessmentOutput` by adding a `verdict` field. Ruled out: `AssessmentOutput.topic_scores_delta`
+is typed as `TopicScoresDelta`, which Rex's Commit 25 depends on as a stable contract. Mutating
+it risks cascading through Rex's work. A new `EvaluationOutput` model (`verdict`, `confidence`,
+`identified_gaps`, `user_level`) is the surgical option — it only exists in the evaluation mode
+call chain and touches no existing contracts.
+
+**Mode detection via last-message inspection.** Considered adding `evaluation_mode: bool` to
+`AgentState` and setting it when injecting a test question. Ruled out: a boolean flag requires
+a second state write on every test-mode turn and can become stale (e.g., if a turn is replayed or
+the graph is re-entered). Instead, `_is_evaluation_mode()` checks `pending_test_question is set`
+AND `last message is HumanMessage`. The message list is ground-truth — if the user sent a message
+after a pending question existed, they answered it. Cannot be stale.
+
+**Regex-based curriculum file parser.** The curriculum files (`knowledge-base/curriculum/questions/<slug>.md`)
+follow a structured Markdown format. A proper Markdown parser (e.g., `mistune`) was ruled out
+to avoid adding a dependency. Regex patterns that match `**Question:**` and `## Q\d` section
+headers are sufficient and stable against the current format. Fragility noted: if Lara changes
+the question file format, the regex must be updated in sync.
+
+**`VALID_MODULE_SLUGS` + `TopicScoresDelta` updated here, not in Commit 25.** The hotfix's
+`VALID_MODULE_SLUGS` still used the pre-replan 6-slug set. With those slugs, `_select_test_slug()`
+never selects any of the 8 curriculum slugs — the ordered fallback also fails because none match.
+Deferring to Rex's Commit 25 would leave the assessment node unable to select any valid topic.
+Updated both here; Rex's Commit 25 unaffected since it owns the scoring formula, not the slug definition.
+
+### Changes Made
+
+1. `src/agents/state.py` — Updated `TopicScoresDelta` and `VALID_MODULE_SLUGS` to canonical
+   8-slug set. Added `EvaluationOutput` Pydantic model. Added 4 new `AgentState` fields:
+   `test_mode: bool`, `pending_test_question: str | None`, `pending_test_slug: str | None`,
+   `test_answer_score: float | None`.
+
+2. `src/agents/nodes/assess.py` — Full rewrite. `_is_evaluation_mode()` for mode detection.
+   `_select_test_question()`: deterministic slug selection from `identified_gaps` → canonical ordering;
+   curriculum file loaded via `_load_question_text(slug, idx)` using regex. `_evaluate_answer()`:
+   LLM call with `EvaluationOutput`, verdict→score mapping, sparse delta derived from `(pending_test_slug, score)`.
+   Invalid slug guard. `_eval_error_result()` fallback on all exceptions.
+
+3. `src/agents/prompts/assessment.py` — Full rewrite. New template variables: `{question}`, `{rubric}`,
+   `{user_answer}`. Old Q&A-observation logic removed entirely.
+
+4. `tests/test_assess_node.py` — Full rewrite. 37 tests across 8 gate classes (TestGate1TestMode
+   through TestGate8GraphTopologySmoke). All prior Q&A-observation assertions removed.
+
+### Approach
+
+The first architectural question was whether "two modes" should be two nodes or one node.
+Two nodes would have required graph topology changes and a new state field to select between them —
+adding coupling. A single node that internally branches keeps the graph topology stable (no changes
+to edge wiring) and is consistent with the existing `assessment_error` fallback-in-place pattern.
+
+The trickiest part was the test suite. 37 tests needed to cover both modes, all 4 new fields,
+the slug guard, the output key boundary, and the graph topology smoke test — without importing
+curriculum files as fixtures (filesystem dependency in tests). The solution: tests mock
+`_load_question_text` and `_load_rubric_text` to return controlled strings; only the
+`TestGate8GraphTopologySmoke` tests run against the real compiled graph and depend on the
+`.env` file being present (noted as a conftest gap).
 
 ---
 

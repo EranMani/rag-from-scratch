@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-11 (Commit 23 complete)",
+  "last_updated": "2026-05-11 (Commit 24 complete)",
   "status": "active",
   "current_commit": {
-    "number": "24",
-    "name": "assessment-engine-rewrite",
+    "number": "25",
+    "name": "profile-scoring-rewrite",
     "status": "pending",
-    "assignee": "ai-engineer"
+    "assignee": "backend"
   },
   "commits_done": [
     "01",
@@ -31,28 +31,28 @@
     "20",
     "21",
     "22",
-    "23"
+    "23",
+    "24"
   ],
   "commits_pending": [
-    "24",
     "25",
     "26",
     "27",
     "28",
     "29"
   ],
-  "next_commit": "24",
+  "next_commit": "25",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "18",
-      "tests": "240/240 PASS — 6 new cache isolation tests + 1 unknown user_level fallback test",
-      "viktor": "PASS WITH COMMENTS — 3 advisories: ChatResponse str|None annotation consistency, logger.warning vs logger.error, test_cache.py sentinel value test gap",
-      "sage": "PASS",
-      "quinn": "ADEQUATE — 2 HIGH closed (null-byte collision, unknown level fallback); 2 MEDIUM accepted as debt (cache TTL seam, assessed_topics delta display)",
-      "mira": "non-blocking — 3 carry-forwards for Commit 19: user_level null display, assessed_topics delta framing, answer duplicate-render risk",
-      "gate_wave": "all 4 (Viktor+Sage+Quinn+Mira) — 2 gate-fix cycles; Viktor ran 3 passes (worktree confusion on pass 2)"
+      "number": "24",
+      "tests": "37/37 PASS — full rewrite of test_assess_node.py (8 gate classes, two-mode coverage)",
+      "viktor": "not triggered — cadence fires at Commit 25",
+      "sage": "PASS — all 4 surfaces clear (path traversal, OpenAI API key, prompt injection, LLM output to state)",
+      "quinn": "not triggered — cadence fires at Commit 25",
+      "mira": "not triggered — node internals, no API shape change",
+      "gate_wave": "Sage only (OpenAI API call trigger); retroactive — Nova committed before TL approval (Option A accepted)"
     },
     "commit_10": {
       "number": "10",

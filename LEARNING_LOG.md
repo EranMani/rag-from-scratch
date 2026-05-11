@@ -1143,6 +1143,43 @@ system_msg = template.format_messages(context=context)[0]
 
 ---
 
+**Commit 24 — `assessment-engine-rewrite`** · 2026-05-11 · Nova · `architectural | new feature`
+
+> **In one sentence:** The broken Q&A-observation assessment model is replaced with a curriculum-driven two-mode pipeline — the agent now administers real test questions and evaluates actual user answers, making scores reflect demonstrated knowledge rather than inferred understanding from chat patterns.
+
+**Interview talking point:**
+> **Q:** How do you decide when to retire an LLM call that doesn't need one?
+>
+> **A:** If the operation is deterministic and the state to decide it is already in memory, an LLM call is waste. Test mode picks a curriculum question from disk—no language understanding needed. Evaluation mode *does* need the LLM because human answers are freeform and require rubric judgment. Two modes, one node, one semantic boundary: deterministic selection, LLM judgment only where it matters.
+
+**What happened and why:**
+- Commit 23 exposed that the old Q&A-observation model didn't work: it tried to infer mastery from chat patterns, which is unreliable and impossible to test. The curriculum from Commit 22 provided a better foundation: real questions with rubrics.
+- The assess node was rewritten as a two-mode pipeline: test mode (deterministic) selects a curriculum question and sends it to the user; evaluation mode (LLM) grades the user's answer against the question's rubric and derives a sparse score delta.
+- Mode detection is handled by inspecting the message list (`_is_evaluation_mode()` checks if a `pending_test_question` is set AND the last message is from a human). This is ground-truth, not a stale flag.
+- State schema was extended with 4 new fields (`test_mode`, `pending_test_question`, `pending_test_slug`, `test_answer_score`) to track the question lifecycle. `EvaluationOutput` was added as a new schema—repurposing `AssessmentOutput` would have broken Commit 25's contract.
+- The canonical 8-slug set (from Commit 23) was backfilled into `VALID_MODULE_SLUGS` and `TopicScoresDelta` here, not in Commit 25, because using stale 6-slug values would cause `_select_test_slug()` to never match any curriculum file.
+
+**Reasoning & discovery:**
+1. The problem was first understood as "we need to grade answers"—but testing showed it was really "we need answers to grade." The curriculum provides the questions; evaluation just needs to judge them.
+2. Ruled out: repurposing `AssessmentOutput` (would mutate a contract Rex depends on), using a stored boolean for mode detection (stale), deferring the slug backfill to Commit 25 (would break assess before Rex's work is ready).
+3. Clinched by: two modes in one node keeps the graph topology stable (Commit 13's architecture unchanged); deterministic test selection avoids a second LLM call per turn (cost + latency); message-list inspection is the source of truth and cannot drift from database state.
+
+**Design pattern:**
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Two-mode node | Single node branches on `_is_evaluation_mode()`; test mode is LLM-free, eval mode calls the model with structured schema | Preserves graph topology; eliminates unnecessary LLM calls; keeps decision logic co-located with domain-specific state |
+| Message list as source of truth | `_is_evaluation_mode()` inspects last message type, not a boolean flag | Messages cannot get out of sync with database; stale flags would cause mode misalignment and silent failures |
+| Schema separation (EvaluationOutput) | New model for assessment-specific verdicts; AssessmentOutput untouched | Surgical change that isolates Commit 24 from Commit 25's contract; reduces coupling between assessment logic and outcome routing |
+| Canonical slug backfill | Update state + delta schema slugs here (not next commit) | Prevents a window where curriculum questions exist but slug matching fails; test pipeline works end-to-end before dependent work begins |
+
+**Files touched:**
+- `src/agents/nodes/assess.py` — full rewrite: two-mode logic, deterministic question selection, LLM evaluation with structured output
+- `src/agents/prompts/assessment.py` — full rewrite: new template for structured evaluation, receives question + rubric + user answer
+- `src/agents/state.py` — added `EvaluationOutput` model; extended `AgentState` with 4 new fields; updated canonical slugs in `VALID_MODULE_SLUGS` and `TopicScoresDelta`
+- `tests/test_assess_node.py` — full rewrite: 37 tests across 8 test classes; all Q&A-observation assertions removed; new gate coverage for both modes
+
+---
+
 **Commit 19 — `profile-ui-panel`** · 2026-05-10 · Aria · `architectural`
 
 > **In one sentence:** The NiceGUI chat interface was refactored to a two-column layout with a profile sidebar, wired with a nested refreshable panel that displays user mastery level, progress bars, and activity timestamps — and dead code removal eliminated a duplicate 37-line login form that was no longer used.

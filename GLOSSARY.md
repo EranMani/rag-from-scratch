@@ -224,4 +224,19 @@
 **Used in:** `docs/scoring-model.md` (Section 6.2); implemented by Nova in Commit 24
 **Introduced in:** Commit 23
 
-*Last updated: 2026-05-11 — Commit 23 complete (Assessment Session, Readiness Score Threshold, Assessment Deferral added)*
+### EvaluationOutput
+**Meaning on this project:** A Pydantic model introduced in Commit 24 and used exclusively by `assess_node` in evaluation mode. Contains `verdict: str` (`"correct"` / `"partial"` / `"incorrect"`), `confidence: float` (0.0–1.0), `identified_gaps: list[str]`, and `user_level: str`. Used with `.with_structured_output(EvaluationOutput)` to get a structured LLM evaluation of the user's test answer against a curriculum rubric.
+**Distinct from:** `AssessmentOutput` (the prior schema — still defined in `state.py` but no longer used in `assess_node` after Commit 24; Rex's Commit 25 may retain or remove it). `EvaluationOutput` returns a verdict per test question; `AssessmentOutput` returned delta scores per inferred topic.
+**Used in:** `src/agents/state.py`, `src/agents/nodes/assess.py`
+**Introduced in:** Commit 24
+
+### test_mode / pending_test_question / pending_test_slug / test_answer_score
+**Meaning on this project:** Four new `AgentState` fields added in Commit 24 to support curriculum-driven test administration:
+- `test_mode: bool` — `True` when `assess_node` has selected and delivered a curriculum question; `False` otherwise.
+- `pending_test_question: str | None` — the curriculum test question text currently awaiting the user's answer. `None` when no test is in progress.
+- `pending_test_slug: str | None` — the topic slug of the pending test question; must be in `VALID_MODULE_SLUGS`. `None` when no test is in progress.
+- `test_answer_score: float | None` — the score assigned to the most recently evaluated test answer: `1.0` (correct), `0.5` (partial), `0.0` (incorrect). `None` on test-mode turns (no answer yet) and on fallback.
+**Used in:** `src/agents/state.py`, `src/agents/nodes/assess.py`
+**Introduced in:** Commit 24
+
+*Last updated: 2026-05-11 — Commit 24 complete (EvaluationOutput, test_mode fields added)*

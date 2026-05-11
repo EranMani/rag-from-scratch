@@ -244,6 +244,36 @@
 
 ---
 
+## Assessment Engine Implementation (C24)
+
+### `EvaluationOutput` as a separate Pydantic model from `AssessmentOutput` (Commit 24)
+- **Date:** 2026-05-11
+- **Commit:** 24
+- **Decided by:** Nova
+- **Decision:** `assess_node` evaluation mode uses a new `EvaluationOutput` model (`verdict: str`, `confidence: float`, `identified_gaps: list[str]`, `user_level: str`) with `.with_structured_output(EvaluationOutput)` — not `AssessmentOutput`.
+- **Alternatives considered:** Repurposing `AssessmentOutput` by adding a `verdict` field.
+- **Reason:** `AssessmentOutput` uses `TopicScoresDelta` for its `topic_scores_delta` field, which Rex's Commit 25 depends on as a stable contract. Adding a `verdict` field to `AssessmentOutput` would change the schema that the rest of the graph and Rex's downstream code references. A separate `EvaluationOutput` is the surgical option: no downstream contract touches it, and `AssessmentOutput`/`TopicScoresDelta` remains unchanged for Rex.
+- **Consequences:** `assess_node` now imports `EvaluationOutput`, not `AssessmentOutput`, in evaluation mode. `AssessmentOutput` is not currently used in `assess_node` after this commit — Rex's Commit 25 may choose to retain or remove it when rewriting the scoring layer.
+
+### `_is_evaluation_mode()` uses last-message type inspection, not a state boolean (Commit 24)
+- **Date:** 2026-05-11
+- **Commit:** 24
+- **Decided by:** Nova
+- **Decision:** Mode detection in `assess_node` inspects `state["messages"][-1]` type: evaluation mode requires both `pending_test_question` set AND last message is a `HumanMessage`. A separate `evaluation_mode: bool` state flag was not added.
+- **Alternatives considered:** Adding `evaluation_mode: bool` to `AgentState` and setting it when injecting a test question.
+- **Reason:** The last message being a `HumanMessage` is ground-truth — if the user sent a message, they answered. A separate boolean flag would require a second write on every test-mode turn and creates a consistency risk: `evaluation_mode=True` with no `HumanMessage` last (e.g., a re-invocation mid-session after a bug) would call the LLM with no answer to evaluate. Inspecting the message list is self-consistent and cannot be stale.
+- **Consequences:** Test mocks must include at least one `HumanMessage` in `state["messages"]` for evaluation mode tests to trigger correctly.
+
+### `TopicScoresDelta` and `VALID_MODULE_SLUGS` updated to canonical 8-slug set in Commit 24 (Commit 24)
+- **Date:** 2026-05-11
+- **Commit:** 24
+- **Decided by:** Nova (necessary for test correctness)
+- **Decision:** The hotfix in Session 11 created `TopicScoresDelta` with the pre-replan 6-slug set (`rag_fundamentals`, `langchain`, etc.). Commit 24 updated both `TopicScoresDelta` and `VALID_MODULE_SLUGS` to the canonical 8-slug set from the 2026-05-11 replan, earlier than Commit 25 (Rex's planned migration).
+- **Reason:** Commit 24 loads curriculum files from `knowledge-base/curriculum/questions/<slug>.md` for 8 slugs. With the old `VALID_MODULE_SLUGS` (`rag_fundamentals`, `langchain`), `_select_test_slug()` would never select any of the 8 curriculum slugs — the slug selection falls through to the canonical ordering and all 8 are rejected. The test suite also validates slug membership. Deferring to Commit 25 would leave a broken assessment node that can never select a valid curriculum question.
+- **Consequences:** Rex's Commit 25 still handles all scoring-layer changes (`compute_topic_scores`, session formula, phase gates). The only change that arrived early is the slug definition itself in `state.py`. Rex should verify `VALID_MODULE_SLUGS` matches expectations before Commit 25 begins.
+
+---
+
 ## Deferred Decisions
 
 | Decision | Why deferred | Revisit at |

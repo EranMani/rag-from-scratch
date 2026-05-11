@@ -362,6 +362,28 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 24 — `assessment-engine-rewrite` · 2026-05-11 · Nova
+
+> Gate wave: Sage only (assess.py makes OpenAI API calls — Sage trigger criterion met).
+> Viktor+Quinn cadence: next wave at Commit 25. Mira not triggered (node internals, no API shape change).
+> Ryan: full entry (ARCHITECTURE.md + DECISIONS.md + GLOSSARY.md updated).
+> **Protocol note:** Nova committed before Team Lead approval (protocol violation). Team Lead selected retroactive gate (Option A). Gates ran post-commit against the committed diff.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Nova (implementation) | Sonnet | 77,640 | 26 | **+18k** over ≤60k | 1 tool use over 25 cap; committed without TL approval |
+| Sage | Haiku | 50,759 | 20 | **+36k** over ≤15k | PASS; diff excerpts passed in prompt inflate input cost |
+| Ryan | Haiku | 43,238 | 7 | **+28k** over ≤15k; 2 over 5-tool cap | full entry; 7 tool uses (cap is 5) |
+| **Total** | | **171,637** | **53** | **+82k** over ≤90k target |  |
+
+**Notes:**
+- Nova marginal over ≤60k: full two-mode rewrite (5 files, 37 tests) in 26 tool uses. Two-phase discipline broadly held; 26th tool use was worklog write (deferred by orchestrator due to cap).
+- Sage high for Haiku: 50,759 tokens primarily driven by large inline diff in prompt (diff excerpts included as context); Sage independently read assess.py to verify slug guard logic (20 tool uses). Future: pass Sage only targeted code snippets, not multi-hundred-line diffs.
+- Ryan 43k: full entry with ARCHITECTURE.md + DECISIONS.md + GLOSSARY.md updated — consistent with prior full entries. 7 tool uses (2 over 5 cap): likely needed extra Edit for a format issue.
+- **Token budget comparison vs. intent:** Team Lead asked to "make sure this commit won't waste too many tokens." Nova at 78k alone exceeds the ≤60k target; total at 172k is ~2× the ≤90k full-commit target. Root cause: Sage reading beyond diff (20 tool uses vs. expected 5–8). Corrective: pass Sage only the specific security surfaces, not inline diff.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -380,6 +402,7 @@ No token data recorded. Tracking began at Commit 10.
 | 21 | production-compose | 298,547 | all 4 (2×) | over — 2 gate cycles | Viktor hard block (chroma healthcheck + CHROMA_PORT); all Sonnet reviewers |
 | 22 | rag-curriculum-design | 110,831 | none | over — docs-only | first Lara invocation + full Ryan entry (arch/decisions/glossary all updated) |
 | 23 | scoring-model-product-spec | 124,106 | none | over — doc-only | both impl agents on Sonnet (should be Haiku); Ryan over 5-tool cap (used 8) |
+| 24 | assessment-engine-rewrite | 171,637 | Sage only | **over — +82k** | Nova 26 tool uses + commit without approval; Sage 51k (diff-in-prompt); Ryan 43k full entry |
 
 ---
 
