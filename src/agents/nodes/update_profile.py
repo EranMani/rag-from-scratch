@@ -20,8 +20,6 @@ Design notes:
 - compute_topic_scores receives the full profile dict (not just profile['topic_scores']).
   get_profile_by_user_id already deserializes topic_scores from JSON; do NOT call
   json.loads() on it before passing it here.
-- interaction_count is passed to compute_topic_scores even though the scoring formula
-  does not use it — it belongs to the function contract (Commit 14).
 - last_activity_at is always set on successful write (Commit 05 Mira handoff).
 """
 
@@ -78,17 +76,12 @@ def update_profile_node(state: AgentState) -> dict[str, Any]:
     score_update: TopicScoreUpdate = compute_topic_scores(
         current_profile,
         topic_scores_delta,
-        interaction_count,
     )
 
-    # Persist all updated fields in a single DB write.
-    # AgentState.identified_gaps maps to the DB column "gaps".
-    # score_update["gaps"] is the low-score set derived from merged topic_scores;
-    # identified_gaps from the LLM assessment is the per-turn signal — we write the
-    # scoring-derived gaps (score_update["gaps"]) which reflects the full merged state.
     update_profile(
         user_id,
         topic_scores=score_update["topic_scores"],
+        session_history=score_update["session_history"],
         strengths=score_update["strengths"],
         gaps=score_update["gaps"],
         mastery_level=score_update["mastery_level"],

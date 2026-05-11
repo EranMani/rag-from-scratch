@@ -11,7 +11,7 @@ from app.core.logging_config import logger
 from app.core.metrics import REGISTRY, REQUEST_COUNT, REQUEST_LATENCY
 from app.api.routes import chat, documents, health, auth, profile
 from app.auth.db import init_user_db
-from app.profile.db import init_profile_db
+from app.profile.db import init_profile_db, migrate_topic_slugs
 from rag.pipeline.indexer import load_knowledge_base, get_vectorstore, ingest_documents
 from rag.pipeline.retriever import set_bm25_fallback
 from agents.graph import build_graph
@@ -26,6 +26,7 @@ async def lifespan(app: FastAPI):
     # Create users table and user_profiles table in sqlite3
     init_user_db()
     init_profile_db()
+    migrate_topic_slugs()
 
     # Load knowledge base and setup BM25 fallback on startup
     docs = load_knowledge_base()

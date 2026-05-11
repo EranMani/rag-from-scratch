@@ -5,22 +5,24 @@
 ---
 
 ## Current State
-*Last updated: Commit 15 · 2026-05-10*
+*Last updated: Commit 25 · 2026-05-12*
 
-**Last completed:** Commit 15 `fix-score-delta-semantics` ✅
+**Last completed:** Commit 25 `profile-scoring-rewrite` ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
-- Nova (Commit 10): when LangGraph replaces `chain.py`, `format_history(session_id)` injection MUST be carried forward — pass `conversation_history` into `AgentState` before `graph.invoke()`. This is a named deliverable of Commit 10. Already logged in `project-state.json`.
-- Nova (Commit 16): `compute_topic_scores` and `TopicScoreUpdate` are live in `src/app/profile/scoring.py`. Import exactly as: `from app.profile.scoring import compute_topic_scores, TopicScoreUpdate`. `current_profile["topic_scores"]` is already `dict[str, float]` when retrieved via `get_profile_by_user_id` — do not JSON-parse it again. CRITICAL SEMANTIC CHANGE (Commit 15): `assessed_topics` values are DELTAS — each value is ADDED to the existing score, not used as a replacement. The function merges as `existing + delta`, clamped to [0.0, 1.0]. A delta of -0.3 means "this topic weakened by 0.3 this turn." Nova's node must pass LLM-returned deltas directly; do not pre-add them to existing scores before calling the function — that would double-apply.
+- Nova / update_profile_node (Commit 25): `compute_topic_scores` signature changed. New call: `compute_topic_scores(current_profile, topic_scores_delta)` — 2 args only, no `interaction_count`. `topic_scores_delta` values are session scores (0.0–1.0 absolute), NOT deltas to add. The function applies the spaced-repetition formula internally and returns a `TopicScoreUpdate` with 5 fields including `session_history`. Callers MUST pass `session_history=score_update["session_history"]` to `update_profile()` to persist the history for future best_prior computation.
 
 **Open Handoffs — Inbound:**
 - (none)
 
 **Key Interfaces I Own (for teammates):**
-- `src/app/profile/scoring.py` — `compute_topic_scores(current_profile, assessed_topics, interaction_count) -> TopicScoreUpdate` and `get_mastery_level(topic_scores) -> str`. Pure functions, no DB, no FastAPI deps. Safe to call from any context including LangGraph nodes.
-- `TopicScoreUpdate` TypedDict fields: `topic_scores: dict[str, float]`, `strengths: list[str]`, `gaps: list[str]`, `mastery_level: str`.
+- `src/app/profile/scoring.py` — `compute_topic_scores(current_profile: dict, topic_scores_delta: dict[str, float]) -> TopicScoreUpdate`. Pure function, no DB, no FastAPI deps. Safe to call from any context including LangGraph nodes.
+- `TopicScoreUpdate` TypedDict fields (5 total): `topic_scores: dict[str, float | None]`, `session_history: dict[str, list[float]]`, `strengths: list[str]`, `gaps: list[str]`, `mastery_level: Literal["novice","beginner","intermediate","advanced","expert"]`.
+- `get_mastery_level(topic_scores: dict[str, float | None]) -> Literal[...]` — uses phase gate state, NOT score average. Evaluated expert → novice; first match wins. `None` scores are excluded — they are NOT treated as 0.0.
+- `src/app/profile/db.py` — `session_history` column added to `user_profiles` table. `_ALLOWED_PROFILE_COLUMNS` includes `session_history`. `update_profile()` serializes it as JSON. `get_profile_by_user_id()` deserializes it back to `dict[str, list[float]]`.
+- `migrate_topic_slugs()` — idempotent startup migration: `rag_fundamentals` → `rag_pipeline_architecture`, `langchain` discarded, 4 new slugs added at 0.0. Idempotency: if `rag_pipeline_architecture` key already exists in a row, that row is skipped entirely.
 - `GET /api/profile/me` — requires Bearer token; returns `UserProfilePublic`; 404 if profile missing (should not happen for registered users)
 - `src/app/api/routes/profile.py` — profile router; single GET endpoint
 - `src/app/profile/db.py` — full CRUD: `create_profile(user_id)`, `get_profile_by_user_id(user_id)`, `update_profile(user_id, **fields)`, `get_or_create_profile(user_id)`. All follow the existing `_connect()` pattern.
@@ -90,6 +92,35 @@ No archived sessions yet.
 | 06 | Commit 06 `feat: GET /api/profile/me endpoint and auto-create profile on registration` | ✅ Done | `asyncio.to_thread` wraps the synchronous DB call in the async route; register route's `create_profile` call wraps `sqlite3.IntegrityError` to handle duplicate races without surfacing 500 |
 | 07 | Commit 14 `topic-scoring-service` | ✅ Done | Pure function design — no DB imports; invalid slug filtering via `isinstance` check; score clamping to [0,1] as a silent defensive invariant |
 | 08 | Commit 15 `fix-score-delta-semantics` | ✅ Done | Viktor-block fix: changed merge from absolute replacement to additive delta (`existing + score`); all existing tests passed without change because they used fresh profiles where existing=0.0 |
+| 09 | Commit 25 `profile-scoring-rewrite` | ✅ Done | Spaced-repetition formula replaces additive model; None vs 0.0 distinction enforced throughout; phase gates are cumulative (not independent); session_history added to DB for best_prior computation |
+
+---
+
+## Session 09 — Commit 25: `profile-scoring-rewrite`
+
+**Date:** 2026-05-12
+**Status:** ✅ Done
+
+**Approach:**
+
+The initial problem was two coupled changes: (1) slug schema from 6 to 8 with a DB migration, and (2) complete rewrite of the scoring formula from additive-delta to spaced-repetition. Reading `state.py` first revealed that Nova's Commit 24 had already updated `VALID_MODULE_SLUGS` and `TopicScoresDelta` to the 8-slug set — no changes needed there.
+
+The scoring rewrite had a key design question: what does `compute_topic_scores` accept? Nova's `assess_node` produces `topic_scores_delta: dict[str, float]` in `AgentState`, but these are now session scores (0.0–1.0 absolute), not deltas to add. Ruled out: keeping the additive model (it contradicts the spaced-repetition spec). Clincher: the function must internally apply `0.7 × session_score + 0.3 × best_prior_session_score` and return the computed topic score — callers never add it to existing scores.
+
+The `get_mastery_level` rewrite introduced a subtle trap: phase gates must be cumulative. If you check `_phase_3_passed()` first and return `"expert"` without also verifying phases 1 and 2 passed, a corrupt DB state (Phase 3 topics scored, Phase 1 null) would incorrectly return `"expert"`. Fixed by computing all three gate booleans first, then checking `p1 and p2 and p3`.
+
+The DB migration design used the `rag_pipeline_architecture` key's existence as the idempotency guard. Idempotency is checked per-row before any mutation, so partial migrations (e.g., interrupted at row 500 of 1000) resume correctly from the stopped row.
+
+Tool cap reached at 26 uses before writing the worklog or updating `update_profile.py` to match the new 2-arg signature. Claude applied the `get_mastery_level` bug fix and `update_profile.py` interface update post-session.
+
+**Files touched:**
+- `src/app/profile/scoring.py` — full rewrite (spaced repetition + phase-gate mastery)
+- `src/app/profile/db.py` — migration + session_history column
+- `src/app/main.py` — migration wired into lifespan
+- `src/agents/nodes/update_profile.py` — removed 3rd arg from compute_topic_scores call; added session_history write
+- `tests/test_scoring.py` — full rewrite (52 tests, 264/264 pass suite-wide)
+- `tests/test_agent_state.py` — stale slug fixtures updated to 8-slug set
+- `tests/test_chat_route.py` — mock event helper fixed (metadata.langgraph_node added)
 
 ---
 

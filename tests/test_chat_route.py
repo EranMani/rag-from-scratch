@@ -89,6 +89,7 @@ def _make_chunk_event(content: str) -> dict[str, Any]:
     return {
         "event": "on_chat_model_stream",
         "name": "ChatOpenAI",
+        "metadata": {"langgraph_node": "generate"},
         "data": {"chunk": chunk},
     }
 

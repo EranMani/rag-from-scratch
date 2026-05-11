@@ -150,7 +150,7 @@ class TestAddMessagesAccumulation:
 # ---------------------------------------------------------------------------
 
 VALID_ASSESSMENT_DICT = {
-    "topic_scores_delta": {"rag_fundamentals": 0.1, "langchain": -0.05},
+    "topic_scores_delta": {"embeddings_and_similarity": 0.1, "rag_pipeline_architecture": -0.05},
     "identified_gaps": ["vector_databases"],
     "user_level": "intermediate",
 }
@@ -162,7 +162,8 @@ class TestAssessmentOutputValid:
 
         output = AssessmentOutput(**VALID_ASSESSMENT_DICT)
         assert output.user_level == "intermediate"
-        assert output.topic_scores_delta == {"rag_fundamentals": 0.1, "langchain": -0.05}
+        assert output.topic_scores_delta.embeddings_and_similarity == pytest.approx(0.1)
+        assert output.topic_scores_delta.rag_pipeline_architecture == pytest.approx(-0.05)
         assert output.identified_gaps == ["vector_databases"]
 
 
@@ -260,28 +261,30 @@ class TestSlugValidationPreservesValid:
         from agents.state import AssessmentOutput
 
         output = AssessmentOutput(
-            topic_scores_delta={"rag_fundamentals": 0.5},
+            topic_scores_delta={"embeddings_and_similarity": 0.5},
             identified_gaps=[],
             user_level="advanced",
         )
-        assert "rag_fundamentals" in output.topic_scores_delta
-        assert output.topic_scores_delta["rag_fundamentals"] == pytest.approx(0.5)
+        assert output.topic_scores_delta.embeddings_and_similarity == pytest.approx(0.5)
 
     def test_all_valid_slugs_are_preserved(self) -> None:
         from agents.state import AssessmentOutput
 
         all_valid = {
-            "rag_fundamentals": 0.1,
-            "vector_databases": 0.2,
-            "langchain": 0.3,
-            "chunking_strategies": 0.4,
+            "embeddings_and_similarity": 0.1,
+            "rag_pipeline_architecture": 0.2,
+            "chunking_strategies": 0.3,
+            "vector_databases": 0.4,
             "retrieval_methods": 0.5,
-            "production_patterns": 0.6,
+            "context_and_prompting": 0.6,
+            "evaluation_and_metrics": 0.7,
+            "production_patterns": 0.8,
         }
         output = AssessmentOutput(
             topic_scores_delta=all_valid,
             identified_gaps=list(all_valid.keys()),
             user_level="expert",
         )
-        assert set(output.topic_scores_delta) == set(all_valid)
+        delta_dict = output.topic_scores_delta.model_dump()
+        assert all(abs(delta_dict.get(k, -1) - v) < 1e-9 for k, v in all_valid.items())
         assert set(output.identified_gaps) == set(all_valid)

@@ -1,9 +1,12 @@
 import json
+import logging
 import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Allowlist of column names that update_profile() is permitted to write.
 # Column names are interpolated into the SQL SET clause; this guard prevents
@@ -12,6 +15,7 @@ _ALLOWED_PROFILE_COLUMNS: frozenset[str] = frozenset({
     "mastery_level",
     "interaction_count",
     "topic_scores",
+    "session_history",
     "strengths",
     "gaps",
     "last_activity_at",
@@ -38,6 +42,7 @@ def init_profile_db() -> None:
                 mastery_level     TEXT NOT NULL DEFAULT 'novice',
                 interaction_count INTEGER NOT NULL DEFAULT 0,
                 topic_scores      TEXT NOT NULL DEFAULT '{}',
+                session_history   TEXT NOT NULL DEFAULT '{}',
                 strengths         TEXT NOT NULL DEFAULT '[]',
                 gaps              TEXT NOT NULL DEFAULT '[]',
                 last_activity_at  TEXT,
@@ -47,6 +52,11 @@ def init_profile_db() -> None:
             )
             """
         )
+        # Idempotent column add for existing DBs created before Commit 25
+        try:
+            conn.execute("ALTER TABLE user_profiles ADD COLUMN session_history TEXT NOT NULL DEFAULT '{}'")
+        except sqlite3.OperationalError:
+            pass  # column already exists
         conn.commit()
 
 
@@ -76,11 +86,12 @@ def create_profile(user_id: str) -> str:
 def _deserialize_row(row: sqlite3.Row) -> dict:
     """Convert a sqlite3.Row from user_profiles into a Python dict.
 
-    topic_scores, strengths, and gaps are stored as JSON strings in the DB.
+    topic_scores, session_history, strengths, and gaps are stored as JSON strings in the DB.
     They are deserialized here so callers never receive raw JSON strings.
     """
     d = dict(row)
     d["topic_scores"] = json.loads(d["topic_scores"])
+    d["session_history"] = json.loads(d.get("session_history") or "{}")
     d["strengths"] = json.loads(d["strengths"])
     d["gaps"] = json.loads(d["gaps"])
     return d
@@ -124,7 +135,7 @@ def update_profile(user_id: str, **fields) -> None:
         )
 
     # Serialize JSON fields before writing
-    for json_col in ("topic_scores", "strengths", "gaps"):
+    for json_col in ("topic_scores", "session_history", "strengths", "gaps"):
         if json_col in fields:
             fields[json_col] = json.dumps(fields[json_col])
 
@@ -157,3 +168,68 @@ def get_or_create_profile(user_id: str) -> dict:
             pass  # concurrent insert won the race; fetch the winner's row
         profile = get_profile_by_user_id(user_id)
     return profile
+
+
+# ---------------------------------------------------------------------------
+# 8-slug schema migration (Commit 25)
+# ---------------------------------------------------------------------------
+
+_MIGRATION_SENTINEL = "rag_pipeline_architecture"
+_MIGRATE_FROM = "rag_fundamentals"
+_DISCARD = "langchain"
+_ADD_AT_ZERO: tuple[str, ...] = (
+    "embeddings_and_similarity",
+    "context_and_prompting",
+    "evaluation_and_metrics",
+)
+
+
+def migrate_topic_slugs() -> None:
+    """Idempotent migration: 6-slug → 8-slug topic_scores schema.
+
+    Runs at startup after init_profile_db(). Skips any row that already has
+    rag_pipeline_architecture present (idempotency check before any mutation).
+
+    Migration rules:
+      rag_fundamentals  → copied to rag_pipeline_architecture, then removed
+      langchain         → discarded (value dropped)
+      embeddings_and_similarity, context_and_prompting,
+      evaluation_and_metrics    → added at 0.0 if absent
+    """
+    with _connect() as conn:
+        rows = conn.execute("SELECT user_id, topic_scores FROM user_profiles").fetchall()
+
+    if not rows:
+        return
+
+    updates: list[tuple[str, str]] = []
+    for row in rows:
+        scores: dict = json.loads(row["topic_scores"])
+
+        # Idempotency: if sentinel key already present, this row is already migrated
+        if _MIGRATION_SENTINEL in scores:
+            continue
+
+        # Copy rag_fundamentals value → rag_pipeline_architecture (or 0.0 if absent)
+        scores[_MIGRATION_SENTINEL] = scores.pop(_MIGRATE_FROM, None)
+
+        # Discard langchain
+        scores.pop(_DISCARD, None)
+
+        # Add new slugs at None (unassessed) if absent
+        for slug in _ADD_AT_ZERO:
+            scores.setdefault(slug, None)
+
+        updates.append((json.dumps(scores), row["user_id"]))
+
+    if not updates:
+        return
+
+    with _connect() as conn:
+        conn.executemany(
+            "UPDATE user_profiles SET topic_scores = ? WHERE user_id = ?",
+            updates,
+        )
+        conn.commit()
+
+    logger.info("migrate_topic_slugs: migrated %d profile row(s)", len(updates))
