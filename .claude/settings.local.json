@@ -105,7 +105,11 @@
       "PowerShell(New-Item *)",
       "Bash(ls docker-compose*.yml .env.prod.example)",
       "Bash(dir /b docker-compose*.yml .env.prod.example)",
-      "Bash(docker exec rag-chroma *)"
+      "Bash(docker exec rag-chroma *)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --msg-filter 'sed \"s/Co-Authored-By: Nova <nova@anthropic.com>/Co-Authored-By: Nova <nova.nodegraph@gmail.com>/g; s/Co-Authored-By: Rex <rex@anthropic.com>/Co-Authored-By: Rex <rex.stockagent@gmail.com>/g\"' -- --all)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --msg-filter 'sed \"s/Co-Authored-By: Eran Mani <erdimanerdi20@gmail.com>/Co-Authored-By: EranMani <eranmanim@gmail.com>/g\"' -- --all)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --msg-filter 'sed \"s/Co-Authored-By: Claude <claude@anthropic.com>/Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>/g\"' -- --all)",
+      "Bash(Select-Object FullName, Length)"
     ]
   }
 }
