@@ -1,102 +1,282 @@
 """
-assess_node — LangGraph node that assesses user understanding from an answer turn.
+assess_node — curriculum-driven assessment node (Commit 24).
 
-Node contract:
-    Input:  AgentState.answer          (str)  — the generated answer this turn
-            AgentState.question        (str)  — the user's question this turn
-            AgentState.docs            (list[Document]) — retrieved context
-            AgentState.user_level      (Literal[...])  — current mastery level
+Two operating modes determined from state:
 
-    Output: {
-        "topic_scores_delta": dict[str, float],  — sparse slug → score delta
-        "identified_gaps":    list[str],          — slugs with low understanding
-        "assessment_error":   bool,               — True if assessment failed
-    }
+  Test mode (default when no pending question):
+    - Deterministically selects a curriculum question for the current topic.
+    - Loads question text from knowledge-base/curriculum/questions/<slug>.md.
+    - No LLM call. Returns test_mode=True with pending_test_question/slug set.
 
-    DOES NOT write: messages, docs, answer, question, retrieval_source, or any
-    field owned by retrieve_node or generate_node.
-    DOES NOT write: user_level — AssessmentOutput.user_level is used for the LLM
-    assessment call only; it is NOT propagated back to AgentState to avoid a
-    state ownership conflict (see Commit 12 design notes, deferred to Commit 15).
+  Evaluation mode (when pending_test_question is set and user has answered):
+    - Calls LLM with EvaluationOutput schema (verdict: correct/partial/incorrect).
+    - Maps verdict to test_answer_score: correct=1.0, partial=0.5, incorrect=0.0.
+    - Derives sparse topic_scores_delta from test_answer_score and pending_test_slug.
+    - Returns test_mode=False with scored result.
 
-Design notes:
-- Commit 13 replaces the scaffold stub with a real LLM call using
-  assessment_prompt | llm.with_structured_output(AssessmentOutput).
-- get_provider() is called per-invocation (not at module level) so the circuit
-  breaker fallback (OpenAI → Ollama) is observed on every turn.
-- assessment_error is set to True when the LLM call or structured-output parsing
-  fails.  When True, the conditional edge in graph.py routes to update_profile_node
-  with an empty delta — no delta is applied to the profile.
-- AssessmentOutput is imported from agents.state (the single schema source of truth).
-  The validator on topic_scores_delta silently drops unknown module slugs.
+Node output keys (all modes):
+    topic_scores_delta, identified_gaps, assessment_error,
+    test_mode, pending_test_question, pending_test_slug, test_answer_score
+
+Does NOT write: messages, docs, answer, question, retrieval_source, user_id,
+trace_id, latency_ms, cache_hit, user_level.
 """
 
 import logging
-from typing import Any
+import pathlib
+import re
+from typing import Any, Literal
 
 from agents.prompts.assessment import assessment_prompt
-from agents.state import VALID_MODULE_SLUGS, AgentState, AssessmentOutput, TopicScoresDelta
+from agents.state import (
+    VALID_MODULE_SLUGS,
+    AgentState,
+    EvaluationOutput,
+)
 from rag.providers import get_provider
 
 logger = logging.getLogger(__name__)
 
+# Path to curriculum question files.
+_CURRICULUM_DIR = pathlib.Path(__file__).parents[4] / "knowledge-base" / "curriculum" / "questions"
+
+# Maps verdict string to numeric score.
+_VERDICT_SCORE: dict[str, float] = {
+    "correct": 1.0,
+    "partial": 0.5,
+    "incorrect": 0.0,
+}
+
+
+def _load_question_text(slug: str, question_index: int = 0) -> str:
+    """Load the first question text from a curriculum question file.
+
+    Args:
+        slug: A valid topic slug from VALID_MODULE_SLUGS.
+        question_index: Zero-based index of question to load (default: first question).
+
+    Returns:
+        The question text string.
+
+    Raises:
+        FileNotFoundError: If the curriculum file for slug does not exist.
+        ValueError: If no question sections are found in the file.
+    """
+    path = _CURRICULUM_DIR / f"{slug}.md"
+    content = path.read_text(encoding="utf-8")
+    # Extract all **Question:** blocks.
+    matches = re.findall(r"\*\*Question:\*\*\s*\n(.*?)(?=\n\n\*\*|\Z)", content, re.DOTALL)
+    if not matches:
+        raise ValueError(f"No question blocks found in curriculum file for slug '{slug}'")
+    idx = question_index % len(matches)
+    return matches[idx].strip()
+
+
+def _load_rubric_text(slug: str, question_index: int = 0) -> str:
+    """Load correct/partial/incorrect criteria for a curriculum question.
+
+    Returns a formatted rubric string for injection into the evaluation prompt.
+    """
+    path = _CURRICULUM_DIR / f"{slug}.md"
+    content = path.read_text(encoding="utf-8")
+    # Split into question sections by ## Q header.
+    sections = re.split(r"(?=^## Q\d)", content, flags=re.MULTILINE)
+    question_sections = [s for s in sections if s.strip().startswith("## Q")]
+    if not question_sections:
+        return ""
+    idx = question_index % len(question_sections)
+    section = question_sections[idx]
+    # Extract rubric blocks.
+    rubric_parts: list[str] = []
+    for label in ("Correct answer criteria", "Partial credit criteria", "Incorrect / no-credit criteria"):
+        pattern = rf"\*\*{re.escape(label)}:\*\*\s*\n(.*?)(?=\n\n\*\*|\Z)"
+        match = re.search(pattern, section, re.DOTALL)
+        if match:
+            rubric_parts.append(f"**{label}:**\n{match.group(1).strip()}")
+    return "\n\n".join(rubric_parts)
+
+
+def _select_question_index(state: AgentState) -> int:
+    """Deterministically select a question index for the current topic.
+
+    Uses the number of messages in state as a simple rotation key so
+    consecutive sessions on the same topic cycle through questions.
+    """
+    messages = state.get("messages") or []
+    return len(messages) % 8  # 8 questions per topic file
+
+
+def _select_test_slug(state: AgentState) -> str | None:
+    """Select which topic slug to test next.
+
+    Priority order:
+      1. First slug in identified_gaps that is in VALID_MODULE_SLUGS.
+      2. Fall back to the first valid slug in the canonical ordering.
+
+    Returns None only if VALID_MODULE_SLUGS is empty (impossible in practice).
+    """
+    gaps: list[str] = state.get("identified_gaps") or []
+    for slug in gaps:
+        if slug in VALID_MODULE_SLUGS:
+            return slug
+    # Canonical ordering from topic-slugs.json.
+    _ORDERED_SLUGS = [
+        "embeddings_and_similarity",
+        "rag_pipeline_architecture",
+        "chunking_strategies",
+        "vector_databases",
+        "retrieval_methods",
+        "context_and_prompting",
+        "evaluation_and_metrics",
+        "production_patterns",
+    ]
+    for slug in _ORDERED_SLUGS:
+        if slug in VALID_MODULE_SLUGS:
+            return slug
+    return None
+
+
+def _is_evaluation_mode(state: AgentState) -> bool:
+    """Return True when a pending test question exists and the user has replied."""
+    pending = state.get("pending_test_question")
+    if not pending:
+        return False
+    messages = state.get("messages") or []
+    # The last message must be a HumanMessage (user answer), not an AIMessage.
+    if not messages:
+        return False
+    last = messages[-1]
+    return getattr(last, "type", None) == "human"
+
 
 async def assess_node(state: AgentState) -> dict[str, Any]:
-    """LangGraph node: assess user understanding from this turn's answer and question.
+    """LangGraph node: curriculum-driven test administration and answer evaluation.
 
-    Calls the LLM via get_provider().get_llm().with_structured_output(AssessmentOutput)
-    to extract topic understanding from the user's question and the generated answer.
+    In test mode: selects and returns a curriculum question; no LLM call.
+    In evaluation mode: evaluates the user's answer against the rubric via LLM.
 
-    AssessmentOutput.topic_scores_delta is a TopicScoresDelta (explicit fixed fields)
-    rather than dict[str, float].  OpenAI's structured output endpoint rejects any schema
-    that uses additionalProperties, which dict[str, float] generates.  After the LLM call
-    this node converts TopicScoresDelta back to a sparse dict[str, float] by filtering
-    out zero-value fields — AgentState.topic_scores_delta and all downstream consumers
-    (update_profile_node, scoring.py) continue to receive dict[str, float] unchanged.
-
-    On any assessment failure the node catches the exception, logs a warning,
-    sets assessment_error=True, and returns empty deltas.  The conditional edge
-    in graph.py routes the fallback path so the graph never terminates on an
-    assessment failure.
-
-    Returns exactly three keys: topic_scores_delta, identified_gaps, assessment_error.
-    Does NOT return user_level — state ownership deferred to Commit 15 design review.
+    Returns exactly: topic_scores_delta, identified_gaps, assessment_error,
+                     test_mode, pending_test_question, pending_test_slug,
+                     test_answer_score.
     """
+    if _is_evaluation_mode(state):
+        return await _evaluate_answer(state)
+    return _select_test_question(state)
+
+
+def _select_test_question(state: AgentState) -> dict[str, Any]:
+    """Test mode: deterministically select a curriculum question. No LLM call."""
+    slug = _select_test_slug(state)
+    if slug is None:
+        logger.warning("assess_node: no valid slug available for test selection")
+        return {
+            "topic_scores_delta": {},
+            "identified_gaps": state.get("identified_gaps") or [],
+            "assessment_error": True,
+            "test_mode": False,
+            "pending_test_question": None,
+            "pending_test_slug": None,
+            "test_answer_score": None,
+        }
     try:
-        # get_provider() is called here (not at module level) so every invocation
-        # observes the current circuit breaker state: OpenAI primary → Ollama fallback.
-        llm = get_provider().get_llm()
-        chain = assessment_prompt | llm.with_structured_output(AssessmentOutput, strict=False)
-
-        result: AssessmentOutput = await chain.ainvoke({
-            "question": state["question"],
-            "answer": state["answer"],
-            "valid_slugs": sorted(VALID_MODULE_SLUGS),
-        })
-
-        # Convert TopicScoresDelta → sparse dict[str, float]; drop zero-value fields.
-        delta: TopicScoresDelta = result.topic_scores_delta
-        sparse_delta: dict[str, float] = {
-            slug: val
-            for slug, val in delta.model_dump().items()
-            if val != 0.0
+        q_idx = _select_question_index(state)
+        question_text = _load_question_text(slug, q_idx)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning(
+            "assess_node: failed to load curriculum question for slug '%s': %s",
+            slug,
+            exc,
+        )
+        return {
+            "topic_scores_delta": {},
+            "identified_gaps": state.get("identified_gaps") or [],
+            "assessment_error": True,
+            "test_mode": False,
+            "pending_test_question": None,
+            "pending_test_slug": None,
+            "test_answer_score": None,
         }
 
+    return {
+        "topic_scores_delta": {},
+        "identified_gaps": state.get("identified_gaps") or [],
+        "assessment_error": False,
+        "test_mode": True,
+        "pending_test_question": question_text,
+        "pending_test_slug": slug,
+        "test_answer_score": None,
+    }
+
+
+async def _evaluate_answer(state: AgentState) -> dict[str, Any]:
+    """Evaluation mode: score the user's answer via LLM against curriculum rubric."""
+    pending_slug: str | None = state.get("pending_test_slug")
+
+    # Guard: slug must be valid.
+    if pending_slug not in VALID_MODULE_SLUGS:
+        logger.warning(
+            "assess_node: pending_test_slug '%s' is not in VALID_MODULE_SLUGS — "
+            "setting assessment_error=True, trace_id=%s",
+            pending_slug,
+            state.get("trace_id"),
+        )
+        return _eval_error_result(state)
+
+    try:
+        q_idx = _select_question_index(state)
+        rubric = _load_rubric_text(pending_slug, q_idx)
+        pending_question: str = state.get("pending_test_question") or ""
+        user_answer: str = state.get("question") or ""
+
+        llm = get_provider().get_llm()
+        chain = assessment_prompt | llm.with_structured_output(EvaluationOutput)
+
+        result: EvaluationOutput = await chain.ainvoke({
+            "question": pending_question,
+            "rubric": rubric,
+            "user_answer": user_answer,
+        })
+
+        # Map verdict to score; treat unknown verdicts as incorrect.
+        verdict: str = result.verdict if result.verdict in _VERDICT_SCORE else "incorrect"
+        if result.verdict not in _VERDICT_SCORE:
+            logger.warning(
+                "assess_node: invalid verdict '%s' received — treating as incorrect",
+                result.verdict,
+            )
+        score: float = _VERDICT_SCORE[verdict]
+
+        # Derive sparse delta from score and slug.
+        delta: dict[str, float] = {pending_slug: score} if score > 0.0 else {}
+
         return {
-            "topic_scores_delta": sparse_delta,
+            "topic_scores_delta": delta,
             "identified_gaps": result.identified_gaps,
             "assessment_error": False,
+            "test_mode": False,
+            "pending_test_question": None,
+            "pending_test_slug": None,
+            "test_answer_score": score,
         }
 
     except Exception:
         logger.warning(
-            "assess_node: assessment failed — setting assessment_error=True, "
+            "assess_node: evaluation failed — setting assessment_error=True, "
             "trace_id=%s",
             state.get("trace_id"),  # type: ignore[call-overload]
             exc_info=True,
         )
-        return {
-            "topic_scores_delta": {},
-            "identified_gaps": [],
-            "assessment_error": True,
-        }
+        return _eval_error_result(state)
+
+
+def _eval_error_result(state: AgentState) -> dict[str, Any]:
+    """Return the standard error payload for evaluation failures."""
+    return {
+        "topic_scores_delta": {},
+        "identified_gaps": [],
+        "assessment_error": True,
+        "test_mode": False,
+        "pending_test_question": None,
+        "pending_test_slug": None,
+        "test_answer_score": None,
+    }

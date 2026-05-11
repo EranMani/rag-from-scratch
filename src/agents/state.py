@@ -34,11 +34,13 @@ class TopicScoresDelta(BaseModel):
     assess_node filters out zero-value fields before writing to AgentState
     so downstream consumers continue to receive a sparse dict[str, float].
     """
-    rag_fundamentals: float = 0.0
-    vector_databases: float = 0.0
-    langchain: float = 0.0
+    embeddings_and_similarity: float = 0.0
+    rag_pipeline_architecture: float = 0.0
     chunking_strategies: float = 0.0
+    vector_databases: float = 0.0
     retrieval_methods: float = 0.0
+    context_and_prompting: float = 0.0
+    evaluation_and_metrics: float = 0.0
     production_patterns: float = 0.0
 
 logger = logging.getLogger(__name__)
@@ -47,11 +49,13 @@ logger = logging.getLogger(__name__)
 # Valid topic slug values.  Any key in topic_scores_delta must come from here.
 # ---------------------------------------------------------------------------
 VALID_MODULE_SLUGS: frozenset[str] = frozenset({
-    "rag_fundamentals",
-    "vector_databases",
-    "langchain",
+    "embeddings_and_similarity",
+    "rag_pipeline_architecture",
     "chunking_strategies",
+    "vector_databases",
     "retrieval_methods",
+    "context_and_prompting",
+    "evaluation_and_metrics",
     "production_patterns",
 })
 
@@ -113,6 +117,18 @@ class AgentState(TypedDict):
     """True if assess_node failed (e.g., LLM parse error).
     Triggers the fallback edge that skips profile_update_node."""
 
+    test_mode: bool
+    """True when assess_node has selected a curriculum question and is waiting for the user's answer."""
+
+    pending_test_question: str | None
+    """The curriculum test question text currently awaiting the user's answer."""
+
+    pending_test_slug: str | None
+    """The topic slug of the pending test question; must be in VALID_MODULE_SLUGS."""
+
+    test_answer_score: float | None
+    """Score for the most recently evaluated test answer: 1.0 correct, 0.5 partial, 0.0 incorrect."""
+
     # --- Observability ---
     trace_id: str
     """Unique identifier for this request trace; set before graph entry."""
@@ -125,6 +141,47 @@ class AgentState(TypedDict):
     Note: chain.py currently emits legacy values ('query', 'llm', 'none') which will
     be replaced when Commit 10 replaces run_rag_pipeline.  This Literal documents the
     intended contract going forward."""
+
+
+# ---------------------------------------------------------------------------
+# EvaluationOutput — structured LLM output for curriculum answer evaluation.
+# Used exclusively in assess_node evaluation mode (Commit 24+).
+# ---------------------------------------------------------------------------
+
+class EvaluationOutput(BaseModel):
+    """Structured evaluator output: verdict on user's answer to a curriculum question."""
+
+    verdict: Literal["correct", "partial", "incorrect"]
+    """LLM's judgment of the user answer against the rubric."""
+
+    confidence: float
+    """Evaluator confidence in the verdict: 0.0–1.0."""
+
+    identified_gaps: list[str]
+    """Topic slugs where the answer reveals gaps; values not in VALID_MODULE_SLUGS are dropped."""
+
+    user_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
+    """Assessed mastery level for this turn."""
+
+    @field_validator("identified_gaps", mode="before")
+    @classmethod
+    def filter_eval_gaps_slugs(cls, v: object) -> object:
+        if not isinstance(v, list):
+            return v
+        filtered = [s for s in v if s in VALID_MODULE_SLUGS]
+        dropped = set(v) - set(filtered)  # type: ignore[arg-type]
+        if dropped:
+            logger.warning(
+                "EvaluationOutput.identified_gaps: dropped unknown slugs %s", dropped
+            )
+        return filtered
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def clamp_confidence(cls, v: object) -> object:
+        if isinstance(v, (int, float)):
+            return max(0.0, min(1.0, float(v)))
+        return v
 
 
 # ---------------------------------------------------------------------------

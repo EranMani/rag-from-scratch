@@ -1,19 +1,19 @@
 """
-Assessment prompt template for assess_node.
+Assessment prompt template for assess_node evaluation mode (Commit 24).
 
-This is a hidden second LLM call made once per user turn.  Latency matters.
-Keep the prompt focused — no few-shot examples needed when the output schema
-is enforced by .with_structured_output(AssessmentOutput).
+Receives a curriculum test question, its rubric, and the user's answer.
+Returns EvaluationOutput: verdict (correct/partial/incorrect), confidence,
+identified_gaps, and user_level.
 
 Prompt structure (per project standard):
   role → task → constraints → output format
 
-The prompt is a ChatPromptTemplate so the node can call:
-    chain = assessment_prompt | llm.with_structured_output(AssessmentOutput)
+The node calls:
+    chain = assessment_prompt | llm.with_structured_output(EvaluationOutput)
     result = await chain.ainvoke({
-        "question":     state["question"],
-        "answer":       state["answer"],
-        "valid_slugs":  sorted(VALID_MODULE_SLUGS),
+        "question":    state["pending_test_question"],
+        "rubric":      rubric_text,
+        "user_answer": state["question"],
     })
 """
 
@@ -24,28 +24,32 @@ from langchain_core.prompts import ChatPromptTemplate
 # ---------------------------------------------------------------------------
 
 _SYSTEM = """\
-You are a learning assessment engine for a RAG-based tutoring system about \
-Retrieval-Augmented Generation (RAG).
+You are a curriculum evaluator for a RAG (Retrieval-Augmented Generation) learning system.
 
-Given a user's question and the system-generated answer, your job is to assess:
-1. Which knowledge modules the interaction touched.
-2. How well the user appears to understand each touched module, expressed as a \
-score delta (positive = stronger understanding, negative = weaker).
-3. Which modules show apparent gaps in the user's understanding.
+You are given:
+1. A test question from the curriculum.
+2. A rubric with correct, partial, and incorrect answer criteria.
+3. The learner's answer.
+
+Your task is to evaluate the learner's answer against the rubric and return a structured verdict.
 
 CONSTRAINTS:
-- topic_scores_delta keys MUST come from the valid_slugs list provided. \
-Do NOT invent or abbreviate slug names.
-- Score deltas must be in the range [-1.0, 1.0]. Use 0.0 to omit a module. \
-Only include modules that were meaningfully touched by the interaction.
-- identified_gaps should list slugs from valid_slugs where the user's question \
-reveals low or missing understanding. An empty list is valid.
-- user_level reflects your overall assessment of the user's mastery level \
-for this turn. It MUST be exactly one of: \
-novice, beginner, intermediate, advanced, expert.
-- Be conservative. If the interaction does not clearly evidence a module, \
-do not include it in topic_scores_delta.
+- verdict MUST be exactly one of: correct, partial, incorrect.
+  - correct: the answer satisfies all Correct answer criteria with no significant gaps.
+  - partial: the answer satisfies some but not all Correct criteria, or meets only the
+    Partial credit criteria.
+  - incorrect: the answer does not satisfy Correct or Partial criteria, or matches
+    Incorrect / no-credit criteria.
+- confidence is a float from 0.0 to 1.0 reflecting your certainty in the verdict.
+- identified_gaps lists topic slugs where the answer reveals missing or weak understanding.
+  Valid slugs: embeddings_and_similarity, rag_pipeline_architecture, chunking_strategies,
+  vector_databases, retrieval_methods, context_and_prompting, evaluation_and_metrics,
+  production_patterns. Use only these exact values.
+- user_level is your overall assessment of the learner's mastery level for this turn.
+  Must be exactly one of: novice, beginner, intermediate, advanced, expert.
 - Do NOT include commentary outside the structured output fields.
+- Do NOT be lenient. Partial answers deserve partial, not correct. Empty or off-topic
+  answers are incorrect.
 """
 
 # ---------------------------------------------------------------------------
@@ -53,15 +57,19 @@ do not include it in topic_scores_delta.
 # ---------------------------------------------------------------------------
 
 _HUMAN = """\
-Valid module slugs: {valid_slugs}
+## Curriculum Question
 
-User question:
 {question}
 
-System answer:
-{answer}
+## Rubric
 
-Assess the interaction and return the structured output.
+{rubric}
+
+## Learner's Answer
+
+{user_answer}
+
+Evaluate the learner's answer against the rubric and return the structured output.
 """
 
 # ---------------------------------------------------------------------------
