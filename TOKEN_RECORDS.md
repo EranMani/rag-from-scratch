@@ -4,7 +4,7 @@
 > Quality signal: tests pass · no Viktor hard blocks · learning log entry written.
 >
 > Companion file: TOKEN_OPTIMIZATION.md — the methods behind the numbers.
-> Last updated: 2026-05-10 (Commit 14)
+> Last updated: 2026-05-12 (Commit 25)
 
 ---
 
@@ -384,6 +384,30 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 25 — `profile-scoring-rewrite` · 2026-05-12 · Rex
+
+> Gate wave: Viktor + Quinn (5-commit cadence — C22 was the last wave commit, C25 is next).
+> Sage not triggered (pure backend compute — no auth, secrets, or external API calls).
+> Mira not triggered (internal scoring service — not user-facing behavior).
+> Ryan: full entry (ARCHITECTURE.md + DECISIONS.md + GLOSSARY.md updated).
+> **Orchestration note:** Rex hit tool cap (26 uses) before completing. Claude applied remaining fixes: `get_mastery_level` cumulative gate bug, `update_profile.py` interface mismatch, `test_agent_state.py` stale slug fixtures + Pydantic model assertions, `test_chat_route.py` missing metadata field. Viktor exceeded 36 tool uses (target: ≤25).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Rex (implementation) | Sonnet | 97,479 | 26 | **+37k** over ≤60k | hit tool cap; orchestrator applied remaining fixes |
+| Viktor | Haiku | 54,935 | 36 | **+35k** over ≤20k | 36 tool uses — over 25-use guidance; findings valid; protocol violation noted |
+| Quinn | Haiku | 53,817 | — | **+34k** over ≤15k | NEEDS ADDITIONS (non-blocking); 3 coverage gaps logged for C28 |
+| Ryan | Haiku | 39,753 | 4 | **+25k** over ≤15k | full entry (arch + decisions + glossary); 4 tool uses (within 5 cap) |
+| **Total** | | **245,984** | — | **over** — tool cap hit + Viktor over-read |
+
+**Notes:**
+- Rex tool cap: scoring.py full rewrite (spaced-repetition formula, 8-slug phase gates, session_history), db.py (migration + column), main.py lifespan wiring, 52 new tests — substantial scope for 26 tool uses.
+- Viktor 36 tool uses: conducted extensive file reads to trace session_history through scoring→db→update_profile chain. Findings were valid (6 advisories, PASS); but read scope exceeded diff-only review. Gate reviewers should receive diff + targeted excerpts, not free file access.
+- Quinn NEEDS ADDITIONS (non-blocking per team-preferences.md): gaps logged as C28 backlog — (1) cross-session persistence test, (2) slug migration idempotency test, (3) mastery level regression test after score update.
+- Pre-existing test fix: `test_chat_route.py` missing `metadata.langgraph_node` field (regression from C18 generate-node filter) discovered and fixed as part of this commit's full test run. 264/264 tests passing at commit.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -403,6 +427,7 @@ No token data recorded. Tracking began at Commit 10.
 | 22 | rag-curriculum-design | 110,831 | none | over — docs-only | first Lara invocation + full Ryan entry (arch/decisions/glossary all updated) |
 | 23 | scoring-model-product-spec | 124,106 | none | over — doc-only | both impl agents on Sonnet (should be Haiku); Ryan over 5-tool cap (used 8) |
 | 24 | assessment-engine-rewrite | 171,637 | Sage only | **over — +82k** | Nova 26 tool uses + commit without approval; Sage 51k (diff-in-prompt); Ryan 43k full entry |
+| 25 | profile-scoring-rewrite | 245,984 | Viktor + Quinn | **over — tool cap** | Rex hit cap; orchestrator fixed 4 issues; Viktor 36 tool uses; Quinn non-blocking |
 
 ---
 

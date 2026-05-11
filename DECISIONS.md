@@ -616,4 +616,32 @@
 - **Reason:** A single lucky correct answer (score: 1.0) or unlucky wrong answer (score: 0.0) from a 1-question session would produce misleadingly extreme scores with high variance. Three questions is the minimum to produce a session score with meaningful granularity: scores of 0.0, 0.33, 0.67, or 1.0 all represent distinguishable competency levels.
 - **Consequences:** Nova's assessment node must track question count per session and skip the score update if count < 3. This prevents a brief off-topic mention of a slug from inappropriately anchoring that topic's score. Specified in `knowledge-base/curriculum/gates.md`.
 
-*Last updated: 2026-05-11 — Commit 22 complete (RAG curriculum: topic map, question bank, phase gates)*
+## Profile Scoring Rewrite (C25)
+
+### Phase gate checks are cumulative in `get_mastery_level` (Commit 25)
+- **Date:** 2026-05-12
+- **Commit:** 25
+- **Decided by:** Rex (original implementation); Claude (gate fix during orchestration)
+- **Decision:** `get_mastery_level()` pre-computes three booleans — `p1 = _phase_1_passed(...)`, `p2 = _phase_2_passed(...)`, `p3 = _phase_3_passed(...)` — then checks them cumulatively: `expert` requires `p1 and p2 and p3`; `advanced` requires `p1 and p2`; `intermediate` requires `p1`. The alternative of checking only `p3` for `expert` was rejected.
+- **Reason:** Independent gate checks create a corrupt-DB false-positive path: if `topic_scores` were partially corrupted such that Phase 3 topics had high scores but Phase 1/2 topics were null, a p3-only check would incorrectly award `expert`. The cumulative invariant is the only way to guarantee that every rung of the learning ladder was cleared before awarding a higher level. The pre-computed booleans also allow the function to be read in one pass without re-running gate logic for each level.
+- **Consequences:** Any caller that needs to know a user's mastery level must call `get_mastery_level()` — never derive a level from a single phase's gate state. New phases added in the future must be inserted into the cumulative chain, not checked independently. The invariant is encoded in the implementation: the function cannot return `expert` without also having confirmed p1 and p2.
+
+### `session_history` persisted in `user_profiles` table (Commit 25)
+- **Date:** 2026-05-12
+- **Commit:** 25
+- **Decided by:** Rex
+- **Decision:** Per-topic session score history (`session_history: dict[str, list[float]]`) is stored as a JSON column directly in the `user_profiles` table row — not in a separate `session_events` table. Each entry in a topic's list is the session score from one completed assessment session.
+- **Alternatives considered:** A separate `session_events` table with one row per assessment session, joining to `user_profiles` at scoring time.
+- **Reason:** The spaced-repetition formula requires only `best_prior_session_score = max(session_history[slug])`. A join-and-aggregate query for every scoring call adds latency and schema complexity for data the model never reads past a single `max()`. Storing the flat list in the profile row keeps scoring O(1) for the common case and co-locates the data a single profile read already fetches.
+- **Consequences:** Session history grows unboundedly in the JSON column. For prolific users with many assessment sessions per topic, this column can become large. A cap (keep last N sessions per topic) can be added without schema migration when telemetry warrants it. Cross-topic analysis (e.g., "which topic has the most assessment sessions") is not suited to this schema and would require reading all profiles.
+
+### Idempotent migration via per-row sentinel key check (Commit 25)
+- **Date:** 2026-05-12
+- **Commit:** 25
+- **Decided by:** Rex
+- **Decision:** `migrate_topic_slugs()` checks each row's existing `topic_scores` JSON for the presence of the `rag_pipeline_architecture` key before migrating that row. If the key is present, the row is skipped. The function is called in the FastAPI lifespan at every startup, after `init_profile_db()`.
+- **Alternatives considered:** A global `schema_version` table; a `migrated: bool` column on `user_profiles`.
+- **Reason:** A global migration flag requires schema changes before the migration can run — a bootstrapping problem on fresh installs. A `migrated` column would require an ALTER TABLE. The per-row sentinel is self-contained: the presence of `rag_pipeline_architecture` in the existing `topic_scores` JSON proves the row was migrated under the new 8-slug curriculum; its absence proves it has old 6-slug data. No additional column, no separate table, no ALTER TABLE.
+- **Consequences:** The sentinel key (`rag_pipeline_architecture`) must never be renamed or removed without updating the migration check. If a future migration requires a different sentinel, a new check function should be written — not the existing one patched. The function is crash-safe: rows migrated before a crash are skipped on resume because the sentinel was already written; in-progress rows are re-migrated (idempotent from-scratch).
+
+*Last updated: 2026-05-12 — Commit 25 complete (profile-scoring-rewrite: spaced repetition, phase gates, idempotent migration)*

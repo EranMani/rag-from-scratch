@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-10 (Commit 21 — production-compose)
+> Last updated: 2026-05-12 (Commit 25 — profile-scoring-rewrite)
 
 ---
 
@@ -106,11 +106,15 @@ responsive to who they are, not a static Q&A tool.
 ### Topic Scoring Service
 - **Type:** pure-function service
 - **Owner:** Rex
-- **Purpose:** Merges topic score deltas, computes mastery level, strengths, and gaps — no DB access
-- **Contract:** `compute_topic_scores(current_profile, assessed_topics, interaction_count) → TopicScoreUpdate`
+- **Purpose:** Applies spaced-repetition scoring formula to session performance data; computes mastery level from phase gate state; no DB access
+- **Contract:** `compute_topic_scores(current_profile: dict, topic_scores_delta: dict[str, float]) → TopicScoreUpdate`
+  - `topic_scores_delta` values are session scores (0.0–1.0 absolute), not deltas to add
+  - Formula: `topic_score = 0.7 × session_score + 0.3 × best_prior_session_score` (first session: `= session_score`)
+  - `TopicScoreUpdate`: `{topic_scores, session_history, strengths, gaps, mastery_level}`
+- **Mastery level mapping:** phase gate state (not score average); evaluated expert → novice; `None` topic score fails gate checks; `None ≠ 0.0`
 - **Depends on:** nothing (pure function, zero imports outside stdlib/typing)
-- **Introduced in:** Commit 14
-- **Consumed by:** Nova's `update_profile_node` (Commit 15)
+- **Introduced in:** Commit 14 (additive model); **rewritten in Commit 25** (spaced-repetition + phase gates)
+- **Consumed by:** `update_profile_node`
 
 ### Profile Update Node (`update_profile_node`)
 - **Type:** LangGraph node (synchronous)

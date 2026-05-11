@@ -1,6 +1,6 @@
 # Decisions Index
 *Always-loaded companion to DECISIONS.md. One-liner per decision — full prose in DECISIONS.md.*
-*Last updated: 2026-05-10 — Commit 15*
+*Last updated: 2026-05-12 — Commit 25*
 
 ---
 
@@ -95,3 +95,8 @@
 57. **Spaced repetition scoring: `0.7 × current + 0.3 × best_prior`** — primarily reflects current performance; rewards learning persistence without penalizing early struggle; `best_prior` not running average
 58. **Null vs 0.0 for unassessed topics** — null explicitly fails gate checks; preserves "hasn't attempted" vs "attempted and scored 0" distinction; prevents unassessed-topic-as-passing bug
 59. **Minimum 3 questions per session for valid score update** — prevents single lucky/unlucky answer from anchoring extreme scores; 3 is minimum for meaningful granularity
+
+## Profile Scoring Rewrite (C25)
+65. **Phase gate checks are cumulative in `get_mastery_level`** — `expert` requires p1 AND p2 AND p3 (not just p3); avoids corrupt-DB false expert
+66. **`session_history` persisted in user_profiles table** — best_prior requires cross-session access; JSON array column in profile row, not a separate session events table
+67. **Idempotent migration: per-row sentinel key check** — `rag_pipeline_architecture` presence guards row; no global migration flag; supports partial crash-resume

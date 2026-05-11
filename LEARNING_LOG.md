@@ -1465,3 +1465,70 @@ This is architectural. The entire assessment and scoring pipeline depends on the
 Commit 24's assessment engine must conform to three rules from the spec: (1) trigger when `topic_score >= 0.60 OR count_null_scores >= 5`, (2) deliver assessment transparently (user sees start announcement, 3–5 questions, summary), (3) one deferral allowed per topic per session. The verdict vocabulary in gates.md is canonical: `correct`, `partial`, `incorrect`. Any other value from the LLM evaluator is an error. `get_mastery_level()` must be rewritten to map user_level from gate state (Phase 1/2/3/4/5 → novice/beginner/intermediate/advanced/expert), not from score average.
 
 ---
+
+**Commit 25 — `profile-scoring-rewrite`** · 2026-05-12 · Rex · `architectural`
+
+> **In one sentence:** Rewrote profile scoring engine to implement the spaced-repetition formula (0.7×current + 0.3×best) and gate-driven mastery levels; added session history tracking to the profile row and idempotent DB migration for the new 8-slug topic set.
+
+**Interview talking point:**
+> **Q:** How do you ensure a scoring formula stays correct under uncertainty (unknown best session score, newly added topics)?
+>
+> **A:** Three invariants: (1) use `None` for unassessed topics, not 0.0—gate checks explicitly exclude None, so an unassessed topic cannot pass a gate by accident; (2) store session history in the profile row itself (flat list per topic), not a separate table—keeps scoring O(1) and crash-safe; (3) cumulative phase gates (expert requires p1 AND p2 AND p3)—checking only p3 would allow a corrupt DB state where Phase 3 passes without Phase 1 ever attempted. Pre-computed gate bools checked in chain is the correctness invariant.
+
+**What happened and why:**
+- Rewrote `src/app/profile/scoring.py`: implemented spaced-repetition formula `0.7×current_session_score + 0.3×best_prior_session_score`; first session uses just current score. Session score is the mean of per-question scores from a completed assessment (min 3 questions)
+- Rewrote `get_mastery_level()` to read user_level from phase gate state (novice/beginner/intermediate/advanced/expert), not score average. This fixes the semantic bug discovered in C23: a user at Phase 1 with 0.70 score is "beginner" (passed p1 gate), not "advanced"
+- Added `session_history TEXT` column to `user_profiles` table; `_deserialize_row` now reconstructs it as `dict[str, list[float]]`. Session scores are absolute (0.0–1.0), not deltas
+- Wrote `migrate_topic_slugs()`: idempotent startup migration from old 6-slug set to new 8-slug set. Sentinel check: if `rag_pipeline_architecture` key exists in a row's `topic_scores`, that row was already migrated. Old `rag_fundamentals` renamed to `rag_pipeline_architecture`; `langchain` discarded; 4 new slugs initialized to `None` (not 0.0). Crash-safe: rows migrated before crash are skipped on resume
+- Updated `compute_topic_scores` signature: removed `interaction_count`, now 2 args. Returns `TopicScoreUpdate` TypedDict with 5 fields: `topic_scores`, `session_history`, `strengths`, `gaps`, `mastery_level`
+- Fixed caller in `src/agents/nodes/update_profile.py`: updated call signature and added `session_history` to the profile update
+- Fixed two pre-existing test bugs found during Commit 25 test run: (1) `test_agent_state.py` had stale slug fixtures (`rag_fundamentals` and `langchain`); corrected to new slugs and fixed Pydantic model assertions from attribute access to dict `in`/`==`; (2) `test_chat_route.py` missing `metadata: {"langgraph_node": "generate"}` in `_make_chunk_event`, a regression from C18
+
+**Reasoning & discovery:**
+1. The formula problem: averaging all session deltas over time produces score inflation and no recovery path (a 0.4 session drags the average down permanently). The spaced-repetition formula `0.7×current + 0.3×best` gives recent sessions weight while ensuring best performance is never forgotten. The 70/30 split is standard in SRS systems; it prioritizes current understanding while protecting against flukes
+2. What was ruled out: storing session events in a separate DB table (requires join-and-aggregate on every scoring call, O(n) instead of O(1)); using 0.0 for unassessed topics (0.0 === falsy, breaks gate checks; None is explicit and unambiguous)
+3. What clinched the migration strategy: the application may be restarted during migration (crash during lifespan). A row-by-row sentinel key (`rag_pipeline_architecture` presence) proves which rows were migrated. No migration flag table, no ALTER TABLE—just a conditional rename per row. If the app restarts after row 50 is done, rows 1–50 are skipped, rows 51+ are processed on resume. This is crash-safe without a transaction log
+
+**Design pattern:**
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Spaced Repetition Formula (SRS) | Topic score = 0.7 × current_session + 0.3 × best_prior. First session: score = current_session | Standard in learning systems; weights recent understanding while protecting best performance. The 70/30 split gives primacy to current knowledge without forgetting prior mastery |
+| Cumulative State Machine (gates) | expert = p1_passed AND p2_passed AND p3_passed (not independent). Checking only p3 allows state corruption | Mastery layers build on each other. Checking only the final phase permits a DB state where Phase 3 passed without Phase 1 ever attempted—a nonsensical outcome. Chaining all three bools prevents this |
+| Row-Level Sentinel (migration) | `rag_pipeline_architecture` presence in topic_scores dict proves the row was migrated | Crash-safe without a migration flag table or ALTER TABLE. If the app restarts mid-migration, rows migrated so far are skipped; new rows resume. Rows can be safely re-processed (idempotent rename) |
+
+**The key change:**
+```python
+# src/app/profile/scoring.py — spaced-repetition formula
+# Before:
+topic_score = mean([all_session_scores_ever])
+
+# After:
+if not session_history[topic_slug]:
+    topic_score = current_session_score
+else:
+    topic_score = 0.7 * current_session_score + 0.3 * max(session_history[topic_slug])
+```
+
+```python
+# src/app/profile/db.py — migration sentinel
+# Before: no session_history, fixed 6-slug set
+# After:
+migrated = 'rag_pipeline_architecture' in row['topic_scores']
+if not migrated:
+    # rename rag_fundamentals → rag_pipeline_architecture
+    # add 4 new slugs at None
+    # save idempotently
+```
+
+**Files touched:**
+- `src/app/profile/scoring.py` — full rewrite: spaced-repetition formula, gate-driven mastery levels, TopicScoreUpdate contract
+- `src/app/profile/db.py` — session_history column added, migration function `migrate_topic_slugs()`, deserializer updated
+- `src/app/main.py` — lifespan wired to call `migrate_topic_slugs()` after profile DB init
+- `src/agents/nodes/update_profile.py` — `compute_topic_scores` call signature fixed (2 args), session_history passed to profile update
+- `tests/test_scoring.py` — full rewrite (52 tests: schema, formulas, null/zero distinction, mastery levels, purity, clamping, strengths/gaps, history tracking)
+- `tests/test_agent_state.py` — slug fixtures updated, Pydantic model assertions corrected
+- `tests/test_chat_route.py` — metadata field added to `_make_chunk_event`
+
+**Test coverage:** 264/264 PASS
+
+---

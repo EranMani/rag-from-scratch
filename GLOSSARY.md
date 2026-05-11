@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Domain-specific terms used in this project's code,
 > commits, and agent communication are defined here.
-> Last updated: 2026-05-08
+> Last updated: 2026-05-12 (Commit 25)
 
 ---
 
@@ -14,10 +14,10 @@
 **Introduced in:** existing codebase
 
 ### Knowledge Base
-**Meaning on this project:** The 6 Markdown modules covering RAG architecture, vector databases, LangChain, chunking, retrieval methods, and production patterns. Stored in `data/knowledge_base/`, indexed into ChromaDB at startup.
+**Meaning on this project:** The 8 curriculum topics covering the full RAG lifecycle across three learning phases. Stored in `data/knowledge_base/`, indexed into ChromaDB at startup. Each topic has an associated question bank with rubric-graded test questions used for curriculum-driven assessment.
 **Distinct from:** The ChromaDB vector store (which indexes the knowledge base, but is not itself the KB).
-**Used in:** `src/rag/pipeline/indexer.py`, `data/knowledge_base/`
-**Introduced in:** existing codebase
+**Used in:** `src/rag/pipeline/indexer.py`, `data/knowledge_base/`, `knowledge-base/curriculum/`
+**Introduced in:** existing codebase (6 topics); expanded to 8 topics in Commit 22
 
 ### AgentState
 **Meaning on this project:** The TypedDict that carries all data through the LangGraph graph for a single user turn. Key field: `messages: Annotated[list[BaseMessage], add_messages]` — the full conversation history managed by LangGraph's `add_messages` reducer. `session_id` is NOT a field — it is passed as `thread_id` in the graph config. Designed for the full Commits 07–17 arc.
@@ -38,22 +38,28 @@
 **Introduced in:** Commit 04
 
 ### Topic Score
-**Meaning on this project:** A float (0.0–1.0) representing a user's demonstrated understanding of a specific knowledge base module. Stored as a JSON dict in `user_profiles.topic_scores`. Keys are module slugs (see below).
-**Distinct from:** A raw LLM confidence value (topic scores are computed and smoothed, not raw).
+**Meaning on this project:** A float (0.0–1.0) representing a user's demonstrated understanding of a specific knowledge base topic, computed from assessment session performance via the spaced-repetition formula. Stored as a JSON dict in `user_profiles.topic_scores`. Keys are module slugs (see below). **Important:** `null` (Python `None`) means the topic has never been assessed — it is distinct from `0.0`, which means assessed and scored zero. Unassessed topics always fail phase gate checks.
+**Distinct from:** A raw LLM confidence value (topic scores are computed and smoothed, not raw); a session score (which is the per-session input to the formula, not the stored value).
 **Used in:** `src/app/profile/scoring.py`, `src/agents/state.py`
-**Introduced in:** Commit 14
+**Introduced in:** Commit 14; spaced-repetition formula added in Commit 25
 
 ### Mastery Level
-**Meaning on this project:** A human-readable label derived deterministically from the average of all topic scores: `novice` (< 0.2), `beginner` (0.2–0.4), `intermediate` (0.4–0.6), `advanced` (0.6–0.8), `expert` (≥ 0.8). Used to select the adaptive prompt template.
-**Distinct from:** A topic score (which is per-module); mastery level is the aggregate.
+**Meaning on this project:** A human-readable label derived deterministically from cumulative phase gate state — not from an average of scores. Mapping: `novice` (no Phase 1 topic assessed), `beginner` (≥1 Phase 1 topic assessed but Phase 1 gate not passed), `intermediate` (Phase 1 gate passed), `advanced` (Phase 1 + Phase 2 gates passed), `expert` (Phase 1 + Phase 2 + Phase 3 gates all passed). Gates are cumulative: `expert` requires all three phases, not just Phase 3. Used to select the adaptive prompt template.
+**Distinct from:** A topic score (which is per-module); mastery level is the aggregate gate state, not a score average.
 **Used in:** `src/app/profile/scoring.py`, `src/agents/prompts.py`, `src/agents/state.py`
-**Introduced in:** Commit 14
+**Introduced in:** Commit 14; gate-based formula introduced in Commit 25
 
 ### TopicScoreUpdate
-**Meaning on this project:** A TypedDict returned by `compute_topic_scores()` in `src/app/profile/scoring.py`. The typed interface contract between Rex's profile service and Nova's `update_profile_node`. Contains: full updated `topic_scores`, `strengths`, `gaps`, and `mastery_level`.
-**Distinct from:** `AssessmentOutput` (which is raw LLM output); `TopicScoreUpdate` is the computed result after merging the delta into existing scores.
+**Meaning on this project:** A TypedDict returned by `compute_topic_scores()` in `src/app/profile/scoring.py`. The typed interface contract between Rex's profile service and Nova's `update_profile_node`. Contains: full updated `topic_scores`, `session_history` (per-topic list of all prior session scores), `strengths`, `gaps`, and `mastery_level`.
+**Distinct from:** `AssessmentOutput` (which is raw LLM output); `TopicScoreUpdate` is the computed result after applying the spaced-repetition formula to the existing profile.
 **Used in:** `src/app/profile/scoring.py`, `src/agents/nodes/update_profile.py`
-**Introduced in:** Commit 14
+**Introduced in:** Commit 14; `session_history` field added in Commit 25
+
+### Session History
+**Meaning on this project:** A per-topic list of all prior session scores for a user, stored as `session_history: dict[str, list[float]]` in the `user_profiles` table (JSON column, same row as `topic_scores`). Required to compute `best_prior_session_score` for the spaced-repetition formula across sessions. Each entry in a topic's list is the `session_score` (mean of per-question scores) from one completed assessment session. Scores from sessions with fewer than 3 questions are not appended.
+**Distinct from:** `session_score` (the score for a single completed session — the value appended to this list); `topic_score` (the stored mastery value, which is computed from the session history using the spaced-repetition formula).
+**Used in:** `src/app/profile/db.py` (persisted), `src/app/profile/scoring.py` (read for best_prior computation), `src/agents/nodes/update_profile.py` (written via `TopicScoreUpdate`)
+**Introduced in:** Commit 25
 
 ### AssessmentOutput
 **Meaning on this project:** A Pydantic model returned by the LLM via `.with_structured_output()` in `assess_node`. Contains `topic_scores_delta` (sparse dict of modules assessed this turn), `identified_gaps`, and `user_level`. Validated by Pydantic before the graph uses it.
@@ -239,4 +245,4 @@
 **Used in:** `src/agents/state.py`, `src/agents/nodes/assess.py`
 **Introduced in:** Commit 24
 
-*Last updated: 2026-05-11 — Commit 24 complete (EvaluationOutput, test_mode fields added)*
+*Last updated: 2026-05-12 — Commit 25 complete (Knowledge Base expanded to 8 topics; Mastery Level to phase-gate formula; Topic Score null/0.0 distinction; TopicScoreUpdate session_history field; Session History term added)*
