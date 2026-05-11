@@ -81,3 +81,10 @@
 ## Profile Update Node (C15)
 42. **Scoring-derived gaps, not LLM identified_gaps, written to DB** — `AgentState.identified_gaps` is per-turn LLM noise; `score_update["gaps"]` reflects cumulative merged mastery (≤ 0.3 threshold); persisting LLM gaps would overwrite history with a single-turn signal
 43. **Fast-exit order: user_id before assessment_error** — anonymous user has no profile to fetch; checking assessment_error first would attempt a DB lookup with user_id=None before the guard triggers
+
+## Curriculum Design (C22)
+55. **Phase 2 dual gate (per-topic 0.70 AND mean 0.75)** — Phase 2 topics are interdependent; mean floor prevents imbalanced mastery from advancing; Phase 1 and Phase 3 have per-topic minimums only
+56. **Phase 3 minimum 0.75 (vs 0.70 for Phase 1)** — production knowledge has higher downstream stakes; operational judgment requires deeper competency than foundational understanding
+57. **Spaced repetition scoring: `0.7 × current + 0.3 × best_prior`** — primarily reflects current performance; rewards learning persistence without penalizing early struggle; `best_prior` not running average
+58. **Null vs 0.0 for unassessed topics** — null explicitly fails gate checks; preserves "hasn't attempted" vs "attempted and scored 0" distinction; prevents unassessed-topic-as-passing bug
+59. **Minimum 3 questions per session for valid score update** — prevents single lucky/unlucky answer from anchoring extreme scores; 3 is minimum for meaningful granularity

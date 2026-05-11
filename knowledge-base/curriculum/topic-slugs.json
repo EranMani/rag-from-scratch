@@ -1,0 +1,10 @@
+[
+  "embeddings_and_similarity",
+  "rag_pipeline_architecture",
+  "chunking_strategies",
+  "vector_databases",
+  "retrieval_methods",
+  "context_and_prompting",
+  "evaluation_and_metrics",
+  "production_patterns"
+]

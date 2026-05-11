@@ -461,4 +461,47 @@
 - **Reason:** The config.py default of 8001 is used for local (host-side) tooling — e.g., connecting a ChromaDB client from a terminal session while compose is running. Changing the default would break that use case. Changing the compose mapping would remove host-side access. The correct fix is to be explicit in prod: the `environment:` override in `docker-compose.prod.yml` takes precedence over `.env.prod` and guarantees the container-internal port regardless of what an operator puts in their env file.
 - **Consequences:** Any future prod compose environment that expects to use `CHROMA_PORT` from `.env.prod` will be silently overridden to 8000. This is intentional — the prod compose is authoritative about container topology, and `.env.prod` should not be able to break inter-service connectivity.
 
-*Last updated: 2026-05-10 — Commit 21 complete (production Docker Compose topology; dev monitoring profiles opt-in)*
+## Curriculum Design Decisions (C22)
+
+### Phase 2 dual gate: per-topic minimum AND mean threshold
+- **Date:** 2026-05-11
+- **Commit:** 22
+- **Decided by:** Lara
+- **Decision:** Phase 2 advancement requires both (a) each of the four topics ≥ 0.70, AND (b) the mean across all four topics ≥ 0.75. Phase 1 and Phase 3 have per-topic minimums only (0.70 and 0.75 respectively).
+- **Reason:** Phase 2 topics (chunking_strategies, vector_databases, retrieval_methods, context_and_prompting) are interdependent — a learner who aces vector databases but barely passes retrieval methods will have fragile foundations in Phase 3 where both domains are assumed fluent. A single per-topic floor allows one weak topic to drag the average without triggering failure. The 0.75 mean floor catches imbalanced mastery without being punitive for learners who genuinely need more time on one topic.
+- **Consequences:** Gate logic must compute both the per-topic check AND the mean. Phase 1 and Phase 3 do not use a mean floor — their topics are less interdependent. Fully specified in `knowledge-base/curriculum/gates.md` with a machine-readable JSON block for Nova and Rex.
+
+### Phase 3 minimum threshold raised to 0.75 (vs. 0.70 for Phase 1)
+- **Date:** 2026-05-11
+- **Commit:** 22
+- **Decided by:** Lara
+- **Decision:** Both Phase 3 topics (`evaluation_and_metrics`, `production_patterns`) require a per-topic score of ≥ 0.75. Phase 1 topics require ≥ 0.70.
+- **Reason:** Phase 3 covers operational competency — measuring quality (RAGAS), identifying failure modes, and making production architecture decisions. A learner who passes at 0.70 may understand concepts without having the judgment to safely operate a production system. The 0.75 floor reflects that production knowledge has higher downstream consequences than foundational knowledge.
+- **Consequences:** A learner near the Phase 2/3 boundary who has 0.70-qualified on all Phase 2 topics needs to reach 0.75 on each Phase 3 topic. The higher Phase 3 bar also communicates to the learner that the final phase requires deeper engagement.
+
+### Spaced repetition weighting in topic score formula
+- **Date:** 2026-05-11
+- **Commit:** 22
+- **Decided by:** Lara
+- **Decision:** `topic_score = 0.7 × current_session_score + 0.3 × best_prior_session_score`. If no prior session exists: `topic_score = current_session_score`. Uses `best_prior_session_score` (not average of all priors) as the second term.
+- **Alternatives considered:** Simple current-session mean (ignores learning arc); running average of all sessions (penalizes early struggle permanently).
+- **Reason:** Primarily reflects current performance (0.7 weight) while rewarding learning persistence (0.3 weight on best prior). A learner who scored 0.60 the first time and 0.85 the second time should not be scored identically to one who scored 0.85 on their first attempt. Using `best_prior_session_score` (not average) avoids penalizing repeated attempts with early poor scores.
+- **Consequences:** Nova's assessment engine and Rex's scoring service must implement this formula exactly as specified. Any change to the formula requires coordinated updates across `assess_node`, the scoring service, and this document. Specified in `knowledge-base/curriculum/gates.md`.
+
+### Null vs. 0.0 for unassessed topics
+- **Date:** 2026-05-11
+- **Commit:** 22
+- **Decided by:** Lara
+- **Decision:** A topic with no completed sessions has score `null`, not `0.0`. Gate logic must treat `null` as failing (null ≥ threshold evaluates to `false`).
+- **Reason:** `0.0` conflates two distinct states: "learner attempted and scored zero" versus "learner has not attempted." A system that needs to decide whether to prompt the learner to attempt a topic or to remediate an existing score requires this distinction. An unassessed topic accidentally passing a gate (null treated as 0.0 which could be the default-zero-passing threshold in some comparison implementations) would be a correctness failure.
+- **Consequences:** Nova and Rex must explicitly handle `null` in gate logic — not compare `null >= threshold` naively. The distinction also affects UI display: a null topic should not show "0%" progress but rather "not started." Specified with a `"null_topic_passes_gate": false` flag in `knowledge-base/curriculum/gates.md`.
+
+### Minimum 3 questions per session for a valid score update
+- **Date:** 2026-05-11
+- **Commit:** 22
+- **Decided by:** Lara
+- **Decision:** An assessment session with fewer than 3 questions produces no topic score update — the topic score is unchanged. Sessions with ≥ 3 questions update normally.
+- **Reason:** A single lucky correct answer (score: 1.0) or unlucky wrong answer (score: 0.0) from a 1-question session would produce misleadingly extreme scores with high variance. Three questions is the minimum to produce a session score with meaningful granularity: scores of 0.0, 0.33, 0.67, or 1.0 all represent distinguishable competency levels.
+- **Consequences:** Nova's assessment node must track question count per session and skip the score update if count < 3. This prevents a brief off-topic mention of a slug from inappropriately anchoring that topic's score. Specified in `knowledge-base/curriculum/gates.md`.
+
+*Last updated: 2026-05-11 — Commit 22 complete (RAG curriculum: topic map, question bank, phase gates)*

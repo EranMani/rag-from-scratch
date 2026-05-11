@@ -1337,3 +1337,57 @@ finally:
 - `.env.prod.example` — compare `CHROMA_PORT` comment ("container port — not the host mapping") against the dev compose `ports:` declaration (`8001:8000`) to see why the two values differ
 
 ---
+
+**Commit 22 — `rag-curriculum-design`** · 2026-05-11 · Lara · `architectural`
+
+> **In one sentence:** Rebuilt the entire RAG learning curriculum from a content-focused model to a mastery-based model, providing the canonical topic taxonomy and assessment rubrics that all downstream scoring logic depends on.
+
+**Interview talking point:**
+> **Q:** How do you know if a student actually understands retrieval-augmented generation?
+>
+> **A:** Not by asking them about it — by testing them on it. This commit separates "asking about a topic" (what the old model did) from "demonstrating mastery of a topic" (what learners need). The curriculum now defines what mastery looks like for each of 8 topics, with exact rubrics for correct/partial/incorrect answers. That distinction is why the entire scoring system needed to be rebuilt.
+
+**What happened and why:**
+- Lara created the complete RAG curriculum as a system of record: 8 topics with zero-to-hero learning objectives, prerequisites, common misconceptions, and 8 questions per topic with full rubrics.
+- The prior scoring model inferred knowledge from question *content* (what students asked) rather than test *performance* (how well they answered). Learning science requires the latter — you can ask sophisticated questions about machine learning without understanding it.
+- Moved from implicit, inference-based scoring to explicit, rubric-anchored scoring. Rubrics define correct/partial/incorrect with clear criteria; the LLM evaluator must match one of these three verdicts exactly, or the answer is treated as incorrect.
+- Phase 2 (the foundational mid-tier) requires a *dual gate*: minimum 0.70 per topic AND mean 0.75 across all four Phase 2 topics. Phase 1 and 3 are per-topic only. This is deliberate — Phase 2 topics are tightly coupled (chunking → vectors → retrieval → prompting), so imbalanced mastery breaks later learning.
+
+**Reasoning & discovery:**
+1. The original model's "topic inferred from question content" was a proxy that fell apart immediately when students asked off-topic or metacognitive questions. No rubric for assessment = no way to know if someone actually understood their own answer.
+2. Ruled out "keep the inference approach and tune it harder" — more tweaking doesn't fix the fundamental problem that asking ≠ understanding. Also ruled out "copy a generic ML curriculum" — RAG is specific enough that stock assessment patterns don't fit its semantics.
+3. The clinching insight: all downstream commits (23 for product spec, 24 for assessment engine, 25 for scoring service) depend on having a canonical, machine-readable curriculum first. Nothing that follows can be correct if this is wrong or ambiguous. Built it bulletproof from the start.
+
+**Design pattern:**
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Curriculum-First | All assessment logic is derived from curriculum definitions, not the other way around. | Prevents scoring logic from creeping into assessment rubrics. Curriculum is ground truth; scoring is an application of it. |
+| Explicit Verdict Vocabulary | Only `correct`, `partial`, `incorrect` are valid evaluator outputs; anything else is treated as `incorrect` and flagged. | Removes ambiguity about what the LLM evaluator is doing. No silent failures where an unexpected output breaks the gate. |
+| Spaced Repetition Weighting | `0.7 × current_session + 0.3 × best_prior_session`. Primarily reflects now, rewards improvement. | Avoids anchoring permanent scores to early poor attempts while still reflecting recent performance. |
+
+**Files touched:**
+- `knowledge-base/curriculum/topic-slugs.json` — new, 8-slug canonical list
+- `knowledge-base/curriculum/curriculum-map.md` — new, topic tree with learning objectives and prerequisites
+- `knowledge-base/curriculum/gates.md` — new, phase gates, scoring formula, null-handling rules, verdict vocabulary
+- `knowledge-base/curriculum/questions/embeddings_and_similarity.md` — new, 8-question bank with full rubrics
+- `knowledge-base/curriculum/questions/rag_pipeline_architecture.md` — new, 8-question bank with full rubrics
+- `knowledge-base/curriculum/questions/chunking_strategies.md` — new, 8-question bank with full rubrics
+- `knowledge-base/curriculum/questions/vector_databases.md` — new, 8-question bank with full rubrics
+- `knowledge-base/curriculum/questions/retrieval_methods.md` — new, 8-question bank with full rubrics
+- `knowledge-base/curriculum/questions/context_and_prompting.md` — new, 8-question bank with full rubrics
+- `knowledge-base/curriculum/questions/evaluation_and_metrics.md` — new, 8-question bank with full rubrics
+- `knowledge-base/curriculum/questions/production_patterns.md` — new, 8-question bank with full rubrics
+- `ARCHITECTURE.md` — updated, added Curriculum as top-level system component
+- `DECISIONS.md` — updated, recorded Phase 2 dual-gate decision and spaced repetition weighting rationale
+- `GLOSSARY.md` — updated, added 6 new terms: `topic`, `verdict`, `gate`, `phase`, `mastery score`, `topic slug`
+
+**What was clear from the start:**
+This is architectural. The entire assessment and scoring pipeline depends on these artifacts existing and being correct before anything downstream can be built. Lara was the right agent to build it because curriculum design is her domain; this commit is pure domain expertise, not code.
+
+**What to watch for in future commits:**
+- Commits 23–25 all consume from this curriculum directly. Any change to curriculum must cascade: gate thresholds to Commit 24, question banks to Commit 25, topic slugs to Commit 24–25.
+- The dual gate for Phase 2 is strict by design. Monitor session data in Commit 25 to see if the 0.75 mean threshold is realistic or needs to be relaxed.
+- `null` vs. `0.0` distinction in topic scores is load-bearing in gates.md — the gate logic explicitly checks `if score is null then fail()`. Do not collapse these in the schema later.
+- The verdict vocabulary (`correct`, `partial`, `incorrect`) is canonical in gates.md. If the LLM evaluator in Commit 24 produces any other value, it gets flagged as incorrect *and* logged as an error for debugging.
+
+---

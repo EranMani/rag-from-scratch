@@ -50,6 +50,7 @@ responsive to who they are, not a static Q&A tool.
 | AI / Agent | Nova | `src/agents/`, `src/rag/` |
 | Frontend | Aria | `src/app/ui.py` |
 | Infrastructure | Adam | `Dockerfile`, `docker-compose*.yml`, `nginx/`, `scripts/`, `systemd/`, `.env*.example` |
+| Curriculum | Lara | `knowledge-base/curriculum/`, `docs/scoring-model.md` |
 | Docs | Ryan | `README.md`, `GETTING_STARTED.md`, `docs/` |
 | Orchestration | Claude | `CLAUDE.md`, `ORCHESTRATION.md`, `AGENTS.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `GLOSSARY.md`, `commit-protocol.md`, `project-state.json`, `team-preferences.md`, `hooks/` |
 
@@ -126,6 +127,15 @@ responsive to who they are, not a static Q&A tool.
 - **Interface:** `PROMPT_TEMPLATES: dict[str, ChatPromptTemplate]` and `DEFAULT_PROMPT: ChatPromptTemplate` — both importable from `agents.prompts`
 - **Contract:** each template takes a single `{context}` input variable; `.format_messages(context=...)` returns `[SystemMessage]`
 - **Introduced in:** Commit 17
+
+### RAG Curriculum
+- **Type:** knowledge base (Markdown + JSON artifacts)
+- **Owner:** Lara
+- **Purpose:** Defines the complete RAG learning curriculum: canonical 8-topic slug list, three-phase progression with hard gates, per-topic test question banks with LLM-evaluable rubrics, and scoring formula for Nova/Rex implementation
+- **Location:** `knowledge-base/curriculum/`
+- **Key artifacts:** `topic-slugs.json` (machine-readable slug list), `gates.md` (phase gate thresholds + scoring formula), `curriculum-map.md` (topic tree + learning objectives), `questions/[slug].md` (8-question banks with correct/partial/incorrect rubrics)
+- **Consumed by:** Nova (Commit 24 — assessment engine rewrite); Rex (Commit 25 — profile scoring rewrite); Mira+Lara (Commit 23 — scoring model product spec)
+- **Introduced in:** Commit 22
 
 ### ChatResponse
 - **Type:** typed wire schema (Pydantic model)
@@ -356,6 +366,6 @@ Introduced in Commit 21. `docker-compose.prod.yml` is a standalone file (not a c
 ## Sections to Complete During Build
 
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
-- **Grafana dashboards** — pre-built dashboard exports for request latency / cache hit rate — Commit 22 or 23
+- **Grafana dashboards** — pre-built dashboard exports for request latency / cache hit rate — Commit 26 or 27
 
-*Last updated: 2026-05-10 — Commit 21 complete (production Docker Compose topology; dev monitoring profiles opt-in)*
+*Last updated: 2026-05-11 — Commit 22 complete (RAG curriculum directory; Lara onboarded as Curriculum domain owner)*

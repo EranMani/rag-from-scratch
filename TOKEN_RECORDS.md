@@ -321,6 +321,26 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 22 — `rag-curriculum-design` · 2026-05-11 · Lara
+
+> Gate wave: none triggered — knowledge-base-only commit (no src/ changes, no auth/secrets, no user-facing behavior).
+> Viktor+Quinn cadence: next wave at Commit 25. Sage: not triggered. Mira: not triggered.
+> Ryan: full entry (ARCHITECTURE.md + DECISIONS.md + GLOSSARY.md updated).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Lara (implementation) | Sonnet | 62,629 | 23 | **+3k** over ≤60k | first Lara invocation; 11 new files; 64 questions with full rubrics |
+| Ryan | Haiku | 48,202 | 5 | **+33k** over ≤15k | full entry (arch + decisions + glossary); over target but within 5-tool cap |
+| **Total** | | **110,831** | **28** | over — first Lara invocation + full Ryan entry |
+
+**Notes:**
+- No gate wave: Viktor+Quinn cadence falls on Commit 25; Sage/Mira not applicable for docs-only commit.
+- Lara marginally over ≤60k (62,629 tokens) — acceptable for a first invocation producing 11 new files and 64 rubric-structured questions.
+- 23 tool uses (within 25 cap); no gate-fix cycles.
+- 5 pre-existing test failures (slug validation tests) confirmed unrelated to Commit 22 — will be resolved in Commits 24–25.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -337,6 +357,7 @@ No token data recorded. Tracking began at Commit 10.
 | 19 | profile-ui-panel | ~182k (excl. Ryan) | Viktor+Quinn+Mira | over ≤75k | Haiku reviewers reading beyond diff; no gate-fix cycle |
 | 20 | dynamic-chat-ui | ~223k (excl. impl) | Viktor+Quinn+Mira (3×) | over — 3 gate cycles | Viktor block + product redirect; all Sonnet; Aria impl from prior session |
 | 21 | production-compose | 298,547 | all 4 (2×) | over — 2 gate cycles | Viktor hard block (chroma healthcheck + CHROMA_PORT); all Sonnet reviewers |
+| 22 | rag-curriculum-design | 110,831 | none | over — docs-only | first Lara invocation + full Ryan entry (arch/decisions/glossary all updated) |
 
 ---
 

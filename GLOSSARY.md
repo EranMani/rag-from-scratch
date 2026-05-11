@@ -68,15 +68,18 @@
 **Introduced in:** Commit 18
 
 ### Module Slug
-**Meaning on this project:** A snake_case identifier for a knowledge base module, used as keys in `topic_scores`. The canonical set:
-- `rag_fundamentals` — Module 1: Information Retrieval
-- `vector_databases` — Module 2: Vector Databases
-- `retrieval_methods` — Module 3: RAG Architecture
-- `chunking_strategies` — Module 4: Chunking
-- `langchain` — Module 5: LangChain and Agents
-- `production_patterns` — Module 6: Production RAG
-**Used in:** `src/app/profile/scoring.py`, `src/agents/state.py`
-**Introduced in:** Commit 07
+**Meaning on this project:** A snake_case identifier for a knowledge base topic, used as keys in `topic_scores`. The canonical 8-slug set (defined in `knowledge-base/curriculum/topic-slugs.json`, introduced with the replan on 2026-05-11):
+- `embeddings_and_similarity` — Phase 1: Vector embeddings, cosine similarity, semantic search
+- `rag_pipeline_architecture` — Phase 1: Indexing + query phases, context injection, generation loop
+- `chunking_strategies` — Phase 2: Fixed vs. semantic chunking, overlap, token budgets
+- `vector_databases` — Phase 2: HNSW/IVF index types, ANN tradeoffs, metadata filtering
+- `retrieval_methods` — Phase 2: Sparse (BM25), dense, hybrid, reranking, MMR, HyDE
+- `context_and_prompting` — Phase 2: Context window management, prompt templates, hallucination mitigation
+- `evaluation_and_metrics` — Phase 3: RAGAS, faithfulness, answer relevancy, context precision/recall
+- `production_patterns` — Phase 3: Caching, async pipelines, observability, cost control, failure modes
+**Note:** The prior 6-slug set (`rag_fundamentals`, `langchain`, etc.) is deprecated as of the 2026-05-11 replan. Commits 24–25 migrate the application to use this 8-slug set.
+**Used in:** `knowledge-base/curriculum/topic-slugs.json` (canonical source); `src/app/profile/scoring.py`, `src/agents/state.py` (updated in Commits 24–25)
+**Introduced in:** Commit 07 (original 6-slug set); Commit 22 (canonical 8-slug set)
 
 ### asyncio.to_thread
 **Meaning on this project:** A Python stdlib function (`asyncio.to_thread(fn, *args)`) that runs a synchronous callable in a thread pool executor and returns an awaitable. Used throughout this project to prevent blocking I/O (ChromaDB, SQLite, LLM calls) from stalling the async event loop. Called as `await asyncio.to_thread(fn, arg1, arg2)` — not wrapped in a lambda.
@@ -177,4 +180,30 @@
 **Meaning on this project:** A Viktor finding so severe it bypasses the normal quality gate and surfaces directly to the Team Lead before any commit is made. Two Hard Blocks were raised during /init: graph replacement with zero tests (resolved by Commit 11), and untyped cross-agent interface (resolved by Commit 14's typed interface requirement).
 **Used in:** `ORCHESTRATION.md`, Viktor reviews
 
-*Last updated: 2026-05-09 — Commit 07 complete*
+### Phase Gate
+**Meaning on this project:** A score threshold that all required topics in a phase must meet before the learner can access the next phase's content. Phase 1 and Phase 3 gates require each topic ≥ a per-topic minimum. Phase 2 gate additionally requires the mean of all four topics ≥ 0.75 (because Phase 2 topics are interdependent). Unassessed topics (`null` score) always fail a gate check.
+**Used in:** `knowledge-base/curriculum/gates.md` (definition); `src/agents/` (Nova implements), `src/app/profile/` (Rex implements) — Commits 24–25
+**Introduced in:** Commit 22
+
+### Topic Score (curriculum-based)
+**Meaning on this project:** Under the curriculum redesign (Commit 22+), topic scores are computed from test performance, not chat interaction counts. Formula: `topic_score = 0.7 × current_session_score + 0.3 × best_prior_session_score`. Session scores are the mean of per-question scores (1.0 correct / 0.5 partial / 0.0 incorrect). Sessions with fewer than 3 questions produce no score update. Unassessed topics have score `null`, not `0.0`.
+**Distinct from:** The pre-replan scoring model (which inferred mastery from question content, not answers — deprecated as of the 2026-05-11 replan).
+**Used in:** `knowledge-base/curriculum/gates.md` (formula); implemented by Rex in Commit 25
+**Introduced in:** Commit 22 (formula defined); prior definition active through Commit 21
+
+### Faithfulness (RAGAS)
+**Meaning on this project:** A RAGAS evaluation metric that measures the fraction of factual claims in a generated answer that are attributable to the retrieved context. A faithful answer makes no claims beyond what the retrieved documents support. Low faithfulness indicates hallucination.
+**Used in:** `knowledge-base/curriculum/questions/evaluation_and_metrics.md` (tested in curriculum); future evaluation pipeline
+**Introduced in:** Commit 22 (curriculum definition)
+
+### Context Precision (RAGAS)
+**Meaning on this project:** A RAGAS evaluation metric that measures the fraction of retrieved chunks that are actually relevant to answering the question. High context precision means the retrieval system surfaced mostly useful documents. Low precision indicates the retriever is returning noise along with relevant chunks.
+**Used in:** `knowledge-base/curriculum/questions/evaluation_and_metrics.md`
+**Introduced in:** Commit 22 (curriculum definition)
+
+### Context Recall (RAGAS)
+**Meaning on this project:** A RAGAS evaluation metric that measures the fraction of the information needed to answer the question that is present in the retrieved chunks. High context recall means the retrieval system found all the relevant material. Low recall means key information was missed during retrieval.
+**Used in:** `knowledge-base/curriculum/questions/evaluation_and_metrics.md`
+**Introduced in:** Commit 22 (curriculum definition)
+
+*Last updated: 2026-05-11 — Commit 22 complete (8-slug curriculum; Phase Gate, Topic Score (curriculum-based), RAGAS metrics added)*
