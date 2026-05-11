@@ -31,10 +31,14 @@
 | 19 | profile-ui-panel | frontend | ✅ done · 2026-05-10 |
 | 20 | dynamic-chat-ui | frontend | ✅ done · 2026-05-10 |
 | 21 | production-compose | devops | ✅ done · 2026-05-10 |
-| 22 | nginx-config | devops | pending |
-| 23 | aws-ec2-deployment | devops | pending |
-| 24 | integration-tests | backend + ai-engineer | pending |
-| 25 | documentation | tech-writer | pending |
+| 22 | rag-curriculum-design | curriculum-specialist | pending |
+| 23 | scoring-model-product-spec | product + curriculum-specialist | pending |
+| 24 | assessment-engine-rewrite | ai-engineer | pending |
+| 25 | profile-scoring-rewrite | backend | pending |
+| 26 | nginx-config | devops | pending |
+| 27 | aws-ec2-deployment | devops | pending |
+| 28 | integration-tests | backend + ai-engineer | pending |
+| 29 | documentation | tech-writer | pending |
 
 ---
 
@@ -43,7 +47,7 @@
 ```
 Wave A (Phase 1):    01 ∥ 02 ∥ 03  — all touch distinct files, no shared state
 Wave B (Phase 3):    08 ∥ 09       — retrieve_node and generate_node are independent
-Wave C (Phase 7):    23 (integration tests — single owner pair, no further split)
+Wave C (Phase 8):    28 (integration tests — single owner pair, no further split)
 ```
 
 ---

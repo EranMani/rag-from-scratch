@@ -99,6 +99,30 @@ No archived sessions yet.
 
 ---
 
+## 📋 Replan Notice — 2026-05-11
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** The original Commit 22 (nginx-config) was not Nova's — no impact on prior work.
+
+**What was added:**
+- Commit 24 `assessment-engine-rewrite` — Nova's responsibility. Full rewrite of `assess_node` and `assessment_prompt`. The broken Q&A-observation model is replaced with curriculum-driven test administration and answer evaluation. See `commit-specs/commit-24.md` for full spec.
+
+**What changed in your sequence:**
+- Your next active commit is now **Commit 24** `assessment-engine-rewrite` (was no pending Nova commits)
+- Commit 23 (`scoring-model-product-spec`) must complete first — Mira + Lara produce `docs/scoring-model.md` which is Nova's implementation contract
+- The slug schema change (6 → 8 slugs) is Rex's Commit 25 — Nova's Commit 24 uses the existing `TopicScoresDelta` shape; Rex updates it after
+
+**New `AgentState` fields Nova adds in Commit 24:**
+- `test_mode: bool`
+- `pending_test_question: str | None`
+- `pending_test_slug: str | None`
+- `test_answer_score: float | None`
+
+**New team member:** Lara (curriculum specialist) owns `knowledge-base/curriculum/`. Nova's assessment prompt in Commit 24 references her question banks and rubrics.
+
+---
+
 ## Session Index
 
 | # | Commit | Status | Key Decision |

@@ -50,6 +50,29 @@
 **Scope Overflows Pre-Built:**
 - (none)
 
+---
+
+## 📋 Replan Notice — 2026-05-11
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** The original Commit 24 (integration-tests) was moved to Commit 28 — unchanged content, just renumbered.
+
+**What was added:**
+- Commit 25 `profile-scoring-rewrite` — Rex's responsibility. Two coupled changes: (1) slug schema migration from 6 → 8 slugs with DB migration; (2) `compute_topic_scores` rewritten to accept test performance events per `docs/scoring-model.md`. See `commit-specs/commit-25.md` for full spec.
+
+**What changed in your sequence:**
+- Your next active commit is now **Commit 25** `profile-scoring-rewrite` (was Commit 28 `integration-tests`)
+- Commit 24 (Nova's assessment-engine-rewrite) must complete first — Rex's scoring service must match Nova's output contract
+
+**Slug schema change Rex owns in Commit 25:**
+- DROP: `rag_fundamentals` (migrate scores → `rag_pipeline_architecture`), `langchain` (discard)
+- ADD: `rag_pipeline_architecture`, `embeddings_and_similarity`, `context_and_prompting`, `evaluation_and_metrics`
+- KEEP: `chunking_strategies`, `vector_databases`, `retrieval_methods`, `production_patterns`
+- DB migration runs idempotently at startup — existing `rag_fundamentals` scores carried to `rag_pipeline_architecture`
+
+**New team member:** Lara (curriculum specialist) owns `knowledge-base/curriculum/topic-slugs.json` — Rex reads this as the authoritative slug list when updating `VALID_MODULE_SLUGS` in `state.py`.
+
 **Archive Reference:**
 No archived sessions yet.
 

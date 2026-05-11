@@ -1,43 +1,58 @@
-﻿# Commit 22 Spec — `nginx-config`
-> **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
+# Commit 22 Spec — `rag-curriculum-design`
+> **Project:** rag-from-scratch · **Assignee:** Lara · **Load only for the active commit.**
 
 ---
 
-### Commit 22 — `nginx-config`
+### Commit 22 — `rag-curriculum-design`
 
-**Commit message:** `feat: nginx reverse proxy with WebSocket support, HTTPS, and monitoring routes`
+**Commit message:** `feat: RAG curriculum — topic map, question bank, phase gates`
 
 **Body:**
-Adds nginx as a service in `docker-compose.prod.yml` and writes `nginx/nginx.conf`.
+Lara builds the complete RAG learning curriculum. This is a knowledge-base-only commit —
+no application source code changes. The curriculum artifacts produced here are the
+canonical reference for Commits 23–25.
 
-Required config (non-negotiable):
-- HTTP → HTTPS redirect (301), except `/.well-known/acme-challenge/` for Certbot renewal
-- SSL termination with Let's Encrypt certs at `/etc/letsencrypt/live/{domain}/`
-- `proxy_read_timeout 86400` — **critical**: NiceGUI WebSocket silently disconnects
-  at the default 60s timeout without this
-- `proxy_buffering off` — required for NiceGUI SSE fallback and any streaming responses
-- WebSocket upgrade headers: `Upgrade`, `Connection: upgrade`
-- `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto` headers
+**Canonical topic slugs (replaces the prior 6-slug set):**
 
-Security:
-- `location /metrics { deny all; return 403; }` — Prometheus scrape endpoint must
-  not be publicly accessible
-- Monitoring dashboards proxied at internal paths with HTTP basic auth:
-  `/grafana/` → Grafana, `/kibana/` → Kibana, `/prometheus/` → Prometheus
-- Security headers: `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`,
-  `Strict-Transport-Security max-age=31536000`
+| Slug | Phase | What it covers |
+|---|---|---|
+| `embeddings_and_similarity` | 1 | Vector embeddings, cosine similarity, semantic search intuition |
+| `rag_pipeline_architecture` | 1 | Indexing + query phases, context injection, generation loop |
+| `chunking_strategies` | 2 | Fixed vs. semantic chunking, overlap, token budgets, recall impact |
+| `vector_databases` | 2 | HNSW/IVF index types, ANN tradeoffs, metadata filtering, collection design |
+| `retrieval_methods` | 2 | Sparse (BM25), dense, hybrid, reranking, MMR, multi-query, HyDE |
+| `context_and_prompting` | 2 | Context window management, prompt templates, hallucination mitigation |
+| `evaluation_and_metrics` | 3 | RAGAS, faithfulness, answer relevancy, context precision/recall |
+| `production_patterns` | 3 | Caching, async pipelines, observability, cost control, failure modes |
 
-**Assignee:** Adam (`adam.stockagent@gmail.com`)
+**Three-phase curriculum with hard phase gates:**
+- **Phase 1 (Foundations):** `embeddings_and_similarity` + `rag_pipeline_architecture`
+  Entry: zero. Exit: both slugs ≥ passing threshold.
+- **Phase 2 (Core components):** `chunking_strategies` + `vector_databases` + `retrieval_methods` + `context_and_prompting`
+  Entry: Phase 1 gate passed. Exit: all four slugs ≥ passing threshold.
+- **Phase 3 (Production):** `evaluation_and_metrics` + `production_patterns`
+  Entry: Phase 2 gate passed. Exit: both slugs ≥ passing threshold.
+
+**Assignee:** Lara
 
 **Files touched:**
-- `nginx/nginx.conf` (new)
-- `docker-compose.prod.yml` (add nginx service with cert volumes)
+- `knowledge-base/curriculum/curriculum-map.md` (new) — topic tree, phase assignments, learning objectives per topic
+- `knowledge-base/curriculum/topic-slugs.json` (new) — canonical 8-slug list (machine-readable, consumed by Commits 24–25)
+- `knowledge-base/curriculum/gates.md` (new) — phase gate score thresholds and advancement criteria
+- `knowledge-base/curriculum/questions/embeddings_and_similarity.md` (new) — test question bank with rubrics
+- `knowledge-base/curriculum/questions/rag_pipeline_architecture.md` (new)
+- `knowledge-base/curriculum/questions/chunking_strategies.md` (new)
+- `knowledge-base/curriculum/questions/vector_databases.md` (new)
+- `knowledge-base/curriculum/questions/retrieval_methods.md` (new)
+- `knowledge-base/curriculum/questions/context_and_prompting.md` (new)
+- `knowledge-base/curriculum/questions/evaluation_and_metrics.md` (new)
+- `knowledge-base/curriculum/questions/production_patterns.md` (new)
 
-**Depends on:** 20
+**Depends on:** Commit 21
 
 **Testing — done when:**
-- [ ] `nginx -t` (config test) passes inside the nginx container
-- [ ] `curl -I http://domain` returns 301 redirect to https
-- [ ] NiceGUI chat page remains connected for > 60 seconds without disconnect
-- [ ] `GET /metrics` returns 403 from outside the Docker network
-- [ ] WebSocket connection established (check browser DevTools Network tab)
+- [ ] All 8 question bank files exist with ≥ 5 test questions each, each with a full rubric (correct / partial / incorrect criteria)
+- [ ] `topic-slugs.json` contains exactly the 8 canonical slugs, machine-readable array
+- [ ] Phase gate thresholds defined in `gates.md` as numeric score values per slug
+- [ ] Curriculum map covers the full zero-to-hero arc with clear learning objectives per topic
+- [ ] No application source code was modified (Lara's domain is knowledge-base/ only)

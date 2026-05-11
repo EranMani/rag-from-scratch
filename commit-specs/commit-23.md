@@ -1,61 +1,37 @@
-﻿# Commit 23 Spec — `aws-ec2-deployment`
-> **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
+# Commit 23 Spec — `scoring-model-product-spec`
+> **Project:** rag-from-scratch · **Assignee:** Mira + Lara · **Load only for the active commit.**
 
 ---
 
-### Commit 23 — `aws-ec2-deployment`
+### Commit 23 — `scoring-model-product-spec`
 
-**Commit message:** `feat: EC2 deployment scripts — systemd, SSL, swapfile, backup`
+**Commit message:** `docs: scoring model product spec — curriculum-driven, test-answer-based`
 
 **Body:**
-All scripts and config needed for a clean first deploy on a fresh EC2 instance.
+Mira and Lara jointly produce the canonical product specification for how curriculum
+test performance translates to topic scores and user_level. This spec is the
+implementation contract that Nova (Commit 24) and Rex (Commit 25) must follow.
+No application source code changes — documentation only.
 
-`scripts/deploy.sh`:
-- Install Docker + Docker Compose plugin (not v1)
-- Clone repository to `/opt/rag-from-scratch`
-- `.env.prod` validation guard: `grep JWT_SECRET .env.prod || (echo "FATAL: JWT_SECRET missing" && exit 1)`
-- `docker compose -f docker-compose.prod.yml build`
-- `docker compose -f docker-compose.prod.yml up -d`
-- Ollama model pre-pull: `docker exec rag-ollama ollama pull gemma3:4b`
-- Run Certbot initial cert acquisition
+**Questions this spec must answer with concrete, implementable rules:**
+1. When does the agent administer a test question vs. answer a content question?
+2. What does a test session look like from the user's perspective? Is it transparent?
+3. How does test performance (correct / partial / incorrect) map to a score delta? Exact numbers.
+4. What score threshold marks a topic as "passing" for phase gate advancement?
+5. How does partial knowledge register — can a user be at 0.6 on a topic without passing it?
+6. Does score decay exist? If so, when and at what rate?
+7. How does `user_level` (novice / beginner / intermediate / advanced / expert) map to phase progress?
 
-`systemd/rag-app.service`:
-- `After=docker.service`, `Requires=docker.service`
-- `ExecStart` runs `docker compose -f docker-compose.prod.yml up -d`
-- `ExecStop` runs `docker compose -f docker-compose.prod.yml down`
-- Ensures stack restarts after EC2 reboot
-
-`scripts/setup-swap.sh`:
-- Creates 4 GB swapfile at `/swapfile`
-- Cheap insurance against OOM kills during Ollama model loading spikes
-
-`scripts/backup.sh`:
-- Tarballs `data/app_users.db` (SQLite) and `chroma_data` Docker volume to S3
-- Intended to run via daily cron: `0 3 * * * /opt/rag-from-scratch/scripts/backup.sh`
-- S3 bucket and IAM role documented in script header
-
-`scripts/health-check.sh`:
-- Hits `https://{domain}/api/health`
-- Returns 0 on success, 1 on failure
-
-Target EC2 instance: **t3.xlarge** (4 vCPU, 16 GB RAM) with 32 GB gp3 EBS volume.
-Rationale: Ollama (gemma3:4b) needs ~3.5 GB RAM, ELK stack needs ~2 GB, app + ChromaDB
-+ Redis need ~1 GB. t3.large (8 GB) is insufficient with monitoring running.
-
-**Assignee:** Adam (`adam.stockagent@gmail.com`)
+**Assignee:** Mira (product perspective) + Lara (curriculum and scoring expertise)
 
 **Files touched:**
-- `scripts/deploy.sh` (new)
-- `scripts/health-check.sh` (new)
-- `scripts/backup.sh` (new)
-- `scripts/setup-swap.sh` (new)
-- `systemd/rag-app.service` (new)
+- `docs/scoring-model.md` (new) — canonical product spec, consumed as implementation contract by Nova and Rex
 
-**Depends on:** 21
+**Depends on:** Commit 22 (`knowledge-base/curriculum/gates.md` must exist — phase thresholds defined by Lara feed this spec)
 
 **Testing — done when:**
-- [ ] `scripts/deploy.sh` runs on a fresh Ubuntu EC2 instance without errors
-- [ ] `systemctl status rag-app` shows active after reboot
-- [ ] `scripts/health-check.sh` returns 0 on a running stack
-- [ ] Ollama responds with `gemma3:4b` after deploy (not on-demand pull)
-- [ ] `.env.prod` missing → deploy.sh exits with FATAL message, not silently continues
+- [ ] `docs/scoring-model.md` answers all 7 questions above
+- [ ] Score delta formula is numeric and unambiguous — Nova and Rex can implement without follow-up questions
+- [ ] Phase gate thresholds in this spec are consistent with `knowledge-base/curriculum/gates.md`
+- [ ] `user_level` mapping is explicit: which score ranges or phase positions correspond to which level labels
+- [ ] No application source code was modified

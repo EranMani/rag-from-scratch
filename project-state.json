@@ -4,9 +4,9 @@
   "status": "active",
   "current_commit": {
     "number": "22",
-    "name": "nginx-config",
+    "name": "rag-curriculum-design",
     "status": "pending",
-    "assignee": "devops"
+    "assignee": "curriculum-specialist"
   },
   "commits_done": [
     "01",
@@ -35,7 +35,11 @@
     "22",
     "23",
     "24",
-    "25"
+    "25",
+    "26",
+    "27",
+    "28",
+    "29"
   ],
   "next_commit": "22",
   "open_handoffs": [],
@@ -112,7 +116,18 @@
     }
   ],
   "rollback_history": [],
-  "replan_history": [],
+  "replan_history": [
+    {
+      "date": "2026-05-11",
+      "trigger": "Requirement changed — knowledge profile scoring was question-frequency-based, violating basic learning science. Scoring from what the user *asked* (not what they *answered*) produces meaningless metrics. Curriculum-first, test-answer-based redesign required before any deployment.",
+      "commits_added": ["22 rag-curriculum-design", "23 scoring-model-product-spec", "24 assessment-engine-rewrite", "25 profile-scoring-rewrite"],
+      "commits_reordered": ["22 nginx-config → 26", "23 aws-ec2-deployment → 27", "24 integration-tests → 28", "25 documentation → 29"],
+      "commits_removed": [],
+      "new_agent": "Lara (curriculum-specialist) — RAG curriculum expert, owns knowledge-base/ artifacts only",
+      "slug_schema_change": "6 → 8 slugs. Drop: rag_fundamentals (split), langchain (removed). Add: rag_pipeline_architecture, embeddings_and_similarity, context_and_prompting, evaluation_and_metrics. Keep: chunking_strategies, vector_databases, retrieval_methods, production_patterns.",
+      "approved_by": "Team Lead · 2026-05-11"
+    }
+  ],
   "claude_decisions": [
     {
       "date": "2026-05-08",
