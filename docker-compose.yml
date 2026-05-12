@@ -21,11 +21,13 @@ services:
       - .env
     environment:
       - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
       - REDIS_URL=redis://redis:6379/0
       - OLLAMA_BASE_URL=http://ollama:11434
     volumes:
       - ./src:/app/src
       - ./data:/app/data
+      - ./knowledge-base:/app/knowledge-base
     depends_on:
       chroma:
         condition: service_healthy
