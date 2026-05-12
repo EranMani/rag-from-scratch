@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: UI polish — debug collapse, markdown CSS · 2026-05-11*
+*Last updated: Admin dashboard redesign · 2026-05-12*
 
-**Last completed:** Debug info collapse + markdown rendering improvements ✅
+**Last completed:** Admin tab redesign — dashboard header, stat cards, ui.table with slot injection, health panel, monitoring placeholder ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -18,13 +18,17 @@
 - (none)
 
 **Key Interfaces I Own (for teammates):**
-- `src/app/ui.py` — NiceGUI page definitions; main chat + profile sidebar layout
+- `src/app/ui.py` — NiceGUI page definitions; main chat + profile sidebar layout; tab bar
+- `src/app/api/routes/admin.py` — `/api/admin/users` (GET) and `/api/admin/users/{id}` (DELETE)
 
 **Decisions Other Agents Must Know:**
 - The profile panel is defined as a nested `@ui.refreshable` async function inside `index()`. This keeps it in scope of both `auth_headers()` and `http()` closures without threading those as parameters. Commit 20 must call `profile_panel.refresh()` (not re-invoke `await profile_panel()`) to trigger a re-render.
 - The `not can_use_chat` branch now redirects to `/login` instead of rendering an inline form. This eliminates the duplicate `do_login()` closure that previously lived in `index()`.
 - `ui.footer()` must be a direct child of the page, not nested inside any `ui.row()` or `ui.column()`. The same constraint applies to `ui.header()`, `ui.left_drawer()`, and `ui.right_drawer()`.
 - `register_page` guard is now `if await verify_stored_bearer()` — redirects authenticated users regardless of `allow_anonymous_chat`, matching the symmetry of `login_page`.
+- Tab panels have `padding:0` on the Chat panel to preserve the full-bleed sidebar layout; the outer row height formula is now `calc(100vh - 168px)` (header ~64px + tab bar ~24px + footer ~80px).
+- Footer visibility is toggled via `tabs.on("update:model-value", ...)` using `set_visibility()`. The footer object must be captured as a variable (`footer = ui.footer()`) so the callback can reference it.
+- Admin panel delete buttons use a default-argument capture (`uid=uid, email=email`) inside the for-loop closure to avoid the classic Python late-binding bug where all buttons would reference the last iteration's values.
 
 ---
 
@@ -37,6 +41,80 @@
 | 4 | bug fix | ✅ Done | body overflow:hidden; progress bar height+gap; chat card word-break; gap badge contrast |
 | 5 | UI polish | ✅ Done | display_name stored at verify_stored_bearer(); bubble column wrappers for sender labels |
 | 6 | UI polish | ✅ Done | debug badges collapsed; _LEVEL_LABELS removed; markdown CSS via ui.add_head_html() |
+| 7 | feature | ✅ Done | Tab bar Chat/Admin; admin router; footer visibility callback; closure capture for delete buttons |
+| 8 | bug+redesign | ✅ Done | White panel bg fix; admin tab as SaaS dashboard: header strip, stat cards, ui.table slot injection, health + monitoring sidebar |
+
+---
+
+## Session 08 — Bug fix + redesign: admin dashboard
+
+**Date:** 2026-05-12
+**Status:** ✅ Done
+
+### Task Brief
+Two problems: (1) the admin tab panel rendered white because `.q-tab-panels` / `.q-tab-panel` had no background override — the CSS block only targeted `.q-tabs`. (2) The admin tab content was a basic flat list of rows, not a credible production-facing dashboard. Redesign it to resemble a real SaaS admin panel: header strip, stat cards, dark `ui.table` with slot-injected delete actions, system health sidebar, and a monitoring placeholder.
+
+### Approach
+The white panel bug was caused by two CSS blocks living in separate `ui.add_head_html` calls — the first had the markdown styles, the second had only the tab bar styles. Neither targeted the Quasar panel containers. The fix was straightforward: merge into one block and add `.q-tab-panels { background: #0f172a !important; }` and `.q-tab-panel { background: #0f172a !important; padding: 0 !important; }`. The `!important` is required because Quasar's default `.q-tab-panel` sets `padding: 16px` inline via a utility class, and the `.q-tab-panels` wrapper carries its own `background` from the component's default styles.
+
+The dashboard redesign had one meaningful API question: where does the "latest join" date come from? The `/api/admin/users` list is ordered by registration date (most recent first in the DB query — confirmed by the existing `list_users` implementation). So `users[0].get("created_at")` is the most recent. No second API call needed.
+
+The `ui.table` slot injection pattern for the delete action required careful attention to NiceGUI's event routing. The Vue template emits `'delete'` on the table's parent, which NiceGUI surfaces as a Python `table.on('delete', ...)` event. The callback receives an `e` with `e.args` equal to the full row dict. Because `handle_delete` is `async`, the callback wraps it in `asyncio.ensure_future()` — `table.on` is synchronous but NiceGUI's event loop is running, so `ensure_future` queues the coroutine correctly. The previous session's closure-capture problem does not apply here because the slot delegates to Python only via the event, not via a per-row closure inside a for-loop.
+
+One NiceGUI limitation hit: `ui.table` does not expose a built-in dark mode prop. The table-level dark styling (`#0f172a` background, muted header text, dark row dividers) must be injected via `ui.add_head_html` CSS targeting Quasar's `.q-table` class hierarchy. These selectors all require `!important` because Quasar applies its own background and border colors via scoped utility classes. The table CSS was consolidated into the single merged `ui.add_head_html` block rather than a separate call.
+
+The health sidebar uses a defensive fallback: if the health endpoint returns a flat response with only a top-level `status` field (no nested `services` dict), the panel falls back to showing the API service status as `health_status` and marking all others as "unknown" rather than crashing.
+
+### Changes Made
+
+| File | Change |
+|---|---|
+| `src/app/ui.py` | Merged CSS blocks; added panel bg rules + table dark rules; replaced admin tab panel with dashboard layout |
+
+### Decisions Made
+1. **Single `ui.add_head_html` block** — merging all CSS into one `<style>` block eliminates ordering surprises where one block silently fails to override another. Every override that requires `!important` is now visible in one place.
+2. **`ui.table` with `add_slot` for delete action** — NiceGUI's `ui.table` renders via Quasar's `q-table` component which supports named slots. The `body-cell-actions` slot name is the correct Quasar slot for per-row cell overrides. The `$parent.$emit('delete', props.row)` pattern is the documented way to bubble a slot event up to the NiceGUI element's Python event bus.
+3. **Health sidebar falls back gracefully** — if `health_data.get("services")` is missing, unknown status for non-API services is shown as a red dot rather than raising a KeyError or showing nothing.
+4. **`asyncio.ensure_future` for slot delete callback** — `table.on(...)` takes a synchronous lambda. Wrapping the async handler in `ensure_future` queues it on the running event loop without blocking the UI thread.
+
+---
+
+## Session 07 — Feature: tab bar + admin panel
+
+**Date:** 2026-05-12
+**Status:** ✅ Done
+
+### Task Brief
+Add a Chat / Admin tab bar to the main page. Chat tab contains the existing profile sidebar and chat area, unchanged. Admin tab contains a user management panel: list of registered users with delete per row, refresh button, self-delete prevention. Footer (input bar) only visible on the Chat tab. Three files: `auth/db.py` (two new functions), `api/routes/admin.py` (new router), `main.py` (router registration), `ui.py` (restructure).
+
+### Approach
+The main structural question was how to integrate the tabs without breaking the footer constraint. `ui.footer()` must be a direct page child — not inside any container. The existing code already respected this (Session 03 lesson). With tabs, the natural instinct is to put the footer inside the Chat tab panel, but that would violate the constraint and throw a `RuntimeError`. The correct approach: keep `ui.footer()` as a page-level sibling of `ui.tab_panels`, then toggle its visibility based on the active tab via an event callback.
+
+NiceGUI exposes tab changes through the `"update:model-value"` Vue event on the `ui.tabs` element. The event's `e.args` is the label string of the newly selected tab — `"Chat"` or `"Admin"`. `footer.set_visibility(e.args == "Chat")` is the single-line hook. This required capturing the footer as a Python variable (`footer = ui.footer()`) rather than using it as an anonymous context manager, which is a minor but important syntactic shift.
+
+The height formula for `tab_panels` needed updating. Previous formula was `calc(100vh - 144px)` for header + footer. The tab bar adds roughly 24px, so the new formula is `calc(100vh - 168px)`. The Chat tab panel gets `padding:0` to preserve the full-bleed sidebar — the outer row's left sidebar and chat column can then fill 100% of that panel height cleanly.
+
+For the Admin panel, the `@ui.refreshable` pattern was the obvious choice — same pattern as `profile_panel`. The panel renders a row per user with email, display name, registered date, and a delete button. The critical correctness issue is the Python loop closure binding problem: if `_delete` is defined as `async def _delete():` inside a `for user in users:` loop, all closures capture the same `uid` and `email` variables by reference — when the loop ends, they all point to the last iteration's values. The fix is default-argument capture: `async def _delete(uid=uid, email=email):`. This is a well-known Python footgun and the only correct solution in a for-loop with closures.
+
+Self-delete prevention compares `uid == current_uid` (captured from `app.storage.user.get("user_id")` before the refreshable function is defined). If the row matches the logged-in user, the delete button is replaced with a muted `(you)` label. This prevents accidental self-deletion and also prevents privilege escalation where a user deletes the only admin.
+
+The admin API router follows the exact same pattern as `profile.py`: `APIRouter` with prefix, `get_current_user` dependency, `asyncio.to_thread` wrapping the synchronous DB calls. DELETE returns 204 No Content on success, 404 if the user is not found. The `list_users` and `delete_user` functions in `auth/db.py` follow the exact style of existing functions in that file — `_connect()` context manager, `sqlite3.Row` factory (already set by `_connect`).
+
+### Changes Made
+
+| File | Change |
+|---|---|
+| `src/app/auth/db.py` | Added `list_users()` and `delete_user()` |
+| `src/app/api/routes/admin.py` | New file: GET /api/admin/users, DELETE /api/admin/users/{id} |
+| `src/app/main.py` | Import + include admin router |
+| `src/app/ui.py` | Tab bar, tab panels, admin panel, footer visibility callback |
+
+### Decisions Made
+1. **Footer toggled via event callback, not conditional render** — conditional render would destroy and re-create the footer (and its `question_input`/`send_btn` references) on every tab switch. `set_visibility()` keeps the element alive and all closures intact.
+2. **`padding:0` on Chat tab panel** — the sidebar layout uses `height:100%` which requires the panel itself to have no padding eating into that 100%; padding goes on the chat area's inner column, not the panel container.
+3. **Default-argument closure capture for delete buttons** — `async def _delete(uid=uid, email=email):` is the only correct pattern for per-row callbacks in a Python for-loop.
+4. **Admin router protected by `get_current_user` with no role check** — any authenticated user can list and delete users. This is appropriate for a demo/educational app; a production version would add an `is_admin` field and guard.
+5. **`bearer_ok` used as Admin panel access gate** — evaluated at page load time. If the user is not authenticated, they see "Sign in to access admin panel." instead of an API 401 error in the panel.
 
 ---
 

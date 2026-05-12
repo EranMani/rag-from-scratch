@@ -195,6 +195,16 @@ def setup_ui(fastapi_app):
 .nicegui-markdown ul,.nicegui-markdown ol{
   padding-left:1.5rem;margin:0.4rem 0}
 .nicegui-markdown li{margin:0.2rem 0}
+.q-tab-panels { background: #0f172a !important; }
+.q-tab-panel  { background: #0f172a !important; padding: 0 !important; }
+.q-tab { color: #64748b !important; font-size: 0.85rem; font-weight: 500; }
+.q-tab--active { color: #38bdf8 !important; }
+.q-tabs { background: #1e293b !important; border-bottom: 1px solid #334155; }
+.q-tab__indicator { background: #38bdf8 !important; }
+.q-table { background: #0f172a !important; color: #e2e8f0 !important; }
+.q-table thead tr th { background: #1e293b !important; color: #64748b !important; font-size: 0.7rem; letter-spacing: 0.06em; border-bottom: 1px solid #334155 !important; }
+.q-table tbody tr td { border-bottom: 1px solid #1e293b !important; font-size: 0.82rem; }
+.q-table tbody tr:hover td { background: #1e293b !important; }
 </style>
 """)
 
@@ -235,113 +245,338 @@ def setup_ui(fastapi_app):
 
         session = create_session()
 
-        # Outer row: profile sidebar (left) + chat area (right)
-        with ui.row().style("width:100%; height:calc(100vh - 144px); gap:0; overflow:hidden"):
+        with ui.tabs().classes("w-full") as tabs:
+            chat_tab = ui.tab("Chat")
+            admin_tab = ui.tab("Admin")
 
-            # --- Profile sidebar ---
-            @ui.refreshable
-            async def profile_panel():
-                with ui.column().style(
-                    "width:280px; min-width:280px; height:100%; background:#1e293b; "
-                    "border-right:1px solid #334155; padding:1rem; gap:0.75rem; overflow-y:auto"
-                ):
-                    ui.label("Knowledge Profile").style(
-                        "font-size:0.9rem; font-weight:600; color:#38bdf8"
-                    )
+        with ui.tab_panels(tabs, value=chat_tab).classes("w-full").style(
+            "height:calc(100vh - 168px); overflow:hidden"
+        ):
+            # ------------------------------------------------------------------ Chat tab
+            with ui.tab_panel(chat_tab).style("padding:0; height:100%; overflow:hidden"):
+                with ui.row().style("width:100%; height:100%; gap:0; overflow:hidden"):
 
-                    headers = auth_headers()
-                    if not headers:
-                        # Anonymous user — no profile to display
-                        ui.label("Sign in to track your progress.").style(
-                            "font-size:0.8rem; color:#64748b"
-                        )
-                        return
-
-                    try:
-                        r = await http().get("/api/profile/me", headers=headers)
-                        if r.status_code != 200:
-                            raise ValueError(f"status {r.status_code}")
-                        profile = r.json()
-                    except Exception:
-                        ui.label("Profile unavailable.").style(
-                            "font-size:0.8rem; color:#94a3b8"
-                        )
-                        return
-
-                    # Mastery level — null-safe
-                    mastery = profile.get("mastery_level") or "—"
-                    ui.label(f"Level: {mastery.capitalize() if mastery != '—' else '—'}").style(
-                        "font-size:0.8rem; color:#94a3b8"
-                    )
-
-                    topic_scores: dict = profile.get("topic_scores") or {}
-
-                    if not topic_scores:
-                        # Empty state for fresh users
-                        ui.label("Start chatting to build your profile.").style(
-                            "font-size:0.8rem; color:#64748b; font-style:italic"
-                        )
-                    else:
-                        ui.label("Topic Scores").style(
-                            "font-size:0.75rem; font-weight:600; color:#64748b; margin-top:0.25rem"
-                        )
-                        for slug, label in _MODULE_LABELS.items():
-                            score: float = topic_scores.get(slug, 0.0)
-                            with ui.column().style("gap:0.4rem; width:100%"):
-                                ui.label(label).style("font-size:0.72rem; color:#94a3b8")
-                                ui.linear_progress(value=score).style(
-                                    "width:100%; height:10px"
-                                ).props("color=sky-600 track-color=slate-700")
-
-                    # Gaps tag list
-                    gaps: list = profile.get("gaps") or []
-                    if gaps:
-                        ui.label("Gaps").style(
-                            "font-size:0.75rem; font-weight:600; color:#64748b; margin-top:0.5rem"
-                        )
-                        with ui.row().style("flex-wrap:wrap; gap:0.3rem"):
-                            for gap in gaps:
-                                display = _MODULE_LABELS.get(gap, gap.replace("_", " ").title())
-                                ui.badge(display).style(
-                                    "background:#1e3a5f; color:#bfdbfe; font-size:0.75rem; "
-                                    "border-radius:4px; padding:0.25rem 0.6rem"
-                                )
-
-                    # Query count and last active
-                    interaction_count = profile.get("interaction_count", 0)
-                    last_activity = profile.get("last_activity_at")
-                    ui.label(f"Queries: {interaction_count}").style(
-                        "font-size:0.72rem; color:#64748b; margin-top:0.5rem"
-                    )
-                    if last_activity:
-                        # Show date + HH:MM; raw value is UTC ISO 8601 e.g. 2026-05-11T09:42:16.543000+00:00
-                        last_str = (last_activity[:16].replace("T", " ") if len(last_activity) >= 16 else last_activity)
-                        ui.label(f"Last active: {last_str}").style(
-                            "font-size:0.72rem; color:#64748b"
-                        )
-
-            await profile_panel()
-
-            # --- Chat area ---
-            with ui.column().style("flex:1; height:100%; overflow:hidden; position:relative"):
-                with ui.column().style(
-                    "flex:1; width:100%; max-width:900px; margin:0 auto; padding:1.5rem; "
-                    "padding-bottom:90px; overflow-y:auto; height:100%"
-                ):
-                    chat_area = ui.column().style("width:100%; gap:1rem")
-
-                    with chat_area:
-                        with ui.card().style(
-                            "background:#1e293b; border:1px solid #334155; max-width:75%; border-radius:12px"
+                    # --- Profile sidebar ---
+                    @ui.refreshable
+                    async def profile_panel():
+                        with ui.column().style(
+                            "width:280px; min-width:280px; height:100%; background:#1e293b; "
+                            "border-right:1px solid #334155; padding:1rem; gap:0.75rem; overflow-y:auto"
                         ):
-                            ui.markdown(
-                                "Welcome! I am a RAG system that answers questions about how RAG systems work.\n\n"
-                                "Try asking: **How does chunking work?** or **What is a circuit breaker?**"
+                            ui.label("Knowledge Profile").style(
+                                "font-size:0.9rem; font-weight:600; color:#38bdf8"
                             )
 
-        with ui.footer().style(
+                            headers = auth_headers()
+                            if not headers:
+                                ui.label("Sign in to track your progress.").style(
+                                    "font-size:0.8rem; color:#64748b"
+                                )
+                                return
+
+                            try:
+                                r = await http().get("/api/profile/me", headers=headers)
+                                if r.status_code != 200:
+                                    raise ValueError(f"status {r.status_code}")
+                                profile = r.json()
+                            except Exception:
+                                ui.label("Profile unavailable.").style(
+                                    "font-size:0.8rem; color:#94a3b8"
+                                )
+                                return
+
+                            mastery = profile.get("mastery_level") or "—"
+                            ui.label(f"Level: {mastery.capitalize() if mastery != '—' else '—'}").style(
+                                "font-size:0.8rem; color:#94a3b8"
+                            )
+
+                            topic_scores: dict = profile.get("topic_scores") or {}
+
+                            if not topic_scores:
+                                ui.label("Start chatting to build your profile.").style(
+                                    "font-size:0.8rem; color:#64748b; font-style:italic"
+                                )
+                            else:
+                                ui.label("Topic Scores").style(
+                                    "font-size:0.75rem; font-weight:600; color:#64748b; margin-top:0.25rem"
+                                )
+                                for slug, label in _MODULE_LABELS.items():
+                                    score: float = topic_scores.get(slug, 0.0)
+                                    with ui.column().style("gap:0.4rem; width:100%"):
+                                        ui.label(label).style("font-size:0.72rem; color:#94a3b8")
+                                        ui.linear_progress(value=score).style(
+                                            "width:100%; height:10px"
+                                        ).props("color=sky-600 track-color=slate-700")
+
+                            gaps: list = profile.get("gaps") or []
+                            if gaps:
+                                ui.label("Gaps").style(
+                                    "font-size:0.75rem; font-weight:600; color:#64748b; margin-top:0.5rem"
+                                )
+                                with ui.row().style("flex-wrap:wrap; gap:0.3rem"):
+                                    for gap in gaps:
+                                        display = _MODULE_LABELS.get(gap, gap.replace("_", " ").title())
+                                        ui.badge(display).style(
+                                            "background:#1e3a5f; color:#bfdbfe; font-size:0.75rem; "
+                                            "border-radius:4px; padding:0.25rem 0.6rem"
+                                        )
+
+                            interaction_count = profile.get("interaction_count", 0)
+                            last_activity = profile.get("last_activity_at")
+                            ui.label(f"Queries: {interaction_count}").style(
+                                "font-size:0.72rem; color:#64748b; margin-top:0.5rem"
+                            )
+                            if last_activity:
+                                last_str = (last_activity[:16].replace("T", " ") if len(last_activity) >= 16 else last_activity)
+                                ui.label(f"Last active: {last_str}").style(
+                                    "font-size:0.72rem; color:#64748b"
+                                )
+
+                    await profile_panel()
+
+                    # --- Chat area ---
+                    with ui.column().style("flex:1; height:100%; overflow:hidden; position:relative"):
+                        with ui.column().style(
+                            "flex:1; width:100%; max-width:900px; margin:0 auto; padding:1.5rem; "
+                            "padding-bottom:90px; overflow-y:auto; height:100%"
+                        ):
+                            chat_area = ui.column().style("width:100%; gap:1rem")
+
+                            with chat_area:
+                                with ui.card().style(
+                                    "background:#1e293b; border:1px solid #334155; max-width:75%; border-radius:12px"
+                                ):
+                                    ui.markdown(
+                                        "Welcome! I am a RAG system that answers questions about how RAG systems work.\n\n"
+                                        "Try asking: **How does chunking work?** or **What is a circuit breaker?**"
+                                    )
+
+            # ------------------------------------------------------------------ Admin tab
+            with ui.tab_panel(admin_tab).style(
+                "padding:0; overflow-y:auto; height:100%; background:#0f172a"
+            ):
+                if not bearer_ok:
+                    with ui.column().style("padding:2rem; gap:0.5rem"):
+                        ui.label("Sign in to access admin panel.").style(
+                            "font-size:0.9rem; color:#94a3b8"
+                        )
+                else:
+                    current_uid = app.storage.user.get("user_id")
+
+                    @ui.refreshable
+                    async def admin_panel():
+                        # Fetch users
+                        try:
+                            r_users = await http().get("/api/admin/users", headers=auth_headers())
+                            if r_users.status_code != 200:
+                                raise ValueError(f"status {r_users.status_code}")
+                            users = r_users.json()
+                        except Exception as exc:
+                            users = []
+                            users_error = str(exc)
+                        else:
+                            users_error = None
+
+                        # Fetch health
+                        try:
+                            r_health = await http().get("/api/health", headers=auth_headers())
+                            health_data = r_health.json() if r_health.status_code == 200 else {}
+                        except Exception:
+                            health_data = {}
+
+                        health_status = health_data.get("status", "unknown")
+                        is_healthy = health_status.lower() in ("healthy", "ok")
+
+                        # ---- Page header strip ----
+                        with ui.row().style(
+                            "width:100%; background:#1e293b; border-bottom:1px solid #334155; "
+                            "padding:1.25rem 2rem; align-items:center; justify-content:space-between"
+                        ):
+                            with ui.column().style("gap:0.2rem"):
+                                ui.label("Admin Dashboard").style(
+                                    "font-size:1.1rem; font-weight:600; color:#38bdf8"
+                                )
+                                ui.label("System overview & user management").style(
+                                    "font-size:0.78rem; color:#64748b"
+                                )
+                            ui.button("Refresh", on_click=admin_panel.refresh).props("flat dense").style(
+                                "color:#64748b"
+                            )
+
+                        # ---- Stat cards row ----
+                        latest_join = "—"
+                        if users:
+                            raw_created = users[0].get("created_at") or ""
+                            latest_join = raw_created[:10] if raw_created else "—"
+
+                        with ui.row().style(
+                            "width:100%; padding:1.5rem 2rem 0; gap:1rem; flex-wrap:wrap"
+                        ):
+                            # Card helper
+                            def stat_card(label_text, value_text, value_color, description):
+                                with ui.column().style(
+                                    "background:#1e293b; border:1px solid #334155; border-radius:12px; "
+                                    "padding:1rem 1.25rem; min-width:160px; flex:1; gap:0.2rem"
+                                ):
+                                    ui.label(label_text).style(
+                                        f"font-size:0.65rem; color:#64748b; letter-spacing:0.08em; text-transform:uppercase"
+                                    )
+                                    ui.label(value_text).style(
+                                        f"font-size:1.6rem; font-weight:700; color:{value_color}"
+                                    )
+                                    ui.label(description).style(
+                                        "font-size:0.7rem; color:#64748b"
+                                    )
+
+                            stat_card("USERS", str(len(users)), "#38bdf8", "registered")
+                            stat_card("LATEST JOIN", latest_join, "#a78bfa", "most recent signup")
+                            stat_card(
+                                "SYSTEM",
+                                "Healthy" if is_healthy else "Degraded",
+                                "#4ade80" if is_healthy else "#f87171",
+                                "all services",
+                            )
+                            stat_card("STACK", "RAG · LLM · SQLite", "#fb923c", "core components")
+
+                        # ---- Two-column content area ----
+                        with ui.row().style(
+                            "width:100%; padding:1.5rem 2rem; gap:1.5rem; align-items:flex-start; flex-wrap:wrap"
+                        ):
+                            # -- Left column: user table --
+                            with ui.column().style("flex:2; min-width:400px; gap:0.75rem"):
+                                # Section header
+                                with ui.row().style("align-items:center; gap:0.5rem"):
+                                    ui.label("Registered Users").style(
+                                        "font-size:0.7rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.06em"
+                                    )
+                                    ui.badge(str(len(users))).style(
+                                        "background:#1e3a5f; color:#38bdf8; font-size:0.72rem; border-radius:4px; padding:0.15rem 0.5rem"
+                                    )
+
+                                if users_error:
+                                    ui.label(f"Could not load users: {users_error}").style(
+                                        "font-size:0.85rem; color:#f87171"
+                                    )
+                                elif not users:
+                                    ui.label("No registered users.").style(
+                                        "font-size:0.85rem; color:#64748b; font-style:italic"
+                                    )
+                                else:
+                                    columns = [
+                                        {"name": "email", "label": "EMAIL", "field": "email", "align": "left"},
+                                        {"name": "display_name", "label": "NAME", "field": "display_name", "align": "left"},
+                                        {"name": "created_at", "label": "JOINED", "field": "created_at", "align": "left"},
+                                        {"name": "actions", "label": "", "field": "id", "align": "right"},
+                                    ]
+
+                                    rows = []
+                                    for user in users:
+                                        raw_ca = user.get("created_at") or ""
+                                        rows.append({
+                                            "id": user["id"],
+                                            "email": user["email"],
+                                            "display_name": user.get("display_name") or "—",
+                                            "created_at": raw_ca[:10] if raw_ca else "—",
+                                            "is_self": user["id"] == current_uid,
+                                        })
+
+                                    table = ui.table(columns=columns, rows=rows).classes("w-full")
+                                    table.add_slot("body-cell-actions", r"""
+                                      <q-td :props="props">
+                                        <q-btn v-if="props.row.is_self" flat dense disabled label="(you)"
+                                               style="color:#64748b;font-size:0.75rem"/>
+                                        <q-btn v-else flat dense label="Delete"
+                                               style="color:#f87171;font-size:0.75rem"
+                                               @click="$parent.$emit('delete', props.row)"/>
+                                      </q-td>
+                                    """)
+
+                                    async def handle_delete(row):
+                                        uid = row["id"]
+                                        email = row["email"]
+                                        try:
+                                            r = await http().delete(
+                                                f"/api/admin/users/{uid}",
+                                                headers=auth_headers(),
+                                            )
+                                            if r.status_code == 204:
+                                                ui.notify(f"Deleted {email}", type="positive")
+                                                admin_panel.refresh()
+                                            elif r.status_code == 404:
+                                                ui.notify("User not found", type="warning")
+                                                admin_panel.refresh()
+                                            else:
+                                                ui.notify(f"Error {r.status_code}", type="negative")
+                                        except Exception as exc:
+                                            ui.notify(f"Network error: {exc}", type="negative")
+
+                                    table.on("delete", lambda e: asyncio.ensure_future(handle_delete(e.args)))
+
+                            # -- Right column: health + monitoring --
+                            with ui.column().style("flex:1; min-width:280px; gap:0"):
+
+                                # Card 1: System Health
+                                with ui.column().style(
+                                    "background:#1e293b; border:1px solid #334155; border-radius:12px; "
+                                    "padding:1rem 1.25rem; gap:0.5rem"
+                                ):
+                                    ui.label("SYSTEM HEALTH").style(
+                                        "font-size:0.65rem; color:#64748b; letter-spacing:0.08em; text-transform:uppercase"
+                                    )
+
+                                    service_keys = ["api", "rag_pipeline", "vectorstore", "redis", "llm"]
+                                    services_data = health_data.get("services", {})
+
+                                    for key in service_keys:
+                                        svc_status = ""
+                                        if services_data:
+                                            svc_status = str(services_data.get(key, "")).lower()
+                                        elif health_data:
+                                            # flat health response — treat top-level status for api
+                                            svc_status = health_status.lower() if key == "api" else "unknown"
+                                        else:
+                                            svc_status = "unknown"
+
+                                        if svc_status in ("healthy", "ok"):
+                                            dot_color = "#4ade80"
+                                        elif svc_status == "degraded":
+                                            dot_color = "#fbbf24"
+                                        else:
+                                            dot_color = "#f87171"
+
+                                        with ui.row().style(
+                                            "display:flex; align-items:center; gap:0.5rem; padding:0.25rem 0"
+                                        ):
+                                            ui.label("●").style(f"color:{dot_color}; font-size:0.7rem")
+                                            ui.label(key.replace("_", " ").title()).style(
+                                                "font-size:0.8rem; color:#94a3b8"
+                                            )
+
+                                # Card 2: Monitoring placeholder
+                                with ui.column().style(
+                                    "background:#1e293b; border:1px dashed #334155; border-radius:12px; "
+                                    "padding:1rem 1.25rem; gap:0.6rem; margin-top:1rem"
+                                ):
+                                    ui.label("MONITORING").style(
+                                        "font-size:0.65rem; color:#64748b; letter-spacing:0.08em; text-transform:uppercase"
+                                    )
+                                    ui.label(
+                                        "Grafana & Prometheus dashboards will be embedded here after deployment."
+                                    ).style("font-size:0.8rem; color:#64748b; font-style:italic")
+                                    with ui.row().style("gap:0.5rem; flex-wrap:wrap; margin-top:0.25rem"):
+                                        for tag in ("Grafana", "Prometheus"):
+                                            ui.label(tag).style(
+                                                "background:#0f172a; color:#64748b; border:1px solid #334155; "
+                                                "border-radius:4px; padding:0.2rem 0.6rem; font-size:0.72rem"
+                                            )
+
+                    await admin_panel()
+
+        # Footer — input bar, hidden when Admin tab is active
+        footer = ui.footer().style(
             "background:#1e293b; border-top:1px solid #334155; padding:1rem 2rem"
-        ):
+        )
+        with footer:
             with ui.row().style("width:100%; max-width:900px; margin:0 auto; gap:0.75rem"):
                 question_input = ui.input(
                     placeholder="Ask about RAG, vector databases, LangChain..."
@@ -352,6 +587,8 @@ def setup_ui(fastapi_app):
                     "background:#0369a1; color:white; border-radius:8px"
                 )
 
+        tabs.on("update:model-value", lambda e: footer.set_visibility(e.args == "Chat"))
+
         async def send():
             question = question_input.value.strip()
             if not question:
@@ -359,8 +596,6 @@ def setup_ui(fastapi_app):
 
             question_input.value = ""
             send_btn.disable()
-
-            trusted_user_id = app.storage.user.get("user_id")
 
             with chat_area:
                 _dn = app.storage.user.get("display_name") or app.storage.user.get("email", "You")
@@ -390,8 +625,7 @@ def setup_ui(fastapi_app):
             await asyncio.sleep(0)
 
             try:
-                # Call the streaming /api/chat endpoint and collect SSE tokens.
-                # The UI renders the complete answer after the stream finishes.
+                # Collect SSE tokens from streaming /api/chat; render complete answer after stream.
                 payload = {
                     "question": question,
                     "session_id": session["session_id"],

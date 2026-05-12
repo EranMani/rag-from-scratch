@@ -61,3 +61,18 @@ def get_user_by_id(user_id: str) -> dict | None:
         ).fetchone()
     return dict(row) if row else None
 
+
+def list_users() -> list[dict]:
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT id, email, display_name, created_at FROM users ORDER BY created_at DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_user(user_id: str) -> bool:
+    with _connect() as conn:
+        cur = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+    return cur.rowcount > 0
+
