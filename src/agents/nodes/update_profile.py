@@ -48,16 +48,7 @@ def update_profile_node(state: AgentState) -> dict[str, Any]:
         logger.debug("update_profile_node: user_id is None — skipping profile update")
         return {}
 
-    # Fast-exit path 2: assessment failed — do not persist a bad delta
-    if assessment_error:
-        logger.debug(
-            "update_profile_node: assessment_error=True — skipping profile update "
-            "for user_id=%s",
-            user_id,
-        )
-        return {}
-
-    # Fetch the current profile row
+    # Fetch the current profile row (needed for both happy path and error path)
     current_profile: dict | None = get_profile_by_user_id(user_id)
     if current_profile is None:
         logger.warning(
@@ -67,11 +58,31 @@ def update_profile_node(state: AgentState) -> dict[str, Any]:
         )
         return {}
 
-    # Merge delta into existing scores and compute derived fields
+    interaction_count: int = current_profile.get("interaction_count", 0)
+
+    # Error path: assessment failed — increment interaction_count only, no score change
+    if assessment_error:
+        logger.debug(
+            "update_profile_node: assessment_error=True — incrementing interaction_count "
+            "only for user_id=%s",
+            user_id,
+        )
+        update_profile(
+            user_id,
+            topic_scores=current_profile.get("topic_scores", {}),
+            session_history=current_profile.get("session_history", []),
+            strengths=current_profile.get("strengths", []),
+            gaps=current_profile.get("gaps", []),
+            mastery_level=current_profile.get("mastery_level", "novice"),
+            interaction_count=interaction_count + 1,
+            last_activity_at=datetime.now(timezone.utc).isoformat(),
+        )
+        return {}
+
+    # Happy path: merge delta into existing scores and compute derived fields
     topic_scores_delta: dict[str, float] = state.get(  # type: ignore[call-overload]
         "topic_scores_delta", {}
     )
-    interaction_count: int = current_profile.get("interaction_count", 0)
 
     score_update: TopicScoreUpdate = compute_topic_scores(
         current_profile,

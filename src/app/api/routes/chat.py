@@ -145,7 +145,7 @@ async def chat(
         "latency_ms": 0,
         "cache_hit": "miss",
     }
-    config: dict = {"configurable": {"thread_id": session_id}}
+    config: dict = {"configurable": {"thread_id": user_id or session_id}}
 
     async def generate_stream():
         """Async generator: yield SSE lines from LangGraph event stream.

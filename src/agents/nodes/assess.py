@@ -1,12 +1,14 @@
 """
-assess_node — curriculum-driven assessment node (Commit 24).
+assess_node — curriculum-driven assessment node.
 
-Two operating modes determined from state:
+Three operating modes determined from state:
 
   Test mode (default when no pending question):
+    - Runs passive assessment LLM call to infer mastery from the user's natural query.
+    - Passive scores are capped at 0.3; emitted only when confidence >= 0.4.
     - Deterministically selects a curriculum question for the current topic.
     - Loads question text from knowledge-base/curriculum/questions/<slug>.md.
-    - No LLM call. Returns test_mode=True with pending_test_question/slug set.
+    - Returns test_mode=True with pending_test_question/slug set.
 
   Evaluation mode (when pending_test_question is set and user has answered):
     - Calls LLM with EvaluationOutput schema (verdict: correct/partial/incorrect).
@@ -27,18 +29,25 @@ import pathlib
 import re
 from typing import Any, Literal
 
+from langchain_core.messages import AIMessage
+
 from agents.prompts.assessment import assessment_prompt
+from langchain_core.prompts import ChatPromptTemplate
+
 from agents.state import (
     VALID_MODULE_SLUGS,
     AgentState,
     EvaluationOutput,
+    PassiveAssessmentOutput,
 )
 from rag.providers import get_provider
 
 logger = logging.getLogger(__name__)
 
-# Path to curriculum question files.
-_CURRICULUM_DIR = pathlib.Path(__file__).parents[4] / "knowledge-base" / "curriculum" / "questions"
+# Repo root is parents[3] from this file (…/src/agents/nodes/assess.py).
+_CURRICULUM_DIR = (
+    pathlib.Path(__file__).resolve().parents[3] / "knowledge-base" / "curriculum" / "questions"
+)
 
 # Maps verdict string to numeric score.
 _VERDICT_SCORE: dict[str, float] = {
@@ -46,6 +55,37 @@ _VERDICT_SCORE: dict[str, float] = {
     "partial": 0.5,
     "incorrect": 0.0,
 }
+
+# Maps inferred mastery level to a capped passive score (max 0.3).
+_PASSIVE_LEVEL_SCORE: dict[str, float] = {
+    "novice": 0.05,
+    "beginner": 0.1,
+    "intermediate": 0.2,
+    "advanced": 0.25,
+    "expert": 0.3,
+}
+
+# Minimum confidence threshold to emit a passive delta.
+_PASSIVE_CONFIDENCE_THRESHOLD: float = 0.4
+
+_PASSIVE_SYSTEM = """\
+You analyze a learner's question to infer their RAG knowledge level.
+
+Valid topic slugs: embeddings_and_similarity, rag_pipeline_architecture,
+chunking_strategies, vector_databases, retrieval_methods, context_and_prompting,
+evaluation_and_metrics, production_patterns.
+
+Return relevant_slug (the single most relevant slug, or null if unclear),
+inferred_level (novice/beginner/intermediate/advanced/expert), and
+confidence (0.0-1.0). Base level on vocabulary and specificity in the question.\
+"""
+
+_PASSIVE_HUMAN = "Question: {question}"
+
+_passive_prompt: ChatPromptTemplate = ChatPromptTemplate.from_messages([
+    ("system", _PASSIVE_SYSTEM),
+    ("human", _PASSIVE_HUMAN),
+])
 
 
 def _load_question_text(slug: str, question_index: int = 0) -> str:
@@ -138,6 +178,7 @@ def _select_test_slug(state: AgentState) -> str | None:
 
 def _is_evaluation_mode(state: AgentState) -> bool:
     """Return True when a pending test question exists and the user has replied."""
+    print("_is_evaluation_mode")
     pending = state.get("pending_test_question")
     if not pending:
         return False
@@ -152,7 +193,7 @@ def _is_evaluation_mode(state: AgentState) -> bool:
 async def assess_node(state: AgentState) -> dict[str, Any]:
     """LangGraph node: curriculum-driven test administration and answer evaluation.
 
-    In test mode: selects and returns a curriculum question; no LLM call.
+    In test mode: runs passive assessment then selects a curriculum question.
     In evaluation mode: evaluates the user's answer against the rubric via LLM.
 
     Returns exactly: topic_scores_delta, identified_gaps, assessment_error,
@@ -161,16 +202,48 @@ async def assess_node(state: AgentState) -> dict[str, Any]:
     """
     if _is_evaluation_mode(state):
         return await _evaluate_answer(state)
-    return _select_test_question(state)
+    return await _select_test_question(state)
 
 
-def _select_test_question(state: AgentState) -> dict[str, Any]:
-    """Test mode: deterministically select a curriculum question. No LLM call."""
+async def _run_passive_assessment(question: str) -> dict[str, float]:
+    """Infer a sparse topic_scores_delta from the user's natural query.
+
+    Returns an empty dict if the LLM call fails, confidence is too low,
+    or relevant_slug is not a valid VALID_MODULE_SLUGS member.
+    """
+    try:
+        llm = get_provider().get_llm()
+        chain = _passive_prompt | llm.with_structured_output(PassiveAssessmentOutput)
+        result: PassiveAssessmentOutput = await chain.ainvoke({"question": question})
+
+        if result.relevant_slug is None:
+            return {}
+        if result.relevant_slug not in VALID_MODULE_SLUGS:
+            logger.warning(
+                "passive_assessment: slug '%s' not in VALID_MODULE_SLUGS — ignoring",
+                result.relevant_slug,
+            )
+            return {}
+        if result.confidence < _PASSIVE_CONFIDENCE_THRESHOLD:
+            return {}
+
+        score = _PASSIVE_LEVEL_SCORE.get(result.inferred_level, 0.0)
+        return {result.relevant_slug: score} if score > 0.0 else {}
+
+    except Exception:
+        logger.warning("passive_assessment: LLM call failed — continuing with empty delta", exc_info=True)
+        return {}
+
+
+async def _select_test_question(state: AgentState) -> dict[str, Any]:
+    """Test mode: select a curriculum question and run passive assessment."""
+    passive_delta = await _run_passive_assessment(state.get("question") or "")
+
     slug = _select_test_slug(state)
     if slug is None:
         logger.warning("assess_node: no valid slug available for test selection")
         return {
-            "topic_scores_delta": {},
+            "topic_scores_delta": passive_delta,
             "identified_gaps": state.get("identified_gaps") or [],
             "assessment_error": True,
             "test_mode": False,
@@ -188,7 +261,7 @@ def _select_test_question(state: AgentState) -> dict[str, Any]:
             exc,
         )
         return {
-            "topic_scores_delta": {},
+            "topic_scores_delta": passive_delta,
             "identified_gaps": state.get("identified_gaps") or [],
             "assessment_error": True,
             "test_mode": False,
@@ -198,7 +271,8 @@ def _select_test_question(state: AgentState) -> dict[str, Any]:
         }
 
     return {
-        "topic_scores_delta": {},
+        "messages": [AIMessage(content=f"\n\nKnowledge check: {question_text}")],
+        "topic_scores_delta": passive_delta,
         "identified_gaps": state.get("identified_gaps") or [],
         "assessment_error": False,
         "test_mode": True,

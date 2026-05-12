@@ -35,7 +35,7 @@ from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
 
-from agents.nodes.assess import assess_node
+from agents.nodes.assess import _CURRICULUM_DIR, assess_node
 from agents.state import VALID_MODULE_SLUGS, AgentState, EvaluationOutput
 
 
@@ -82,6 +82,24 @@ def _eval_mode_state(**overrides: Any) -> dict[str, Any]:
     )
     base.update(overrides)
     return base
+
+
+# ---------------------------------------------------------------------------
+# Curriculum path on disk (regression: wrong parents[N] skips profile updates)
+# ---------------------------------------------------------------------------
+
+
+class TestCurriculumDirLayout:
+    def test_curriculum_question_dir_exists_in_repo(self) -> None:
+        assert _CURRICULUM_DIR.is_dir()
+        assert (_CURRICULUM_DIR / "embeddings_and_similarity.md").is_file()
+
+    @pytest.mark.asyncio
+    async def test_test_mode_loads_real_curriculum_without_assessment_error(self) -> None:
+        result = await assess_node(_base_state())  # type: ignore[arg-type]
+        assert result["assessment_error"] is False
+        assert result["test_mode"] is True
+        assert result["pending_test_question"]
 
 
 def _make_full_initial_state(question: str = "What is RAG?") -> dict[str, Any]:

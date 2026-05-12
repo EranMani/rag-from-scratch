@@ -185,6 +185,31 @@ class EvaluationOutput(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# PassiveAssessmentOutput — structured output for passive turn-signal inference.
+# Used by assess_node test mode to infer mastery from the user's natural query.
+# ---------------------------------------------------------------------------
+
+class PassiveAssessmentOutput(BaseModel):
+    """Side-channel mastery signal inferred from the user's natural query."""
+
+    relevant_slug: str | None
+    """Primary topic slug this question reveals knowledge about, or None."""
+
+    inferred_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
+    """Inferred mastery level for the relevant slug."""
+
+    confidence: float
+    """Confidence in the inference: 0.0–1.0."""
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def clamp_passive_confidence(cls, v: object) -> object:
+        if isinstance(v, (int, float)):
+            return max(0.0, min(1.0, float(v)))
+        return v
+
+
+# ---------------------------------------------------------------------------
 # AssessmentOutput
 # ---------------------------------------------------------------------------
 
