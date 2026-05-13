@@ -121,7 +121,8 @@
       "Bash(docker cp *)",
       "Bash(git diff *)",
       "Read(//tmp/**)",
-      "Bash(grep *)"
+      "Bash(grep *)",
+      "PowerShell(python -c \"import ast; src=open\\('D:/AI/_My_Projects/rag-from-scratch/src/app/ui.py', encoding='utf-8'\\).read\\(\\); ast.parse\\(src\\); print\\('Syntax OK'\\)\")"
     ]
   }
 }
