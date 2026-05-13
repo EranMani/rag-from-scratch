@@ -1,26 +1,65 @@
 """
 update_profile_node — LangGraph node that persists topic score deltas to the user profile.
 
+Flow Diagram:
+                    ┌────────────────────┐
+                    │ update_profile_node │
+                    └─────────┬──────────┘
+                              │
+                    ┌─────────┴──────────┐
+                    │  user_id is None?  │
+                    └─────────┬──────────┘
+                     Yes │          │ No
+                      ▼            ▼
+                  ┌───────┐   ┌───────────────────┐
+                  │ EXIT  │   │get_profile_by_user │
+                  │  {}   │   └────────┬──────────┘
+                  └───────┘            │
+                              ┌────────┴──────────┐
+                              │  profile is None? │
+                              └────────┬──────────┘
+                               Yes │        │ No
+                                ▼          ▼
+                            ┌───────┐  ┌──────────────────┐
+                            │ EXIT  │  │ assessment_error? │
+                            │  {}   │  └────────┬─────────┘
+                            └───────┘   Yes │        │ No
+                                         ▼          ▼
+                              ┌────────────────┐ ┌────────────────────┐
+                              │ update_profile │ │compute_topic_scores│
+                              │(count++ only)  │ │  (merge delta)     │
+                              └───────┬────────┘ └────────┬───────────┘
+                                      │                   │
+                                      ▼                   ▼
+                                  ┌───────┐     ┌───────────────┐
+                                  │ EXIT  │     │ update_profile │
+                                  │  {}   │     │(scores + count)│
+                                  └───────┘     └───────┬───────┘
+                                                        │
+                                                        ▼
+                                                    ┌───────┐
+                                                    │ EXIT  │
+                                                    │  {}   │
+                                                    └───────┘
+
 Node contract:
     Input:  AgentState.user_id             (str | None)    — None for anonymous
-            AgentState.assessment_error    (bool)          — True skips profile write
+            AgentState.assessment_error    (bool)          — True skips score write
             AgentState.topic_scores_delta  (dict[str, float]) — sparse per-turn delta
             AgentState.identified_gaps     (list[str])     — low-understanding slugs
     Output: {}   — node does not modify AgentState
 
 Design notes:
-- Synchronous node.  Called from asyncio.to_thread() at the graph invocation level in
+- Synchronous node. Called from asyncio.to_thread() at the graph invocation level in
   chat.py — do not introduce nested thread dispatch or asyncio calls here.
-- Two fast-exit paths return {} without touching the DB:
+- Fast-exit paths return {} without touching the DB:
     1. user_id is None (anonymous user — no profile to update)
-    2. assessment_error is True (fallback path — empty delta; eventual consistency design)
-- If the profile row does not exist for user_id, the node logs a warning and exits
-  cleanly.  Profile creation is the responsibility of the auth layer (Commit 06),
-  not this node.
+    2. profile row does not exist (creation is the auth layer's responsibility)
+- assessment_error=True: only increments interaction_count (eventual consistency).
 - compute_topic_scores receives the full profile dict (not just profile['topic_scores']).
   get_profile_by_user_id already deserializes topic_scores from JSON; do NOT call
   json.loads() on it before passing it here.
-- last_activity_at is always set on successful write (Commit 05 Mira handoff).
+- last_activity_at is always set on successful write.
 """
 
 import logging
@@ -35,13 +74,10 @@ logger = logging.getLogger(__name__)
 
 
 def update_profile_node(state: AgentState) -> dict[str, Any]:
-    """LangGraph node: merge topic_scores_delta into the persistent user profile.
+    """Persist topic score deltas to the user profile DB. See module docstring for contract."""
 
-    Returns an empty dict — this node does not modify any AgentState fields.
-    All side effects are DB writes via update_profile().
-    """
-    user_id: str | None = state.get("user_id")  # type: ignore[call-overload]
-    assessment_error: bool = state.get("assessment_error", False)  # type: ignore[call-overload]
+    user_id: str | None = state.get("user_id")
+    assessment_error: bool = state.get("assessment_error", False)
 
     # Fast-exit path 1: anonymous user
     if user_id is None:
@@ -60,7 +96,7 @@ def update_profile_node(state: AgentState) -> dict[str, Any]:
 
     interaction_count: int = current_profile.get("interaction_count", 0)
 
-    # Error path: assessment failed — increment interaction_count only, no score change
+    # Error path: only bump interaction count, don't touch scores
     if assessment_error:
         logger.debug(
             "update_profile_node: assessment_error=True — incrementing interaction_count "
@@ -69,20 +105,13 @@ def update_profile_node(state: AgentState) -> dict[str, Any]:
         )
         update_profile(
             user_id,
-            topic_scores=current_profile.get("topic_scores", {}),
-            session_history=current_profile.get("session_history", []),
-            strengths=current_profile.get("strengths", []),
-            gaps=current_profile.get("gaps", []),
-            mastery_level=current_profile.get("mastery_level", "novice"),
             interaction_count=interaction_count + 1,
             last_activity_at=datetime.now(timezone.utc).isoformat(),
         )
         return {}
 
     # Happy path: merge delta into existing scores and compute derived fields
-    topic_scores_delta: dict[str, float] = state.get(  # type: ignore[call-overload]
-        "topic_scores_delta", {}
-    )
+    topic_scores_delta: dict[str, float] = state.get("topic_scores_delta", {})
 
     score_update: TopicScoreUpdate = compute_topic_scores(
         current_profile,

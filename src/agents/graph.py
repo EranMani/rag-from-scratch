@@ -5,15 +5,27 @@ Factory function pattern: build_graph() is called once at application startup
 inside the FastAPI lifespan and stored on app.state.rag_graph.  No module-level
 singleton is created here.
 
-Graph topology (Commit 15):
-    START → retrieve_node → generate_node → assess_node
-                                                ↓ (assessment_error == False)
-                                          update_profile_node → END
-                                                ↓ (assessment_error == True)
-                                          update_profile_node → END   (skips DB write)
+Graph Flow:
+    ┌───────┐     ┌──────────┐     ┌──────────┐     ┌────────┐     ┌────────────────┐     ┌─────┐
+    │ START │────▶│ retrieve │────▶│ generate │────▶│ assess │────▶│ update_profile │────▶│ END │
+    └───────┘     └──────────┘     └──────────┘     └────┬───┘     └────────────────┘     └─────┘
+                   Fetch docs       Produce AI           │                  │
+                   from vector      response grounded    │                  │
+                   store            in retrieved context  │                  │
+                                                         │                  │
+                                              ┌──────────┴──────────┐       │
+                                              │  assessment_error?  │       │
+                                              └──────────┬──────────┘       │
+                                               No │          │ Yes          │
+                                                  ▼          ▼              │
+                                              scores +    count++           │
+                                              count++     only              │
+                                                  └──────────┘              │
+                                                         │                  │
+                                                         └──────────────────┘
 
-Both the normal path and the fallback path converge at update_profile_node.
-update_profile_node guards internally on assessment_error — no DB write on fallback path.
+Both conditional paths converge at update_profile_node, which guards
+internally on assessment_error — no score write on the fallback path.
 
 Recursion limit is set defensively at compile time via graph_config to prevent
 an unconstrained loop from blocking a user request indefinitely.
@@ -73,29 +85,28 @@ def build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph:
     """
     builder: StateGraph = StateGraph(AgentState)
 
-    # Nodes
+    # Nodes — each reads from AgentState and writes back its output keys
     builder.add_node("retrieve", retrieve_node) # Retrieve => extract relevant documents based on the user's question
     builder.add_node("generate", generate_node) # Generate => generates a level-appropriate, context-aware AI response
-    builder.add_node("assess", assess_node) # 
-    builder.add_node("update_profile", update_profile_node)
+    builder.add_node("assess", assess_node)     # Assess => evaluates mastery via passive inference or curriculum-based testing
+    builder.add_node("update_profile", update_profile_node)  # Update Profile => persists score deltas and interaction count to the user DB
 
-    # Edges
-    builder.add_edge(START, "retrieve")
-    builder.add_edge("retrieve", "generate")
-    builder.add_edge("generate", "assess")
+    # Edges — define the sequential pipeline and conditional branching
+    builder.add_edge(START, "retrieve")      # User query enters → fetch relevant documents
+    builder.add_edge("retrieve", "generate") # Documents ready → produce AI response grounded in context
+    builder.add_edge("generate", "assess")   # Response delivered → evaluate user mastery for this turn
 
-    # Conditional edge: both True and False paths lead to update_profile.
-    # Using add_conditional_edges makes the branching explicit and inspectable
-    # (LangGraph visualization / get_graph() will show both paths).
+    # Conditional edge: after assess, a routing function decides the next node.
+    # Currently both paths lead to update_profile (which guards internally on
+    # assessment_error). Structured as conditional so LangGraph's get_graph()
+    # renders both branches — ready for future divergence if paths split.
     builder.add_conditional_edges(
-        "assess",
-        _route_after_assess,
-        {
-            "update_profile": "update_profile",
-        },
+        "assess",                              # Source node: where the edge originates
+        _route_after_assess,                   # Router function: inspects state, returns target node name
+        {"update_profile": "update_profile"},  # Path map: {router return value → destination node}
     )
 
-    builder.add_edge("update_profile", END)
+    builder.add_edge("update_profile", END) # Profile persisted → turn complete
 
     return builder.compile(
         checkpointer=checkpointer,
