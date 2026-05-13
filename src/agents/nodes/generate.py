@@ -42,25 +42,37 @@ async def generate_node(state: AgentState) -> dict:
     the LLM with the full conversation history. The AIMessage response is returned
     so the add_messages reducer can append it to state["messages"].
     """
+
+    # Update log when no documents are found
     if not state["docs"]:
         logger.warning("generate_node: docs list is empty — generating with no retrieved context, trace_id=%s", state.get("trace_id"))
 
+    # Combine documents with new-lines
     context: str = "\n\n".join(doc.page_content for doc in state["docs"])
     user_level: str = state.get("user_level", "novice")  # type: ignore[call-overload]
 
+    # Fetch the correct prompt using the current level of the user
     template = PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)
+
+    # Inject documents context into the system prompt
     system_msg = template.format_messages(context=context)[0]
 
+    # Get the actual LLM model
     llm = get_provider().get_llm()
 
-    # state["messages"] contains the full conversation: prior turns + current HumanMessage.
-    # Prepending system_msg gives the LLM role framing before the dialogue.
+    # Assembe the system and conversation messages into final package to be set to the LLM
     messages: list[BaseMessage] = [system_msg] + list(state["messages"])
 
+    """ 
+    ainvoke is async operation, keeping the event loop alive while waiting for answer
+    LLM calls are I/O heavy. Async allows to handle many requests with very few ram and processing
+    NOTE: ainvoke supports streaming, getting the answer token by token
+    """
     response: BaseMessage = await llm.ainvoke(messages)
+    # AIMessage inherits from BaseMessage. Assert checks the response is actually a proper AI message
     assert isinstance(response, AIMessage), f"Expected AIMessage from LLM, got {type(response)}"
 
     return {
-        "messages": [response],   # add_messages appends — does not replace
+        "messages": [response],   # add_messages appends, does not replace
         "answer": response.content,  # kept for assess_node and SSE done event
     }

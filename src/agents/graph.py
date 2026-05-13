@@ -62,12 +62,21 @@ def build_graph(checkpointer: BaseCheckpointSaver) -> CompiledStateGraph:
         The graph is stateful via the checkpointer — cross-turn history is
         replayed automatically from the checkpoint keyed by thread_id.
     """
+
+    # StateGraph allows to create a state machine workflow
+    # AgentState passes through all the nodes and conditional edges
+    """ 
+    NOTE: A node reads the data from agent state and can update or new information to it
+    StateGraph built-in persistence manages the workflow state in a single object
+    Allows to pause, save and resume process at any time
+    This brings stateful memory to traditionally stateless web applications
+    """
     builder: StateGraph = StateGraph(AgentState)
 
     # Nodes
-    builder.add_node("retrieve", retrieve_node)
-    builder.add_node("generate", generate_node)
-    builder.add_node("assess", assess_node)
+    builder.add_node("retrieve", retrieve_node) # Retrieve => extract relevant documents based on the user's question
+    builder.add_node("generate", generate_node) # Generate => generates a level-appropriate, context-aware AI response
+    builder.add_node("assess", assess_node) # 
     builder.add_node("update_profile", update_profile_node)
 
     # Edges

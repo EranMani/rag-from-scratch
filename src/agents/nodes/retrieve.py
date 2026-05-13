@@ -8,6 +8,12 @@ Node contract:
 Only reads `question` from state.  Only writes `docs` and `retrieval_source`.
 """
 
+"""
+NOTE: Serves as the information retrieval station within the RAG pipeline
+Read the user question from the state -> execute the retrieval function -> return relevant docs
+Use circuit breaker to determine retrieval path (semantic or bm25)
+"""
+
 from langchain_core.documents import Document
 
 from agents.state import AgentState
@@ -29,17 +35,20 @@ def retrieve_node(state: AgentState) -> dict:
     - If chroma_cb WAS available before the call and is still available
       after → Chroma succeeded → source is 'chroma'.
     """
+
+    # Fetch user question from agent state
     question: str = state["question"]
-
+    # Check chroma availability. Fallback to bm25 if not available
     chroma_available_before: bool = chroma_cb.is_available()
-
+    # Retrieve the documents
     docs: list[Document] = retrieve(question)
-
+    # Check chroma availability again
     chroma_available_after: bool = chroma_cb.is_available()
 
+    # Check with path were used to retrieve the documents
     if chroma_available_before and chroma_available_after:
         retrieval_source: str = "chroma"
     else:
         retrieval_source = "bm25"
-
+    
     return {"docs": docs, "retrieval_source": retrieval_source}
