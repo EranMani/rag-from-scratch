@@ -1,6 +1,51 @@
 """
 assess_node — curriculum-driven assessment node.
 
+Flow Diagram:
+                        ┌─────────────────┐
+                        │   assess_node   │
+                        └────────┬────────┘
+                                 │
+                    ┌────────────┴────────────┐
+                    │  _is_evaluation_mode?   │
+                    └────────────┬────────────┘
+                        ┌────── │ ──────┐
+                        │ No           │ Yes
+                        ▼              ▼
+         ┌──────────────────┐   ┌───────────────────┐
+         │_select_test_question│   │ _evaluate_answer  │
+         └────────┬─────────┘   └────────┬──────────┘
+                  │                       │
+                  ▼                       ▼
+    ┌──────────────────────┐   ┌────────────────────┐
+    │_run_passive_assessment│   │ _load_rubric_text  │
+    │  (infer from query)  │   │ (grading criteria) │
+    └──────────┬───────────┘   └────────┬───────────┘
+               │                        │
+               ▼                        ▼
+    ┌──────────────────────┐   ┌────────────────────┐
+    │_validated_passive_delta│   │  LLM structured    │
+    │  (guards + scoring)  │   │  output chain      │
+    └──────────┬───────────┘   └────────┬───────────┘
+               │                        │
+               ▼                        ▼
+    ┌──────────────────────┐   ┌────────────────────┐
+    │  _select_test_slug   │   │ _verdict_to_score  │
+    │  (gaps → curriculum) │   │ (verdict → float)  │
+    └──────────┬───────────┘   └────────┬───────────┘
+               │                        │
+               ▼                        ▼
+    ┌──────────────────────┐   ┌────────────────────┐
+    │ _load_question_text  │   │  _build_eval_result│
+    │ (slug → markdown)    │   │  (test_mode=False) │
+    └──────────┬───────────┘   └────────────────────┘
+               │
+               ▼
+    ┌──────────────────────┐
+    │  _build_test_result  │
+    │  (test_mode=True)    │
+    └──────────────────────┘
+
 Three operating modes determined from state:
 
   Test mode (default when no pending question):
@@ -89,15 +134,106 @@ _passive_prompt: ChatPromptTemplate = ChatPromptTemplate.from_messages([
 ])
 
 
+# ---------------------------------------------------------------------------
+# Result builders — single source of truth for the node's output shape
+# ---------------------------------------------------------------------------
+
+def _build_test_result(
+    *,
+    topic_scores_delta: dict[str, float],
+    identified_gaps: list[str],
+    assessment_error: bool,
+    test_mode: bool,
+    pending_test_question: str | None = None,
+    pending_test_slug: str | None = None,
+    test_answer_score: float | None = None,
+    messages: list[Any] | None = None,
+) -> dict[str, Any]:
+    """Construct the standard node output for test-selection mode."""
+    result: dict[str, Any] = {
+        "topic_scores_delta": topic_scores_delta,
+        "identified_gaps": identified_gaps,
+        "assessment_error": assessment_error,
+        "test_mode": test_mode,
+        "pending_test_question": pending_test_question,
+        "pending_test_slug": pending_test_slug,
+        "test_answer_score": test_answer_score,
+    }
+    if messages is not None:
+        result["messages"] = messages
+    return result
+
+
+def _build_eval_result(
+    *,
+    topic_scores_delta: dict[str, float],
+    identified_gaps: list[str],
+    assessment_error: bool,
+    test_answer_score: float | None = None,
+) -> dict[str, Any]:
+    """Construct the standard node output for evaluation mode (always exits test mode)."""
+    return {
+        "topic_scores_delta": topic_scores_delta,
+        "identified_gaps": identified_gaps,
+        "assessment_error": assessment_error,
+        "test_mode": False,
+        "pending_test_question": None,
+        "pending_test_slug": None,
+        "test_answer_score": test_answer_score,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Helpers — small, named units of logic
+# ---------------------------------------------------------------------------
+
+def _verdict_to_score(verdict: str) -> float:
+    """Map an LLM verdict string to a deterministic numeric score.
+
+    Logs a warning and falls back to 0.0 for unknown verdicts.
+    """
+    if verdict in _VERDICT_SCORE:
+        return _VERDICT_SCORE[verdict]
+
+    logger.warning(
+        "assess_node: invalid verdict '%s' received — treating as incorrect",
+        verdict,
+    )
+    return 0.0
+
+
+def _validated_passive_delta(result: PassiveAssessmentOutput) -> dict[str, float]:
+    """Apply validation guards to passive assessment output.
+
+    Returns a single-key {slug: score} dict, or empty dict if any guard fails.
+    """
+    if result.relevant_slug is None:
+        return {}
+
+    if result.relevant_slug not in VALID_MODULE_SLUGS:
+        logger.warning(
+            "passive_assessment: slug '%s' not in VALID_MODULE_SLUGS — ignoring",
+            result.relevant_slug,
+        )
+        return {}
+
+    if result.confidence < _PASSIVE_CONFIDENCE_THRESHOLD:
+        return {}
+
+    score = _PASSIVE_LEVEL_SCORE.get(result.inferred_level, 0.0)
+    return {result.relevant_slug: score} if score > 0.0 else {}
+
+
+# ---------------------------------------------------------------------------
+# Curriculum content loaders
+# ---------------------------------------------------------------------------
+
 def _load_question_text(slug: str, question_index: int = 0) -> str:
     """Load a question from a curriculum Markdown file by index.
 
     Args:
         slug: A valid topic slug from VALID_MODULE_SLUGS.
         question_index: Zero-based index; wrapped via modulo for safe rotation.
-
-    Returns:
-        The question text string.
 
     Raises:
         FileNotFoundError: If the curriculum file for slug does not exist.
@@ -148,6 +284,10 @@ def _load_rubric_text(slug: str, question_index: int = 0) -> str:
             rubric_parts.append(f"**{label}:**\n{match.group(1).strip()}")
     return "\n\n".join(rubric_parts)
 
+
+# ---------------------------------------------------------------------------
+# State selectors
+# ---------------------------------------------------------------------------
 
 def _select_question_index(state: AgentState) -> int:
     """Deterministically select a question index based on conversation depth."""
@@ -200,15 +340,15 @@ def _is_evaluation_mode(state: AgentState) -> bool:
     return getattr(last, "type", None) == "human"
 
 
+# ---------------------------------------------------------------------------
+# Main node + orchestration functions
+# ---------------------------------------------------------------------------
+
 async def assess_node(state: AgentState) -> dict[str, Any]:
     """LangGraph node: curriculum-driven test administration and answer evaluation.
 
     Routes to evaluation if a pending answer exists, otherwise selects
     the next curriculum question.
-
-    Returns exactly: topic_scores_delta, identified_gaps, assessment_error,
-                     test_mode, pending_test_question, pending_test_slug,
-                     test_answer_score.
     """
     # Route: if user answered a pending question → evaluate; otherwise → serve next question
     if _is_evaluation_mode(state):
@@ -227,22 +367,7 @@ async def _run_passive_assessment(question: str) -> dict[str, float]:
         # either produces a validated PassiveAssessmentOutput or fails cleanly
         chain = _passive_prompt | llm.with_structured_output(PassiveAssessmentOutput)
         result: PassiveAssessmentOutput = await chain.ainvoke({"question": question})
-
-        if result.relevant_slug is None:
-            return {}
-
-        if result.relevant_slug not in VALID_MODULE_SLUGS:
-            logger.warning(
-                "passive_assessment: slug '%s' not in VALID_MODULE_SLUGS — ignoring",
-                result.relevant_slug,
-            )
-            return {}
-
-        if result.confidence < _PASSIVE_CONFIDENCE_THRESHOLD:
-            return {}
-
-        score = _PASSIVE_LEVEL_SCORE.get(result.inferred_level, 0.0)
-        return {result.relevant_slug: score} if score > 0.0 else {}
+        return _validated_passive_delta(result)
 
     except Exception:
         logger.warning("passive_assessment: LLM call failed — continuing with empty delta", exc_info=True)
@@ -253,48 +378,39 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
     """Run passive assessment then select and load a curriculum question."""
     # First, infer a score from the user's natural question (no test needed)
     passive_delta = await _run_passive_assessment(state.get("question") or "")
+    gaps = state.get("identified_gaps") or []
 
     slug = _select_test_slug(state)
     if slug is None:
         logger.warning("assess_node: no valid slug available for test selection")
-        return {
-            "topic_scores_delta": passive_delta,
-            "identified_gaps": state.get("identified_gaps") or [],
-            "assessment_error": True,
-            "test_mode": False,
-            "pending_test_question": None,
-            "pending_test_slug": None,
-            "test_answer_score": None,
-        }
+        return _build_test_result(
+            topic_scores_delta=passive_delta,
+            identified_gaps=gaps,
+            assessment_error=True,
+            test_mode=False,
+        )
+
     try:
         q_idx = _select_question_index(state)
         question_text = _load_question_text(slug, q_idx)
     except (FileNotFoundError, ValueError) as exc:
-        logger.warning(
-            "assess_node: failed to load curriculum question for slug '%s': %s",
-            slug,
-            exc,
+        logger.warning("assess_node: failed to load question for slug '%s': %s", slug, exc)
+        return _build_test_result(
+            topic_scores_delta=passive_delta,
+            identified_gaps=gaps,
+            assessment_error=True,
+            test_mode=False,
         )
-        return {
-            "topic_scores_delta": passive_delta,
-            "identified_gaps": state.get("identified_gaps") or [],
-            "assessment_error": True,
-            "test_mode": False,
-            "pending_test_question": None,
-            "pending_test_slug": None,
-            "test_answer_score": None,
-        }
 
-    return {
-        "messages": [AIMessage(content=f"\n\nKnowledge check: {question_text}")],
-        "topic_scores_delta": passive_delta,
-        "identified_gaps": state.get("identified_gaps") or [],
-        "assessment_error": False,
-        "test_mode": True,
-        "pending_test_question": question_text,
-        "pending_test_slug": slug,
-        "test_answer_score": None,
-    }
+    return _build_test_result(
+        topic_scores_delta=passive_delta,
+        identified_gaps=gaps,
+        assessment_error=False,
+        test_mode=True,
+        pending_test_question=question_text,
+        pending_test_slug=slug,
+        messages=[AIMessage(content=f"\n\nKnowledge check: {question_text}")],
+    )
 
 
 async def _evaluate_answer(state: AgentState) -> dict[str, Any]:
@@ -303,70 +419,42 @@ async def _evaluate_answer(state: AgentState) -> dict[str, Any]:
 
     if pending_slug not in VALID_MODULE_SLUGS:
         logger.warning(
-            "assess_node: pending_test_slug '%s' is not in VALID_MODULE_SLUGS — "
-            "setting assessment_error=True, trace_id=%s",
+            "assess_node: pending_test_slug '%s' not in VALID_MODULE_SLUGS, trace_id=%s",
             pending_slug,
             state.get("trace_id"),
         )
-        return _eval_error_result(state)
+        return _build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
 
     try:
         q_idx = _select_question_index(state)
         # Load the rubric so the LLM grades against human-authored criteria, not its own knowledge
         rubric = _load_rubric_text(pending_slug, q_idx)
-        pending_question: str = state.get("pending_test_question") or ""
-        user_answer: str = state.get("question") or ""
         llm = get_provider().get_llm()
 
         # Chain: assessment prompt | LLM | EvaluationOutput (verdict + identified_gaps)
         chain = assessment_prompt | llm.with_structured_output(EvaluationOutput)
 
         result: EvaluationOutput = await chain.ainvoke({
-            "question": pending_question,
+            "question": state.get("pending_test_question") or "",
             "rubric": rubric,
-            "user_answer": user_answer,
+            "user_answer": state.get("question") or "",
         })
 
-        # Map the LLM's verdict string to a deterministic numeric score
-        verdict: str = result.verdict if result.verdict in _VERDICT_SCORE else "incorrect"
-        if result.verdict not in _VERDICT_SCORE:
-            logger.warning(
-                "assess_node: invalid verdict '%s' received — treating as incorrect",
-                result.verdict,
-            )
-        score: float = _VERDICT_SCORE[verdict]
-
+        score = _verdict_to_score(result.verdict)
         # Sparse delta: only updates the tested topic, only if the user scored > 0
         delta: dict[str, float] = {pending_slug: score} if score > 0.0 else {}
 
-        return {
-            "topic_scores_delta": delta,
-            "identified_gaps": result.identified_gaps,
-            "assessment_error": False,
-            "test_mode": False,
-            "pending_test_question": None,
-            "pending_test_slug": None,
-            "test_answer_score": score,
-        }
+        return _build_eval_result(
+            topic_scores_delta=delta,
+            identified_gaps=result.identified_gaps,
+            assessment_error=False,
+            test_answer_score=score,
+        )
 
     except Exception:
         logger.warning(
-            "assess_node: evaluation failed — setting assessment_error=True, "
-            "trace_id=%s",
+            "assess_node: evaluation failed, trace_id=%s",
             state.get("trace_id"),  # type: ignore[call-overload]
             exc_info=True,
         )
-        return _eval_error_result(state)
-
-
-def _eval_error_result(state: AgentState) -> dict[str, Any]:
-    """Return the standard error payload for evaluation failures."""
-    return {
-        "topic_scores_delta": {},
-        "identified_gaps": [],
-        "assessment_error": True,
-        "test_mode": False,
-        "pending_test_question": None,
-        "pending_test_slug": None,
-        "test_answer_score": None,
-    }
+        return _build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
