@@ -1,14 +1,23 @@
 """
-Pure-function scoring service for profile mastery computation.
+Scoring engine — deterministic rules that convert raw assessment scores into mastery levels.
 
-Nova's update_profile_node imports compute_topic_scores and TopicScoreUpdate
-from this module. No DB access, no FastAPI imports, no side effects.
+The LLM evaluates answers (probabilistic), but this module decides the user's status
+(deterministic). This separation ensures objectivity: the agent cannot "feel" that a
+user is advanced — it must prove it through the numbers defined here.
 
-Scoring formula (authoritative source: knowledge-base/curriculum/gates.md):
-  session_score = mean(question_scores_in_session)  -- computed by assess_node
-  topic_score = 0.7 * session_score + 0.3 * best_prior_session_score
-  If no prior session: topic_score = session_score
-  Topics with no sessions: score = None (not 0.0)
+Why this matters for the adaptive agent:
+    The mastery_level produced here is the single most influential variable on the
+    prompt. It drives the entire adaptive-prompting system:
+        novice  → roadmap tone ("Let's start with what an Embedding is...")
+        expert  → dense, skip basics ("Since you know Vector DBs, let's optimize retrieval...")
+
+    These thresholds are the "syllabus" of the system — they define the professional
+    standard required to progress through the learning journey in AgentCanvas.
+
+Personalized curriculum example:
+    If a user averages 0.72 across Phase 2 topics (threshold is 0.75), the agent can
+    tell them: "You're close to the next level — let's strengthen Vector DBs to get
+    you there." The numbers make this coaching specific and actionable.
 """
 
 from __future__ import annotations
@@ -18,27 +27,36 @@ from typing import Literal, TypedDict
 
 logger = logging.getLogger(__name__)
 
-# Phase gate definitions (from knowledge-base/curriculum/gates.md)
+# Phase gate definitions (from knowledge-base/curriculum/gates.md).
+# frozenset: immutable + O(1) membership lookup — safe and fast when the agent
+# checks user progress multiple times per turn.
 _PHASE_1_TOPICS: frozenset[str] = frozenset({"embeddings_and_similarity", "rag_pipeline_architecture"})
 _PHASE_2_TOPICS: frozenset[str] = frozenset({"chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting"})
 _PHASE_3_TOPICS: frozenset[str] = frozenset({"evaluation_and_metrics", "production_patterns"})
 
-_PHASE_1_THRESHOLD: float = 0.70
-_PHASE_2_INDIVIDUAL_THRESHOLD: float = 0.70
-_PHASE_2_MEAN_THRESHOLD: float = 0.75
-_PHASE_3_THRESHOLD: float = 0.75
+# Academic standards — the score a user must demonstrate to advance.
+# These thresholds are the "syllabus gates" of the system.
+_PHASE_1_THRESHOLD: float = 0.70       # Each Phase 1 topic must reach 70%
+_PHASE_2_INDIVIDUAL_THRESHOLD: float = 0.70  # Each Phase 2 topic must reach 70% individually
+_PHASE_2_MEAN_THRESHOLD: float = 0.75  # Phase 2 also requires 75% average across all topics
+_PHASE_3_THRESHOLD: float = 0.75       # Higher bar — user is expected to demonstrate deep accuracy
 
 
 class TopicScoreUpdate(TypedDict):
-    topic_scores: dict[str, float | None]
-    session_history: dict[str, list[float]]
-    strengths: list[str]
-    gaps: list[str]
+    """Typed payload returned from scoring to the agent graph and profile/db.py.
+
+    TypedDict ensures every downstream consumer (profile_update_node, generate_node)
+    receives exactly the shape it expects — no missing keys, no type surprises.
+    """
+    topic_scores: dict[str, float | None]       # slug → score (None = unassessed)
+    session_history: dict[str, list[float]]     # slug → list of prior session scores
+    strengths: list[str]                        # slugs scoring >= 0.7
+    gaps: list[str]                             # slugs scoring <= 0.3
     mastery_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
 
 
 def _phase_1_passed(scores: dict[str, float | None]) -> bool:
-    """True if all Phase 1 topic scores >= 0.70. None always fails."""
+    """True if all Phase 1 topic scores >= 0.70. None (unassessed) always fails."""
     for slug in _PHASE_1_TOPICS:
         s = scores.get(slug)
         if s is None or s < _PHASE_1_THRESHOLD:
@@ -47,7 +65,11 @@ def _phase_1_passed(scores: dict[str, float | None]) -> bool:
 
 
 def _phase_2_passed(scores: dict[str, float | None]) -> bool:
-    """True if all Phase 2 per-topic scores >= 0.70 AND mean >= 0.75. None always fails."""
+    """True if every Phase 2 topic >= 0.70 AND their mean >= 0.75. None always fails.
+
+    The dual gate (individual + average) requires both depth per topic AND breadth
+    across the full RAG knowledge domain — pointed skill alone isn't enough.
+    """
     topic_scores: list[float] = []
     for slug in _PHASE_2_TOPICS:
         s = scores.get(slug)
@@ -71,14 +93,17 @@ def _phase_3_passed(scores: dict[str, float | None]) -> bool:
 def get_mastery_level(
     topic_scores: dict[str, float | None],
 ) -> Literal["novice", "beginner", "intermediate", "advanced", "expert"]:
-    """Return mastery level from phase gate state. Evaluated expert → novice; first match wins.
+    """Translate raw topic scores into a single mastery label for the agent.
 
-    None scores are excluded from phase computations — they are not treated as 0.0.
+    This label is the behavioral anchor that adaptive-prompting reads to select
+    the correct prompt template. It turns dry numbers in the DB into a clear
+    learning identity the agent uses to mentor each user personally.
     """
     p1 = _phase_1_passed(topic_scores)
     p2 = _phase_2_passed(topic_scores)
     p3 = _phase_3_passed(topic_scores)
 
+    # Evaluate top-down: highest level first, fall through until one matches
     if p1 and p2 and p3:
         return "expert"
     if p1 and p2:
