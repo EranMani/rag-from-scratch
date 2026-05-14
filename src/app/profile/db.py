@@ -1,3 +1,47 @@
+"""
+Long-Term Memory (LTM) store for the adaptive agent.
+
+While LangGraph handles short-term memory (within a thread/session), this module
+owns the persistent mastery state that spans weeks or months. It bridges the gap
+between probabilistic AI assessments and deterministic user records, providing the
+longitudinal data required for curriculum personalization and skill progression.
+
+Core principle: A database for an AI agent is not a warehouse — it is a Feedback
+Loop. Every interaction updates the Mastery Model (state), which informs the next
+retrieval (output). This file is the engine that drives that loop.
+
+Architecture — five design pillars:
+
+1. Mastery Model (Knowledge as State):
+    topic_scores (JSON) is the user's "Knowledge Map" — high-dimensional skill
+    tracking without rigid SQL columns. mastery_level is the behavioral anchor
+    that dictates how the LLM adjusts tone and complexity (see adaptive-prompting).
+    strengths & gaps are pre-computed heuristic filters so the agent doesn't
+    re-analyze the full history every turn.
+
+2. Long-Term Memory Persistence:
+    session_history and last_activity_at enable spaced repetition and
+    context-aware greetings based on time since last interaction.
+    interaction_count is the "confidence denominator" — a high topic score after
+    100 turns is statistically meaningful; after 1 turn it's a lucky guess.
+
+3. Structural Guardrails (AI Safety Net):
+    _ALLOWED_PROFILE_COLUMNS acts as a hard allowlist. If the LLM hallucinates
+    an update to a non-existent field, the system rejects it before SQL is built.
+    _deserialize_row ensures the agent always receives clean Python objects,
+    preventing type errors during the LLM's reasoning phase.
+
+4. Concurrency (WAL & Async Pattern):
+    WAL mode allows simultaneous reads/writes — essential for frequent "assess
+    and update" cycles. asyncio.to_thread (called upstream in the API layer)
+    keeps the event loop free while this synchronous SQLite code executes.
+
+5. Idempotent State Management:
+    get_or_create_profile guarantees the agent never encounters a "memory-less"
+    user, silently handling race conditions. migrate_topic_slugs lets the
+    curriculum evolve (add/rename topics) without losing existing user progress.
+"""
+
 import json
 import logging
 import sqlite3
@@ -8,9 +52,9 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Allowlist of column names that update_profile() is permitted to write.
-# Column names are interpolated into the SQL SET clause; this guard prevents
-# a caller-supplied key from becoming a structural injection path.
+# Allowlist of columns the agent is permitted to update.
+# frozenset is immutable — no code path can expand the attack surface at runtime.
+# Any column not listed here is rejected before SQL is constructed.
 _ALLOWED_PROFILE_COLUMNS: frozenset[str] = frozenset({
     "mastery_level",
     "interaction_count",
@@ -26,13 +70,25 @@ def _connect() -> sqlite3.Connection:
     path = Path(settings.sqlite_db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), check_same_thread=False)
+    # Row object — supports both row['email'] key access and row[0] index access
     conn.row_factory = sqlite3.Row
+    # NOTE: Allows to read from the database while being written to it, avoiding it being locked
+    # When running commit, the changes are saved into a helper called wal-file
+    # It allows the agent to keep reading from the main db without waiting for the writing to be fully complete
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
 
 def init_profile_db() -> None:
+    """Create the user_profiles table if it doesn't exist. Safe to call on every startup.
+
+    Key schema decisions:
+        user_id UNIQUE  — one profile per user (1:1 with the identity in auth/db.py).
+        FOREIGN KEY ... ON DELETE CASCADE — deleting a user auto-removes their mastery data.
+        JSON columns (topic_scores, strengths, gaps) — NoSQL-like flexibility for
+            high-dimensional skill tracking within a relational integrity shell.
+    """
     with _connect() as conn:
         conn.execute(
             """
@@ -52,7 +108,10 @@ def init_profile_db() -> None:
             )
             """
         )
-        # Idempotent column add for existing DBs created before Commit 25
+        # Idempotent column migration for DBs created before session_history existed.
+        # ALTER TABLE fails if the column is already there — the try/except makes it safe
+        # to re-run on every startup. DEFAULT '{}' ensures json.loads() won't crash on
+        # existing rows that never had this column.
         try:
             conn.execute("ALTER TABLE user_profiles ADD COLUMN session_history TEXT NOT NULL DEFAULT '{}'")
         except sqlite3.OperationalError:
@@ -84,10 +143,11 @@ def create_profile(user_id: str) -> str:
 
 
 def _deserialize_row(row: sqlite3.Row) -> dict:
-    """Convert a sqlite3.Row from user_profiles into a Python dict.
+    """Convert a raw sqlite3.Row into a Python dict the agent graph can consume.
 
-    topic_scores, session_history, strengths, and gaps are stored as JSON strings in the DB.
-    They are deserialized here so callers never receive raw JSON strings.
+    JSON columns are parsed back into native Python types (dict/list) so that
+    downstream LLM logic and graph nodes receive structured objects — never raw
+    strings that would cause type errors during reasoning.
     """
     d = dict(row)
     d["topic_scores"] = json.loads(d["topic_scores"])
@@ -113,13 +173,13 @@ def get_profile_by_user_id(user_id: str) -> dict | None:
 
 
 def update_profile(user_id: str, **fields) -> None:
-    """Partial update — only columns passed as kwargs are written.
+    """Partial update — persist only the columns passed as kwargs.
 
-    topic_scores, strengths, and gaps are automatically serialized to JSON strings
-    before the UPDATE. updated_at is always refreshed.
+    This is the LTM writer: everything the agent learns about the user during a
+    session is safely committed to disk here.
 
-    Raises ValueError if called with no fields to update.
-    Raises ValueError if an unknown column name is passed (not in _ALLOWED_PROFILE_COLUMNS).
+    Raises ValueError if called with no fields or with column names outside
+    _ALLOWED_PROFILE_COLUMNS (the hallucination guard).
     """
     if not fields:
         raise ValueError(
@@ -127,6 +187,8 @@ def update_profile(user_id: str, **fields) -> None:
             "pass at least one keyword argument to update."
         )
 
+    # Set difference identifies any column names the LLM might hallucinate.
+    # Sets are optimized for membership tests — O(1) per lookup.
     invalid = set(fields) - _ALLOWED_PROFILE_COLUMNS
     if invalid:
         raise ValueError(
@@ -134,13 +196,15 @@ def update_profile(user_id: str, **fields) -> None:
             f"allowed: {_ALLOWED_PROFILE_COLUMNS}"
         )
 
-    # Serialize JSON fields before writing
+    # JSON columns must be serialized to TEXT before SQLite can store them
     for json_col in ("topic_scores", "session_history", "strengths", "gaps"):
         if json_col in fields:
             fields[json_col] = json.dumps(fields[json_col])
 
     fields["updated_at"] = datetime.now(timezone.utc).isoformat()
 
+    # Build SET clause dynamically: "mastery_level = ?, interaction_count = ?"
+    # Parameterized ? placeholders prevent SQL injection
     set_clause = ", ".join(f"{col} = ?" for col in fields)
     values = list(fields.values()) + [user_id]
 
@@ -153,12 +217,11 @@ def update_profile(user_id: str, **fields) -> None:
 
 
 def get_or_create_profile(user_id: str) -> dict:
-    """Return the existing profile for user_id, creating one if it does not exist.
+    """Guarantee a valid profile exists — the agent never encounters a "memory-less" user.
 
-    Safe to call on every request — no duplicate inserts. The check-then-create
-    is not wrapped in a transaction because user_profiles has a UNIQUE constraint
-    on user_id; a race-condition duplicate insert would raise IntegrityError,
-    not silently create a duplicate.
+    Handles the race condition where two concurrent requests for the same user both
+    see profile=None and try to INSERT simultaneously. The loser's IntegrityError is
+    caught silently, and both callers end up reading the same row.
     """
     profile = get_profile_by_user_id(user_id)
     if profile is None:
