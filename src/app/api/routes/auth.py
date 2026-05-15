@@ -1,3 +1,20 @@
+"""
+Auth routes — the orchestrator that wires identity modules into HTTP endpoints.
+
+This router is the "conductor" that coordinates the auth pipeline:
+    RegisterBody (schemas) → hash_password (password) → create_user (db) →
+    create_profile (profile/db) → create_access_token (tokens) → TokenResponse
+
+    LoginBody (schemas) → get_user_by_email (db) → verify_password (password) →
+    create_access_token (tokens) → TokenResponse
+
+Connection to the agent:
+    Registration is the moment the agent's Long-Term Memory is born — create_profile
+    initializes the mastery state that LangGraph will personalize over time.
+    Login produces the JWT whose `sub` claim becomes the thread_id anchor for every
+    subsequent agent interaction.
+"""
+
 import asyncio
 import sqlite3
 
@@ -9,13 +26,12 @@ from app.auth.tokens import create_access_token
 from app.auth.deps import get_current_user
 from app.profile.db import create_profile
 
-
-
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.get("/me", response_model=UserPublic)
 async def me(user: dict = Depends(get_current_user)):
+    """Return the authenticated user's public profile (excludes password_hash)."""
     return UserPublic(
         user_id=user["id"],
         email=user["email"],
@@ -25,43 +41,43 @@ async def me(user: dict = Depends(get_current_user)):
 
 @router.post("/register", response_model=TokenResponse)
 async def register(body: RegisterBody):
-    """Register new user and return the token generated with user id"""
+    """Create a new user + mastery profile, return a signed JWT.
+
+    This is the birth of the agent's memory for this user — after this call,
+    LangGraph has a thread_id anchor and an empty mastery profile to evolve.
+    """
     if get_user_by_email(body.email):
-        # Cant have the same email registered. Its a unique field
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    # Hash password for security reasons
     password_hash = hash_password(body.password)
     user_id = create_user(body.email, password_hash, body.display_name)
 
-    # create_profile (not get_or_create_profile) — registration is the profile's creation event;
-    # we don't need the returned dict, and IntegrityError on a retry race is swallowed below.
-    # Auto-create the user profile immediately after registration.
-    # IntegrityError on a duplicate (e.g., a retry race) is swallowed — the
-    # profile already exists and the user can still log in. Any other DB error
-    # propagates as an unhandled 500 so it surfaces in logs.
+    # create_profile (not get_or_create_profile) — registration is the canonical
+    # creation event. IntegrityError on a retry race is safe to swallow because
+    # the profile already exists and login will still work.
     try:
         await asyncio.to_thread(create_profile, user_id)
     except sqlite3.IntegrityError:
         pass  # duplicate insert lost a race — profile already exists
 
-    # Generate the token using the user id and email as extra
     token = create_access_token(sub=user_id, extra={"email": body.email})
-
     return TokenResponse(access_token=token, user_id=user_id)
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginBody):
-    # Fetch user by email
+    """Authenticate credentials and return a signed JWT.
+
+    The token's `sub` claim carries the user_id that deps.py will inject into
+    AgentState on every subsequent request — linking this login to the agent's memory.
+    """
     row = get_user_by_email(body.email)
 
-    # If no user found or password not varified, raise error
+    # Single error message for both "user not found" and "wrong password" —
+    # prevents attackers from enumerating valid emails.
     if not row or not verify_password(body.password, row["password_hash"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid email or password")
+                            detail="Invalid email or password")
 
-    # Create the token for the user
     token = create_access_token(sub=row["id"], extra={"email": row["email"]})
-
     return TokenResponse(access_token=token, user_id=row["id"])
