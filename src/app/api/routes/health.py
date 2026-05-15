@@ -80,3 +80,43 @@ async def circuit_breakers():
             redis_cb.status(),
         ]
     }
+
+
+@router.get("/health/services")
+async def services_health():
+    """Aggregated service health for the admin dashboard.
+
+    Checks all dependencies and maps circuit breaker state into a single
+    response shaped for the UI:  { status, services: { api, redis, vectorstore, llm, rag_pipeline } }
+
+    Status values: "healthy" | "degraded" | "unavailable"
+    """
+    services: dict[str, str] = {}
+
+    services["api"] = "healthy"
+
+    try:
+        cache._get_client().ping()
+        services["redis"] = "healthy"
+    except Exception:
+        services["redis"] = "unavailable"
+
+    try:
+        get_vectorstore()
+        services["vectorstore"] = "healthy"
+    except Exception:
+        services["vectorstore"] = "unavailable"
+
+    # CLOSED / HALF_OPEN → healthy (requests are flowing or probing); OPEN → degraded
+    llm_state = openai_cb.state.name
+    services["llm"] = "healthy" if llm_state in ("CLOSED", "HALF_OPEN") else "degraded"
+
+    # RAG pipeline is only healthy when both retrieval and generation are up
+    services["rag_pipeline"] = (
+        "healthy"
+        if services["vectorstore"] == "healthy" and services["llm"] == "healthy"
+        else "degraded"
+    )
+
+    overall = "healthy" if all(v == "healthy" for v in services.values()) else "degraded"
+    return {"status": overall, "services": services}

@@ -391,15 +391,15 @@ def setup_ui(fastapi_app):
                         else:
                             users_error = None
 
-                        # Fetch health
+                        # Fetch aggregated service health (all dependencies + circuit breakers)
                         try:
-                            r_health = await http().get("/api/health", headers=auth_headers())
+                            r_health = await http().get("/api/health/services", headers=auth_headers())
                             health_data = r_health.json() if r_health.status_code == 200 else {}
                         except Exception:
                             health_data = {}
 
                         health_status = health_data.get("status", "unknown")
-                        is_healthy = health_status.lower() in ("healthy", "ok")
+                        is_healthy = health_status.lower() == "healthy"
 
                         # ---- Page header strip ----
                         with ui.row().style(
