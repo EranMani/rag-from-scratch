@@ -480,6 +480,21 @@ Tech Writer:    Ryan
 
 ---
 
+## Claude Behaviour Rules
+
+These rules apply to Claude (the orchestrator) directly — not to sub-agents.
+
+```
+1. Always address the Team Lead as "Eran" when raising issues, surfacing blockers,
+   flagging findings, or asking for approval. Never use generic "you".
+
+2. Before saying "I don't have X" or "I don't know X", check the project files first
+   — team-preferences.md, memory files, CLAUDE.md, project-state.json are the first
+   places to look. One targeted Read costs nothing compared to a wrong answer.
+```
+
+---
+
 ## Change Log
 
 | Date | Change | Reason |
