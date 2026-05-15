@@ -667,7 +667,7 @@ def setup_ui(fastapi_app):
             finally:
                 stage_active[0] = False
                 stage_timer.cancel()
-                thinking.delete()
+                thinking.set_visibility(False)
 
             with chat_area:
                 with ui.column().style("align-self:flex-start; max-width:75%; gap:0.2rem"):
