@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Admin dashboard redesign · 2026-05-12*
+*Last updated: thinking label visibility bug fix · 2026-05-15*
 
-**Last completed:** Admin tab redesign — dashboard header, stat cards, ui.table with slot injection, health panel, monitoring placeholder ✅
+**Last completed:** Fix `thinking` label not being hidden after SSE stream completes ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -43,6 +43,35 @@
 | 6 | UI polish | ✅ Done | debug badges collapsed; _LEVEL_LABELS removed; markdown CSS via ui.add_head_html() |
 | 7 | feature | ✅ Done | Tab bar Chat/Admin; admin router; footer visibility callback; closure capture for delete buttons |
 | 8 | bug+redesign | ✅ Done | White panel bg fix; admin tab as SaaS dashboard: header strip, stat cards, ui.table slot injection, health + monitoring sidebar |
+| 9 | bug fix | ✅ Done | thinking label: set_visibility(False) instead of delete() to avoid client-context error after await |
+
+---
+
+## Session 09 — Bug fix: thinking label not removed after stream
+
+**Date:** 2026-05-15
+**Status:** ✅ Done
+
+### Task Brief
+`thinking.delete()` in the `finally` block of `send()` was commented out because it threw an error. Fix the `thinking` label so it is reliably hidden after the SSE stream completes.
+
+### Approach
+The `thinking` label is created inside a `with chat_area:` context manager block, which sets NiceGUI's current slot context for the duration of that block. The label is a direct child of `chat_area`. When `send()` awaits the SSE stream, execution suspends and the coroutine resumes on the event loop after the stream finishes. By that point the NiceGUI client context (`Client`) active at the `with chat_area:` creation site is no longer the ambient context for the resumed coroutine frame.
+
+`element.delete()` in NiceGUI performs a slot tree mutation: it removes the element from its parent's children list and dispatches a deletion message to the browser via the client connection. That dispatch path resolves the client from the element's slot reference, which in some NiceGUI versions requires the correct client context to be set — or at minimum, the element's parent to still be coherently resolvable. When the coroutine resumes after `await`, the default client context is not set (NiceGUI only sets it inside request handlers and explicit `with client:` blocks), which is why `delete()` threw.
+
+`thinking.set_visibility(False)` does not tear down the slot tree. It sets a visibility property on the already-registered element object and pushes a targeted property update to the browser via the element's own internal reference — no ambient client context needed. This is the correct NiceGUI pattern for "suppress this element's display without destroying it." The label remains in the DOM as `display:none` (invisible) and the response card that follows renders cleanly after it.
+
+`delete()` would be safe here only if called inside an explicit `with client:` context block, but that adds unnecessary complexity. `set_visibility(False)` is both simpler and idiomatic.
+
+### Changes Made
+
+| File | Change |
+|---|---|
+| `src/app/ui.py` line 670 | `#thinking.delete()` → `thinking.set_visibility(False)` |
+
+### Decisions Made
+1. **`set_visibility(False)` over `delete()`** — avoids the client-context requirement of slot tree mutation; the label is invisible to the user, which is the goal. The DOM node remaining is not a correctness problem — it has no size, no layout impact, and is not re-shown.
 
 ---
 
