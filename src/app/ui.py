@@ -205,6 +205,20 @@ def setup_ui(fastapi_app):
 .q-table thead tr th { background: #1e293b !important; color: #64748b !important; font-size: 0.7rem; letter-spacing: 0.06em; border-bottom: 1px solid #334155 !important; }
 .q-table tbody tr td { border-bottom: 1px solid #1e293b !important; font-size: 0.82rem; }
 .q-table tbody tr:hover td { background: #1e293b !important; }
+@keyframes rag-pulse {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40%            { opacity: 1;   transform: scale(1);   }
+}
+.rag-thinking-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #38bdf8; display: inline-block;
+  animation: rag-pulse 1.4s ease-in-out infinite;
+}
+.rag-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.rag-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+.rag-thinking-label {
+  font-size: 0.8rem; color: #94a3b8; font-style: italic; line-height: 1;
+}
 </style>
 """)
 
@@ -338,7 +352,7 @@ def setup_ui(fastapi_app):
                     with ui.column().style("flex:1; height:100%; overflow:hidden; position:relative"):
                         with ui.column().style(
                             "flex:1; width:100%; max-width:900px; margin:0 auto; padding:1.5rem; "
-                            "padding-bottom:90px; overflow-y:auto; height:100%"
+                            "padding-bottom:120px; overflow-y:auto; height:100%"
                         ):
                             chat_area = ui.column().style("width:100%; gap:1rem")
 
@@ -611,28 +625,48 @@ def setup_ui(fastapi_app):
 
                 stage_idx = [0]
                 stage_active = [True]
-                thinking = ui.label(_STAGE_LABELS[0]).style("color:#64748b; font-style:italic")
+                with ui.row().style(
+                    "align-items:center; gap:0.5rem; padding:0.3rem 0"
+                ) as thinking:
+                    ui.html('<span class="rag-thinking-dot"></span>'
+                            '<span class="rag-thinking-dot"></span>'
+                            '<span class="rag-thinking-dot"></span>')
+                    _stage_label = ui.label(_STAGE_LABELS[0]).classes("rag-thinking-label")
 
                 def _advance():
                     if not stage_active[0]:
                         return
                     stage_idx[0] = min(stage_idx[0] + 1, len(_STAGE_LABELS) - 1)
-                    thinking.set_text(_STAGE_LABELS[stage_idx[0]])
+                    _stage_label.set_text(_STAGE_LABELS[stage_idx[0]])
 
                 stage_timer = ui.timer(2.5, _advance)
 
             ui.update()
             await asyncio.sleep(0)
 
+            # Pre-create the response card so tokens can stream into it live.
+            with chat_area:
+                with ui.column().style("align-self:flex-start; max-width:75%; gap:0.2rem") as response_col:
+                    ui.label("RAG Assistant").style("font-size:0.7rem; color:#64748b")
+                    with ui.card().style(
+                        "background:#1e293b; border:1px solid #334155; width:fit-content; "
+                        "border-radius:12px; word-break:break-word; overflow-wrap:break-word; overflow:hidden"
+                    ):
+                        streaming_md = ui.markdown("").style("width:100%; word-break:break-word; overflow-wrap:break-word")
+
+            ui.update()
+            await asyncio.sleep(0)
+
+            tokens: list[str] = []
+            done_data: dict = {}
+            result: dict = {"cache_hit": "miss", "chunks": [], "latency_ms": 0, "trace_id": "—"}
+
             try:
-                # Collect SSE tokens from streaming /api/chat; render complete answer after stream.
                 payload = {
                     "question": question,
                     "session_id": session["session_id"],
                 }
                 headers = auth_headers()
-                tokens: list[str] = []
-                done_data: dict = {}
                 async with http().stream(
                     "POST", "/api/chat", json=payload, headers=headers
                 ) as resp:
@@ -646,89 +680,72 @@ def setup_ui(fastapi_app):
                             continue
                         if event.get("type") == "token":
                             tokens.append(event.get("content", ""))
+                            streaming_md.content = "".join(tokens)
+                            ui.update()
                         elif event.get("type") == "done":
                             done_data = event
 
-                result = {
-                    "answer": "".join(tokens),
-                    "cache_hit": "miss",
-                    "chunks": [],
-                    "latency_ms": 0,
-                    "trace_id": "—",
-                }
             except Exception as e:
-                result = {
-                    "answer": f"Error: {e}",
-                    "cache_hit": "none",
-                    "chunks": [],
-                    "latency_ms": 0,
-                    "trace_id": "—",
-                }
+                streaming_md.content = f"Error: {e}"
+                ui.update()
             finally:
                 stage_active[0] = False
                 stage_timer.cancel()
                 thinking.set_visibility(False)
 
-            with chat_area:
-                with ui.column().style("align-self:flex-start; max-width:75%; gap:0.2rem"):
-                    ui.label("RAG Assistant").style("font-size:0.7rem; color:#64748b")
-                    with ui.card().style(
-                        "background:#1e293b; border:1px solid #334155; width:fit-content; "
-                        "border-radius:12px; word-break:break-word; overflow-wrap:break-word; overflow:hidden"
-                    ):
-                        ui.markdown(result["answer"]).style("width:100%; word-break:break-word; overflow-wrap:break-word")
+            # Append debug info and knowledge check to the already-rendered response column.
+            with response_col:
+                cache_color = "#14532d" if result["cache_hit"] != "none" else "#1e293b"
+                with ui.expansion("Debug info").style(
+                    "font-size:0.7rem; color:#64748b; margin-top:0.4rem; width:fit-content"
+                ):
+                    with ui.row().style("gap:0.5rem; flex-wrap:wrap; padding:0.25rem 0"):
+                        user_level = done_data.get("user_level")
+                        if user_level:
+                            ui.badge(f"Tailored for {user_level}").style(
+                                "background:#1e3a5f; color:#93c5fd; font-size:0.7rem"
+                            )
+                        ui.badge(f"cache: {result['cache_hit']}").style(
+                            f"background:{cache_color}; color:#86efac; font-size:0.7rem"
+                        )
+                        ui.badge(f"{result['latency_ms']}ms").style(
+                            "background:#0f172a; color:#64748b; font-size:0.7rem"
+                        )
+                        ui.badge(f"{len(result['chunks'])} chunks").style(
+                            "background:#0f172a; color:#64748b; font-size:0.7rem"
+                        )
+                        ui.badge(f"trace: {result['trace_id']}").style(
+                            "background:#0f172a; color:#64748b; font-size:0.7rem"
+                        )
 
-                    cache_color = "#14532d" if result["cache_hit"] != "none" else "#1e293b"
-                    with ui.expansion("Debug info").style(
-                        "font-size:0.7rem; color:#64748b; margin-top:0.4rem; width:fit-content"
+                if result["chunks"]:
+                    with ui.expansion("Retrieved context", icon="search").style(
+                        "font-size:0.75rem; color:#94a3b8; margin-top:0.5rem"
                     ):
-                        with ui.row().style("gap:0.5rem; flex-wrap:wrap; padding:0.25rem 0"):
-                            user_level = done_data.get("user_level")
-                            if user_level:
-                                ui.badge(f"Tailored for {user_level}").style(
-                                    "background:#1e3a5f; color:#93c5fd; font-size:0.7rem"
+                        for chunk in result["chunks"]:
+                            source = chunk["source"].split("/")[-1]
+                            with ui.card().style(
+                                "background:#0f172a; border-left:3px solid #0369a1; "
+                                "padding:0.4rem 0.6rem; margin-top:0.3rem; border-radius:4px"
+                            ):
+                                ui.label(source).style(
+                                    "font-weight:600; font-size:0.75rem; color:#38bdf8"
                                 )
-                            ui.badge(f"cache: {result['cache_hit']}").style(
-                                f"background:{cache_color}; color:#86efac; font-size:0.7rem"
-                            )
-                            ui.badge(f"{result['latency_ms']}ms").style(
-                                "background:#0f172a; color:#64748b; font-size:0.7rem"
-                            )
-                            ui.badge(f"{len(result['chunks'])} chunks").style(
-                                "background:#0f172a; color:#64748b; font-size:0.7rem"
-                            )
-                            ui.badge(f"trace: {result['trace_id']}").style(
-                                "background:#0f172a; color:#64748b; font-size:0.7rem"
-                            )
+                                ui.label(chunk["content"] + "...").style(
+                                    "font-size:0.75rem; color:#94a3b8"
+                                )
 
-                    if result["chunks"]:
-                        with ui.expansion("Retrieved context", icon="search").style(
-                            "font-size:0.75rem; color:#94a3b8; margin-top:0.5rem"
-                        ):
-                            for chunk in result["chunks"]:
-                                source = chunk["source"].split("/")[-1]
-                                with ui.card().style(
-                                    "background:#0f172a; border-left:3px solid #0369a1; "
-                                    "padding:0.4rem 0.6rem; margin-top:0.3rem; border-radius:4px"
-                                ):
-                                    ui.label(source).style(
-                                        "font-weight:600; font-size:0.75rem; color:#38bdf8"
-                                    )
-                                    ui.label(chunk["content"] + "...").style(
-                                        "font-size:0.75rem; color:#94a3b8"
-                                    )
-
-                    test_q = done_data.get("test_question")
-                    if test_q:
-                        with ui.card().style(
-                            "background:#1e3a5f; border:1px solid #3b82f6; width:fit-content; "
-                            "border-radius:12px; padding:0.75rem 1rem; margin-top:0.75rem; "
-                            "word-break:break-word; overflow-wrap:break-word; overflow:hidden"
-                        ):
-                            ui.label("Knowledge Check").style(
-                                "font-size:0.7rem; font-weight:600; color:#60a5fa; margin-bottom:0.35rem"
-                            )
-                            ui.label(test_q).style("font-size:0.875rem; color:#e2e8f0")
+                test_q = done_data.get("test_question")
+                if test_q:
+                    with ui.card().style(
+                        "background:#1e3a5f; border:1px solid #3b82f6; width:fit-content; "
+                        "border-radius:12px; padding:0.75rem 1rem; margin-top:0.75rem; "
+                        "word-break:break-word; overflow-wrap:break-word; overflow:hidden"
+                    ):
+                        ui.label("Knowledge Check").style(
+                            "font-size:0.7rem; font-weight:600; color:#60a5fa; margin-bottom:0.35rem"
+                        )
+                        ui.label(test_q).style("font-size:0.875rem; color:#e2e8f0")
 
             profile_panel.refresh()
             send_btn.enable()
