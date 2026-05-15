@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import time
 from contextlib import asynccontextmanager
 
@@ -10,6 +12,7 @@ from app.core.config import settings
 from app.core.logging_config import logger
 from app.core.metrics import REGISTRY, REQUEST_COUNT, REQUEST_LATENCY
 from app.api.routes import chat, documents, health, auth, profile, admin
+from app.api.routes.health_probe import build_snapshot
 from app.auth.db import init_user_db
 from app.profile.db import init_profile_db, migrate_topic_slugs
 from rag.pipeline.indexer import load_knowledge_base, get_vectorstore, ingest_documents
@@ -52,10 +55,31 @@ async def lifespan(app: FastAPI):
         timeout=httpx.Timeout(30.0),
     )
 
+    # Dedicated client for outbound dependency probes (Chroma).
+    # Separate from internal_http_client which has base_url pointed at this server.
+    app.state.probe_http_client = httpx.AsyncClient()
+
+    # Run one probe before serving so the snapshot is never empty.
+    app.state.health_snapshot = await build_snapshot(app.state.probe_http_client)
+
+    async def _probe_loop():
+        while True:
+            await asyncio.sleep(settings.health_probe_interval_seconds)
+            try:
+                app.state.health_snapshot = await build_snapshot(app.state.probe_http_client)
+            except Exception:
+                pass  # keep last snapshot on transient error
+
+    probe_task = asyncio.create_task(_probe_loop())
+
     logger.info("RAG system ready")
     try:
         yield
     finally:
+        probe_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await probe_task
+        await app.state.probe_http_client.aclose()
         await app.state.internal_http_client.aclose()
         logger.info("Shutting down RAG system")
 

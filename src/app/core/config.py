@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     cb_failure_threshold: int = 5
     cb_recovery_timeout: int = 30
 
+    # Health probes
+    health_probe_interval_seconds: int = 30
+    health_probe_timeout_seconds: float = 2.0
+
     # Prometheus
     prometheus_port: int = 9090
 

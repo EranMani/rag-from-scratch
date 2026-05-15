@@ -116,3 +116,31 @@ thinking.set_visibility(False)
 2. `src/app/ui.py` — After rendering the answer card and debug info, check `done_data.get("test_question")`. If set, render a styled "Knowledge Check" card with the question text so the user sees it and can type their answer.
 
 The evaluation path (`_is_evaluation_mode` in `assess.py`) was already correct — once users can see the question, the scoring on the next turn works as intended.
+
+---
+
+### TRB-006 — `/api/health/services` causes server loop and WebSocket disconnects
+
+**Date:** 2026-05-15
+**Component:** API / Health (`src/app/api/routes/health.py`, `src/app/main.py`)
+**Symptom:** When the admin panel opened or refreshed, the server entered a loop — WebSocket connections opened and closed instantly in rapid succession, making the app unresponsive. Commenting out only the Chroma probe inside `services_health` restored normal behaviour.
+
+**Root cause:** Three compounding issues:
+
+1. **DNS, not sockets, was the bottleneck.** `chroma_host` is set to `"chroma"` (a Docker service name). Without Docker running, Windows cannot resolve this hostname. Python's `urllib.request.urlopen(url, timeout=2)` and `socket.create_connection` only apply their timeout to the *socket connect phase* — DNS resolution is a separate blocking call that ignores the timeout and can hang for 15–30 seconds on Windows.
+
+2. **Python threads cannot be cancelled.** Wrapping the probe in `asyncio.to_thread` and guarding it with `asyncio.wait_for(..., timeout=2)` appeared to fix the problem but didn't: `wait_for` cancels the *coroutine wrapper*, not the underlying OS thread. The DNS-hung thread kept running for 15–30 seconds regardless, becoming a zombie.
+
+3. **FastAPI and NiceGUI share one event loop.** When `admin_panel()` called `await http().get("/api/health/services")`, it was awaiting a response from an endpoint whose thread pool was slowly filling with zombie DNS threads. Once the pool (default 32 slots) was exhausted, new requests queued indefinitely. NiceGUI's WebSocket heartbeats couldn't be processed in time, so the browser's WebSocket timed out and reconnected — which re-triggered `admin_panel()`, which queued another stuck thread. This was the loop.
+
+**Fix:** Replaced live per-request probing with a background-probe architecture:
+
+- **`src/app/api/routes/health_probe.py`** (new) — `probe_redis()`, `probe_chroma(client)`, and `build_snapshot(client)`. The Chroma probe uses `httpx.AsyncClient`, which delegates DNS resolution to `anyio.getaddrinfo()` — a truly async call that honours the configured timeout end-to-end. No threads involved.
+
+- **`src/app/main.py` lifespan** — creates a dedicated `app.state.probe_http_client` (`httpx.AsyncClient`, no `base_url`), runs one probe before the server starts serving, then launches a background `asyncio.Task` that refreshes `app.state.health_snapshot` every `settings.health_probe_interval_seconds` seconds (default 30). Task is cancelled and client closed cleanly on shutdown.
+
+- **`/api/health/services`** — now returns the cached `app.state.health_snapshot` with zero network I/O on the request path. Adds `"stale": true` if the snapshot is older than `2 × interval`, so a dead background task is visible in the response.
+
+- **`/api/health/ready`** — kept as a live per-request probe (its job is readiness gating, not dashboarding), but now delegates to the shared probe helpers and reuses `app.state.probe_http_client` instead of creating a new client per call.
+
+**Settings added:** `health_probe_interval_seconds` (default `30`) and `health_probe_timeout_seconds` (default `2.0`) in `src/app/core/config.py`.

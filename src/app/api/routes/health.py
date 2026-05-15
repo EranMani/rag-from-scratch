@@ -1,26 +1,21 @@
 """
 Health routes — the system's pulse before the agent talks to the user.
 
-An adaptive agent like AgentCanvas depends on many moving parts (LLM, Vector DB,
-SQLite, Redis). This module lets you build toward Self-Healing behavior:
-
-    If Chroma or Redis is down, readiness returns 503 instead of letting the agent
-    return empty answers or cryptic AI errors to the user.
-
-In one sentence: health.py verifies that all RAG organs are working together before
-the agent starts a conversation.
-
 Endpoints:
-    GET /health              — liveness (is the FastAPI process up?)
-    GET /health/ready        — readiness (can we serve RAG traffic right now?)
-    GET /health/circuit-breakers — visibility into LLM/Chroma/Redis failure state
+    GET /health                   — liveness (is the FastAPI process up?)
+    GET /health/ready             — readiness: live Redis + Chroma probe, 503 if either down
+    GET /health/circuit-breakers  — visibility into LLM/Chroma/Redis circuit breaker state
+    GET /health/services          — cached snapshot updated by background probe every N seconds
 """
 
-from fastapi import APIRouter
+import time
+
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+
+from app.core.config import settings
+from app.api.routes.health_probe import probe_redis, probe_chroma
 from rag.resilience.circuit_breaker import chroma_cb, openai_cb, redis_cb
-from rag.cache.redis_cache import cache
-from rag.pipeline.indexer import get_vectorstore
 
 
 router = APIRouter(prefix="/api", tags=["health"])
@@ -28,51 +23,26 @@ router = APIRouter(prefix="/api", tags=["health"])
 
 @router.get("/health")
 async def health():
-    """Liveness probe — is the FastAPI process running and able to handle HTTP?
-
-    Load balancers and Kubernetes use this to decide whether to restart the pod.
-    Does NOT check dependencies; use /health/ready for that.
-    """
     return {"status": "ok"}
 
 
 @router.get("/health/ready")
-async def readiness():
-    """Readiness probe — are dependencies available to serve real RAG traffic?
+async def readiness(request: Request):
+    """Live probe — runs on every call. Returns 503 if Redis or Chroma is down."""
+    client = request.app.state.probe_http_client
+    redis_ok = await probe_redis()
+    chroma_ok = await probe_chroma(client)
 
-    Returns 200 only when Redis and Chroma are reachable; 503 otherwise so traffic
-    can be routed away before users hit a broken agent pipeline.
-    """
-    checks = {}
-
-    # Redis — query/LLM response cache; failure means degraded performance or cache bypass
-    try:
-        cache._get_client().ping()
-        checks["redis"] = "ok"
-    except Exception:
-        checks["redis"] = "unavailable"
-
-    # Chroma — vector store for retrieval; failure means the agent cannot ground answers
-    try:
-        get_vectorstore()
-        checks["chroma"] = "ok"
-    except Exception:
-        checks["chroma"] = "unavailable"
-
+    checks = {
+        "redis": "ok" if redis_ok else "unavailable",
+        "chroma": "ok" if chroma_ok else "unavailable",
+    }
     all_ok = all(v == "ok" for v in checks.values())
-    return JSONResponse(
-        content={"status": checks},
-        status_code=200 if all_ok else 503,
-    )
+    return JSONResponse(content={"status": checks}, status_code=200 if all_ok else 503)
 
 
 @router.get("/health/circuit-breakers")
 async def circuit_breakers():
-    """Expose circuit breaker state for OpenAI, Chroma, and Redis.
-
-    Useful in ops/debugging: when a breaker is OPEN, the system has stopped calling
-    that dependency and may be on a fallback path (e.g. Ollama instead of OpenAI).
-    """
     return {
         "circuit_breakers": [
             chroma_cb.status(),
@@ -83,40 +53,14 @@ async def circuit_breakers():
 
 
 @router.get("/health/services")
-async def services_health():
-    """Aggregated service health for the admin dashboard.
+async def services_health(request: Request):
+    """Returns the cached health snapshot. No live probes on this path.
 
-    Checks all dependencies and maps circuit breaker state into a single
-    response shaped for the UI:  { status, services: { api, redis, vectorstore, llm, rag_pipeline } }
-
-    Status values: "healthy" | "degraded" | "unavailable"
+    Background task in lifespan refreshes the snapshot every
+    settings.health_probe_interval_seconds seconds.
     """
-    services: dict[str, str] = {}
-
-    services["api"] = "healthy"
-
-    try:
-        cache._get_client().ping()
-        services["redis"] = "healthy"
-    except Exception:
-        services["redis"] = "unavailable"
-
-    try:
-        get_vectorstore()
-        services["vectorstore"] = "healthy"
-    except Exception:
-        services["vectorstore"] = "unavailable"
-
-    # CLOSED / HALF_OPEN → healthy (requests are flowing or probing); OPEN → degraded
-    llm_state = openai_cb.state.name
-    services["llm"] = "healthy" if llm_state in ("CLOSED", "HALF_OPEN") else "degraded"
-
-    # RAG pipeline is only healthy when both retrieval and generation are up
-    services["rag_pipeline"] = (
-        "healthy"
-        if services["vectorstore"] == "healthy" and services["llm"] == "healthy"
-        else "degraded"
-    )
-
-    overall = "healthy" if all(v == "healthy" for v in services.values()) else "degraded"
-    return {"status": overall, "services": services}
+    snapshot = dict(request.app.state.health_snapshot)
+    checked_at = snapshot.get("checked_at", 0)
+    if time.time() - checked_at > 2 * settings.health_probe_interval_seconds:
+        snapshot["stale"] = True
+    return snapshot
