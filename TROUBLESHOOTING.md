@@ -76,3 +76,43 @@ ui.row()            ← outer layout row
 - Inner chat scroll column: `height:calc(100% - 80px)` → `height:100%` (the 80px deduction was compensating for the footer being inside the column — no longer needed)
 
 **Also fixed in the same pass:** `register_page()` guard was `if not settings.allow_anonymous_chat and await verify_stored_bearer()` — this allowed already-authenticated users to reach `/register` when anonymous chat was enabled. Simplified to `if await verify_stored_bearer()` to always redirect authenticated users away from the register page, consistent with the `login_page` guard.
+
+---
+
+### TRB-004 — `thinking.delete()` crashes after async SSE stream resumes
+
+**Date:** 2026-05-15
+**Component:** UI / NiceGUI (`src/app/ui.py`)
+**Symptom:** Sending a chat message raises an exception in the `finally` block after the SSE stream completes. The "thinking" stage label (`Retrieving context...` / `Preparing your answer...`) was supposed to disappear after the answer arrived, but the call crashed instead.
+
+**Root cause:** `ui.element.delete()` mutates the NiceGUI slot tree and dispatches a DOM deletion message to the browser by resolving the ambient `Client` context. That context is only set inside NiceGUI route handlers and explicit `with client:` blocks. The `send()` coroutine suspends at `await` during the SSE stream; when it resumes in the `finally` block it is back on the event loop but outside any NiceGUI request context — so `delete()` fails trying to look up which client to notify.
+
+**Fix:** Replaced `thinking.delete()` with `thinking.set_visibility(False)`.
+
+`set_visibility` does not touch the slot tree and does not need the ambient context. It pushes a targeted attribute update (`display: none`) using the element's own client reference, which was captured when the label was created inside the route handler and remains valid throughout the coroutine's lifetime.
+
+```python
+# Before (broken)
+thinking.delete()
+
+# After (fixed)
+thinking.set_visibility(False)
+```
+
+---
+
+### TRB-005 — Knowledge-check questions never appear in the chat UI
+
+**Date:** 2026-05-15
+**Component:** Agent / UI (`src/agents/nodes/assess.py`, `src/rag/chain.py`, `src/app/ui.py`)
+**Symptom:** The passive assessment ran and topic scores updated, but the agent never visibly asked the user a test question. The system appeared to operate in passive-only mode despite curriculum questions being defined.
+
+**Root cause:** `assess_node` correctly selected a curriculum question, stored it in `pending_test_question` in LangGraph state, and appended it as an `AIMessage` to the conversation (so the checkpointer held it for the next evaluation turn). However, the SSE stream in `chat.py` filtered events to `langgraph_node == "generate"` only — tokens from `assess_node` were never emitted. The `done` event was built by `build_chat_response`, which did not read `pending_test_question` from state. The question was silently stored but invisible to the user.
+
+**Fix:** Two changes:
+
+1. `src/rag/chain.py` — Added `test_question: str | None = None` to `ChatResponse` and populated it from `state.get("pending_test_question")` in `build_chat_response`. The field travels through the existing `done` SSE event at no extra cost.
+
+2. `src/app/ui.py` — After rendering the answer card and debug info, check `done_data.get("test_question")`. If set, render a styled "Knowledge Check" card with the question text so the user sees it and can type their answer.
+
+The evaluation path (`_is_evaluation_mode` in `assess.py`) was already correct — once users can see the question, the scoring on the next turn works as intended.
