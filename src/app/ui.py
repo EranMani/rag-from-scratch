@@ -718,6 +718,18 @@ def setup_ui(fastapi_app):
                                         "font-size:0.75rem; color:#94a3b8"
                                     )
 
+                    test_q = done_data.get("test_question")
+                    if test_q:
+                        with ui.card().style(
+                            "background:#1e3a5f; border:1px solid #3b82f6; width:fit-content; "
+                            "border-radius:12px; padding:0.75rem 1rem; margin-top:0.75rem; "
+                            "word-break:break-word; overflow-wrap:break-word; overflow:hidden"
+                        ):
+                            ui.label("Knowledge Check").style(
+                                "font-size:0.7rem; font-weight:600; color:#60a5fa; margin-bottom:0.35rem"
+                            )
+                            ui.label(test_q).style("font-size:0.875rem; color:#e2e8f0")
+
             profile_panel.refresh()
             send_btn.enable()
             ui.update()

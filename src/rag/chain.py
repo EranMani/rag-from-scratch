@@ -30,14 +30,14 @@ class ChatResponse(BaseModel):
         user_level:      Mastery level used for this turn (from AgentState).
         assessed_topics: Sparse topic→score-delta dict from assess_node.
                          Empty dict when assessment did not run or errored.
+        test_question:   Curriculum question selected by assess_node for this
+                         turn, or None when no question was selected.
     """
 
     answer: str = ""
     user_level: str | None = None
-    """Mastery level used for this turn, or None when assessment did not run
-    (e.g. assess_node errored or was skipped).  The UI team (Commit 19) must
-    treat None as "assessment unavailable" — not as a specific level value."""
     assessed_topics: dict[str, float] = {}
+    test_question: str | None = None
 
 
 def build_chat_response(state: dict[str, Any]) -> ChatResponse:
@@ -51,4 +51,5 @@ def build_chat_response(state: dict[str, Any]) -> ChatResponse:
         answer=state.get("answer", ""),
         user_level=state.get("user_level"),
         assessed_topics=state.get("topic_scores_delta", {}),
+        test_question=state.get("pending_test_question"),
     )
