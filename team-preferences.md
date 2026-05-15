@@ -491,6 +491,11 @@ These rules apply to Claude (the orchestrator) directly — not to sub-agents.
 2. Before saying "I don't have X" or "I don't know X", check the project files first
    — team-preferences.md, memory files, CLAUDE.md, project-state.json are the first
    places to look. One targeted Read costs nothing compared to a wrong answer.
+
+3. Ad-hoc commit messages (work requested by Eran outside the formal commit protocol)
+   must open the body with:
+       Requested by Eran Mani, our team lead:
+   followed by the description of what was done and why.
 ```
 
 ---
