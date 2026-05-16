@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 24 `assessment-engine-rewrite` · 2026-05-11*
+*Last updated: off-topic suppression fix · 2026-05-16*
 
-**Last completed:** Commit 24 `assessment-engine-rewrite` ✅
+**Last completed:** off-topic suppression fix (ad-hoc) ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -139,6 +139,7 @@ The commit plan has been updated. Here is what changed for you:
 | 10 | Commit 18 `adaptive-graph-integration` | ✅ Done | Template lookup via PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT); cache key includes user_level; ChatResponse Pydantic model added to chain.py; assessed_topics is dict[str, float] not list. |
 | 11 | hotfix `assess-node-openai-schema` | ✅ Done | Replaced dict[str, float] in AssessmentOutput with TopicScoresDelta (explicit fixed-field Pydantic model); assess_node converts back to sparse dict before state write. |
 | 12 | Commit 24 `assessment-engine-rewrite` | ✅ Done | New EvaluationOutput model (not AssessmentOutput) for eval mode; _is_evaluation_mode() uses last-message HumanMessage inspection; regex-based curriculum file parser; TopicScoresDelta + VALID_MODULE_SLUGS updated to canonical 8 slugs. |
+| 13 | ad-hoc: off-topic suppression fix | ✅ Done | `_run_passive_assessment` returns `(delta, is_rag_related)` tuple; off-topic queries skip knowledge check entirely; exception fallback is permissive (returns True); 6 stale tests fixed to mock `_run_passive_assessment` explicitly. |
 
 ---
 
@@ -214,6 +215,74 @@ curriculum files as fixtures (filesystem dependency in tests). The solution: tes
 `_load_question_text` and `_load_rubric_text` to return controlled strings; only the
 `TestGate8GraphTopologySmoke` tests run against the real compiled graph and depend on the
 `.env` file being present (noted as a conftest gap).
+
+---
+
+## Session 13 — Ad-hoc: off-topic suppression fix
+
+**Date:** 2026-05-16
+**Status:** ✅ Done
+
+### AI Problem Being Solved
+
+`_select_test_question` always produced a `pending_test_question` regardless of whether
+the user's query was RAG-related. An off-topic query (e.g. "hi there") triggered the full
+curriculum question selection pipeline, causing a knowledge check to appear after a redirect
+response — confusing and educationally wrong.
+
+`_run_passive_assessment` already returned a `PassiveAssessmentOutput` with `relevant_slug: str | None`.
+`relevant_slug=None` means the LLM classified the query as off-topic. That signal was computed
+but then discarded — only the delta dict was used, not the relevance classification.
+
+### Key Decisions
+
+**Return tuple `(delta, is_rag_related)` from `_run_passive_assessment`.** The alternative
+was to check `relevant_slug` again inside `_select_test_question` by inspecting the delta —
+but a non-null slug with low confidence (below `_PASSIVE_CONFIDENCE_THRESHOLD`) produces an
+empty delta too, so empty delta does not reliably mean off-topic. The bool carries the intent
+explicitly with no ambiguity.
+
+**Exception fallback returns `({}, True)` — permissive.** When the LLM call fails, we do not
+know whether the query is off-topic. Suppressing the knowledge check on error would silently
+degrade the assessment system. Permissive fallback (assume on-topic) preserves the check and
+fails open — consistent with the existing pattern of not blocking the user on LLM failure.
+
+**Six stale tests required explicit `_run_passive_assessment` mocks.** After the change, tests
+that did not mock `_run_passive_assessment` ran the real function against the live LLM. The live
+LLM returned `relevant_slug=None` for test queries in the CI environment — triggering the
+off-topic early return and causing `test_mode=False`. The fix: mock `_run_passive_assessment`
+directly in all tests whose assertions depended on the knowledge check being served. The mock
+pattern is `AsyncMock(return_value=({}, True))` — simulates an on-topic query with no scored delta.
+
+### Changes Made
+
+1. `src/agents/nodes/assess.py`
+   - `_run_passive_assessment` return type: `dict[str, float]` → `tuple[dict[str, float], bool]`
+   - Exception fallback: `return {}` → `return {}, True`
+   - `_select_test_question`: unpack tuple; guard `if not is_rag_related` returns early
+
+2. `tests/test_assess_node.py`
+   - `test_test_mode_no_llm_call` renamed to `test_test_mode_on_topic_sets_pending_test_question`;
+     stale `assert_not_called()` removed; now asserts `pending_test_question` is set for on-topic query
+   - `TestCurriculumDirLayout.test_test_mode_loads_real_curriculum_without_assessment_error`:
+     added `_run_passive_assessment` mock
+   - `TestGate1TestMode` (4 tests): added `_run_passive_assessment` mock to each
+   - `TestGate4FallbackOnFailure.test_missing_curriculum_file_sets_assessment_error`:
+     added `_run_passive_assessment` mock
+   - Added `TestOffTopicSuppression` with two tests:
+     `test_off_topic_query_suppresses_test_question` and `test_on_topic_query_sets_test_question`
+
+### Approach
+
+The problem was identified immediately from the return type: a function named `_run_passive_assessment`
+returns only a `dict[str, float]` but `PassiveAssessmentOutput.relevant_slug` carries a classification
+signal that was always available and always discarded. The fix was purely additive — the delta is still
+computed identically; we just also surface the bool.
+
+The test failures in the first run were diagnostic: six pre-existing tests that did not mock
+`_run_passive_assessment` started failing because they hit the live LLM which returned `relevant_slug=None`.
+This revealed that those tests were implicitly depending on the live LLM to produce an on-topic classification —
+a fragile assumption. The fix corrects both the production bug and the test fragility simultaneously.
 
 ---
 
