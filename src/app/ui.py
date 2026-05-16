@@ -127,10 +127,14 @@ def setup_ui(fastapi_app):
             ui.navigate.to("/")
             return
 
-        ui.query("body").style("background:#0f172a; color:#e2e8f0; font-family:system-ui")
+        ui.add_head_html('''<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">''')
+        ui.query("body").style("background:radial-gradient(ellipse at 60% 0%, #0c2344 0%, #0f172a 60%); color:#e2e8f0; font-family:'Inter',system-ui")
         with ui.column().style(
-            "width:100%; max-width:420px; margin:3rem auto; padding:1.5rem; gap:1rem"
+            "width:100%; max-width:420px; margin:3rem auto; padding:2rem; gap:1rem; background:rgba(30,41,59,0.8); border:1px solid rgba(255,255,255,0.06); border-radius:16px; backdrop-filter:blur(8px)"
         ):
+            ui.html('<div style="width:36px;height:36px;background:linear-gradient(135deg,#0369a1,#4f46e5);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:white;font-family:monospace">&lt;/&gt;</div>')
             ui.label("Sign in").style("font-size:1.5rem; font-weight:600; color:#38bdf8")
             email = ui.input("Email").props("type=email").classes("w-full").style(
                 "background:#1e293b; border:1px solid #334155; border-radius:8px"
@@ -160,7 +164,7 @@ def setup_ui(fastapi_app):
                 ui.navigate.to("/")
 
             ui.button("Login", on_click=do_login).style(
-                "background:#0369a1; color:white; width:100%"
+                "background:linear-gradient(135deg,#0369a1,#4f46e5) !important; color:white; width:100%; border-radius:10px; font-weight:600"
             )
             ui.link("Create an account", "/register").classes("text-sky-400 text-sm")
             ui.link("Back to chat", "/").classes("text-sky-400 text-sm")
@@ -171,9 +175,12 @@ def setup_ui(fastapi_app):
             ui.navigate.to("/")
             return
 
-        ui.query("body").style("background:#0f172a; color:#e2e8f0; font-family:system-ui")
+        ui.add_head_html('''<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">''')
+        ui.query("body").style("background:radial-gradient(ellipse at 60% 0%, #0c2344 0%, #0f172a 60%); color:#e2e8f0; font-family:'Inter',system-ui")
         wrapper = ui.column().style(
-            "width:100%; max-width:420px; margin:3rem auto; padding:1.5rem; gap:1rem"
+            "width:100%; max-width:420px; margin:3rem auto; padding:2rem; gap:1rem; background:rgba(30,41,59,0.8); border:1px solid rgba(255,255,255,0.06); border-radius:16px; backdrop-filter:blur(8px)"
         )
 
         def show_success():
@@ -190,6 +197,7 @@ def setup_ui(fastapi_app):
                 )
 
         with wrapper:
+            ui.html('<div style="width:36px;height:36px;background:linear-gradient(135deg,#0369a1,#4f46e5);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:white;font-family:monospace">&lt;/&gt;</div>')
             ui.label("Register").style("font-size:1.5rem; font-weight:600; color:#38bdf8")
             email = ui.input("Email").props("type=email").classes("w-full").style(
                 "background:#1e293b; border:1px solid #334155; border-radius:8px"
@@ -226,16 +234,28 @@ def setup_ui(fastapi_app):
                 show_success()
 
             ui.button("Create account", on_click=do_register).style(
-                "background:#0369a1; color:white; width:100%"
+                "background:linear-gradient(135deg,#0369a1,#4f46e5) !important; color:white; width:100%; border-radius:10px; font-weight:600"
             )
             ui.link("Already have an account? Sign in", "/").classes("text-sky-400 text-sm")
 
     @ui.page("/")
     async def index():
-        ui.query("body").style("background:#0f172a; color:#e2e8f0; font-family:system-ui; overflow:hidden")
+        ui.add_head_html('''<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">''')
+        ui.query("body").style("background:#0f172a; color:#e2e8f0; font-family:'Inter',system-ui; overflow:hidden")
 
         ui.add_head_html("""
 <style>
+:root {
+  --c-bg: #0f172a;
+  --c-surface: #1e293b;
+  --c-border: #334155;
+  --c-accent: #38bdf8;
+  --c-accent-2: #818cf8;
+  --c-muted: #94a3b8;
+  --c-warm: #fb923c;
+}
 .nicegui-markdown h1,.nicegui-markdown h2,.nicegui-markdown h3{
   color:#38bdf8;font-weight:600;margin-top:1rem;margin-bottom:0.4rem}
 .nicegui-markdown h1{font-size:1.4em}
