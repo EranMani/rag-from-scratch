@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-12 (Commit 25 complete)",
+  "last_updated": "2026-05-17 (Commit 26 ui-foundation done)",
   "status": "active",
   "current_commit": {
-    "number": "26",
-    "name": "nginx-config",
+    "number": "27",
+    "name": "ui-header",
     "status": "pending",
-    "assignee": "devops"
+    "assignee": "frontend"
   },
   "commits_done": [
     "01",
@@ -33,67 +33,71 @@
     "22",
     "23",
     "24",
-    "25"
+    "25",
+    "26"
   ],
   "commits_pending": [
-    "26",
     "27",
     "28",
-    "29"
+    "29",
+    "30",
+    "31",
+    "32",
+    "33"
   ],
-  "next_commit": "26",
+  "next_commit": "27",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "25",
-      "tests": "264/264 PASS — 52 new tests in test_scoring.py (full rewrite); pre-existing failures fixed in test_agent_state.py and test_chat_route.py",
-      "viktor": "PASS WITH COMMENTS — 6 advisories (stale docstring, magic number, silent discard, JSON type guard, comment suggestion, session_history param coverage)",
-      "sage": "not triggered — pure backend compute, no auth/secrets/external API",
-      "quinn": "NEEDS ADDITIONS (non-blocking) — 3 gaps logged for C28: cross-session persistence, migration idempotency, mastery level regression",
-      "mira": "not triggered — internal scoring service, no user-facing behavior",
-      "gate_wave": "Viktor + Quinn (5-commit cadence wave at C25)"
+      "number": "26",
+      "tests": "262/264 PASS — 2 pre-existing failures in test_update_profile_node.py (unrelated to Commit 26; logged as handoff to Rex for resolution before Commit 32)",
+      "viktor": "PASS WITH COMMENTS — 3 advisories: !important acknowledged debt; CWE-829 Google Fonts CDN trade-off logged; style/link separation correct",
+      "sage": "PASS — LOW: CWE-829 Google Fonts CDN (accepted for portfolio; self-host path documented)",
+      "quinn": "ADEQUATE — style-string-only commit; visual+integration is the correct testing gate",
+      "mira": "Product flag resolved — C28 spec updated with design baseline language (auth aesthetic continuity)",
+      "gate_wave": "Viktor + Sage + Quinn + Mira (all 4 — new UI page pattern with external CDN)"
     },
     "commit_10": {
       "number": "10",
-      "tests": "107/107 PASS \u2014 +13 new (test_graph.py \u00d76, test_chat_route.py \u00d74), \u22125 deleted (test_conversation_memory.py)",
-      "viktor": "PASS WITH COMMENTS \u2014 3 advisories: dead code in generator.py (stale SessionMemory docstring), stale forward-ref comment in state.py, chain.py placeholder circular justification",
-      "sage": "PASS \u2014 MEDIUM resolved (NiceGUI storage_secret moved to env var); LOW standing: session_id as MemorySaver key without user-identity binding",
+      "tests": "107/107 PASS — +13 new (test_graph.py ×6, test_chat_route.py ×4), −5 deleted (test_conversation_memory.py)",
+      "viktor": "PASS WITH COMMENTS — 3 advisories: dead code in generator.py (stale SessionMemory docstring), stale forward-ref comment in state.py, chain.py placeholder circular justification",
+      "sage": "PASS — MEDIUM resolved (NiceGUI storage_secret moved to env var); LOW standing: session_id as MemorySaver key without user-identity binding",
       "quinn": "ADEQUATE (after gate-fix pass adding 4 route-layer tests)",
-      "mira": "non-blocking \u2014 assessed_topics naming documented in DECISIONS.md; streaming render gap flagged for Aria (Commit 19)",
+      "mira": "non-blocking — assessed_topics naming documented in DECISIONS.md; streaming render gap flagged for Aria (Commit 19)",
       "gate_wave": "viktor (Opus) + sage + quinn + mira (streaming/async/multi-domain commit)"
     },
     "commit_09": {
       "number": "09",
-      "tests": "98/98 PASS \u2014 18 new tests in test_generate_node.py",
-      "viktor": "PASS WITH COMMENTS \u2014 4 advisories: bare dict return annotation, response:AIMessage type narrowing, empty-docs silent path, import-inside-test pattern",
+      "tests": "98/98 PASS — 18 new tests in test_generate_node.py",
+      "viktor": "PASS WITH COMMENTS — 4 advisories: bare dict return annotation, response:AIMessage type narrowing, empty-docs silent path, import-inside-test pattern",
       "sage": "not triggered",
       "quinn": "not triggered",
       "gate_wave": "viktor only (single-domain async node)"
     },
     "commit_08": {
       "number": "08",
-      "tests": "80/80 PASS \u2014 11 new tests in test_retrieve_node.py",
-      "viktor": "PASS WITH COMMENTS \u2014 dead import (CircuitState) removed; 2 advisories: return type annotation, import-inside-test pattern",
+      "tests": "80/80 PASS — 11 new tests in test_retrieve_node.py",
+      "viktor": "PASS WITH COMMENTS — dead import (CircuitState) removed; 2 advisories: return type annotation, import-inside-test pattern",
       "sage": "not triggered",
       "quinn": "not triggered",
       "gate_wave": "viktor only (single-domain node, no auth/async complexity)"
     },
     "commit_07": {
       "number": "07",
-      "tests": "69/69 PASS \u2014 16 new tests in test_agent_state.py",
-      "viktor": "PASS (after 1 revision) \u2014 4 findings resolved: cache_hit/user_level Literal, docs typed, test file added",
+      "tests": "69/69 PASS — 16 new tests in test_agent_state.py",
+      "viktor": "PASS (after 1 revision) — 4 findings resolved: cache_hit/user_level Literal, docs typed, test file added",
       "sage": "not triggered",
       "quinn": "not triggered",
       "gate_wave": "viktor only (schema-only commit)"
     },
     "commit_06": {
       "number": "06",
-      "tests": "53/53 PASS \u2014 11 new tests in test_profile_api.py",
-      "viktor": "PASS WITH COMMENTS \u2014 dead import + test tuple expression fixed; 2 advisories remain (TypedDict for current_user, comment overlap)",
-      "sage": "NON-BLOCKING \u2014 S06-01 (CWE-209 user_id in 404 detail) resolved; 2 LOWs logged as arch debt",
-      "quinn": "ADEQUATE (after fixes) \u2014 tuple expression fixed; deleted-account test gap accepted as conscious coverage debt",
-      "gate_wave": "viktor + sage + quinn (two passes \u2014 pre-commit cleanup between)"
+      "tests": "53/53 PASS — 11 new tests in test_profile_api.py",
+      "viktor": "PASS WITH COMMENTS — dead import + test tuple expression fixed; 2 advisories remain (TypedDict for current_user, comment overlap)",
+      "sage": "NON-BLOCKING — S06-01 (CWE-209 user_id in 404 detail) resolved; 2 LOWs logged as arch debt",
+      "quinn": "ADEQUATE (after fixes) — tuple expression fixed; deleted-account test gap accepted as conscious coverage debt",
+      "gate_wave": "viktor + sage + quinn (two passes — pre-commit cleanup between)"
     }
   },
   "parallel_groups_available": [
@@ -104,7 +108,7 @@
         "02",
         "03"
       ],
-      "note": "Phase 1 stabilize \u2014 all touch distinct files"
+      "note": "Phase 1 stabilize — all touch distinct files"
     },
     {
       "wave": "B",
@@ -126,6 +130,17 @@
       "new_agent": "Lara (curriculum-specialist) — RAG curriculum expert, owns knowledge-base/ artifacts only",
       "slug_schema_change": "6 → 8 slugs. Drop: rag_fundamentals (split), langchain (removed). Add: rag_pipeline_architecture, embeddings_and_similarity, context_and_prompting, evaluation_and_metrics. Keep: chunking_strategies, vector_databases, retrieval_methods, production_patterns.",
       "approved_by": "Team Lead · 2026-05-11"
+    },
+    {
+      "date": "2026-05-17",
+      "trigger": "UI quality — NiceGUI default appearance deemed insufficient for portfolio presentation. Team Lead requires a modern, visually striking UI that conveys 'wow' on first impression.",
+      "commits_added": ["26 ui-foundation", "27 ui-header", "28 ui-chat", "29 ui-sidebar-admin"],
+      "commits_reordered": ["26 nginx-config → 30", "27 aws-ec2-deployment → 31", "28 integration-tests → 32", "29 documentation → 33"],
+      "commits_removed": [],
+      "new_agent": "Aria (frontend) — already active; 4 new UI redesign commits assigned",
+      "scope_rule": "Visual-only changes to src/app/ui.py. Hard rule: no streaming logic, no auth handlers, no state touched in any of the 4 commits.",
+      "consulted": "Aria (design direction + commit structure) + Mira (scope and timing review). Both consulted before replan drafted.",
+      "approved_by": "Team Lead · 2026-05-17"
     }
   ],
   "claude_decisions": [
@@ -137,26 +152,26 @@
     {
       "date": "2026-05-08",
       "decision": "AgentState designed for full arc in Commit 07",
-      "reason": "Nova flagged: retroactive state schema changes cascade through compiled LangGraph graph \u2014 design once for commits 07-17"
+      "reason": "Nova flagged: retroactive state schema changes cascade through compiled LangGraph graph — design once for commits 07-17"
     },
     {
       "date": "2026-05-08",
-      "decision": "graph.invoke() synchronous inside asyncio.to_thread() \u2014 SUPERSEDED by streaming decision 2026-05-09",
+      "decision": "graph.invoke() synchronous inside asyncio.to_thread() — SUPERSEDED by streaming decision 2026-05-09",
       "reason": "Nova: consistent with existing chain.py pattern. Async graph would require rewriting all synchronous node I/O. Superseded: Eran Mani redesigned to graph.astream_events() + SSE StreamingResponse (Commit 10) for production streaming."
     },
     {
       "date": "2026-05-09",
       "decision": "graph.astream_events() + SSE StreamingResponse replaces synchronous graph.invoke()",
-      "reason": "Eran Mani: this is a production system \u2014 streaming responses are a hard requirement. LangGraph's astream_events() emits on_chat_model_stream events token-by-token; chat.py returns StreamingResponse(media_type='text/event-stream')."
+      "reason": "Eran Mani: this is a production system — streaming responses are a hard requirement. LangGraph's astream_events() emits on_chat_model_stream events token-by-token; chat.py returns StreamingResponse(media_type='text/event-stream')."
     },
     {
       "date": "2026-05-09",
-      "decision": "AgentState uses Annotated[list[BaseMessage], add_messages] \u2014 not conversation_history: str",
+      "decision": "AgentState uses Annotated[list[BaseMessage], add_messages] — not conversation_history: str",
       "reason": "Eran Mani: production streaming requires LangGraph's native message management. add_messages reducer accumulates turns; session_id is passed as thread_id in graph config, enabling MemorySaver checkpointer to reconstruct history automatically."
     },
     {
       "date": "2026-05-09",
-      "decision": "SessionMemory class deleted in Commit 10 \u2014 LangGraph MemorySaver replaces it",
+      "decision": "SessionMemory class deleted in Commit 10 — LangGraph MemorySaver replaces it",
       "reason": "Eran Mani: LangGraph's checkpointer handles cross-turn persistence natively via thread_id config. The SessionMemory class (src/rag/memory/conversation.py) is redundant and must not survive Commit 10."
     },
     {

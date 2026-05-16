@@ -1563,3 +1563,21 @@ output for "simple" vs "accessible." The differentiation that actually changes L
 retrieval works"), (b) explicit vocabulary instructions ("define every technical term the first time"),
 and (c) structural guidance ("break into numbered steps" vs "precision over verbosity"). All five
 templates use one or more of these levers rather than generic tone labels.
+
+---
+
+## 📋 Replan Notice — 2026-05-17
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** nothing
+
+**What was added:** Commits 26–29 — four visual UI redesign commits (Aria's responsibility).
+Visual-only changes to `src/app/ui.py`. No AI/agent layer impact, no graph or prompt changes.
+
+**What changed in your sequence:**
+- Old Commit 28 `integration-tests` → **Commit 32**
+
+**Your next commit is now: Commit 32 `integration-tests`** (co-owned with Rex)
+Spec updated: `commit-specs/commit-32.md`.
+Dependency unchanged: Commit 32 still depends on Commit 25 (all AI features complete).

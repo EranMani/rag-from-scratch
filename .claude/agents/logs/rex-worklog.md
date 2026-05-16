@@ -265,6 +265,41 @@ Co-Authored-By: Rex <rex.stockagent@gmail.com>
 
 ---
 
+## 📋 Replan Notice — 2026-05-17
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** nothing
+
+**What was added:** Commits 26–29 — four visual UI redesign commits (Aria's responsibility).
+Visual-only changes to `src/app/ui.py`. No backend impact, no profile logic changes.
+
+**What changed in your sequence:**
+- Old Commit 28 `integration-tests` → **Commit 32**
+
+**Your next commit is now: Commit 32 `integration-tests`**
+Spec updated: `commit-specs/commit-32.md`.
+Dependency unchanged: Commit 32 still depends on Commit 25 (all backend features complete — UI redesign is visual only and does not introduce new backend features).
+
+---
+
+## 📋 Handoff — Pre-existing Test Failures (2026-05-17)
+
+**From:** Claude (Orchestrator) — flagged during Commit 26 test gate run
+
+**2 tests are currently failing in `tests/test_update_profile_node.py`:**
+
+1. `TestGate2InteractionCountIncrements::test_interaction_count_not_incremented_on_error_path`
+2. `TestGate3FallbackPathSkipsDB::test_get_profile_not_called_on_error`
+
+**Root cause:** `update_profile_node.py` was changed by EranMani (direct commit `a6d11e8`) to call `get_profile_by_user_id` even on the `assessment_error=True` path — to increment `interaction_count`. The tests assert it should NOT be called on that path. Design changed; tests were never updated.
+
+**Not caused by Aria's Commit 26** — confirmed. Aria only touched `src/app/ui.py`.
+
+**Action required before Commit 32:** Investigate whether the design intent (call DB even on error path) is correct. If correct → update the 2 failing tests to match the new behavior. If incorrect → revert the change in `update_profile_node.py`. Team Lead chose Option B (treat as pre-existing debt, do not block Commit 26 gate) — this is your pre-Commit 32 prep item.
+
+---
+
 ## Session 03 — Commit 03: `feat: inject conversation history into RAG generator prompt`
 
 **Date:** 2026-05-09

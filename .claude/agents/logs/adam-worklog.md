@@ -67,3 +67,27 @@
 
 **Verification:**
 - `docker inspect rag-chroma` health log: ExitCode 0, FailingStreak 0, Status `healthy` on first probe after restart
+
+---
+
+## 📋 Replan Notice — 2026-05-17
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** nothing
+
+**What was added:** Commits 26–29 — four visual UI redesign commits (Aria's responsibility).
+- Commit 26 `ui-foundation` — Inter font, palette tokens, auth page glass morphism
+- Commit 27 `ui-header` — brand mark, refined typography
+- Commit 28 `ui-chat` — gradient bubbles, AI accent, knowledge check prominence
+- Commit 29 `ui-sidebar-admin` — mastery badge, score pills, stat card accents
+
+All four touch only `src/app/ui.py` with a hard scope rule (no streaming, no auth logic).
+
+**What changed in your sequence:**
+- Old Commit 26 `nginx-config` → **Commit 30**
+- Old Commit 27 `aws-ec2-deployment` → **Commit 31**
+
+**Your next commit is now: Commit 30 `nginx-config`**
+Specs updated: `commit-specs/commit-30.md` and `commit-specs/commit-31.md`.
+Dependency updated: Commit 30 now depends on Commit 29 (last UI commit).

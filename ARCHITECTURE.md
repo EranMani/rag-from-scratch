@@ -378,4 +378,14 @@ Introduced in Commit 21. `docker-compose.prod.yml` is a standalone file (not a c
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 - **Grafana dashboards** — pre-built dashboard exports for request latency / cache hit rate — Commit 26 or 27
 
-*Last updated: 2026-05-11 — Commit 24 complete (assessment-engine-rewrite: two-mode assess_node, EvaluationOutput, 4 new AgentState fields)*
+## UI Layer — Font and Design System (C26)
+
+**Google Inter font:** Injected via `ui.add_head_html()` separately in each `@ui.page` function (`login_page`, `register_page`, `index`). NiceGUI creates a fresh HTML document per page route — a font link injected in `index()` does not propagate to `/login` or `/register`.
+
+**CSS palette token system:** A `:root` CSS variable block (`--c-bg`, `--c-surface`, `--c-border`, `--c-accent`, `--c-accent-2`, `--c-muted`, `--c-warm`) is defined at the top of the single `<style>` block in `index()`. Tokens are consumed by subsequent UI commits (C27–29). Auth pages use hardcoded hex values (pre-token).
+
+**Auth page redesign pattern:** Login and register pages use radial gradient body background, glass morphism card (`backdrop-filter:blur(8px)` + `rgba` surface), inline SVG logo mark via `ui.html()`, and gradient CTA button. Glass morphism requires no fallback for this portfolio audience.
+
+---
+
+*Last updated: 2026-05-17 — Commit 26 complete (ui-foundation: Inter font, palette tokens, auth page redesign)*

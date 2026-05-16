@@ -1532,3 +1532,60 @@ if not migrated:
 **Test coverage:** 264/264 PASS
 
 ---
+
+**Commit 26 — `ui-foundation`** · 2026-05-17 · Aria · `architectural | new feature`
+
+> **In one sentence:** Established the visual foundation for all three UI pages — CSS palette tokens, Inter font, glass-morphism auth cards, and gradient CTA button — surfacing two non-obvious constraints: NiceGUI's per-page HTML isolation and Quasar's post-render style override.
+
+**Interview talking point:**
+> **Q:** What surprised you most about styling a NiceGUI application, and how did you work around it?
+>
+> **A:** Two things. First, NiceGUI renders each `@ui.page` route as a completely independent HTML document — any `add_head_html()` call in one page function is invisible to every other route. That means global font or CSS injection has to be repeated in each page function, not done once at module level. Second, Quasar (the component library NiceGUI uses) re-applies its own `background` style to buttons after the initial render, wiping any inline style you set. The immediate fix is `!important`; the cleaner fix is a Quasar CSS variable override, which we deferred to the C27–C29 component pass.
+
+**What happened and why:**
+- Added the Inter font (`<link>` from Google Fonts CDN) inside `add_head_html()` in all three page functions — `login_page`, `register_page`, and `index` — because each route is a fresh HTML document with its own `<head>`
+- Defined CSS palette tokens (sky, indigo, slate, emerald, amber, red) as `:root` CSS custom properties inside a `<style>` block in `index()` only; auth pages still use hardcoded hex values because no C26 component consumes tokens there
+- Redesigned auth pages with a radial gradient body background and a glass-morphism card (`backdrop-filter:blur(8px)` + semi-transparent `rgba(30,41,59,0.8)` surface), establishing the visual register the rest of the UI must match
+- Added an inline SVG logo mark via `ui.html()` and styled the CTA button with a sky→indigo gradient; `!important` was required to prevent Quasar from overwriting the gradient on render
+- Body style in `index()` updated to include `font-family:'Inter',system-ui` as the application-wide type stack
+
+**Design pattern:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Per-page head injection | `add_head_html()` called independently in each `@ui.page` function | NiceGUI serves each route as a separate HTML document; there is no shared `<head>` across routes. A single top-level injection call does nothing for other routes |
+| Style/link separation | Font `<link>` tags in one `add_head_html()` call; CSS in a second `<style>` block | Mixing `<link>` elements inside a `<style>` block is invalid HTML and silently fails in most browsers |
+| `!important` override (debt marker) | CTA button gradient marked `!important` to survive Quasar's post-render style pass | Quasar's button component re-applies its own background after the DOM is ready. `!important` wins the cascade; a Quasar CSS variable override is the clean alternative and is deferred to C27–C29 |
+
+**Reasoning & discovery:**
+1. The font was injected once in `index()` and tested — login and register pages rendered without Inter. The cause: NiceGUI's page router returns a complete HTML document per route, not a shared SPA shell. Each page function is the entire document for that URL.
+2. The `<link>` tag was initially placed inside the same `<style>` block as the CSS palette. The font loaded inconsistently. Separating link and style into two `add_head_html()` calls resolved it — `<link>` inside `<style>` is not valid HTML.
+3. The CTA button gradient disappeared after the initial paint. Chrome DevTools showed Quasar's component JS writing `background: var(--q-primary)` to the element after render, clobbering the inline gradient. `!important` on the gradient declaration wins the specificity battle; it is logged as a known debt item for the component-styling pass.
+
+**The key change:**
+```python
+# src/app/ui.py — per-page font injection pattern
+# Wrong: injecting only in index() leaves auth pages without the font
+@ui.page('/login')
+async def login_page():
+    # font link NOT here → login renders in system-ui, not Inter
+    ...
+
+# Correct: each page function injects its own <link> tags
+@ui.page('/login')
+async def login_page():
+    ui.add_head_html(
+        '<link rel="preconnect" href="https://fonts.googleapis.com">'
+        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+        '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">'
+    )
+    ...
+```
+
+**Google Fonts CDN trade-off:**
+The font is loaded from Google's CDN (`fonts.googleapis.com`). This leaks each visitor's IP address to Google on first load (CWE-829: inclusion of functionality from untrusted control sphere). Sage flagged this as LOW severity — accepted for portfolio context. The hardened alternative is self-hosting the Inter font files in `src/app/static/` and serving them locally, which eliminates the third-party request entirely.
+
+**Files touched:**
+- `src/app/ui.py` — Inter font injection (all 3 pages), CSS palette tokens in `index()`, glass-morphism auth card styles, inline SVG logo, gradient CTA button with `!important` override, body font-family set in `index()`
+
+---

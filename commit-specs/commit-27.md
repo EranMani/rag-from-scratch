@@ -1,61 +1,42 @@
-# Commit 27 Spec — `aws-ec2-deployment`
-> **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
+# Commit 27 Spec — `ui-header`
+> **Project:** rag-from-scratch · **Assignee:** Aria · **Load only for the active commit.**
 
 ---
 
-### Commit 27 — `aws-ec2-deployment`
+### Commit 27 — `ui-header`
 
-**Commit message:** `feat: EC2 deployment scripts — systemd, SSL, swapfile, backup`
+**Commit message:** `feat: UI header redesign — brand mark, Inter typography, refined nav`
 
 **Body:**
-All scripts and config needed for a clean first deploy on a fresh EC2 instance.
+Redesigns the application header. Scope is strictly the `ui.header()` block in `index()`.
 
-`scripts/deploy.sh`:
-- Install Docker + Docker Compose plugin (not v1)
-- Clone repository to `/opt/rag-from-scratch`
-- `.env.prod` validation guard: `grep JWT_SECRET .env.prod || (echo "FATAL: JWT_SECRET missing" && exit 1)`
-- `docker compose -f docker-compose.prod.yml build`
-- `docker compose -f docker-compose.prod.yml up -d`
-- Ollama model pre-pull: `docker exec rag-ollama ollama pull gemma3:4b`
-- Run Certbot initial cert acquisition
+Changes:
+- Replace plain "Educational RAG System" text with a flex row:
+  - SVG brand mark (`</>` bracket icon in sky→indigo gradient, ~20px) via `ui.html()`
+  - "RAG Tutor" in Inter 600 weight (`font-weight: 600; font-size: 1.25rem`) —
+    shorter and more product-like than the full name
+- Subtitle: tighten to `font-size: 0.75rem; color: #64748b`
+- Replace `border-bottom: 1px solid #334155` with
+  `box-shadow: 0 1px 0 rgba(51,65,85,0.8)` — reads thinner on dark backgrounds
+- User email label: tighten to `font-size: 0.72rem`
+- Log out button: add `:hover` color transition via `.q-btn:hover` rule in the
+  existing `<style>` block (do not add a new `add_head_html` call)
 
-`systemd/rag-app.service`:
-- `After=docker.service`, `Requires=docker.service`
-- `ExecStart` runs `docker compose -f docker-compose.prod.yml up -d`
-- `ExecStop` runs `docker compose -f docker-compose.prod.yml down`
-- Ensures stack restarts after EC2 reboot
+**Scope rule (hard):** Only `src/app/ui.py` is modified. Only the `with ui.header()`
+block (~lines 299–321) and one CSS rule added to the existing `<style>` block are
+touched. Do not modify tab definitions, panels, the footer, or any logic below the header.
 
-`scripts/setup-swap.sh`:
-- Creates 4 GB swapfile at `/swapfile`
-- Cheap insurance against OOM kills during Ollama model loading spikes
-
-`scripts/backup.sh`:
-- Tarballs `data/app_users.db` (SQLite) and `chroma_data` Docker volume to S3
-- Intended to run via daily cron: `0 3 * * * /opt/rag-from-scratch/scripts/backup.sh`
-- S3 bucket and IAM role documented in script header
-
-`scripts/health-check.sh`:
-- Hits `https://{domain}/api/health`
-- Returns 0 on success, 1 on failure
-
-Target EC2 instance: **t3.xlarge** (4 vCPU, 16 GB RAM) with 32 GB gp3 EBS volume.
-Rationale: Ollama (gemma3:4b) needs ~3.5 GB RAM, ELK stack needs ~2 GB, app + ChromaDB
-+ Redis need ~1 GB. t3.large (8 GB) is insufficient with monitoring running.
-
-**Assignee:** Adam (`adam.stockagent@gmail.com`)
+**Assignee:** Aria
 
 **Files touched:**
-- `scripts/deploy.sh` (new)
-- `scripts/health-check.sh` (new)
-- `scripts/backup.sh` (new)
-- `scripts/setup-swap.sh` (new)
-- `systemd/rag-app.service` (new)
+- `src/app/ui.py` (ui.header block + one CSS rule in existing style block)
 
 **Depends on:** 26
 
 **Testing — done when:**
-- [ ] `scripts/deploy.sh` runs on a fresh Ubuntu EC2 instance without errors
-- [ ] `systemctl status rag-app` shows active after reboot
-- [ ] `scripts/health-check.sh` returns 0 on a running stack
-- [ ] Ollama responds with `gemma3:4b` after deploy (not on-demand pull)
-- [ ] `.env.prod` missing → deploy.sh exits with FATAL message, not silently continues
+- [ ] Header shows SVG brand mark + "RAG Tutor" text side by side
+- [ ] Inter font applied to header text
+- [ ] Box-shadow visible (thin line) replacing the explicit border
+- [ ] User email + logout button still display and function correctly for logged-in users
+- [ ] Anonymous / logged-out state still shows "Sign in" and "Register" links
+- [ ] Functional behavior unchanged: logout clears storage and navigates to "/"

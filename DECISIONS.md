@@ -644,4 +644,32 @@
 - **Reason:** A global migration flag requires schema changes before the migration can run — a bootstrapping problem on fresh installs. A `migrated` column would require an ALTER TABLE. The per-row sentinel is self-contained: the presence of `rag_pipeline_architecture` in the existing `topic_scores` JSON proves the row was migrated under the new 8-slug curriculum; its absence proves it has old 6-slug data. No additional column, no separate table, no ALTER TABLE.
 - **Consequences:** The sentinel key (`rag_pipeline_architecture`) must never be renamed or removed without updating the migration check. If a future migration requires a different sentinel, a new check function should be written — not the existing one patched. The function is crash-safe: rows migrated before a crash are skipped on resume because the sentinel was already written; in-progress rows are re-migrated (idempotent from-scratch).
 
-*Last updated: 2026-05-12 — Commit 25 complete (profile-scoring-rewrite: spaced repetition, phase gates, idempotent migration)*
+## UI Foundation (C26)
+
+### Font injection per `@ui.page` (Commit 26)
+- **Date:** 2026-05-17
+- **Commit:** 26
+- **Decided by:** Aria
+- **Decision:** Google Inter font is injected via `ui.add_head_html()` independently in each of the three `@ui.page` functions (`login_page`, `register_page`, `index`). Font links cannot be shared via a single injection point.
+- **Reason:** NiceGUI initializes a fresh HTML document for every `@ui.page` route. A `ui.add_head_html()` call in `index()` is scoped to the `/` document only — it has no effect on `/login` or `/register`. Each page function must independently inject its `<link>` tags.
+- **Consequences:** Three identical font injection blocks exist (DRY debt). A module-level `_FONT_LINK_HTML` constant would eliminate drift risk if the font URL or weight set changes. Accepted as advisory; the current approach is functionally correct and readable.
+
+### `!important` on Quasar button gradient (Commit 26)
+- **Date:** 2026-05-17
+- **Commit:** 26
+- **Decided by:** Aria
+- **Decision:** The CTA button gradient overrides use `background:linear-gradient(...) !important` via NiceGUI's `.style()` method.
+- **Reason:** Quasar's button component applies its own `background` inline style via a Vue component after render, overriding NiceGUI's `.style()` string. The `!important` flag is the only reliable override without modifying a shared CSS class in the `<style>` block.
+- **Alternatives considered:** Adding a `.q-btn.gradient-cta { background: ... }` rule in the `<style>` block with sufficient specificity. This is the cleaner long-term approach but requires adding a class name to the button element.
+- **Consequences:** Any future layered style on these buttons will require `!important` chaining or a refactor to the class-based approach. Noted as tech debt for the next style pass.
+
+### Google Fonts CDN accepted for portfolio app (Commit 26)
+- **Date:** 2026-05-17
+- **Commit:** 26
+- **Decided by:** Team Lead (implicit — no self-hosting requirement stated)
+- **Decision:** Inter is loaded from `fonts.googleapis.com` / `fonts.gstatic.com` CDN, not self-hosted.
+- **Reason:** Simpler setup for a portfolio project. Self-hosting requires bundling font files and configuring static file serving.
+- **Privacy trade-off:** Google receives user IP and browser fingerprint on every page load (CWE-829, flagged by Sage). Accepted for a non-production portfolio app.
+- **Consequences:** If this project is used with real users (beyond portfolio), self-host Inter via `@fontsource/inter` and remove the Google Fonts CDN link. No other code change required — same font rendering.
+
+*Last updated: 2026-05-17 — Commit 26 complete (ui-foundation: per-page font injection, Quasar button override, Google Fonts CDN trade-off)*

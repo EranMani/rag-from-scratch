@@ -1,36 +1,50 @@
-# Commit 28 Spec — `integration-tests`
-> **Project:** rag-from-scratch · **Assignee:** Rex + Nova · **Load only for the active commit.**
+# Commit 28 Spec — `ui-chat`
+> **Project:** rag-from-scratch · **Assignee:** Aria · **Load only for the active commit.**
 
 ---
 
-### Commit 28 — `integration-tests`
+### Commit 28 — `ui-chat`
 
-**Commit message:** `test: full graph integration tests and edge case coverage`
+**Commit message:** `feat: UI chat area redesign — gradient bubbles, AI accent, knowledge check prominence`
+
+**Design baseline:** The auth pages (Commit 26) set the visual tone — radial gradient, glass morphism, sky→indigo gradient accents, Inter font. The chat area must match that aesthetic register. A reviewer who has seen the login page should feel visual continuity when they arrive in the chat. Do not fall below the auth page's quality signal.
 
 **Body:**
-Integration tests that exercise the full LangGraph pipeline with real profile state
-transitions. These are end-to-end tests, not unit tests — they verify that commits
-07–25 work correctly as a system, including the curriculum-driven assessment and
-8-slug scoring model.
+Visual redesign of the chat message area only. No changes to streaming logic,
+SSE event handlers, `@ui.refreshable` functions, or auth. Strictly style string
+changes on existing components.
 
-Test scenarios:
-- Fresh user (no profile): graph runs, test question administered, profile created with first scores
-- Return user (existing profile): graph runs, test answer evaluated, delta merged into existing scores
-- Assessment failure: graph takes fallback edge, profile not updated, answer still returned
-- Anonymous user (`user_id=None`): graph runs, no profile writes, no error
-- Empty knowledge base (no docs): graph returns graceful "no information" answer
-- Phase gate check: user at Phase 1 passing threshold advances to Phase 2 topic testing
-- Score migration: existing profile with pre-replan slugs migrates correctly on startup
+Changes:
+- **Welcome card:** add `border-left: 3px solid #38bdf8` to the initial message card
+- **User message bubble:** change background from flat `#0369a1` to
+  `linear-gradient(135deg, #0369a1, #1d4ed8)`; keep `border-radius: 12px`
+- **AI message card:** add `border-left: 3px solid #38bdf8` — disambiguates AI from
+  user at a glance without any layout changes
+- **Knowledge Check card:** currently visually buried — make it prominent:
+  - Background: `rgba(129,140,248,0.08)`
+  - Border: `border: 1px solid rgba(129,140,248,0.4)`
+  - Box shadow: `box-shadow: 0 0 12px rgba(129,140,248,0.15)`
+  - "Knowledge Check" label: `font-weight: 600; color: #a78bfa`
+  - Prepend `✦ ` to the label text string
+- **Thinking indicator label:** change color from `#94a3b8` to `#818cf8`
 
-**Assignee:** Rex + Nova (coordinate — Rex owns profile assertions, Nova owns graph assertions)
+**Scope rule (hard):** Only `src/app/ui.py` is modified. Only the `.style()` string
+arguments on the welcome card, user bubble card, AI response card, Knowledge Check
+card, and thinking label are changed. Do not touch any `async` / `await` logic,
+`ui.update()` calls, `first_token_received`, `stage_timer`, `response_col.set_visibility()`,
+or SSE parsing code.
+
+**Assignee:** Aria
 
 **Files touched:**
-- `tests/test_integration.py` (new)
+- `src/app/ui.py` (welcome card, user bubble, AI card, knowledge check card, thinking label — style strings only)
 
-**Depends on:** 25 (all features complete)
+**Depends on:** 27
 
 **Testing — done when:**
-- [ ] All 7 test scenarios pass
-- [ ] Tests do not require a live OpenAI key (Ollama or stubbed provider)
-- [ ] Profile state in SQLite is verifiably correct after each scenario
-- [ ] DB migration idempotency confirmed in a dedicated test scenario
+- [ ] User message bubbles show gradient (not flat blue)
+- [ ] AI message card has visible left blue border
+- [ ] Knowledge Check card is visually prominent — indigo border + glow
+- [ ] Streaming still works: tokens appear progressively, response card reveals on first token
+- [ ] Thinking dots still animate and disappear correctly on response completion
+- [ ] Welcome message renders for anonymous and logged-in users without errors

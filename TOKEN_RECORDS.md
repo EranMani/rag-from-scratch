@@ -428,6 +428,7 @@ No token data recorded. Tracking began at Commit 10.
 | 23 | scoring-model-product-spec | 124,106 | none | over — doc-only | both impl agents on Sonnet (should be Haiku); Ryan over 5-tool cap (used 8) |
 | 24 | assessment-engine-rewrite | 171,637 | Sage only | **over — +82k** | Nova 26 tool uses + commit without approval; Sage 51k (diff-in-prompt); Ryan 43k full entry |
 | 25 | profile-scoring-rewrite | 245,984 | Viktor + Quinn | **over — tool cap** | Rex hit cap; orchestrator fixed 4 issues; Viktor 36 tool uses; Quinn non-blocking |
+| 26 | ui-foundation | 124,540 | Viktor + Sage + Quinn + Mira | **over** | Full gate wave; Aria clean (51k); 4 reviewers on Sonnet (should be Haiku) |
 
 ---
 

@@ -122,7 +122,12 @@
       "Bash(git diff *)",
       "Read(//tmp/**)",
       "Bash(grep *)",
-      "PowerShell(python -c \"import ast; src=open\\('D:/AI/_My_Projects/rag-from-scratch/src/app/ui.py', encoding='utf-8'\\).read\\(\\); ast.parse\\(src\\); print\\('Syntax OK'\\)\")"
+      "PowerShell(python -c \"import ast; src=open\\('D:/AI/_My_Projects/rag-from-scratch/src/app/ui.py', encoding='utf-8'\\).read\\(\\); ast.parse\\(src\\); print\\('Syntax OK'\\)\")",
+      "Bash(.venv/Scripts/python -m pytest tests/test_assess_node.py -v --tb=short)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(Get-Content *)",
+      "PowerShell(conda env *)"
     ]
   }
 }

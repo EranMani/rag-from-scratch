@@ -35,10 +35,14 @@
 | 23 | scoring-model-product-spec | product + curriculum-specialist | ✅ done · 2026-05-11 |
 | 24 | assessment-engine-rewrite | ai-engineer | ✅ done · 2026-05-11 |
 | 25 | profile-scoring-rewrite | backend | ✅ done · 2026-05-12 |
-| 26 | nginx-config | devops | pending |
-| 27 | aws-ec2-deployment | devops | pending |
-| 28 | integration-tests | backend + ai-engineer | pending |
-| 29 | documentation | tech-writer | pending |
+| 26 | ui-foundation | frontend | ✅ done · 2026-05-17 |
+| 27 | ui-header | frontend | pending |
+| 28 | ui-chat | frontend | pending |
+| 29 | ui-sidebar-admin | frontend | pending |
+| 30 | nginx-config | devops | pending |
+| 31 | aws-ec2-deployment | devops | pending |
+| 32 | integration-tests | backend + ai-engineer | pending |
+| 33 | documentation | tech-writer | pending |
 
 ---
 

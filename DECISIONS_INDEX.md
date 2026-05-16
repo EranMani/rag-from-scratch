@@ -1,6 +1,11 @@
 # Decisions Index
 *Always-loaded companion to DECISIONS.md. One-liner per decision — full prose in DECISIONS.md.*
-*Last updated: 2026-05-12 — Commit 25*
+## UI Foundation (C26)
+68. **Font injection per `@ui.page`** — NiceGUI creates a fresh HTML document per route; font links must be injected in each page function independently
+69. **`!important` on Quasar button gradient** — Quasar re-applies its own background after render; `!important` is the reliable override; class-based approach is the clean future fix
+70. **Google Fonts CDN accepted (portfolio)** — privacy trade-off logged (CWE-829); self-host `@fontsource/inter` if real users added
+
+*Last updated: 2026-05-17 — Commit 26*
 
 ---
 

@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: thinking label visibility bug fix · 2026-05-15*
+*Last updated: Commit 26 ui-foundation · 2026-05-17*
 
-**Last completed:** Fix `thinking` label not being hidden after SSE stream completes ✅
+**Last completed:** Commit 26 `ui-foundation` — Inter font, palette tokens, auth page redesign ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -35,6 +35,7 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 10 | 26 | ✅ Done | Font injected per-page (3 separate add_head_html calls); CSS tokens prepended to single style block in index() |
 | 1 | 19 | ✅ Done | Profile panel as nested @ui.refreshable; redirect unauthenticated users to /login |
 | 2 | 20 | ✅ Done | _STAGE_LABELS at module level; ui.timer(2.5) with mutable closure list for stage advancement |
 | 3 | bug fix | ✅ Done | Footer hoisted to page level; register_page guard simplified to verify_stored_bearer() only |
@@ -44,6 +45,48 @@
 | 7 | feature | ✅ Done | Tab bar Chat/Admin; admin router; footer visibility callback; closure capture for delete buttons |
 | 8 | bug+redesign | ✅ Done | White panel bg fix; admin tab as SaaS dashboard: header strip, stat cards, ui.table slot injection, health + monitoring sidebar |
 | 9 | bug fix | ✅ Done | thinking label: set_visibility(False) instead of delete() to avoid client-context error after await |
+
+---
+
+## Session 10 — Commit 26: ui-foundation
+
+**Date:** 2026-05-17
+**Status:** ✅ Done
+
+### Task Brief
+Establish the visual foundation for the UI redesign: Inter font via Google Fonts, CSS palette tokens as `:root` variables, and a full redesign of both auth pages (login, register) — radial gradient background, glass morphism card, logo mark, gradient CTA button.
+
+### Approach
+The initial read confirmed three separate `@ui.page` functions — `login_page`, `register_page`, and `index`. Each is its own HTML document, which is the core constraint here: a `ui.add_head_html` call in `index()` does not propagate to `/login` or `/register`. This is an easy mistake to make if you think of NiceGUI as a single-page app; it is not. Each `@ui.page` route initializes a fresh browser document, so font links and meta tags must be injected in each page function independently.
+
+For `index()`, the font link was placed before the existing `add_head_html` style block rather than inside it. The existing block is a `<style>` tag — mixing `<link>` elements inside `<style>` is invalid HTML. Two separate `add_head_html` calls in `index()` are the correct approach here: the font `<link>` tags first, then the `<style>` block. This does not violate the "single add_head_html" rule, which specifically bans a second `<style>` block — the font injection is a `<link>` element, not a style block.
+
+The CSS palette tokens were prepended to the top of the existing `<style>` content in `index()`. This positions `:root` variable definitions before any rules that might reference them, which is correct cascade order. The variables are available for future commits (27-29) without any additional injection.
+
+The glass morphism card style on both auth pages uses `backdrop-filter:blur(8px)`. This works on all modern browsers but has no fallback for older Chromium builds. This is acceptable for a demo/educational app and consistent with the Vercel/Linear design reference.
+
+The logo mark is rendered via `ui.html()` as an inline `<div>` rather than an `<img>` or `<svg>` — no asset files needed, no import path concerns, renders identically across environments. The `font-family:monospace` on the `</>` glyph inside the logo is intentional: it makes the slash characters render at equal width, giving a cleaner code-bracket appearance.
+
+The `!important` on the button gradient is required because Quasar applies a `background` inline style via its button component that would otherwise take precedence over a class-based or `.style()` override. The gradient is set via the NiceGUI `.style()` method which maps to an inline `style` attribute on the element — however, Quasar's internal Vue component may re-apply its own background after render. The `!important` ensures the gradient survives that re-application.
+
+### Changes Made
+
+| File | Change |
+|---|---|
+| `src/app/ui.py` — `login_page` | Added font `add_head_html`; updated body style (radial gradient + Inter); updated wrapper style (glass morphism); added logo mark before Sign in label; gradient button with `!important` |
+| `src/app/ui.py` — `register_page` | Same four changes as login_page |
+| `src/app/ui.py` — `index` | Added font `add_head_html` (before style block); updated body style (Inter); prepended `:root` palette tokens to existing `<style>` block |
+
+### Self-Review Checklist
+- [x] Font `add_head_html` present in all three page functions (login_page, register_page, index)
+- [x] No `add_head_html` inside `@ui.refreshable` functions (profile_panel, admin_panel untouched)
+- [x] Single `<style>` block in `index()` — font links are `<link>` tags in a separate `add_head_html`, not a second `<style>` block
+- [x] `:root` tokens at top of `<style>` block — correct cascade order
+- [x] `!important` on both gradient button styles (login + register)
+- [x] Logo mark uses `ui.html()` — no asset files required
+- [x] `body` style in `index()` includes `overflow:hidden` — not dropped
+- [x] Footer visibility callback, tab structure, header, chat area — all untouched
+- [x] No streaming, auth, or async logic touched
 
 ---
 
@@ -401,3 +444,23 @@ The DB schema confirmed `mastery_level` defaults to `'novice'` (not null) at the
 **ARCHITECTURE.md:**
 - Profile sidebar panel — new UI component in `src/app/ui.py`; left sidebar (~280px) in a two-column layout on the main chat page. Fetches `GET /api/profile/me` on load. Decorated `@ui.refreshable` — Commit 20 calls `profile_panel.refresh()` to update after each chat turn.
 - Layout change: main chat page now uses `ui.row` (sidebar + chat column) instead of a single centered `ui.column`.
+
+---
+
+## 📋 Replan Notice — 2026-05-17
+
+The commit plan has been updated. You have four new commits assigned:
+
+**Commit 26** `ui-foundation` — Inter via Google Fonts, CSS palette tokens (`:root` vars), auth page redesign: radial gradient bg, glass morphism card, SVG logo mark, gradient CTA button.
+
+**Commit 27** `ui-header` — SVG brand mark + "RAG Tutor" product name in Inter 600, box-shadow instead of border-bottom, tightened subtitle.
+
+**Commit 28** `ui-chat` — Gradient user message bubbles, `border-left` accent on AI messages, prominent Knowledge Check card (indigo border + glow + `✦` prefix).
+
+**Commit 29** `ui-sidebar-admin` — Color-coded mastery tier badge, score pills (thin bar + % text), gap badge red-tint overhaul, colored top-border per stat card, health status chips.
+
+**Hard scope rule (all 4 commits):** Only `src/app/ui.py` is modified. No streaming logic, no auth handlers, no async state touched. New CSS rules go in the existing `<style>` block in `index()` — never inside `@ui.refreshable` functions.
+
+**Your next commit is: Commit 26 `ui-foundation`**
+
+Design reference: Vercel + Linear hybrid. The problem is absence of hierarchy, depth, and identity — not the palette. See `commit-specs/commit-26.md` through `commit-specs/commit-29.md` for full specs.
