@@ -198,3 +198,28 @@ The evaluation path (`_is_evaluation_mode` in `assess.py`) was already correct �
 - **Case 3 — Specific RAG question**: answer from context only, unchanged.
 
 Curriculum order embedded in the prompt: Embeddings & Similarity → RAG Pipeline Architecture → Chunking Strategies → Vector Databases → Retrieval Methods → Context & Prompting → Evaluation & Metrics → Production Patterns.
+
+---
+
+### TRB-011 — Welcome message is static and impersonal regardless of user history
+
+**Date:** 2026-05-17
+**Component:** UI (`src/app/ui.py`)
+**Symptom:** Every user — new or returning, regardless of their learning progress — sees the same generic greeting: "Welcome! I am a RAG system that answers questions about how RAG systems work." The system already maintains per-user profiles with mastery level, topic scores, gaps, and strengths, but none of that data surfaces on login.
+
+**Root cause:** The welcome card was a hardcoded `ui.markdown()` call with a static string. No profile data was fetched or consulted at page-load time for the chat area.
+
+**Fix:** Two changes in `src/app/ui.py`:
+
+1. Added `_build_welcome_message(display_name, profile)` at module level. It selects one of five messages based on the user's profile state:
+
+   | Condition | Message style |
+   |---|---|
+   | No profile (unauthenticated or fetch failed) | Generic fallback |
+   | `interaction_count == 0` | First-time journey welcome |
+   | `gaps` present | Names up to 2 gap topics, invites the user to work on them |
+   | `strengths` present, no gaps, advanced/expert level | Acknowledges mastery, prompts for deeper topics |
+   | `strengths` present, no gaps, other level | Acknowledges strengths, invites deeper or new exploration |
+   | Returning, no strengths/gaps computed yet | Session count acknowledgement |
+
+2. In `index()`, after `verify_stored_bearer()`, a single `GET /api/profile/me` call populates `_welcome_profile`. The welcome card renders `_build_welcome_message(display_name, _welcome_profile)` instead of the static string. The profile sidebar continues to fetch independently via its existing `@ui.refreshable` function.
