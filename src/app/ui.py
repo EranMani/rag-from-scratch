@@ -19,6 +19,63 @@ _MODULE_LABELS: dict[str, str] = {
 }
 
 
+def _build_welcome_message(display_name: str | None, profile: dict | None) -> str:
+    name = display_name or "there"
+
+    if not profile:
+        return (
+            f"Welcome, **{name}**! I'm your RAG learning assistant.\n\n"
+            "Ask me anything about RAG architecture — or try: **How does chunking work?**"
+        )
+
+    interaction_count: int = profile.get("interaction_count") or 0
+    gaps: list = profile.get("gaps") or []
+    strengths: list = profile.get("strengths") or []
+    mastery_level: str = profile.get("mastery_level") or "novice"
+
+    def _label(slug: str) -> str:
+        return _MODULE_LABELS.get(slug, slug.replace("_", " ").title())
+
+    if interaction_count == 0:
+        return (
+            f"Welcome to your RAG learning journey, **{name}**! "
+            "I'll adapt to your level as we go.\n\n"
+            "Start by asking anything — or try: **What is retrieval-augmented generation?**"
+        )
+
+    if gaps:
+        gap_labels = [_label(g) for g in gaps[:2]]
+        gap_str = " and ".join(f"**{l}**" for l in gap_labels)
+        suffix = "more" if len(gaps) > 2 else ""
+        return (
+            f"Hey **{name}**! I see you have gaps in {gap_str}"
+            + (f" and {len(gaps) - 2} more topic{'s' if len(gaps) - 2 > 1 else ''}" if suffix else "")
+            + f". Want to work on those today?\n\n"
+            f"You've had **{interaction_count}** {'session' if interaction_count == 1 else 'sessions'} so far — keep it up!"
+        )
+
+    if strengths:
+        strength_labels = [_label(s) for s in strengths[:2]]
+        strength_str = " and ".join(f"**{l}**" for l in strength_labels)
+        if mastery_level in ("advanced", "expert"):
+            return (
+                f"Welcome back, **{name}**! You've mastered {strength_str}. "
+                "Ready to dive into advanced patterns?\n\n"
+                f"**{interaction_count}** {'session' if interaction_count == 1 else 'sessions'} completed — impressive!"
+            )
+        return (
+            f"Welcome back, **{name}**! You're strong in {strength_str}. "
+            "Want to go deeper or explore a new topic?\n\n"
+            f"**{interaction_count}** {'session' if interaction_count == 1 else 'sessions'} and counting!"
+        )
+
+    return (
+        f"Welcome back, **{name}**! You've had **{interaction_count}** "
+        f"{'session' if interaction_count == 1 else 'sessions'} — your profile is building up.\n\n"
+        "What would you like to explore today?"
+    )
+
+
 
 def create_session() -> dict:
     return {"session_id": str(uuid.uuid4()), "messages": []}
@@ -225,6 +282,16 @@ def setup_ui(fastapi_app):
         bearer_ok = await verify_stored_bearer()
         can_use_chat = settings.allow_anonymous_chat or bearer_ok
 
+        # Fetch profile once for the personalized welcome — sidebar re-fetches independently
+        _welcome_profile: dict | None = None
+        if bearer_ok:
+            try:
+                _r = await http().get("/api/profile/me", headers=auth_headers())
+                if _r.status_code == 200:
+                    _welcome_profile = _r.json()
+            except Exception:
+                pass
+
         def logout():
             app.storage.user.clear()
             ui.navigate.to("/")
@@ -360,10 +427,8 @@ def setup_ui(fastapi_app):
                                 with ui.card().style(
                                     "background:#1e293b; border:1px solid #334155; max-width:75%; border-radius:12px"
                                 ):
-                                    ui.markdown(
-                                        "Welcome! I am a RAG system that answers questions about how RAG systems work.\n\n"
-                                        "Try asking: **How does chunking work?** or **What is a circuit breaker?**"
-                                    )
+                                    _dn = app.storage.user.get("display_name") or app.storage.user.get("email")
+                                    ui.markdown(_build_welcome_message(_dn, _welcome_profile))
 
             # ------------------------------------------------------------------ Admin tab
             with ui.tab_panel(admin_tab).style(
