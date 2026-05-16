@@ -644,7 +644,7 @@ def setup_ui(fastapi_app):
             ui.update()
             await asyncio.sleep(0)
 
-            # Pre-create the response card so tokens can stream into it live.
+            # Pre-create the response card hidden; reveal on first token.
             with chat_area:
                 with ui.column().style("align-self:flex-start; max-width:75%; gap:0.2rem") as response_col:
                     ui.label("RAG Assistant").style("font-size:0.7rem; color:#64748b")
@@ -653,6 +653,7 @@ def setup_ui(fastapi_app):
                         "border-radius:12px; word-break:break-word; overflow-wrap:break-word; overflow:hidden"
                     ):
                         streaming_md = ui.markdown("").style("width:100%; word-break:break-word; overflow-wrap:break-word")
+            response_col.set_visibility(False)
 
             ui.update()
             await asyncio.sleep(0)
@@ -660,6 +661,7 @@ def setup_ui(fastapi_app):
             tokens: list[str] = []
             done_data: dict = {}
             result: dict = {"cache_hit": "miss", "chunks": [], "latency_ms": 0, "trace_id": "—"}
+            first_token_received = [False]
 
             try:
                 payload = {
@@ -679,6 +681,9 @@ def setup_ui(fastapi_app):
                         except json.JSONDecodeError:
                             continue
                         if event.get("type") == "token":
+                            if not first_token_received[0]:
+                                first_token_received[0] = True
+                                response_col.set_visibility(True)
                             tokens.append(event.get("content", ""))
                             streaming_md.content = "".join(tokens)
                             ui.update()

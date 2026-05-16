@@ -96,7 +96,11 @@ class TestCurriculumDirLayout:
 
     @pytest.mark.asyncio
     async def test_test_mode_loads_real_curriculum_without_assessment_error(self) -> None:
-        result = await assess_node(_base_state())  # type: ignore[arg-type]
+        with patch(
+            "agents.nodes.assess._run_passive_assessment",
+            new=AsyncMock(return_value=({}, True)),
+        ):
+            result = await assess_node(_base_state())  # type: ignore[arg-type]
         assert result["assessment_error"] is False
         assert result["test_mode"] is True
         assert result["pending_test_question"]
@@ -198,9 +202,15 @@ class TestGate1TestMode:
     @pytest.mark.asyncio
     async def test_test_mode_returns_pending_test_question(self) -> None:
         """Test mode sets pending_test_question to a non-empty string."""
-        with patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")):
-            with patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD):
-                result = await assess_node(_base_state())  # type: ignore[arg-type]
+        with (
+            patch(
+                "agents.nodes.assess._run_passive_assessment",
+                new=AsyncMock(return_value=({}, True)),
+            ),
+            patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
+            patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+        ):
+            result = await assess_node(_base_state())  # type: ignore[arg-type]
         assert result["pending_test_question"], (
             "Test mode must set pending_test_question to a non-empty string"
         )
@@ -208,9 +218,15 @@ class TestGate1TestMode:
     @pytest.mark.asyncio
     async def test_test_mode_sets_test_mode_true(self) -> None:
         """Test mode sets test_mode=True."""
-        with patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")):
-            with patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD):
-                result = await assess_node(_base_state())  # type: ignore[arg-type]
+        with (
+            patch(
+                "agents.nodes.assess._run_passive_assessment",
+                new=AsyncMock(return_value=({}, True)),
+            ),
+            patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
+            patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+        ):
+            result = await assess_node(_base_state())  # type: ignore[arg-type]
         assert result["test_mode"] is True, (
             f"Test mode must set test_mode=True, got {result['test_mode']!r}"
         )
@@ -218,9 +234,15 @@ class TestGate1TestMode:
     @pytest.mark.asyncio
     async def test_test_mode_pending_slug_is_valid(self) -> None:
         """Test mode sets pending_test_slug to a value in VALID_MODULE_SLUGS."""
-        with patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")):
-            with patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD):
-                result = await assess_node(_base_state())  # type: ignore[arg-type]
+        with (
+            patch(
+                "agents.nodes.assess._run_passive_assessment",
+                new=AsyncMock(return_value=({}, True)),
+            ),
+            patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
+            patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+        ):
+            result = await assess_node(_base_state())  # type: ignore[arg-type]
         assert result["pending_test_slug"] in VALID_MODULE_SLUGS, (
             f"pending_test_slug {result['pending_test_slug']!r} not in VALID_MODULE_SLUGS"
         )
@@ -229,21 +251,41 @@ class TestGate1TestMode:
     async def test_test_mode_uses_identified_gap_slug(self) -> None:
         """Test mode prefers a slug from identified_gaps when available."""
         state = _base_state(identified_gaps=["vector_databases"])
-        with patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")):
-            with patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD):
-                result = await assess_node(state)  # type: ignore[arg-type]
+        with (
+            patch(
+                "agents.nodes.assess._run_passive_assessment",
+                new=AsyncMock(return_value=({}, True)),
+            ),
+            patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
+            patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+        ):
+            result = await assess_node(state)  # type: ignore[arg-type]
         assert result["pending_test_slug"] == "vector_databases", (
             f"Expected pending_test_slug='vector_databases', got {result['pending_test_slug']!r}"
         )
 
     @pytest.mark.asyncio
-    async def test_test_mode_no_llm_call(self) -> None:
-        """Test mode makes no call to get_provider()."""
+    async def test_test_mode_on_topic_sets_pending_test_question(self) -> None:
+        """On-topic query in test mode still sets pending_test_question (get_provider is called)."""
+        from agents.state import PassiveAssessmentOutput
+        passive_out = PassiveAssessmentOutput(
+            relevant_slug="embeddings_and_similarity",
+            inferred_level="beginner",
+            confidence=0.8,
+        )
+        mock_chain = MagicMock()
+        mock_chain.ainvoke = AsyncMock(return_value=passive_out)
+        mock_llm = MagicMock()
+        mock_llm.with_structured_output = MagicMock(return_value=mock_chain)
+        mock_provider = MagicMock()
+        mock_provider.get_llm = MagicMock(return_value=mock_llm)
         with patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")):
             with patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD):
-                with patch("agents.nodes.assess.get_provider") as mock_get_provider:
-                    await assess_node(_base_state())  # type: ignore[arg-type]
-        mock_get_provider.assert_not_called()
+                with patch("agents.nodes.assess.get_provider", return_value=mock_provider):
+                    result = await assess_node(_base_state())  # type: ignore[arg-type]
+        assert result["pending_test_question"], (
+            "On-topic query must still set pending_test_question"
+        )
 
     @pytest.mark.asyncio
     async def test_test_mode_test_answer_score_is_none(self) -> None:
@@ -465,7 +507,13 @@ class TestGate4FallbackOnFailure:
     @pytest.mark.asyncio
     async def test_missing_curriculum_file_sets_assessment_error(self) -> None:
         """FileNotFoundError loading curriculum sets assessment_error=True."""
-        with patch("pathlib.Path.read_text", side_effect=FileNotFoundError("no file")):
+        with (
+            patch(
+                "agents.nodes.assess._run_passive_assessment",
+                new=AsyncMock(return_value=({}, True)),
+            ),
+            patch("pathlib.Path.read_text", side_effect=FileNotFoundError("no file")),
+        ):
             result = await assess_node(_base_state())  # type: ignore[arg-type]
         assert result["assessment_error"] is True
 
@@ -792,3 +840,45 @@ class TestGate8GraphTopologySmoke:
         state_err = _base_state(assessment_error=True)
         assert _route_after_assess(state_ok) == "update_profile"  # type: ignore[arg-type]
         assert _route_after_assess(state_err) == "update_profile"  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# TestOffTopicSuppression — off-topic queries must not produce a knowledge check
+# ---------------------------------------------------------------------------
+
+class TestOffTopicSuppression:
+    """Off-topic queries suppress pending_test_question; on-topic queries do not."""
+
+    @pytest.mark.asyncio
+    async def test_off_topic_query_suppresses_test_question(self) -> None:
+        """When _run_passive_assessment returns is_rag_related=False, no knowledge check is set."""
+        with patch(
+            "agents.nodes.assess._run_passive_assessment",
+            new=AsyncMock(return_value=({}, False)),
+        ):
+            result = await assess_node(_base_state(question="hi there"))  # type: ignore[arg-type]
+        assert result["pending_test_question"] is None, (
+            "Off-topic query must not produce a pending_test_question"
+        )
+        assert result["test_mode"] is False, (
+            "Off-topic query must set test_mode=False"
+        )
+
+    @pytest.mark.asyncio
+    async def test_on_topic_query_sets_test_question(self) -> None:
+        """When _run_passive_assessment returns is_rag_related=True, knowledge check is served."""
+        with (
+            patch(
+                "agents.nodes.assess._run_passive_assessment",
+                new=AsyncMock(return_value=({"embeddings_and_similarity": 0.1}, True)),
+            ),
+            patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
+            patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+        ):
+            result = await assess_node(_base_state())  # type: ignore[arg-type]
+        assert result["pending_test_question"], (
+            "On-topic query must set pending_test_question to a non-empty string"
+        )
+        assert result["test_mode"] is True, (
+            "On-topic query must set test_mode=True"
+        )

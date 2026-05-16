@@ -356,10 +356,11 @@ async def assess_node(state: AgentState) -> dict[str, Any]:
     return await _select_test_question(state)
 
 
-async def _run_passive_assessment(question: str) -> dict[str, float]:
+async def _run_passive_assessment(question: str) -> tuple[dict[str, float], bool]:
     """Infer knowledge level from the user's natural query (no formal test).
 
-    Returns a single-key dict {slug: score} or empty dict on failure/low confidence.
+    Returns (delta, is_rag_related) where is_rag_related=True when relevant_slug is not None.
+    On exception, returns ({}, True) — permissive fallback avoids suppressing the knowledge check.
     """
     try:
         llm = get_provider().get_llm()
@@ -367,18 +368,28 @@ async def _run_passive_assessment(question: str) -> dict[str, float]:
         # either produces a validated PassiveAssessmentOutput or fails cleanly
         chain = _passive_prompt | llm.with_structured_output(PassiveAssessmentOutput)
         result: PassiveAssessmentOutput = await chain.ainvoke({"question": question})
-        return _validated_passive_delta(result)
+        is_rag_related = result.relevant_slug is not None
+        return _validated_passive_delta(result), is_rag_related
 
     except Exception:
         logger.warning("passive_assessment: LLM call failed — continuing with empty delta", exc_info=True)
-        return {}
+        return {}, True
 
 
 async def _select_test_question(state: AgentState) -> dict[str, Any]:
     """Run passive assessment then select and load a curriculum question."""
     # First, infer a score from the user's natural question (no test needed)
-    passive_delta = await _run_passive_assessment(state.get("question") or "")
+    passive_delta, is_rag_related = await _run_passive_assessment(state.get("question") or "")
     gaps = state.get("identified_gaps") or []
+
+    # Off-topic query (e.g. greetings, chitchat) — skip knowledge check entirely
+    if not is_rag_related:
+        return _build_test_result(
+            topic_scores_delta=passive_delta,
+            identified_gaps=gaps,
+            assessment_error=False,
+            test_mode=False,
+        )
 
     slug = _select_test_slug(state)
     if slug is None:
