@@ -36,7 +36,7 @@
 | 24 | assessment-engine-rewrite | ai-engineer | ✅ done · 2026-05-11 |
 | 25 | profile-scoring-rewrite | backend | ✅ done · 2026-05-12 |
 | 26 | ui-foundation | frontend | ✅ done · 2026-05-17 |
-| 27 | ui-header | frontend | pending |
+| 27 | ui-header | frontend | ✅ done · 2026-05-17 |
 | 28 | ui-chat | frontend | pending |
 | 29 | ui-sidebar-admin | frontend | pending |
 | 30 | nginx-config | devops | pending |

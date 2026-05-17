@@ -223,3 +223,57 @@ Curriculum order embedded in the prompt: Embeddings & Similarity → RAG Pipelin
    | Returning, no strengths/gaps computed yet | Session count acknowledgement |
 
 2. In `index()`, after `verify_stored_bearer()`, a single `GET /api/profile/me` call populates `_welcome_profile`. The welcome card renders `_build_welcome_message(display_name, _welcome_profile)` instead of the static string. The profile sidebar continues to fetch independently via its existing `@ui.refreshable` function.
+
+---
+
+### TRB-012 — Orchestrator process failures in Commit 27 caused ~350k extra tokens
+
+**Date:** 2026-05-17
+**Component:** Orchestration (Claude) — not application code
+**Symptom:** A header styling commit that should cost ~60–80k tokens cost ~411k. Three separate orchestrator failures compounded.
+
+---
+
+**Failure 1 — Gate-fix passes run 4× in violation of an explicit written rule**
+
+`team-preferences.md` states: *"Gate-fix passes — eliminated. There are no gate-fix passes. If a reviewer blocks on a system-breaking issue, the owning agent fixes it in a new dedicated commit — not within the current loop. The gate wave does not re-run."*
+
+In C27, the orchestrator ran gate-fix passes anyway — twice on the first attempt (Viktor blocked → Aria fixed → Viktor re-reviewed) and twice on the retry (Viktor+Sage blocked → Aria fixed → Viktor+Sage re-reviewed). Four gate cycles instead of zero.
+
+**Cost:** Each gate-fix + re-review cycle adds one full reviewer pass (~18–24k tokens on Sonnet). Four cycles × two reviewers = ~150–200k extra tokens from this failure alone.
+
+**Fix:** Rule reinforced with a CRITICAL callout at the top of `team-preferences.md` and a lesson added to `.claude/agents/CLAUDE.md`. Memory file `feedback_no_gate_fix_passes.md` written to persist across sessions.
+
+**Correct procedure:** When a reviewer blocks, surface the finding to the Team Lead. The fix becomes its own next commit. The gate does not re-run in the current loop.
+
+---
+
+**Failure 2 — Reviewer agents invoked without `model: "haiku"`, defaulting to Sonnet**
+
+`team-preferences.md` Model Assignments section states Haiku for Viktor, Sage, Quinn, Mira, and Ryan. The orchestrator omitted `model: "haiku"` from every Agent invocation. Reviewers ran on Sonnet (~18–24k tokens each) instead of Haiku (~5–8k each).
+
+**Cost:** 8 reviewer passes in C27 × ~15k extra tokens per pass = ~120k extra tokens from this failure alone.
+
+**Fix:** Explicit `model: "haiku"` parameter added to all reviewer/writer Agent invocations going forward. Memory file `feedback_model_tiering_enforcement.md` written.
+
+---
+
+**Failure 3 — Spec not validated before agent invocation**
+
+The first attempt spec for C27 described changes (box-shadow, font size tweaks, SVG `<text>` gradient) that produced an imperceptible visual change relative to the stated goal ("wow on first impression"). The orchestrator did not cross-check the spec against the goal before invoking Aria.
+
+Additionally, the retry spec written by the orchestrator used `ui.html(f'<span>{label}</span>')` with an unescaped user email — introducing CWE-79 XSS. `ui.html()` renders raw HTML; `ui.label()` auto-escapes. This is a NiceGUI-specific rule the orchestrator should have applied when writing the spec.
+
+**Cost:** Pass 1 rejection = ~186k tokens producing nothing committed. CWE-79 in the retry spec triggered Sage and an additional gate cycle = ~50k extra tokens.
+
+**Fix:** Two pre-invocation checks now required before briefing any implementation agent:
+1. Does the spec achieve the stated goal? (If goal is "visually striking" but spec only tweaks font sizes → rewrite the spec.)
+2. Does any UI element render user data via `ui.html()`? (If yes → change to `ui.label()`.)
+
+Memory file `feedback_spec_validation_before_invocation.md` written.
+
+---
+
+**SVG rendering lesson (technical, not process)**
+
+The first attempt used an SVG `<text>` element with `fill="url(#gradient-id)"` for the brand mark gradient. SVG gradient fills on `<text>` elements are browser-dependent and failed silently. The reliable technique is SVG `<path>` strokes with `stroke="url(#gradient-id)"` — path strokes with gradient renders correctly across all browsers. This is documented in LEARNING_LOG.md (C27 full entry).

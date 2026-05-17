@@ -193,5 +193,22 @@ Why it matters: [the downstream consequence]
 
 ---
 
-*No lessons yet — this orchestrator has not completed a project.*
-*Lessons will be written here by Claude at the end of each project.*
+**rag-from-scratch · 2026-05-17 — Gate-fix passes**
+Trigger: A reviewer (Viktor, Sage) blocks on any finding during the commit loop.
+Pattern: Surface the finding to the Team Lead. The fix is its own next commit. Do NOT invoke the agent to fix and re-run the gate in the same loop. The gate wave does not re-run.
+Why it matters: C27 ran 4 gate cycles instead of 0. A ~60k commit cost ~400k tokens. The rule was already in `team-preferences.md` — the failure was ignoring it.
+
+**rag-from-scratch · 2026-05-17 — Model tiering**
+Trigger: Invoking Viktor, Sage, Quinn, Mira, or Ryan via the Agent tool.
+Pattern: Always include `model: "haiku"` in the Agent call. No exceptions. Omitting it defaults to Sonnet, which is 3× more expensive per reviewer pass.
+Why it matters: C27 ran 8 reviewer passes on Sonnet instead of Haiku. That alone cost ~80–100k extra tokens — more than the entire implementation should have cost.
+
+**rag-from-scratch · 2026-05-17 — Gate triage**
+Trigger: About to invoke Viktor, Sage, Quinn, or Mira for any commit.
+Pattern: First ask "what specific risk does this commit introduce that this reviewer can catch?" If no answer → skip the gate entirely. Pure CSS/style commits: zero gates. UI renders user data: Sage only. New logic: Viktor only. Don't run gates for comfort — run them for purpose.
+Why it matters: C27 was a CSS/SVG commit. It ran Viktor + Sage + Mira across 8 reviewer passes. Gates that catch nothing still cost the same as gates that catch something.
+
+**rag-from-scratch · 2026-05-17 — Spec validation before invocation**
+Trigger: About to invoke any implementation agent (Aria, Rex, Nova, Adam).
+Pattern: Before writing the brief, verify: (1) the spec visually achieves the stated goal — if goal is "wow" but spec only tweaks font sizes, rewrite the spec; (2) no `ui.html(f-string)` with user data — always use `ui.label()` for user-controlled values in NiceGUI.
+Why it matters: C27 pass 1 was rejected (186k tokens wasted producing nothing). The retry spec introduced CWE-79 XSS via `ui.html(f-string)`, adding two more gate cycles. Both were preventable at spec-write time.

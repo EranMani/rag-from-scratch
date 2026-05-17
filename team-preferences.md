@@ -9,6 +9,31 @@
 
 ---
 
+## CRITICAL — Rules Violated in C27 (2026-05-17) — Read Before Every Commit
+
+```
+1. NO GATE-FIX PASSES. EVER.
+   If Viktor or Sage blocks → surface to Team Lead → fix is its own next commit.
+   Do NOT re-invoke the agent and re-run the gate in the same loop.
+   Rule already existed in this file. C27 violated it 4 times. Cost: ~300k extra tokens.
+
+2. ALWAYS SPECIFY model: "haiku" IN AGENT CALLS FOR REVIEWERS AND WRITERS.
+   Viktor, Sage, Quinn, Mira, Ryan → model: "haiku" — no exceptions.
+   Omitting it runs on Sonnet (3× cost). C27 cost ~80–100k extra tokens from this alone.
+
+3. VALIDATE THE SPEC BEFORE INVOKING ANY AGENT.
+   - Does the spec actually achieve the stated goal? If goal is "wow" but spec tweaks font sizes → rewrite.
+   - Does any UI element interpolate user data into ui.html()? → Change to ui.label().
+   A rejected agent pass costs the same tokens as a successful one and produces nothing.
+
+4. TRIAGE GATES BEFORE RUNNING THEM.
+   Ask: "What specific risk does this commit introduce that this reviewer can catch?"
+   No answer → skip the gate. Running gates for comfort costs money for no benefit.
+   See gate triage matrix below.
+```
+
+---
+
 ## Project Context
 
 ```
@@ -222,9 +247,28 @@ Agents most likely to hit threshold first: Rex (Phases 1–3), Nova (Phases 2–
 
 ---
 
-## Quality Gate Trigger Rules (updated 2026-05-10)
+## Quality Gate Trigger Rules (updated 2026-05-17)
 
 **Token budget target: ≤60k for implementation commits (Nova, Rex, Aria, Adam); ≤15k per review/doc agent (Viktor, Sage, Quinn, Mira, Ryan).**
+
+### Gate Triage — Ask This Before Every Gate
+
+Before invoking any reviewer, answer: **"What specific risk does this commit introduce that this reviewer can catch?"**
+If there is no answer → skip the gate. Do not run gates for comfort or habit.
+
+| Commit type | Viktor | Sage | Quinn | Mira |
+|---|---|---|---|---|
+| Pure CSS / color / spacing / SVG — no user data, no logic | **skip** | **skip** | **skip** | only if copy/name changes |
+| UI layout / component — no user data rendered | **skip** | **skip** | **skip** | only if behavior changes |
+| UI renders user-supplied data | **skip** | **run** | **skip** | only if data shape changes |
+| New logic / functions / code paths | **run** | conditional | conditional | conditional |
+| Auth, secrets, env handling, external API | **run** | **run** | conditional | conditional |
+| New service, route, or DB schema | **run** | conditional | **run** | conditional |
+| Doc-only / worklog / config tweak | **skip** | **skip** | **skip** | **skip** |
+
+**"Conditional"** = run only if the commit also touches that reviewer's specific domain. Default is skip.
+
+The every-5-commit Viktor+Quinn cadence review still applies as a minimum floor — it is a batch review across accumulated diffs, not a per-commit gate, and is not skippable.
 
 ### Viktor — every 5 commits, Haiku
 Run on commits 5, 10, 15, 20 (every 5th commit). In a single pass, review all accumulated diffs since the last Viktor wave. Token target: ≤20k per wave.
@@ -525,3 +569,5 @@ These rules apply to Claude (the orchestrator) directly — not to sub-agents.
 | 2026-05-10 | Ryan template trimmed — pass Full Entry format block only (~38 lines), not lines 1–99 | Ryan consumed 54k tokens in Commit 12 largely due to oversized template in prompt |
 | 2026-05-10 | Implementor Execution Constraints section added; token budget target revised to ≤60k/≤15k | Nova hit 122k / 73 tool uses in Commit 13 — read-modify-read spiral and mid-task worklog writes are the root cause |
 | 2026-05-10 | **Universal 25-tool-use cap extended to ALL agents** — Viktor, Sage, Quinn, Mira, Ryan included | Viktor hit 59 tool uses in the Commit 15 wave (61k tokens). Nova hit 34 in the same session. Both caused by Claude omitting constraints from invocation prompts. Cap now universal — no agent type exempt. Reviewer and Ryan constraint blocks added. |
+| 2026-05-17 | **CRITICAL callout added at top of file** — 3 rules violated in C27 at cost of ~300k extra tokens | (1) Gate-fix passes run 4× in C27 despite being explicitly banned — rule existed, Claude ignored it. (2) Reviewers ran on Sonnet not Haiku — model: "haiku" never specified in Agent calls. (3) Spec not validated before Aria invocation — pass 1 rejected (186k wasted), retry introduced CWE-79 XSS. |
+| 2026-05-17 | **Gate triage matrix added** — skip gates when commit has no applicable risk | Team Lead directive: running Viktor+Sage+Mira on a CSS-only commit is wasteful. Gates must serve a purpose, not be run by default. Matrix defines skip/run per reviewer per commit type. Pure CSS/style: zero gates. User data in UI: Sage only. New logic: Viktor only. |
