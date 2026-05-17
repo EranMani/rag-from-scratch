@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-17 (Commit 28 ui-chat done)",
+  "last_updated": "2026-05-17 (Commit 29 ui-sidebar-admin done)",
   "status": "active",
   "current_commit": {
-    "number": "29",
-    "name": "ui-sidebar-admin",
+    "number": "30",
+    "name": "nginx-config",
     "status": "pending",
-    "assignee": "frontend"
+    "assignee": "devops"
   },
   "commits_done": [
     "01",
@@ -36,16 +36,16 @@
     "25",
     "26",
     "27",
-    "28"
+    "28",
+    "29"
   ],
   "commits_pending": [
-    "29",
     "30",
     "31",
     "32",
     "33"
   ],
-  "next_commit": "29",
+  "next_commit": "30",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

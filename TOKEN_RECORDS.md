@@ -469,6 +469,25 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 29 — `ui-sidebar-admin` · 2026-05-17 · Aria
+
+> Gate wave: none — pure CSS/style-string commit; same triage profile as C28 (no logic, no auth, no `ui.html(f-string)` with user data, no external APIs). Mastery badge uses `ui.label()` per C27 XSS lesson.
+> Ryan: one-liner (no ARCHITECTURE.md, DECISIONS.md, or GLOSSARY.md changes).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Aria (implementation) | Sonnet | 68,133 | 17 | **+8k** over ≤60k | mastery badge, score pills, gap badges, stat card gradients, health chips |
+| Ryan | Haiku | 38,852 | 6 | **+24k** over ≤15k; 1 over 5-tool cap | one-liner; Ryan consistently over ≤15k |
+| **Total** | | **106,985** | **23** | **over ≤75k** — Ryan cost driver | Aria ✅; Ryan drives over (pattern) |
+
+**Notes:**
+- Aria: 17 tool uses (within 25 cap); two-phase discipline held.
+- Mastery chip implemented with `ui.label()` + per-level inline styles (not `ui.html(f-string)`). No XSS surface introduced.
+- Gate wave: none — gate triage C27 lesson applied correctly; CSS/style commit with no gatable risk.
+- New CSS classes: `.rag-mastery-chip`, `.rag-health-chip`, `.q-linear-progress` override — all in existing `<style>` block in `index()`.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -492,6 +511,7 @@ No token data recorded. Tracking began at Commit 10.
 | 26 | ui-foundation | 124,540 | Viktor + Sage + Quinn + Mira | **over** | Full gate wave; Aria clean (51k); 4 reviewers on Sonnet (should be Haiku) |
 | 27 | ui-header | ~367k (2 passes) | Viktor+Mira (p1) · Viktor+Sage (p2) | **well over** | Pass 1 rejected; retry introduced CWE-79 XSS; 2 gate cycles on retry |
 | 28 | ui-chat | 101,862 | none | over ≤75k | Aria ✅ (57,908); Ryan one-liner 43,954 (consistently over ≤15k) |
+| 29 | ui-sidebar-admin | 106,985 | none | over ≤75k | Aria 68k (+8k); Ryan 39k (over ≤15k, pattern); gate correctly skipped |
 
 ---
 

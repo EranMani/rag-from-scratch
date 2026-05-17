@@ -1666,4 +1666,8 @@ CWE-79 severity is reduced from **potential stored XSS** to **eliminated** by us
 
 ---
 
+**Commit 29 — `ui-sidebar-admin`** · 2026-05-17 · Aria · `refactor`
+
+> **In one sentence:** Profile sidebar and admin dashboard visual polish: color-coded mastery chips, topic score pills with progress bars, red-tinted gap badges, stat card gradients, health status chips — CSS-only redesign via `<style>` block overrides and semantic `ui.label()` classes.
+
 ---
