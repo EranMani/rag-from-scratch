@@ -324,6 +324,33 @@ def setup_ui(fastapi_app):
   background: linear-gradient(90deg, transparent 0%, #334155 20%, #6366f1 50%, #334155 80%, transparent 100%);
 }
 .q-page { padding: 0 !important; }
+
+.q-page-container { padding: 0 !important; }
+.q-page {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+.q-tab-panels {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: hidden !important;
+}
+
+.nicegui-header.rag-header-accent {
+  gap: 0 !important;
+  padding: 0 !important;
+}
+
+.rag-profile-sidebar .q-linear-progress {
+  height: 8px !important;
+  min-height: 8px !important;
+  border-radius: 4px !important;
+  flex-shrink: 0 !important;
+}
+
 </style>
 """)
 
@@ -345,9 +372,9 @@ def setup_ui(fastapi_app):
             ui.navigate.to("/")
 
         with ui.header().classes("rag-header-accent").style(
-            "background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%); padding:1rem 2rem; position:relative"
+            "background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%); position:relative; padding:0"
         ):
-            with ui.row().style("width:100%; justify-content:space-between; align-items:center"):
+            with ui.row().style("width:100%; justify-content:space-between; align-items:center; padding:1rem 2rem"):
                 with ui.column().style("gap:0"):
                     with ui.row().style("align-items:center; gap:10px"):
                         ui.html('''<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -383,29 +410,32 @@ def setup_ui(fastapi_app):
                         ui.link("Sign in", "/login").classes("text-sky-400 text-sm")
                         ui.link("Register", "/register").classes("text-sky-400 text-sm")
 
+            with ui.tabs().classes("w-full") as tabs:
+                chat_tab = ui.tab("Chat")
+                admin_tab = ui.tab("Admin")
+
         if not can_use_chat:
             ui.navigate.to("/login")
             return
 
         session = create_session()
 
-        with ui.tabs().classes("w-full") as tabs:
-            chat_tab = ui.tab("Chat")
-            admin_tab = ui.tab("Admin")
-
         with ui.tab_panels(tabs, value=chat_tab).classes("w-full").style(
-            "height:calc(100vh - 184px); overflow:hidden"
+            "flex:1; min-height:0; overflow:hidden"
         ):
             # ------------------------------------------------------------------ Chat tab
             with ui.tab_panel(chat_tab).style("padding:0; height:100%; overflow:hidden"):
-                with ui.row().style("width:100%; height:100%; gap:0; overflow:hidden"):
-
+                with ui.row().style(
+                    "width:100%; height:100%; gap:0; overflow:hidden; align-items:stretch"
+                ):
                     # --- Profile sidebar ---
                     @ui.refreshable
                     async def profile_panel():
-                        with ui.column().style(
-                            "width:280px; min-width:280px; height:100%; background:#1e293b; "
-                            "border-right:1px solid #334155; padding:1rem; gap:0.75rem; overflow-y:auto"
+                        with ui.column().classes("rag-profile-sidebar").style(
+                            "width:280px; min-width:280px; flex:0 0 280px; align-self:stretch; "
+                            "height:100%; min-height:100%; box-sizing:border-box; "
+                            "background:#1e293b; border-right:1px solid #334155; "
+                            "padding:1rem; gap:1rem; overflow-y:auto"
                         ):
                             ui.label("Knowledge Profile").style(
                                 "font-size:0.9rem; font-weight:600; color:#38bdf8"
@@ -457,7 +487,7 @@ def setup_ui(fastapi_app):
                                             ui.label(f"{int(score * 100)}%").style(
                                                 "font-size:0.72rem; color:#64748b; font-family:ui-monospace,monospace"
                                             )
-                                        ui.linear_progress(value=score).style("width:100%").props(
+                                        ui.linear_progress(value=score, show_value=False).style("width:100%").props(
                                             "color=sky-600 track-color=slate-700"
                                         )
 
