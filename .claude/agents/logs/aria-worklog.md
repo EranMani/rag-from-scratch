@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 27 gate-fix pass · 2026-05-17*
+*Last updated: Commit 28 · 2026-05-17*
 
-**Last completed:** Commit 27 gate-fix pass — XSS fix (ui.html → ui.label for email pill), overflow:visible removed, double storage read collapsed, CSS color fallback added ✅
+**Last completed:** Commit 28 — ui-chat: gradient user bubbles, AI card border-left, Knowledge Check card indigo prominence, thinking label indigo, welcome card border-left ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -35,6 +35,7 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 12 | 28 | ✅ Done | Gradient user bubble; border-left on AI card + welcome card; indigo KC card (bg/border/shadow/label color/✦ prefix); thinking label #818cf8 |
 | 11G | 27 gate-fix | ✅ Done | XSS: ui.html→ui.label for email pill; overflow:visible removed; double storage read collapsed to single dict; CSS color fallback on .rag-brand-name |
 | 11R | 27 RETRY | ✅ Done | Gradient header bg; geometric SVG path strokes; .rag-brand-name CSS gradient text; email pill; .rag-header-accent::after gradient line |
 | 11 | 27 | ✅ Done (gate-pass, rejected visually) | SVG <text> gradient fill invisible; box-shadow change imperceptible; font tweaks invisible |
@@ -48,6 +49,50 @@
 | 7 | feature | ✅ Done | Tab bar Chat/Admin; admin router; footer visibility callback; closure capture for delete buttons |
 | 8 | bug+redesign | ✅ Done | White panel bg fix; admin tab as SaaS dashboard: header strip, stat cards, ui.table slot injection, health + monitoring sidebar |
 | 9 | bug fix | ✅ Done | thinking label: set_visibility(False) instead of delete() to avoid client-context error after await |
+
+---
+
+## Session 12 — Commit 28: ui-chat
+
+**Date:** 2026-05-17
+**Status:** ✅ Done
+
+### Approach
+
+The five changes in this commit are all style string modifications on existing components — no new components, no logic changes. The main read confirmed locations precisely before any edit was made.
+
+The most structurally interesting change was the Knowledge Check card. The existing card used `background:#1e3a5f; border:1px solid #3b82f6` — a flat dark navy with a solid blue border. This reads as a regular info card, visually indistinguishable from the retrieved-context chunk cards. The spec calls for an indigo-tinted glass surface (rgba background + rgba border) with a glow. The rgba approach was the correct call: a solid `#818cf8` background would overpower surrounding content, while `rgba(129,140,248,0.08)` produces a subtle tint that reads as "elevated" without competing with the response text. The `box-shadow` adds glow without layout impact. The `✦ ` prefix on the label text is a pure string change — prepended directly to the label string argument, no new elements.
+
+The thinking label color change (CSS class `.rag-thinking-label`) was a single property update in the existing `<style>` block: `#94a3b8` (muted slate) → `#818cf8` (indigo). This aligns the thinking indicator with the Knowledge Check indigo accent, creating a visual throughline: both are AI-initiated states that use the indigo register.
+
+The welcome card and AI response card both received `border-left:3px solid #38bdf8`. These are additive — the existing `border` or `border:1px solid #334155` properties remain, and `border-left` overrides only the left side. In CSS, a specific-side property (`border-left`) takes precedence over the shorthand (`border`) when declared after it, which is the case here: both cards already had either no border or a thin uniform border, and the `border-left` addition is appended to the existing style string.
+
+The user bubble gradient (`linear-gradient(135deg,#0369a1,#1d4ed8)`) replaces the flat `#0369a1` fill. The 135-degree angle produces a top-left-to-bottom-right diagonal that reads as depth rather than a flat wash. The endpoint `#1d4ed8` (blue-700) is darker than the start point, so the gradient deepens toward the bottom-right corner — consistent with the auth page button gradient direction.
+
+No `ui.html(f-string)` patterns introduced. All user-controlled values continue to use `ui.label()`.
+
+### Changes Made
+
+| File | Location | Change |
+|---|---|---|
+| `src/app/ui.py` | Line ~482 — welcome card `.style()` | Added `border-left:3px solid #38bdf8` |
+| `src/app/ui.py` | Line ~739 — user bubble card `.style()` | `background:#0369a1` → `background:linear-gradient(135deg,#0369a1,#1d4ed8)` |
+| `src/app/ui.py` | Line ~771 — AI response card `.style()` | Added `border-left:3px solid #38bdf8` |
+| `src/app/ui.py` | Line ~864 — Knowledge Check card `.style()` | Full style replacement: rgba bg, rgba border, box-shadow |
+| `src/app/ui.py` | Line ~869 — Knowledge Check label `.style()` + text | Color `#60a5fa` → `#a78bfa`; text `"Knowledge Check"` → `"✦ Knowledge Check"` |
+| `src/app/ui.py` | Line ~297 — `.rag-thinking-label` CSS rule | `color: #94a3b8` → `color: #818cf8` |
+
+### Self-Review Checklist
+- [x] Welcome card has `border-left:3px solid #38bdf8`
+- [x] User bubble uses `linear-gradient(135deg,#0369a1,#1d4ed8)`, not flat `#0369a1`
+- [x] AI response card has `border-left:3px solid #38bdf8`
+- [x] Knowledge Check card: rgba bg + rgba border + box-shadow
+- [x] Knowledge Check label: `#a78bfa`, weight 600, `✦ ` prefix
+- [x] Thinking label: `#818cf8` (was `#94a3b8`)
+- [x] No `async`/`await` logic touched
+- [x] No `ui.update()`, `first_token_received`, `stage_timer`, SSE parsing touched
+- [x] No `ui.html(f-string)` with user data introduced
+- [x] Only `src/app/ui.py` modified
 
 ---
 

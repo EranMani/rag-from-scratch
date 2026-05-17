@@ -28,3 +28,4 @@
 - **C25** profile-scoring-rewrite — spaced-repetition formula (0.7×current + 0.3×best), cumulative phase gates, session history in profile row, crash-safe idempotent DB migration
 - **C26** ui-foundation — NiceGUI per-page HTML isolation requires font injection in every `@ui.page` function; Quasar post-render style override requires `!important` on gradient CTA; Google Fonts CDN accepted (LOW, self-hosting is the hardened path)
 - **C27** ui-header — CSS gradient text with fallback color + SVG path stroke (not text fill) for reliable cross-browser rendering; CWE-79 fixed in email badge by replacing `ui.html()` with escaping `ui.label()`; *full entry* (FULL: SVG rendering technique, XSS fix, gradient fallback pattern)
+- **C28** ui-chat — Chat area style redesign: gradient user bubbles, blue left-border accent on AI cards, indigo glow on Knowledge Check cards, indigo thinking indicator — visual continuity with auth page aesthetic (`src/app/ui.py`)

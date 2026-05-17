@@ -294,7 +294,7 @@ def setup_ui(fastapi_app):
 .rag-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
 .rag-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
 .rag-thinking-label {
-  font-size: 0.8rem; color: #94a3b8; font-style: italic; line-height: 1;
+  font-size: 0.8rem; color: #818cf8; font-style: italic; line-height: 1;
 }
 .q-header .q-btn:hover { color: #e2e8f0; transition: color 0.15s ease; }
 .rag-brand-name {
@@ -479,7 +479,7 @@ def setup_ui(fastapi_app):
 
                             with chat_area:
                                 with ui.card().style(
-                                    "background:#1e293b; border:1px solid #334155; max-width:75%; border-radius:12px"
+                                    "background:#1e293b; border:1px solid #334155; border-left:3px solid #38bdf8; max-width:75%; border-radius:12px"
                                 ):
                                     _dn = app.storage.user.get("display_name") or app.storage.user.get("email")
                                     ui.markdown(_build_welcome_message(_dn, _welcome_profile))
@@ -737,7 +737,7 @@ def setup_ui(fastapi_app):
                         "font-size:0.7rem; color:#64748b; text-align:right; align-self:flex-end"
                     )
                     with ui.card().style(
-                        "background:#0369a1; color:#f0f9ff; width:fit-content; align-self:flex-end; "
+                        "background:linear-gradient(135deg,#0369a1,#1d4ed8); color:#f0f9ff; width:fit-content; align-self:flex-end; "
                         "border-radius:12px; word-break:break-word; overflow-wrap:break-word; overflow:hidden"
                     ):
                         ui.label(question).style("word-break:break-word; overflow-wrap:break-word; max-width:100%")
@@ -768,7 +768,7 @@ def setup_ui(fastapi_app):
                 with ui.column().style("align-self:flex-start; max-width:75%; gap:0.2rem") as response_col:
                     ui.label("RAG Assistant").style("font-size:0.7rem; color:#64748b")
                     with ui.card().style(
-                        "background:#1e293b; border:1px solid #334155; width:fit-content; "
+                        "background:#1e293b; border:1px solid #334155; border-left:3px solid #38bdf8; width:fit-content; "
                         "border-radius:12px; word-break:break-word; overflow-wrap:break-word; overflow:hidden"
                     ):
                         streaming_md = ui.markdown("").style("width:100%; word-break:break-word; overflow-wrap:break-word")
@@ -862,12 +862,13 @@ def setup_ui(fastapi_app):
                 test_q = done_data.get("test_question")
                 if test_q:
                     with ui.card().style(
-                        "background:#1e3a5f; border:1px solid #3b82f6; width:fit-content; "
+                        "background:rgba(129,140,248,0.08); border:1px solid rgba(129,140,248,0.4); "
+                        "box-shadow:0 0 12px rgba(129,140,248,0.15); width:fit-content; "
                         "border-radius:12px; padding:0.75rem 1rem; margin-top:0.75rem; "
                         "word-break:break-word; overflow-wrap:break-word; overflow:hidden"
                     ):
-                        ui.label("Knowledge Check").style(
-                            "font-size:0.7rem; font-weight:600; color:#60a5fa; margin-bottom:0.35rem"
+                        ui.label("✦ Knowledge Check").style(
+                            "font-size:0.7rem; font-weight:600; color:#a78bfa; margin-bottom:0.35rem"
                         )
                         ui.label(test_q).style("font-size:0.875rem; color:#e2e8f0")
 

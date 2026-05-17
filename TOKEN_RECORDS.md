@@ -450,6 +450,25 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 28 — `ui-chat` · 2026-05-17 · Aria
+
+> Gate wave: none — pure CSS/style-string commit; gate triage finds zero gatable risk (no logic, no auth, no user data in new HTML, no external APIs).
+> Ryan: one-liner (no ARCHITECTURE.md, DECISIONS.md, or GLOSSARY.md changes).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Aria (implementation) | Sonnet | 57,908 | 10 | ✅ under ≤60k | 5 style-string changes; clean two-phase discipline |
+| Ryan | Haiku | 43,954 | 9 | **+29k** over ≤15k | one-liner; 9 tool uses (1 over 8-cap); Ryan one-liners consistently over ≤15k target |
+| **Total** | | **101,862** | **19** | **over ≤75k** (no-gate target) — Ryan cost driver | impl ✅ under; Ryan drives over |
+
+**Notes:**
+- Aria: 10 tool uses (well within 25 cap); two-phase discipline held cleanly.
+- Gate wave: none — first commit to apply C27 gate-triage lesson correctly from the start.
+- Scope rule fully respected: only `.style()` string arguments changed; no logic, async, or auth touched.
+- Pre-existing test failures (2 in `test_update_profile_node.py`) unchanged — confirmed Rex handoff for C32.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -472,6 +491,7 @@ No token data recorded. Tracking began at Commit 10.
 | 25 | profile-scoring-rewrite | 245,984 | Viktor + Quinn | **over — tool cap** | Rex hit cap; orchestrator fixed 4 issues; Viktor 36 tool uses; Quinn non-blocking |
 | 26 | ui-foundation | 124,540 | Viktor + Sage + Quinn + Mira | **over** | Full gate wave; Aria clean (51k); 4 reviewers on Sonnet (should be Haiku) |
 | 27 | ui-header | ~367k (2 passes) | Viktor+Mira (p1) · Viktor+Sage (p2) | **well over** | Pass 1 rejected; retry introduced CWE-79 XSS; 2 gate cycles on retry |
+| 28 | ui-chat | 101,862 | none | over ≤75k | Aria ✅ (57,908); Ryan one-liner 43,954 (consistently over ≤15k) |
 
 ---
 

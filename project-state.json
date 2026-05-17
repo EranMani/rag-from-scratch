@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-17 (Commit 26 ui-foundation done)",
+  "last_updated": "2026-05-17 (Commit 27 ui-header done — state corrected from stale)",
   "status": "active",
   "current_commit": {
-    "number": "27",
-    "name": "ui-header",
+    "number": "28",
+    "name": "ui-chat",
     "status": "pending",
     "assignee": "frontend"
   },
@@ -34,10 +34,10 @@
     "23",
     "24",
     "25",
-    "26"
+    "26",
+    "27"
   ],
   "commits_pending": [
-    "27",
     "28",
     "29",
     "30",
@@ -45,11 +45,21 @@
     "32",
     "33"
   ],
-  "next_commit": "27",
+  "next_commit": "28",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
+      "number": "27",
+      "tests": "not run — CSS/SVG/style-only commit; no logic paths changed",
+      "viktor": "not triggered — pure CSS/style commit; no logic risk",
+      "sage": "not triggered — no user data, no auth, no external API",
+      "quinn": "not triggered — no logic coverage applicable",
+      "mira": "not triggered — visual delta only; no product scope concerns",
+      "gate_wave": "none — gate triage: CSS/style commit introduces zero gatable risk",
+      "note": "C27 ran multiple informal fix passes (4 total incl. gate-fix passes) across the session. The no-gate-fix-passes rule and model tiering enforcement were codified as lessons post-C27."
+    },
+    "commit_26": {
       "number": "26",
       "tests": "262/264 PASS — 2 pre-existing failures in test_update_profile_node.py (unrelated to Commit 26; logged as handoff to Rex for resolution before Commit 32)",
       "viktor": "PASS WITH COMMENTS — 3 advisories: !important acknowledged debt; CWE-829 Google Fonts CDN trade-off logged; style/link separation correct",

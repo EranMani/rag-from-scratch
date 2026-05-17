@@ -1660,4 +1660,10 @@ CWE-79 severity is reduced from **potential stored XSS** to **eliminated** by us
 
 ---
 
+**Commit 28 — `ui-chat`** · 2026-05-17 · Aria · `refactor`
+
+> **In one sentence:** Chat area style redesign: gradient user bubbles, blue left-border accent on AI cards, indigo glow on Knowledge Check cards, indigo thinking indicator — visual continuity with the auth page aesthetic.
+
+---
+
 ---
