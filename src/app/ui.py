@@ -569,9 +569,9 @@ def setup_ui(fastapi_app):
                         # ---- Page header strip ----
                         with ui.row().style(
                             "width:100%; background:#1e293b; border-bottom:1px solid #334155; "
-                            "padding:1.25rem 2rem; align-items:center; justify-content:space-between"
+                            "padding:0.25rem .5rem; align-items:center; justify-content:space-between"
                         ):
-                            with ui.column().style("gap:0.2rem"):
+                            with ui.column():
                                 ui.label("Admin Dashboard").style(
                                     "font-size:1.1rem; font-weight:600; color:#38bdf8"
                                 )
@@ -579,57 +579,20 @@ def setup_ui(fastapi_app):
                                 "color:#64748b"
                             )
 
-                        # ---- Stat cards row ----
+                        # ---- Main content row ----
                         latest_join = "—"
                         if users:
                             raw_created = users[0].get("created_at") or ""
                             latest_join = raw_created[:10] if raw_created else "—"
 
                         with ui.row().style(
-                            "width:100%; padding:1.5rem 2rem 0; gap:1rem; flex-wrap:wrap"
+                            "width:100%; padding:1rem 2rem; gap:0; align-items:stretch; flex-wrap:wrap"
                         ):
-                            # Card helper
-                            def stat_card(label_text, value_text, value_color, description, border_color="#334155"):
-                                with ui.column().style(
-                                    "background:linear-gradient(135deg,rgba(30,41,59,1),rgba(15,23,42,1)); "
-                                    f"border:1px solid #334155; border-top:2px solid {border_color}; border-radius:12px; "
-                                    "padding:1rem 1.25rem; min-width:160px; flex:1; gap:0.2rem"
-                                ):
-                                    ui.label(label_text).style(
-                                        "font-size:0.65rem; color:#64748b; letter-spacing:0.08em; text-transform:uppercase"
-                                    )
-                                    ui.label(value_text).style(
-                                        f"font-size:1.6rem; font-weight:700; color:{value_color}"
-                                    )
-                                    ui.label(description).style(
-                                        "font-size:0.7rem; color:#64748b"
-                                    )
-
-                            stat_card("USERS", str(len(users)), "#38bdf8", "registered", "#38bdf8")
-                            stat_card("LATEST JOIN", latest_join, "#a78bfa", "most recent signup", "#a78bfa")
-                            stat_card(
-                                "SYSTEM",
-                                "Healthy" if is_healthy else "Degraded",
-                                "#4ade80" if is_healthy else "#f87171",
-                                "all services",
-                                "#4ade80" if is_healthy else "#f87171",
-                            )
-                            stat_card("STACK", "RAG · LLM · SQLite", "#fb923c", "core components", "#fb923c")
-
-                        # ---- Two-column content area ----
-                        with ui.row().style(
-                            "width:100%; padding:1.5rem 2rem; gap:1.5rem; align-items:flex-start; flex-wrap:wrap"
-                        ):
-                            # -- Left column: user table --
-                            with ui.column().style("flex:2; min-width:400px; gap:0.75rem"):
-                                # Section header
-                                with ui.row().style("align-items:center; gap:0.5rem"):
-                                    ui.label("Registered Users").style(
-                                        "font-size:0.7rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.06em"
-                                    )
-                                    ui.badge(str(len(users))).style(
-                                        "background:#1e3a5f; color:#38bdf8; font-size:0.72rem; border-radius:4px; padding:0.15rem 0.5rem"
-                                    )
+                            # -- Left: Users table --
+                            with ui.column().style("flex:1; min-width:280px; gap:0.6rem; padding-right:1.25rem"):
+                                ui.label("Registered Users").style(
+                                    "font-size:0.7rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.06em"
+                                )
 
                                 if users_error:
                                     ui.label(f"Could not load users: {users_error}").style(
@@ -669,7 +632,8 @@ def setup_ui(fastapi_app):
                                       </q-td>
                                     """)
 
-                                    async def handle_delete(row):
+                                    async def handle_delete(e):
+                                        row = e.args
                                         uid = row["id"]
                                         email = row["email"]
                                         try:
@@ -688,15 +652,47 @@ def setup_ui(fastapi_app):
                                         except Exception as exc:
                                             ui.notify(f"Network error: {exc}", type="negative")
 
-                                    table.on("delete", lambda e: asyncio.ensure_future(handle_delete(e.args)))
+                                    table.on("delete", handle_delete)
 
-                            # -- Right column: health + monitoring --
-                            with ui.column().style("flex:1; min-width:280px; gap:0"):
+                            # Vertical divider
+                            ui.element("div").style(
+                                "width:1px; background:#334155; align-self:stretch; flex-shrink:0"
+                            )
 
-                                # Card 1: System Health
+                            # -- Right: stat cards + system health --
+                            with ui.column().style("flex:1; min-width:280px; gap:1rem; padding-left:1.25rem"):
+                                # Stat cards — horizontal row
+                                def stat_card(label_text, value_text, value_color, description, border_color="#334155"):
+                                    with ui.column().style(
+                                        "background:linear-gradient(135deg,rgba(30,41,59,1),rgba(15,23,42,1)); "
+                                        f"border:1px solid #334155; border-top:2px solid {border_color}; border-radius:12px; "
+                                        "padding:0.75rem 1rem; flex:1; gap:0.2rem"
+                                    ):
+                                        ui.label(label_text).style(
+                                            "font-size:0.65rem; color:#64748b; letter-spacing:0.08em; text-transform:uppercase"
+                                        )
+                                        ui.label(value_text).style(
+                                            f"font-size:1.4rem; font-weight:700; color:{value_color}"
+                                        )
+                                        ui.label(description).style(
+                                            "font-size:0.7rem; color:#64748b"
+                                        )
+
+                                with ui.row().style("width:100%; gap:1rem; flex-wrap:wrap"):
+                                    stat_card("USERS", str(len(users)), "#38bdf8", "registered", "#38bdf8")
+                                    stat_card("LATEST JOIN", latest_join, "#a78bfa", "most recent signup", "#a78bfa")
+                                    stat_card(
+                                        "SYSTEM",
+                                        "Healthy" if is_healthy else "Degraded",
+                                        "#4ade80" if is_healthy else "#f87171",
+                                        "all services",
+                                        "#4ade80" if is_healthy else "#f87171",
+                                    )
+
+                                # System Health
                                 with ui.column().style(
                                     "background:#1e293b; border:1px solid #334155; border-radius:12px; "
-                                    "padding:1rem 1.25rem; gap:0.5rem"
+                                    "padding:0.75rem 1rem; gap:0.6rem"
                                 ):
                                     ui.label("SYSTEM HEALTH").style(
                                         "font-size:0.65rem; color:#64748b; letter-spacing:0.08em; text-transform:uppercase"
@@ -711,46 +707,27 @@ def setup_ui(fastapi_app):
                                         "degraded": "background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2);color:#fbbf24",
                                         "unknown": "background:rgba(100,116,139,0.1);border:1px solid #475569;color:#64748b",
                                     }
-                                    for key in service_keys:
-                                        svc_status = ""
-                                        if services_data:
-                                            svc_status = str(services_data.get(key, "")).lower()
-                                        elif health_data:
-                                            # flat health response — treat top-level status for api
-                                            svc_status = health_status.lower() if key == "api" else "unknown"
-                                        else:
-                                            svc_status = "unknown"
+                                    with ui.row().style("gap:0.75rem; flex-wrap:wrap"):
+                                        for key in service_keys:
+                                            svc_status = ""
+                                            if services_data:
+                                                svc_status = str(services_data.get(key, "")).lower()
+                                            elif health_data:
+                                                svc_status = health_status.lower() if key == "api" else "unknown"
+                                            else:
+                                                svc_status = "unknown"
 
-                                        _norm = svc_status if svc_status in _chip_styles else "unknown"
-                                        _chip_label = "Healthy" if _norm in ("healthy", "ok") else _norm.capitalize()
+                                            _norm = svc_status if svc_status in _chip_styles else "unknown"
+                                            _chip_label = "Healthy" if _norm in ("healthy", "ok") else _norm.capitalize()
 
-                                        with ui.row().style(
-                                            "display:flex; align-items:center; justify-content:space-between; padding:0.25rem 0"
-                                        ):
-                                            ui.label(key.replace("_", " ").title()).style(
-                                                "font-size:0.8rem; color:#94a3b8"
-                                            )
-                                            ui.label(_chip_label).classes("rag-health-chip").style(
-                                                _chip_styles[_norm]
-                                            )
+                                            with ui.column().style("align-items:center; gap:0.2rem"):
+                                                ui.label(key.replace("_", " ").title()).style(
+                                                    "font-size:0.7rem; color:#94a3b8"
+                                                )
+                                                ui.label(_chip_label).classes("rag-health-chip").style(
+                                                    _chip_styles[_norm]
+                                                )
 
-                                # Card 2: Monitoring placeholder
-                                with ui.column().style(
-                                    "background:#1e293b; border:1px dashed #334155; border-radius:12px; "
-                                    "padding:1rem 1.25rem; gap:0.6rem; margin-top:1rem"
-                                ):
-                                    ui.label("MONITORING").style(
-                                        "font-size:0.65rem; color:#64748b; letter-spacing:0.08em; text-transform:uppercase"
-                                    )
-                                    ui.label(
-                                        "Grafana & Prometheus dashboards will be embedded here after deployment."
-                                    ).style("font-size:0.8rem; color:#64748b; font-style:italic")
-                                    with ui.row().style("gap:0.5rem; flex-wrap:wrap; margin-top:0.25rem"):
-                                        for tag in ("Grafana", "Prometheus"):
-                                            ui.label(tag).style(
-                                                "background:#0f172a; color:#64748b; border:1px solid #334155; "
-                                                "border-radius:4px; padding:0.2rem 0.6rem; font-size:0.72rem"
-                                            )
 
                     await admin_panel()
 
