@@ -425,8 +425,8 @@ def setup_ui(fastapi_app):
             with ui.tabs().classes("w-full") as tabs:
                 chat_tab = ui.tab("Chat")
                 admin_tab = ui.tab("Admin")
-                if not app.storage.user.get("is_admin", False):
-                    admin_tab.set_visibility(False)
+            if not app.storage.user.get("is_admin", False):
+                tabs.set_visibility(False)
 
         if not can_use_chat:
             ui.navigate.to("/login")
