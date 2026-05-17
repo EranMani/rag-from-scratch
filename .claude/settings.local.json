@@ -129,7 +129,8 @@
       "Bash(Get-Content *)",
       "PowerShell(conda env *)",
       "Bash(conda activate *)",
-      "PowerShell(python -c \"import ast; ast.parse\\(open\\('D:/AI/_My_Projects/rag-from-scratch/src/app/ui.py'\\).read\\(\\)\\); print\\('AST OK'\\)\")"
+      "PowerShell(python -c \"import ast; ast.parse\\(open\\('D:/AI/_My_Projects/rag-from-scratch/src/app/ui.py'\\).read\\(\\)\\); print\\('AST OK'\\)\")",
+      "Bash(Select-Object FullName)"
     ]
   }
 }
