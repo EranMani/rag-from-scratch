@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 28 · 2026-05-17*
+*Last updated: Commit 29 · 2026-05-17*
 
-**Last completed:** Commit 28 — ui-chat: gradient user bubbles, AI card border-left, Knowledge Check card indigo prominence, thinking label indigo, welcome card border-left ✅
+**Last completed:** Commit 29 — ui-sidebar-admin: mastery tier badge, score pills (% text + 4px bar), gap badge red-tint, stat card gradient + colored top-border, health status chips ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -35,6 +35,7 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 13 | 29 | ✅ Done | Mastery chip via ui.label+classes (not ui.html); % text monospace alongside 4px bar; gap badges red-tinted; stat_card gets border_color param + gradient bg; health chips replace dot+text pattern |
 | 12 | 28 | ✅ Done | Gradient user bubble; border-left on AI card + welcome card; indigo KC card (bg/border/shadow/label color/✦ prefix); thinking label #818cf8 |
 | 11G | 27 gate-fix | ✅ Done | XSS: ui.html→ui.label for email pill; overflow:visible removed; double storage read collapsed to single dict; CSS color fallback on .rag-brand-name |
 | 11R | 27 RETRY | ✅ Done | Gradient header bg; geometric SVG path strokes; .rag-brand-name CSS gradient text; email pill; .rag-header-accent::after gradient line |
@@ -49,6 +50,52 @@
 | 7 | feature | ✅ Done | Tab bar Chat/Admin; admin router; footer visibility callback; closure capture for delete buttons |
 | 8 | bug+redesign | ✅ Done | White panel bg fix; admin tab as SaaS dashboard: header strip, stat cards, ui.table slot injection, health + monitoring sidebar |
 | 9 | bug fix | ✅ Done | thinking label: set_visibility(False) instead of delete() to avoid client-context error after await |
+
+---
+
+## Session 13 — Commit 29: ui-sidebar-admin
+
+**Date:** 2026-05-17
+**Status:** ✅ Done
+
+### Approach
+
+The six changes in this commit divide cleanly into two zones: the profile sidebar (mastery badge, score pills, gap badges) and the admin panel (stat card gradients/borders, health chips). All are style mutations on existing components — no new async logic, no `@ui.refreshable` decorator changes, no API calls added.
+
+The most important decision was how to render the mastery tier badge. The spec explicitly forbids `ui.html(f-string)` for the mastery value — correctly, because `mastery` derives from user profile data and `ui.html()` inserts raw DOM without escaping. The chosen pattern is `ui.label(mastery.capitalize()).classes("rag-mastery-chip").style(_chip_style)`, where the CSS class carries the shape properties (border-radius, padding, font-size, font-weight, display) and the per-level inline style carries the color properties (background, color, border). This separation is intentional: `.classes()` applies NiceGUI's Quasar CSS class mechanism (stable, non-interpolated), and `.style()` applies the dynamic per-level color string — which is safe because it is a dict lookup keyed on a known enum of four values (`novice`, `intermediate`, `advanced`, `expert`), not a raw user string. No user-controlled content ever reaches the DOM via `ui.html()`.
+
+The score pill redesign required replacing the single-element `ui.column` (label above, progress below) with a `ui.row` for the label+percentage header. The percentage is formatted as `int(score * 100)` — truncating to an integer avoids displaying `74.999...%` for floating point values. The `ui.linear_progress` height override was placed in the `<style>` block as `.q-linear-progress { height: 4px !important; border-radius: 2px !important; }` rather than as an inline style on each element, because inline height on a Quasar progress component is often overridden by the component's own internal stylesheet — the global selector with `!important` is the reliable path here.
+
+For the `stat_card` helper, the cleanest extension was adding `border_color` as a keyword argument with a neutral default (`#334155`). This keeps all four call sites readable without introducing a new helper or conditional logic inside the function. The gradient background `linear-gradient(135deg, rgba(30,41,59,1), rgba(15,23,42,1))` uses fully-opaque rgba rather than hex to avoid browser inconsistencies with hex alpha at certain rendering paths — functionally equivalent to `#1e293b → #0f172a` but more explicit about opacity intent.
+
+The health chip replacement changed the layout direction of each service row from `gap:0.5rem` (dot + label) to `justify-content:space-between` (label left, chip right). The chip label normalization maps both `"healthy"` and `"ok"` to `"Healthy"` — the health endpoint may return either string depending on which service layer responds. The `_chip_styles` dict was defined once above the loop rather than computed per-iteration. The `_norm` lookup falls back to `"unknown"` for any unrecognized status string, which prevents KeyError on unexpected health response values.
+
+No `@ui.refreshable` decorator, `async`/`await` structure, or API call logic was touched. All new CSS rules are in the existing `<style>` block in `index()`, not inside `profile_panel` or `admin_panel`.
+
+### Changes Made
+
+| File | Location | Change |
+|---|---|---|
+| `src/app/ui.py` | `<style>` block | Added `.q-linear-progress`, `.rag-mastery-chip`, `.rag-health-chip` CSS rules |
+| `src/app/ui.py` | `profile_panel` — mastery label | `ui.label(f"Level: {mastery}...")` → `ui.label(mastery.capitalize()).classes("rag-mastery-chip").style(_chip_style)` with per-level dict |
+| `src/app/ui.py` | `profile_panel` — topic score rows | Added `ui.row` for label+% header; kept `ui.linear_progress`; removed inline height override |
+| `src/app/ui.py` | `profile_panel` — gap badges | `background:#1e3a5f; color:#bfdbfe` → `background:rgba(239,68,68,0.1); color:#fca5a5; border:1px solid rgba(239,68,68,0.2)` |
+| `src/app/ui.py` | `admin_panel` — `stat_card` helper | Added `border_color` param; gradient bg; `border-top:2px solid {border_color}` |
+| `src/app/ui.py` | `admin_panel` — `stat_card` call sites | Passed per-card border colors (#38bdf8, #a78bfa, #4ade80/#f87171, #fb923c) |
+| `src/app/ui.py` | `admin_panel` — health service rows | Replaced `●` dot + plain label with `_chip_styles` dict + `ui.label.classes("rag-health-chip")`; layout flipped to space-between |
+
+### Self-Review Checklist
+- [x] Mastery badge: `ui.label()` not `ui.html(f-string)` — no XSS risk
+- [x] Mastery badge: all four levels have distinct chip styles
+- [x] Score pills: `ui.row` with topic label (left) + `int(score * 100)%` monospace (right)
+- [x] Score pills: `ui.linear_progress` retained below; height via CSS class not inline
+- [x] Gap badges: red-tinted (`rgba(239,68,68,0.1)` bg, `#fca5a5` text, `rgba(239,68,68,0.2)` border)
+- [x] `stat_card`: gradient bg + `border-top` per card; `border_color` default `#334155` is safe for future calls
+- [x] Health chips: `_chip_styles` covers `healthy`, `ok`, `degraded`, `unknown`; `_norm` fallback prevents KeyError
+- [x] All new CSS in `<style>` block inside `index()` — not inside `@ui.refreshable` functions
+- [x] `profile_panel.refresh()`, `admin_panel.refresh()`, all async/await structure untouched
+- [x] Only `src/app/ui.py` modified
+- [x] AST syntax check passed
 
 ---
 

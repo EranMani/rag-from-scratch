@@ -297,6 +297,14 @@ def setup_ui(fastapi_app):
   font-size: 0.8rem; color: #818cf8; font-style: italic; line-height: 1;
 }
 .q-header .q-btn:hover { color: #e2e8f0; transition: color 0.15s ease; }
+.q-linear-progress { height: 4px !important; border-radius: 2px !important; }
+.rag-mastery-chip {
+  border-radius: 20px; padding: 0.2rem 0.75rem; font-size: 0.72rem;
+  font-weight: 600; display: inline-block;
+}
+.rag-health-chip {
+  border-radius: 20px; padding: 0.1rem 0.6rem; font-size: 0.7rem; display: inline-block;
+}
 .rag-brand-name {
   color: #e2e8f0;
   font-size: 1.35rem;
@@ -420,10 +428,15 @@ def setup_ui(fastapi_app):
                                 )
                                 return
 
-                            mastery = profile.get("mastery_level") or "—"
-                            ui.label(f"Level: {mastery.capitalize() if mastery != '—' else '—'}").style(
-                                "font-size:0.8rem; color:#94a3b8"
-                            )
+                            mastery = profile.get("mastery_level") or "novice"
+                            _mastery_styles = {
+                                "novice": "background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid #475569",
+                                "intermediate": "background:rgba(56,189,248,0.1);color:#38bdf8;border:1px solid rgba(56,189,248,0.3)",
+                                "advanced": "background:rgba(129,140,248,0.1);color:#818cf8;border:1px solid rgba(129,140,248,0.3)",
+                                "expert": "background:linear-gradient(135deg,rgba(56,189,248,0.15),rgba(129,140,248,0.15));color:#c4b5fd;border:1px solid rgba(129,140,248,0.4)",
+                            }
+                            _chip_style = _mastery_styles.get(mastery, _mastery_styles["novice"])
+                            ui.label(mastery.capitalize()).classes("rag-mastery-chip").style(_chip_style)
 
                             topic_scores: dict = profile.get("topic_scores") or {}
 
@@ -437,11 +450,15 @@ def setup_ui(fastapi_app):
                                 )
                                 for slug, label in _MODULE_LABELS.items():
                                     score: float = topic_scores.get(slug, 0.0)
-                                    with ui.column().style("gap:0.4rem; width:100%"):
-                                        ui.label(label).style("font-size:0.72rem; color:#94a3b8")
-                                        ui.linear_progress(value=score).style(
-                                            "width:100%; height:10px"
-                                        ).props("color=sky-600 track-color=slate-700")
+                                    with ui.column().style("gap:0.25rem; width:100%"):
+                                        with ui.row().style("justify-content:space-between; align-items:center; width:100%"):
+                                            ui.label(label).style("font-size:0.72rem; color:#94a3b8")
+                                            ui.label(f"{int(score * 100)}%").style(
+                                                "font-size:0.72rem; color:#64748b; font-family:ui-monospace,monospace"
+                                            )
+                                        ui.linear_progress(value=score).style("width:100%").props(
+                                            "color=sky-600 track-color=slate-700"
+                                        )
 
                             gaps: list = profile.get("gaps") or []
                             if gaps:
@@ -452,7 +469,8 @@ def setup_ui(fastapi_app):
                                     for gap in gaps:
                                         display = _MODULE_LABELS.get(gap, gap.replace("_", " ").title())
                                         ui.badge(display).style(
-                                            "background:#1e3a5f; color:#bfdbfe; font-size:0.75rem; "
+                                            "background:rgba(239,68,68,0.1); color:#fca5a5; font-size:0.75rem; "
+                                            "border:1px solid rgba(239,68,68,0.2); "
                                             "border-radius:4px; padding:0.25rem 0.6rem"
                                         )
 
@@ -546,13 +564,14 @@ def setup_ui(fastapi_app):
                             "width:100%; padding:1.5rem 2rem 0; gap:1rem; flex-wrap:wrap"
                         ):
                             # Card helper
-                            def stat_card(label_text, value_text, value_color, description):
+                            def stat_card(label_text, value_text, value_color, description, border_color="#334155"):
                                 with ui.column().style(
-                                    "background:#1e293b; border:1px solid #334155; border-radius:12px; "
+                                    "background:linear-gradient(135deg,rgba(30,41,59,1),rgba(15,23,42,1)); "
+                                    f"border:1px solid #334155; border-top:2px solid {border_color}; border-radius:12px; "
                                     "padding:1rem 1.25rem; min-width:160px; flex:1; gap:0.2rem"
                                 ):
                                     ui.label(label_text).style(
-                                        f"font-size:0.65rem; color:#64748b; letter-spacing:0.08em; text-transform:uppercase"
+                                        "font-size:0.65rem; color:#64748b; letter-spacing:0.08em; text-transform:uppercase"
                                     )
                                     ui.label(value_text).style(
                                         f"font-size:1.6rem; font-weight:700; color:{value_color}"
@@ -561,15 +580,16 @@ def setup_ui(fastapi_app):
                                         "font-size:0.7rem; color:#64748b"
                                     )
 
-                            stat_card("USERS", str(len(users)), "#38bdf8", "registered")
-                            stat_card("LATEST JOIN", latest_join, "#a78bfa", "most recent signup")
+                            stat_card("USERS", str(len(users)), "#38bdf8", "registered", "#38bdf8")
+                            stat_card("LATEST JOIN", latest_join, "#a78bfa", "most recent signup", "#a78bfa")
                             stat_card(
                                 "SYSTEM",
                                 "Healthy" if is_healthy else "Degraded",
                                 "#4ade80" if is_healthy else "#f87171",
                                 "all services",
+                                "#4ade80" if is_healthy else "#f87171",
                             )
-                            stat_card("STACK", "RAG · LLM · SQLite", "#fb923c", "core components")
+                            stat_card("STACK", "RAG · LLM · SQLite", "#fb923c", "core components", "#fb923c")
 
                         # ---- Two-column content area ----
                         with ui.row().style(
@@ -660,6 +680,12 @@ def setup_ui(fastapi_app):
                                     service_keys = ["api", "rag_pipeline", "vectorstore", "redis", "llm"]
                                     services_data = health_data.get("services", {})
 
+                                    _chip_styles = {
+                                        "healthy": "background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);color:#4ade80",
+                                        "ok": "background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);color:#4ade80",
+                                        "degraded": "background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2);color:#fbbf24",
+                                        "unknown": "background:rgba(100,116,139,0.1);border:1px solid #475569;color:#64748b",
+                                    }
                                     for key in service_keys:
                                         svc_status = ""
                                         if services_data:
@@ -670,19 +696,17 @@ def setup_ui(fastapi_app):
                                         else:
                                             svc_status = "unknown"
 
-                                        if svc_status in ("healthy", "ok"):
-                                            dot_color = "#4ade80"
-                                        elif svc_status == "degraded":
-                                            dot_color = "#fbbf24"
-                                        else:
-                                            dot_color = "#f87171"
+                                        _norm = svc_status if svc_status in _chip_styles else "unknown"
+                                        _chip_label = "Healthy" if _norm in ("healthy", "ok") else _norm.capitalize()
 
                                         with ui.row().style(
-                                            "display:flex; align-items:center; gap:0.5rem; padding:0.25rem 0"
+                                            "display:flex; align-items:center; justify-content:space-between; padding:0.25rem 0"
                                         ):
-                                            ui.label("●").style(f"color:{dot_color}; font-size:0.7rem")
                                             ui.label(key.replace("_", " ").title()).style(
                                                 "font-size:0.8rem; color:#94a3b8"
+                                            )
+                                            ui.label(_chip_label).classes("rag-health-chip").style(
+                                                _chip_styles[_norm]
                                             )
 
                                 # Card 2: Monitoring placeholder
