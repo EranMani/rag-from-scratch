@@ -389,9 +389,6 @@ def setup_ui(fastapi_app):
   <path d="M15 8L13 20" stroke="url(#rag-brand-icon-grad)" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
 </svg>''')
                         ui.html('<span class="rag-brand-name">RAG Tutor</span>')
-                    ui.label(
-                        "RAG architecture · vector databases · LangChain"
-                    ).style("font-size:0.72rem; color:#475569; letter-spacing:0.01em; margin-top:2px")
                 with ui.row().style("gap:0.75rem; align-items:center"):
                     _user_store = {k: app.storage.user.get(k) for k in ("user_id", "email")}
                     uid = _user_store["user_id"]
@@ -499,11 +496,11 @@ def setup_ui(fastapi_app):
                                 with ui.row().style("flex-wrap:wrap; gap:0.3rem"):
                                     for gap in gaps:
                                         display = _MODULE_LABELS.get(gap, gap.replace("_", " ").title())
-                                        ui.badge(display).style(
-                                            "background:rgba(239,68,68,0.1); color:#fca5a5; font-size:0.75rem; "
-                                            "border:1px solid rgba(239,68,68,0.2); "
+                                        ui.badge(display, color="red").style(
+                                            "color:#ffffff; text-color:#ffffff; font-size:0.75rem; "
+                                            "border:1px solid #b91c1c; "
                                             "border-radius:4px; padding:0.25rem 0.6rem"
-                                        )
+                                        ).props("color:#ffffff;")
 
                             interaction_count = profile.get("interaction_count", 0)
                             last_activity = profile.get("last_activity_at")
@@ -577,9 +574,6 @@ def setup_ui(fastapi_app):
                             with ui.column().style("gap:0.2rem"):
                                 ui.label("Admin Dashboard").style(
                                     "font-size:1.1rem; font-weight:600; color:#38bdf8"
-                                )
-                                ui.label("System overview & user management").style(
-                                    "font-size:0.78rem; color:#64748b"
                                 )
                             ui.button("Refresh", on_click=admin_panel.refresh).props("flat dense").style(
                                 "color:#64748b"
