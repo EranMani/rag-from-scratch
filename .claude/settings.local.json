@@ -127,7 +127,8 @@
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(Format-Table -AutoSize)",
       "Bash(Get-Content *)",
-      "PowerShell(conda env *)"
+      "PowerShell(conda env *)",
+      "Bash(conda activate *)"
     ]
   }
 }
