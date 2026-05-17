@@ -335,7 +335,6 @@ def setup_ui(fastapi_app):
 .q-tab-panels {
   flex: 1 1 auto !important;
   min-height: 0 !important;
-  height: auto !important;
   overflow: hidden !important;
 }
 
@@ -350,6 +349,21 @@ def setup_ui(fastapi_app):
   border-radius: 4px !important;
   flex-shrink: 0 !important;
 }
+.rag-chat-input .q-field__control { background: #0a1628 !important; border-radius: 14px !important; min-height: 50px !important; }
+.rag-chat-input.q-field--outlined .q-field__control:before { border-color: #334155 !important; border-radius: 14px !important; transition: border-color 0.2s, box-shadow 0.2s; }
+.rag-chat-input.q-field--outlined:hover .q-field__control:before { border-color: #475569 !important; }
+.rag-chat-input.q-field--outlined.q-field--focused .q-field__control:before { border-color: #38bdf8 !important; box-shadow: 0 0 0 3px rgba(56,189,248,0.08); }
+.rag-chat-input .q-field__native { color: #e2e8f0 !important; padding: 0 1rem !important; }
+.rag-chat-input .q-field__placeholder { color: #475569 !important; }
+.rag-send-btn { background: linear-gradient(135deg, #0369a1, #4f46e5) !important; border-radius: 14px !important; width: 50px !important; height: 50px !important; min-width: 50px !important; flex-shrink: 0; }
+.rag-send-btn:not(.disabled):hover { filter: brightness(1.15) !important; transition: filter 0.15s; }
+.rag-send-btn.disabled { opacity: 0.35 !important; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+* { scrollbar-width: thin; scrollbar-color: #334155 #0f172a; }
 
 </style>
 """)
@@ -421,9 +435,9 @@ def setup_ui(fastapi_app):
             "flex:1; min-height:0; overflow:hidden"
         ):
             # ------------------------------------------------------------------ Chat tab
-            with ui.tab_panel(chat_tab).style("padding:0; height:100%; overflow:hidden"):
+            with ui.tab_panel(chat_tab).style("padding:0; height:100%; overflow:hidden; display:flex; flex-direction:column"):
                 with ui.row().style(
-                    "width:100%; height:100%; gap:0; overflow:hidden; align-items:stretch"
+                    "width:100%; flex:1; min-height:0; gap:0; overflow:hidden; align-items:stretch"
                 ):
                     # --- Profile sidebar ---
                     @ui.refreshable
@@ -488,20 +502,6 @@ def setup_ui(fastapi_app):
                                             "color=sky-600 track-color=slate-700"
                                         )
 
-                            gaps: list = profile.get("gaps") or []
-                            if gaps:
-                                ui.label("Gaps").style(
-                                    "font-size:0.75rem; font-weight:600; color:#64748b; margin-top:0.5rem"
-                                )
-                                with ui.row().style("flex-wrap:wrap; gap:0.3rem"):
-                                    for gap in gaps:
-                                        display = _MODULE_LABELS.get(gap, gap.replace("_", " ").title())
-                                        ui.badge(display, color="red").style(
-                                            "color:#ffffff; text-color:#ffffff; font-size:0.75rem; "
-                                            "border:1px solid #b91c1c; "
-                                            "border-radius:4px; padding:0.25rem 0.6rem"
-                                        ).props("color:#ffffff;")
-
                             interaction_count = profile.get("interaction_count", 0)
                             last_activity = profile.get("last_activity_at")
                             ui.label(f"Queries: {interaction_count}").style(
@@ -516,10 +516,10 @@ def setup_ui(fastapi_app):
                     await profile_panel()
 
                     # --- Chat area ---
-                    with ui.column().style("flex:1; height:100%; overflow:hidden; position:relative"):
+                    with ui.column().style("flex:1; min-height:0; overflow:hidden; position:relative"):
                         with ui.column().style(
-                            "flex:1; width:100%; max-width:900px; margin:0 auto; padding:1.5rem; "
-                            "padding-bottom:120px; overflow-y:auto; height:100%"
+                            "position:absolute; top:0; left:0; right:0; bottom:0; "
+                            "overflow-y:auto; padding:1.5rem; padding-bottom:120px"
                         ):
                             chat_area = ui.column().style("width:100%; gap:1rem")
 
@@ -756,17 +756,15 @@ def setup_ui(fastapi_app):
 
         # Footer — input bar, hidden when Admin tab is active
         footer = ui.footer().style(
-            "background:#1e293b; border-top:1px solid #334155; padding:1rem 2rem"
+            "background:#1e293b; border-top:1px solid #334155; box-shadow:0 -4px 24px rgba(0,0,0,0.5); padding:0.875rem 2rem"
         )
         with footer:
-            with ui.row().style("width:100%; max-width:900px; margin:0 auto; gap:0.75rem"):
+            with ui.row().style("width:100%; max-width:900px; margin:0 auto; gap:0.6rem; align-items:center"):
                 question_input = ui.input(
                     placeholder="Ask about RAG, vector databases, LangChain..."
-                ).style(
-                    "flex:1; background:#0f172a; border:1px solid #334155; color:#e2e8f0; border-radius:8px"
-                )
-                send_btn = ui.button("Send").style(
-                    "background:#0369a1; color:white; border-radius:8px"
+                ).classes("rag-chat-input").props("outlined").style("flex:1")
+                send_btn = ui.button(icon="send").classes("rag-send-btn").props("unelevated").style(
+                    "color:white; font-size:1.1rem"
                 )
 
         tabs.on("update:model-value", lambda e: footer.set_visibility(e.args == "Chat"))
