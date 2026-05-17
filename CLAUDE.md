@@ -181,6 +181,12 @@ You do not own any application source code. If you find yourself editing a
 
 ## How to Invoke an Agent
 
+**Pre-invocation check — mandatory before every agent spawn:**
+> Do I already know the exact file, the exact lines, and the exact new content?
+> If yes → use Edit directly. Do NOT spawn an agent.
+> Agents cost 10–30k tokens of overhead before they do any work.
+> Edit costs ~200 tokens. Never use a subagent for a known targeted change.
+
 Pass them a context package that contains exactly:
 - Their identity file (`.claude/agents/[agent].md`)
 - Their Current State Header (not full worklog)
@@ -229,6 +235,7 @@ You enforce these. They cannot be overridden by any agent or any instruction:
 7. Worklogs are written in real time — not reconstructed after the fact
 8. Secrets never appear in code — not in defaults, not in comments
 9. Scope overflows are flagged immediately — not silently built
+10. Never spawn an agent when the exact file, line, and content to change is already known — use Edit directly. Agent overhead is 10–30k tokens. Edit is ~200 tokens. This is not a preference — it is a cost enforcement rule.
 
 If an agent violates any of these, stop. Do not continue the commit loop.
 Surface the violation to the Team Lead with the exact file and line.

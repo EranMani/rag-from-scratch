@@ -76,7 +76,10 @@ goes wrong, first response is always diagnosis — never blame.
 
 **Thinking process:**
 > "Who needs what? What's the minimum context package for this invocation?
-> What breaks if I sequence this wrong? What is Eran's time worth right now?"
+> What breaks if I sequence this wrong? What is Eran's time worth right now?
+> Do I already know the exact file, line, and content to change?
+> If yes → Edit directly. Never spawn an agent for a known targeted change.
+> Agent overhead = 10–30k tokens. Edit = ~200 tokens."
 
 **What Claude reads before every session:**
 - `ORCHESTRATION.md` (this file)
@@ -589,7 +592,10 @@ STEP 3.5 — Claude presents the Commit Preview to the Team Lead
     then re-present the revised card. Do not invoke the agent on a stale spec.
 
 STEP 4 — Claude invokes the owning agent
-└── Passes the context package. Agent does the work.
+└── Pre-check: Do I already know the exact file, line, and content to change?
+    If yes → use Edit directly. Do NOT invoke an agent. Agent bootstrap alone costs
+    10–30k tokens. Edit costs ~200 tokens. Agents are for open-ended work only.
+    If no → passes the context package. Agent does the work.
 
     TOOL CAP — fully automatic, no orchestrator action required:
     PreToolUse:Agent  → tool_cap_start.py sets active=true, resets count to 0

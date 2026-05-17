@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Ad-hoc task · 2026-05-15*
+*Last updated: Ad-hoc task · 2026-05-17*
 
-**Last completed:** Ad-hoc — thinking indicator animation
+**Last completed:** Ad-hoc — layout gap fix (`.q-page` padding + tab panels height)
 **Currently active:** none
 **Blocked by:** none
 
@@ -36,6 +36,7 @@ No archived sessions yet.
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
 | 1 | ad-hoc | Done | Use `ui.row` as `thinking` container; pulsing dots via CSS keyframes + `ui.html` |
+| 2 | ad-hoc | Done | `.q-page` padding reset + tab panels height recalculated to 184px |
 
 ---
 
@@ -104,6 +105,61 @@ replacement of the `ui.label` construction site.
 - [x] CSS injected into existing `ui.add_head_html` block — no new block added
 - [x] No external JS libraries or CDN fetches introduced
 - [x] Animation colors match dark theme palette (`#38bdf8` dots, `#94a3b8` label)
+- [x] No secrets in changes
+
+---
+
+## Session 02 — Ad-hoc: layout gap fix
+
+**Date:** 2026-05-17
+**Status:** Done
+
+### Task Brief
+
+Remove the visible gap between `ui.header()` and the `ui.tabs()` row below it.
+The gap wastes vertical space and squashes tab panel content. Two targeted edits only —
+no layout restructuring.
+
+### Approach
+
+The gap was already diagnosed before this session: Quasar's `.q-page` element carries
+a default `padding: 16px`, which NiceGUI does not zero out. This top padding pushes the
+tabs bar down by 16px, creating the visible gap. The existing tab panels height formula
+(`calc(100vh - 168px)`) did not account for this padding — it was already trying to give
+panels the correct height assuming no gap, but the gap was being double-counted against
+the available space.
+
+Two approaches considered for the padding: (1) query `.q-page` via `ui.query()` at
+runtime, or (2) inject the reset into the existing `<style>` block. Option 2 is cleaner —
+it keeps all layout overrides in one place and applies before any render. The injected
+rule `.q-page { padding: 0 !important; }` was appended just before the closing `</style>`
+tag so it is visible as a group with the other Quasar component overrides.
+
+For the height recalc: with the 16px top padding gone, the panels gain back 16px. The
+previous formula (`168px`) was empirically set without documenting its breakdown. The
+correct budget is header ~72px (content + 2rem vertical padding) + tabs bar ~48px +
+footer ~64px (input row + 2rem vertical padding) = 184px. The formula was updated to
+`calc(100vh - 184px)` to match the actual chrome height.
+
+### Decisions Made
+
+**1. CSS reset in `<style>` block, not `ui.query()`**
+`ui.query(".q-page").style(...)` runs after page mount, which can cause a visible
+layout shift on slow connections. The `<style>` block applies before first render.
+
+**2. Height formula updated to 184px**
+16px increase over the old 168px reflects removing a 16px source of double-counting.
+The breakdown is explicitly commented in this worklog for future tuning reference.
+
+### Issues Found Mid-Task
+
+None. Both edits were single-line, surgical, and confirmed against the file before writing.
+
+### Self-Review Checklist
+
+- [x] `.q-page { padding: 0 !important; }` added to existing `<style>` block
+- [x] Tab panels height updated from `168px` to `184px`
+- [x] No other layout, component, or style changes made
 - [x] No secrets in changes
 
 ### Scope Overflow Check

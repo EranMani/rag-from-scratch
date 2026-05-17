@@ -30,6 +30,12 @@
    Ask: "What specific risk does this commit introduce that this reviewer can catch?"
    No answer → skip the gate. Running gates for comfort costs money for no benefit.
    See gate triage matrix below.
+
+5. NEVER SPAWN AN AGENT FOR A KNOWN EDIT.
+   If the exact file, line, and new content are already known → use Edit directly.
+   Agent bootstrap overhead = 10–30k tokens. Edit = ~200 tokens.
+   C29 example: 28k tokens spent to change 2 CSS lines that could have been 2 Edit calls.
+   Agents are for open-ended exploration only. Known targeted changes use Edit, period.
 ```
 
 ---
@@ -540,6 +546,11 @@ These rules apply to Claude (the orchestrator) directly — not to sub-agents.
    must open the body with:
        Requested by Eran Mani, our team lead:
    followed by the description of what was done and why.
+
+4. Before every agent spawn, ask this question aloud:
+   "Do I already know the exact file, the exact lines, and the exact new content?"
+   If yes → use Edit directly. No agent. No exception.
+   Spawning Aria to change 2 CSS lines (C29) cost 28k tokens. Edit would have cost ~200.
 ```
 
 ---
@@ -571,3 +582,4 @@ These rules apply to Claude (the orchestrator) directly — not to sub-agents.
 | 2026-05-10 | **Universal 25-tool-use cap extended to ALL agents** — Viktor, Sage, Quinn, Mira, Ryan included | Viktor hit 59 tool uses in the Commit 15 wave (61k tokens). Nova hit 34 in the same session. Both caused by Claude omitting constraints from invocation prompts. Cap now universal — no agent type exempt. Reviewer and Ryan constraint blocks added. |
 | 2026-05-17 | **CRITICAL callout added at top of file** — 3 rules violated in C27 at cost of ~300k extra tokens | (1) Gate-fix passes run 4× in C27 despite being explicitly banned — rule existed, Claude ignored it. (2) Reviewers ran on Sonnet not Haiku — model: "haiku" never specified in Agent calls. (3) Spec not validated before Aria invocation — pass 1 rejected (186k wasted), retry introduced CWE-79 XSS. |
 | 2026-05-17 | **Gate triage matrix added** — skip gates when commit has no applicable risk | Team Lead directive: running Viktor+Sage+Mira on a CSS-only commit is wasteful. Gates must serve a purpose, not be run by default. Matrix defines skip/run per reviewer per commit type. Pure CSS/style: zero gates. User data in UI: Sage only. New logic: Viktor only. |
+| 2026-05-17 | **No-agent-for-known-edits rule added** — CRITICAL rule #5, Claude Behaviour Rule #4, plus CLAUDE.md Non-Negotiable #10 and ORCHESTRATION.md STEP 4 and Claude thinking process | C29: Aria spawned to change 2 CSS lines, cost 28k tokens. Edit would have cost ~200. Rule now in every file Claude reads at boot. |

@@ -323,6 +323,7 @@ def setup_ui(fastapi_app):
   bottom: 0; left: 0; right: 0; height: 1px;
   background: linear-gradient(90deg, transparent 0%, #334155 20%, #6366f1 50%, #334155 80%, transparent 100%);
 }
+.q-page { padding: 0 !important; }
 </style>
 """)
 
@@ -393,7 +394,7 @@ def setup_ui(fastapi_app):
             admin_tab = ui.tab("Admin")
 
         with ui.tab_panels(tabs, value=chat_tab).classes("w-full").style(
-            "height:calc(100vh - 168px); overflow:hidden"
+            "height:calc(100vh - 184px); overflow:hidden"
         ):
             # ------------------------------------------------------------------ Chat tab
             with ui.tab_panel(chat_tab).style("padding:0; height:100%; overflow:hidden"):
