@@ -296,6 +296,25 @@ def setup_ui(fastapi_app):
 .rag-thinking-label {
   font-size: 0.8rem; color: #94a3b8; font-style: italic; line-height: 1;
 }
+.q-header .q-btn:hover { color: #e2e8f0; transition: color 0.15s ease; }
+.rag-brand-name {
+  color: #e2e8f0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-family: 'Inter', system-ui;
+  background: linear-gradient(135deg, #e2e8f0 30%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+.rag-header-accent::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, #334155 20%, #6366f1 50%, #334155 80%, transparent 100%);
+}
 </style>
 """)
 
@@ -316,24 +335,39 @@ def setup_ui(fastapi_app):
             app.storage.user.clear()
             ui.navigate.to("/")
 
-        with ui.header().style(
-            "background:#1e293b; border-bottom:1px solid #334155; padding:1rem 2rem"
+        with ui.header().classes("rag-header-accent").style(
+            "background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%); padding:1rem 2rem; position:relative"
         ):
-            with ui.row().style("width:100%; justify-content:space-between; align-items:flex-start"):
-                with ui.column().style("gap:0.25rem"):
-                    ui.label("Educational RAG System").style(
-                        "font-size:1.25rem; font-weight:600; color:#38bdf8"
-                    )
+            with ui.row().style("width:100%; justify-content:space-between; align-items:center"):
+                with ui.column().style("gap:0"):
+                    with ui.row().style("align-items:center; gap:10px"):
+                        ui.html('''<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="rag-brand-icon-grad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <path d="M10 6L4 14L10 22" stroke="url(#rag-brand-icon-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M18 6L24 14L18 22" stroke="url(#rag-brand-icon-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M15 8L13 20" stroke="url(#rag-brand-icon-grad)" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+</svg>''')
+                        ui.html('<span class="rag-brand-name">RAG Tutor</span>')
                     ui.label(
-                        "Ask anything about RAG architecture, vector databases, LangChain, caching, or circuit breakers."
-                    ).style("font-size:0.8rem; color:#94a3b8; margin-top:0.25rem")
+                        "RAG architecture · vector databases · LangChain"
+                    ).style("font-size:0.72rem; color:#475569; letter-spacing:0.01em; margin-top:2px")
                 with ui.row().style("gap:0.75rem; align-items:center"):
-                    uid = app.storage.user.get("user_id")
+                    _user_store = {k: app.storage.user.get(k) for k in ("user_id", "email")}
+                    uid = _user_store["user_id"]
                     if uid:
-                        label = app.storage.user.get("email") or f"id …{uid[-8:]}"
-                        ui.label(label).style("font-size:0.75rem; color:#94a3b8")
+                        label = _user_store["email"] or f"id …{uid[-8:]}"
+                        ui.label(label).style(
+                            "font-size:0.7rem; color:#94a3b8; background:rgba(255,255,255,0.06); "
+                            "border:1px solid rgba(255,255,255,0.08); border-radius:999px; "
+                            "padding:3px 10px; font-family:Inter,system-ui"
+                        )
                         ui.button("Log out", on_click=logout).props("flat dense").style(
-                            "color:#94a3b8"
+                            "color:#64748b; font-size:0.75rem"
                         )
                     elif settings.allow_anonymous_chat:
                         ui.label("Anonymous demo").style("font-size:0.75rem; color:#64748b")

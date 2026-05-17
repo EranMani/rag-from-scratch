@@ -408,6 +408,48 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 27 — `ui-header` · 2026-05-17 · Aria
+
+> **Two-pass commit:** Pass 1 rejected by Team Lead (visual change insufficient; SVG brand mark didn't render). Pass 2 (retry) — full visual redesign with gradient background, SVG path-based brand mark, CSS gradient text, pill email badge.
+> Gate wave (pass 1): Viktor + Mira. Gate wave (retry): Viktor + Sage (XSS introduced in retry) + Viktor re-review + Sage re-review. Quinn not triggered (no new code paths). Mira verdict from pass 1 carried forward.
+> Ryan: full entry (security-relevant — CWE-79 XSS introduced in retry and resolved).
+
+**Pass 1 — rejected by Team Lead (visual output insufficient):**
+
+| Agent | Model | Tokens | Tool Uses | Notes |
+|---|---|---|---|---|
+| Aria (pass 1 implementation) | Sonnet | 52,291 | 7 | SVG `<text>` gradient failed silently; visual change imperceptible |
+| Viktor (pass 1 — BLOCKED: SVG id + CSS scope) | Sonnet | 20,158 | 0 | id `hg` collision risk + `.q-btn:hover !important` breadth |
+| Mira | Sonnet | 22,432 | 6 | PASS; naming consistency follow-up flagged |
+| Aria (pass 1 gate-fix) | Sonnet | 31,870 | 17 | 3 fixes: id rename + CSS scope + font size |
+| Viktor (pass 1 re-review — PASS) | Sonnet | 18,688 | 0 | all findings resolved |
+| Ryan (pass 1 one-liner) | Haiku | 40,432 | 15 | wrote one-liner; upgraded to full in pass 2 |
+| **Pass 1 subtotal** | | **185,871** | **45** | not committed — rejected |
+
+**Pass 2 (retry) — committed:**
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Aria (retry implementation) | Sonnet | 55,911 | 7 | ✅ under ≤60k | gradient bg, SVG path icon, CSS gradient text, pill badge |
+| Viktor (retry pass 1 — HARD BLOCK: XSS) | Sonnet | 21,136 | 0 | **+6k** over ≤15k | `ui.html(f-string)` with unescaped email + overflow:visible + double storage read |
+| Sage (triggered: unescaped user data in HTML) | Sonnet | 24,326 | 7 | **+9k** over ≤15k | CWE-79 MEDIUM; EmailStr provides partial defense only; fix: ui.label() |
+| Aria (retry gate-fix) | Sonnet | 41,533 | 10 | gate-fix pass | 4 fixes: XSS → ui.label(); overflow removed; storage read collapsed; CSS fallback |
+| Viktor (retry re-review — PASS WITH COMMENTS) | Sonnet | 19,310 | 0 | **+4k** over ≤15k | 2 advisories (comment on trust boundary + dict comprehension style) |
+| Sage (retry re-review — PASS) | Sonnet | 18,763 | 0 | **+4k** over ≤15k | CWE-79 resolved; storage refactor clean |
+| Ryan (full entry — security-relevant) | Haiku | 44,060 | 8 | **+29k** over ≤15k | full entry: SVG rendering + CWE-79 + CSS gradient fallback |
+| **Pass 2 subtotal (excl. Ryan)** | | **180,979** | **24** | over — two gate cycles | |
+
+**Grand total (both passes, excl. Ryan):** ~366,850 tokens
+
+**Notes:**
+- Team Lead rejected pass 1: SVG `<text>` gradient failed silently (browser-dependent — paths are reliable, text is not); visual change imperceptible.
+- Retry introduced CWE-79: `ui.html(f-string)` interpolating user email — no escaping. `EmailStr` validation at registration partially defends but is not an HTML encoding control. Fixed by replacing with `ui.label()`.
+- All agents on Sonnet (not Haiku for reviewers). Haiku reviewers would reduce gate costs ~3× per pass.
+- Mira verdict (product name change "RAG Tutor") carried forward from pass 1 — not re-run in retry (no product-facing change in retry).
+- Viktor advisory carried forward: `0.72rem` at lines 416, 561, 678 (sidebar/admin/tag) — out-of-scope for C27; flag for C28/C29.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -429,6 +471,7 @@ No token data recorded. Tracking began at Commit 10.
 | 24 | assessment-engine-rewrite | 171,637 | Sage only | **over — +82k** | Nova 26 tool uses + commit without approval; Sage 51k (diff-in-prompt); Ryan 43k full entry |
 | 25 | profile-scoring-rewrite | 245,984 | Viktor + Quinn | **over — tool cap** | Rex hit cap; orchestrator fixed 4 issues; Viktor 36 tool uses; Quinn non-blocking |
 | 26 | ui-foundation | 124,540 | Viktor + Sage + Quinn + Mira | **over** | Full gate wave; Aria clean (51k); 4 reviewers on Sonnet (should be Haiku) |
+| 27 | ui-header | ~367k (2 passes) | Viktor+Mira (p1) · Viktor+Sage (p2) | **well over** | Pass 1 rejected; retry introduced CWE-79 XSS; 2 gate cycles on retry |
 
 ---
 

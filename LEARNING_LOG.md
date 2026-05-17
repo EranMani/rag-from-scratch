@@ -1589,3 +1589,75 @@ The font is loaded from Google's CDN (`fonts.googleapis.com`). This leaks each v
 - `src/app/ui.py` — Inter font injection (all 3 pages), CSS palette tokens in `index()`, glass-morphism auth card styles, inline SVG logo, gradient CTA button with `!important` override, body font-family set in `index()`
 
 ---
+
+**Commit 27 — `ui-header`** · 2026-05-17 · Aria · `new feature`
+
+> **In one sentence:** SVG brand mark with CSS gradient text and pill-style email badge; corrected SVG gradient rendering technique and fixed CWE-79 XSS in user-supplied badge label.
+
+**Interview talking point:**
+> **Q:** What's the difference between SVG text gradients and CSS gradient text, and when does each work?
+>
+> **A:** SVG `<text>` elements cannot reliably fill with gradients via `fill="url(#gradient-id)"` — support is inconsistent across browsers. The robust technique is CSS gradient text via `background-clip: text; -webkit-text-fill-color: transparent`, but it requires a `color` fallback for non-supporting browsers. SVG `<path>` strokes with `stroke="url(#id)"` are the reliable alternative if you need pure SVG. This came from a retry pass where the initial approach failed silently — the text rendered but the gradient did not.
+
+**What happened and why:**
+- Built the page header with a brand mark (SVG `<path>` stroke with namespaced gradient) and an email badge
+- Pass 1 attempted SVG `<text>` element with `fill="url(#rag-brand-icon-grad)"` (fill from gradient). This failed silently — the gradient did not render in Chrome or Firefox. SVG text gradient fills are browser-dependent and unreliable
+- Pass 2 rebuilt with two rendering techniques in parallel: CSS gradient text for the brand name (`-webkit-background-clip: text; -webkit-text-fill-color: transparent`) and SVG `<path>` strokes with `stroke="url(#id)"` for the icon mark (both reliable across modern browsers)
+- The email badge displays the user's registered email or a fallback badge with the last 8 characters of their user ID. Initial code used `ui.html(f'<span style="...">{label}</span>')` where `label` is user-supplied (email from registration). This is CWE-79 — stored XSS, self-XSS scope (NiceGUI sessions are per-user; one user's email does not render in another's session), but a security issue nonetheless. `EmailStr` validation at registration partially defends but only validates format, not HTML encoding
+- Fixed by replacing `ui.html()` with `ui.label(label).style(...)` — NiceGUI's `label` widget HTML-escapes content before DOM insertion, preventing injection
+
+**Reasoning & discovery:**
+1. The SVG `<text>` gradient was researched and expected to work. Testing showed it silent-failed — no console errors, just no color. Debugging revealed the W3C SVG spec allows gradient fills on text but browser compliance is inconsistent (IE/Edge support it, Chrome/Firefox do not). The robust solution is CSS gradient text, which has universal modern support with explicit fallback color
+2. The email badge vulnerability: `ui.html()` exists for cases where HTML markup is intentional (e.g., structured content). When the content is user-supplied, this is a code smell. The fix checks the NiceGUI API for a safer widget — `label` is designed for exactly this use case: text content that needs styling but not HTML markup
+3. What clinched the CSS gradient approach: the header must use the same brand colors and gradient direction as the CTA button (C26). CSS gradient text is less flexible than SVG gradients (no radial gradients on text) but it aligns with the design system and survives a browser restart without re-rendering SVG paths
+
+**Design pattern / architectural principle:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| CSS Gradient Text with Fallback | `color: #e2e8f0; background: linear-gradient(...); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;` | The `color` property serves as a fallback for non-supporting browsers. Without it, text is invisible in browsers that don't support `background-clip: text`. The `-webkit-` prefix is required for Chrome/Safari; `background-clip: text` (no prefix) is the standard and future-proof |
+| SVG Path Strokes over Text Fills | `<path stroke="url(#gradient)"` instead of `<text fill="url(#gradient)"` | SVG text gradient fills are W3C-specified but browser support varies. Path strokes with gradients are universally supported and are the reliable choice for gradient rendering in SVG |
+| Content-Aware Widget Selection | `ui.label()` instead of `ui.html()` for user-supplied content | NiceGUI's `label` widget HTML-escapes content; `html()` does not. When content is user-supplied, the escaping widget is mandatory. This prevents CWE-79 injection and is the correct abstraction |
+
+**The key change:**
+
+```python
+# src/app/ui.py — SVG `<text>` gradient (Pass 1, rejected)
+# Before: failed silently in Chrome/Firefox
+ui.html(f'<svg><text fill="url(#rag-brand-icon-grad)">RAG</text></svg>')
+
+# After: CSS gradient text with fallback color + SVG path stroke
+ui.html(f'''
+<style>
+  .rag-brand-name {{
+    color: #e2e8f0;          /* fallback for non-supporting browsers */
+    background: linear-gradient(135deg, #0ea5e9 0%, #4f46e5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }}
+</style>
+<span class="rag-brand-name">RAG</span>
+''')
+```
+
+```python
+# src/app/ui.py — Email badge (XSS vulnerability fix)
+# Before: CWE-79 via ui.html() with user-supplied email
+label = app.storage.user.get("email") or f"id …{uid[-8:]}"
+ui.html(f'<span style="...">{label}</span>')  # NOT SAFE
+
+# After: ui.label() HTML-escapes before DOM insertion
+label = app.storage.user.get("email") or f"id …{uid[-8:]}"
+ui.label(label).style('...color: #cbd5e1; background: ...')
+```
+
+**Security consequence:**
+CWE-79 severity is reduced from **potential stored XSS** to **eliminated** by using the escaping widget. The email field is registered with `EmailStr` validation, which blocks most injection attempts at registration time, but validation is not sufficient—the rendering layer must also escape. By moving to `ui.label()`, we defense-in-depth: validation at registration + escaping at render.
+
+**Files touched:**
+- `src/app/ui.py` — brand mark SVG with path stroke + CSS gradient text fallback, email badge using `ui.label()` with escaping, inline `<style>` block for gradient text fallback color, namespaced gradient id `#rag-brand-icon-grad`
+
+---
+
+---

@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 23 `scoring-model-product-spec` · 2026-05-11*
+*Last updated: Commit 27 `ui-header` · 2026-05-17*
 
-**Last completed:** Commit 23 `scoring-model-product-spec` — product spec draft for scoring-model.md (co-authored with Lara)
+**Last completed:** Commit 27 `ui-header` — brand name review ("RAG Tutor" vs "Educational RAG System")
 **Currently active:** none
 **Blocked by:** none
 
@@ -30,6 +30,7 @@ No archived sessions yet.
 | 02 | 20 `dynamic-chat-ui` (fix pass) | Done | Both original notes confirmed resolved; two low-stakes copy concerns flagged for post-commit backlog |
 | 03 | 21 `production-compose` | Done | Monitoring profile opt-in in dev is a net positive; .env.prod.example needs a deployment order callout; portfolio signal is strong |
 | 04 | 23 `scoring-model-product-spec` | Done | Produced full product spec draft for docs/scoring-model.md; decided trigger threshold (0.60), opt-in test framing, no score decay, user_level mapping |
+| 05 | 27 `ui-header` | Done | "RAG Tutor" is product-correct; flagged naming consistency sweep as a follow-up commit before any external portfolio presentation |
 
 ---
 
@@ -178,3 +179,33 @@ See output block in final response.
 ### Open Questions for Team Lead
 
 - None requiring immediate action. One carry-forward flagged: `.env.prod.example` deployment order callout (Commit 22 or 23 scope).
+
+---
+
+## Session 05 — Commit 27: `ui-header`
+
+**Date:** 2026-05-17
+
+### Trigger
+
+Narrow product question from Claude: is the brand name change from "Educational RAG System" to "RAG Tutor" product-correct, and does it create any consistency risk in the codebase?
+
+### Product Question
+
+Does "RAG Tutor" clearly communicate what this product does? Is there a risk from the old name persisting elsewhere in the codebase?
+
+### Review Findings
+
+**"RAG Tutor" as a display name:** Product-correct. "Educational RAG System" described the implementation; "RAG Tutor" describes the user's relationship with the product. Shorter, more active, pairs well with the `</>` brand mark. The one honest gap is that "RAG" is jargon, but the subtitle compensates by naming specific topics. The pairing works.
+
+**Consistency risk:** Real, but not urgent. "Educational RAG System" persisting in `<title>` tags, meta tags, and the README creates a two-names problem that reads as an unfinished product to any recruiter or interviewer who looks past the header. This undermines the "wow on first impression" goal the replan set.
+
+**Other concerns:** None.
+
+### Suggestions Generated
+
+Follow-up commit recommendation: naming consistency sweep targeting `<title>` tags across all HTML templates, `og:title`/`og:description` meta tags, the README heading, and any in-app page headings that still reference the old name. Should be queued before any external portfolio presentation — does not block Commit 27.
+
+### Open Questions for Team Lead
+
+- Should the naming consistency sweep be added to the commit queue as a discrete commit, or folded into an existing upcoming UI commit?

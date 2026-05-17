@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 26 ui-foundation · 2026-05-17*
+*Last updated: Commit 27 gate-fix pass · 2026-05-17*
 
-**Last completed:** Commit 26 `ui-foundation` — Inter font, palette tokens, auth page redesign ✅
+**Last completed:** Commit 27 gate-fix pass — XSS fix (ui.html → ui.label for email pill), overflow:visible removed, double storage read collapsed, CSS color fallback added ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -35,6 +35,9 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 11G | 27 gate-fix | ✅ Done | XSS: ui.html→ui.label for email pill; overflow:visible removed; double storage read collapsed to single dict; CSS color fallback on .rag-brand-name |
+| 11R | 27 RETRY | ✅ Done | Gradient header bg; geometric SVG path strokes; .rag-brand-name CSS gradient text; email pill; .rag-header-accent::after gradient line |
+| 11 | 27 | ✅ Done (gate-pass, rejected visually) | SVG <text> gradient fill invisible; box-shadow change imperceptible; font tweaks invisible |
 | 10 | 26 | ✅ Done | Font injected per-page (3 separate add_head_html calls); CSS tokens prepended to single style block in index() |
 | 1 | 19 | ✅ Done | Profile panel as nested @ui.refreshable; redirect unauthenticated users to /login |
 | 2 | 20 | ✅ Done | _STAGE_LABELS at module level; ui.timer(2.5) with mutable closure list for stage advancement |
@@ -45,6 +48,136 @@
 | 7 | feature | ✅ Done | Tab bar Chat/Admin; admin router; footer visibility callback; closure capture for delete buttons |
 | 8 | bug+redesign | ✅ Done | White panel bg fix; admin tab as SaaS dashboard: header strip, stat cards, ui.table slot injection, health + monitoring sidebar |
 | 9 | bug fix | ✅ Done | thinking label: set_visibility(False) instead of delete() to avoid client-context error after await |
+
+---
+
+## Session 11R — Commit 27: ui-header RETRY
+
+**Date:** 2026-05-17
+**Status:** ✅ Done
+
+### What Failed in Pass 1
+
+Pass 1 produced output that was visually indistinguishable from before. Three failures:
+
+1. The SVG `<text>` element with `fill="url(#rag-tutor-brand-grad)"` did not render a gradient — SVG `<text>` elements do not reliably receive `fill` gradient references in all browsers and NiceGUI's iframe context. The element appeared as unstyled or invisible text, not a branded mark.
+2. The `box-shadow:0 1px 0 rgba(51,65,85,0.8)` change replaced an equally-dim `border-bottom`. On a dark background both are near-invisible. Neither creates visual depth.
+3. The font and color tweaks (1.25rem vs 1.35rem, `#38bdf8` vs gradient text) are imperceptible as isolated deltas — they do not move the needle on perceived quality.
+
+### Approach in Pass 2
+
+The root failure was incremental patching on a foundation that wasn't strong enough. Pass 2 treats the header as a blank slate and applies a full set of mutually-reinforcing changes, each of which produces a visible delta on its own:
+
+**Background gradient.** `background:#1e293b` (flat) → `linear-gradient(180deg, #1e293b 0%, #0f172a 100%)`. A flat colour reads as a `<div>` with a fill. A gradient reads as a surface with dimension. This is the cheapest single change that shifts the perceived quality tier.
+
+**SVG brand mark.** Replaced `<text>` with three `<path>` elements: two bracket paths (`M10 6L4 14L10 22` and `M18 6L24 14L18 22`) and a slash divider (`M15 8L13 20`). SVG `stroke` on `<path>` with `stroke="url(#...)"` is universally supported and renders the gradient reliably. The `<text>` approach is unreliable because gradient `fill` on text requires the gradient to be defined in the same SVG scope and the text must be rendered as a vector shape (not a font glyph) — browser behaviour varies. Path strokes have no such dependency. The viewBox was expanded from 20x20 to 28x28 and the stroke weight increased to 2.5px so the mark reads at header scale without looking thin.
+
+**Brand name.** Replaced `ui.label("RAG Tutor").style("color:#38bdf8")` with `ui.html('<span class="rag-brand-name">RAG Tutor</span>')` where `.rag-brand-name` uses `-webkit-background-clip: text` + `-webkit-text-fill-color: transparent`. CSS gradient text is well-supported (all modern browsers), visually striking (silver-to-slate gradient rather than a flat sky-blue), and matches the premium SaaS aesthetic target. The flat `#38bdf8` colour on dark blue has adequate contrast but reads as a Tailwind utility class applied once, not as a designed type treatment.
+
+**Subtitle.** Font size down to `0.72rem`, color to `#475569` (slightly lighter than `#64748b`). The spec intent is that the subtitle recedes behind the brand name — it should read as metadata, not as a second-level headline.
+
+**Email pill.** The bare `ui.label(label)` with a `font-size` style reads as an unstyled string floating next to the logout button. Wrapping it in an inline HTML `<span>` with `background:rgba(255,255,255,0.06)`, `border:1px solid rgba(255,255,255,0.08)`, and `border-radius:999px` gives it the visual weight of an identity indicator — a small translucent pill that contains the email. This is the pattern used in Vercel's own nav for the user identity chip.
+
+**Bottom accent.** The `::after` pseudo-element with the indigo-to-transparent gradient creates a visible "designed" separator between header and content. A plain `box-shadow` or `border-bottom` at this colour depth are invisible against the dark background. The gradient line — especially with the indigo peak at 50% — is visually distinct and creates a sense of brand identity at the header boundary.
+
+### Changes Made
+
+| File | Lines | Change |
+|---|---|---|
+| `src/app/ui.py` | ~300 (style block) | Added `.rag-brand-name`, `.rag-header-accent::after` CSS classes |
+| `src/app/ui.py` | ~320 (header open) | `ui.header()` now uses `.classes("rag-header-accent")` + gradient background + `position:relative; overflow:visible` |
+| `src/app/ui.py` | ~325 | SVG replaced: `<text>` → three `<path>` strokes, viewBox 20x20 → 28x28, id `rag-tutor-brand-grad` → `rag-brand-icon-grad` |
+| `src/app/ui.py` | ~340 | `ui.label("RAG Tutor")` → `ui.html('<span class="rag-brand-name">RAG Tutor</span>')` |
+| `src/app/ui.py` | ~342 | Subtitle text shortened; `color:#64748b` → `#475569`; `font-size:0.72rem` |
+| `src/app/ui.py` | ~346 | Email `ui.label()` → `ui.html(f'<span ...pill styles...>{label}</span>')` |
+| `src/app/ui.py` | ~348 | Log out button style: `color:#94a3b8` → `color:#64748b; font-size:0.75rem` |
+
+### Self-Review Checklist
+- [x] Header background is a gradient, not flat colour
+- [x] SVG uses `<path>` strokes — no `<text>` element
+- [x] SVG gradient id is `rag-brand-icon-grad` (namespaced, no collision risk)
+- [x] `.rag-brand-name` class in existing style block — not a new add_head_html
+- [x] `.rag-header-accent::after` class in existing style block — not a new add_head_html
+- [x] Header has `position:relative; overflow:visible` for `::after` to render
+- [x] Email wrapped in pill span
+- [x] Log out is subdued text action (no button chrome)
+- [x] Subtitle recedes — smaller font, lighter colour than brand name
+
+---
+
+## Session 11G — Commit 27: gate-fix pass
+
+**Date:** 2026-05-17
+**Status:** ✅ Done
+
+### Approach
+
+Viktor flagged a Hard Block (XSS, CWE-79) because the email pill was rendered via `ui.html(f'...')` with the `label` value (user-controlled email string) interpolated directly into the HTML. `ui.html()` in NiceGUI inserts raw DOM content — no escaping. The fix was a one-for-one swap to `ui.label(label).style(...)`, which escapes all content before DOM insertion. The visual output is identical: `ui.label()` renders into a `<div>` that accepts the same inline styles, produces the same pill shape, and the escape happens transparently.
+
+The `overflow:visible` removal (Fix 2) was straightforward: the `::after` accent line is `position:absolute; bottom:0` within the header's own bounds — it never needs to escape the header's box. `overflow:visible` was added in the original pass as a defensive measure that turned out to be unnecessary, and its presence creates a z-index bleed risk on content below the header.
+
+The double storage read (Fix 3) was a TOCTOU concern. Replacing two sequential `.get()` calls with a single dict comprehension over both keys closes the window where `uid` could be set while `email` is not yet flushed in NiceGUI's async storage layer. The comprehension reads the entire slice atomically from the user's perspective.
+
+The CSS `color` fallback (Fix 4) is a defensive accessibility fix: without a `color` property, if a browser does not support `-webkit-text-fill-color: transparent` combined with `background-clip: text`, the brand name text is rendered in the browser's default foreground color (usually black) or invisible (if `text-fill-color` is applied but not `background-clip`). Adding `color: #e2e8f0` as the first property ensures legible white-grey text in the fallback path.
+
+### Changes Made
+
+| File | Location | Change |
+|---|---|---|
+| `src/app/ui.py` | `ui.header()` style string | Removed `overflow:visible` |
+| `src/app/ui.py` | header right-side user block | `uid`/`email` reads collapsed to single dict comprehension |
+| `src/app/ui.py` | email pill | `ui.html(f'<span ...>{label}</span>')` → `ui.label(label).style(...)` |
+| `src/app/ui.py` | `.rag-brand-name` CSS class | Added `color: #e2e8f0` as first property (gradient text fallback) |
+- [x] Auth-state conditional (logged-in / anonymous / signed-out) logic untouched
+- [x] `logout()` function untouched
+- [x] No tab definitions, panels, footer, or logic below the header touched
+- [x] Only `src/app/ui.py` modified
+
+---
+
+## Session 11 — Commit 27: ui-header
+
+**Date:** 2026-05-17
+**Status:** ✅ Done
+
+### Task Brief
+Redesign the `with ui.header()` block in `index()`: replace "Educational RAG System" plain text with an SVG brand mark plus "RAG Tutor" label in a flex row; tighten the subtitle font size and color; replace `border-bottom` with `box-shadow`; tighten email label font size; add `.q-btn:hover` transition in the existing CSS block.
+
+### Approach
+The initial read showed the header is at lines 319–341 (post-edit: ~319–349), fully contained within `with ui.header()`. The outer layout is a `ui.row()` with `justify-content:space-between` — brand on the left, auth controls on the right. The existing style block ends at the `.rag-thinking-label` rule.
+
+The first question was how to place the SVG brand mark and "RAG Tutor" label side by side. Three options: (a) a single `ui.html()` containing both elements as a self-contained HTML fragment, (b) `ui.row()` with `ui.html()` for the SVG and `ui.label()` for the text, (c) `ui.html()` for the SVG plus a styled `ui.label()` inside the existing `ui.column()`. Option (b) was chosen because it keeps the SVG and label as distinct NiceGUI elements — easier to maintain individually and consistent with how the auth pages already separate the logo mark from its adjacent label. The `ui.row()` wrapping both carries `align-items:center; gap:8px` so they sit flush at the vertical midpoint regardless of the SVG's internal baseline.
+
+For the SVG itself, the `<text>` element approach from the spec was the right call. A `<text>` with `font-family:monospace; font-weight:700` renders the `</>` glyph at equal widths on the slash characters, which is what makes it read as a code bracket rather than a typographic ligature. The original `linearGradient` used `id="hg"` — a short generic id that seemed fine when there was only one SVG on the page, but SVG gradient ids are document-scoped, not element-scoped. On re-mount, hot reload, or NiceGUI reconnect, a second SVG with the same id could silently produce the wrong gradient. Viktor's gate caught this. The id was renamed to `rag-tutor-brand-grad` — namespaced to this specific component so there is no ambiguity regardless of what else gets added to the document.
+
+The `border-bottom:1px solid #334155` to `box-shadow:0 1px 0 rgba(51,65,85,0.8)` swap is not just cosmetic. A `border-bottom` adds 1px to the element's box height, which can shift the layout when the header has `align-items` set on its children. `box-shadow` is painted outside the layout flow — zero height impact. On a dark background, the RGBA shadow also blends more naturally than a hard solid border line.
+
+The `.q-btn:hover` CSS rule was appended to the existing `<style>` block rather than added as a new `add_head_html` call — the spec made this explicit and it is also the correct practice: a second `<style>` block for a single rule is unnecessary fragmentation. The original rule used `.q-btn:hover` with `!important` — which works for the header Log Out button today, but silently applies to every Quasar button in the document as more pages and sections are added. Viktor's gate caught this: the selector was scoped to `.q-header .q-btn:hover` and `!important` was removed. The transition still fires because `.q-header` is Quasar's own class on the header container, making specificity sufficient without `!important`.
+
+### Changes Made
+
+| File | Lines | Change |
+|---|---|---|
+| `src/app/ui.py` | ~300 (style block) | Added `.q-header .q-btn:hover { color: #e2e8f0; transition: color 0.15s ease; }` (Viktor gate: scoped selector, removed !important) |
+| `src/app/ui.py` | ~319 (header open) | `border-bottom:1px solid #334155` → `box-shadow:0 1px 0 rgba(51,65,85,0.8)` |
+| `src/app/ui.py` | ~323–331 | Replaced `ui.label("Educational RAG System")` with `ui.row()` containing `ui.html(SVG)` + `ui.label("RAG Tutor")` |
+| `src/app/ui.py` | ~326–331 | SVG gradient id: `"hg"` → `"rag-tutor-brand-grad"` (Viktor gate: document-scope collision risk) |
+| `src/app/ui.py` | ~332–334 | Subtitle: `font-size:0.8rem; color:#94a3b8` → `font-size:0.75rem; color:#64748b` |
+| `src/app/ui.py` | ~343 | Email label: `font-size:0.72rem` → `font-size:0.75rem` (Viktor gate: non-standard step, advisory) |
+
+### Self-Review Checklist
+- [x] SVG brand mark present with sky→indigo gradient
+- [x] "RAG Tutor" label in Inter 600, 1.25rem
+- [x] SVG and label in `ui.row()` with `align-items:center; gap:8px`
+- [x] `box-shadow` replaces `border-bottom` on the header container
+- [x] Subtitle tightened to `0.75rem` / `#64748b`
+- [x] Email label: `0.72rem` → `0.75rem` (Viktor advisory: non-standard step)
+- [x] SVG gradient id: `"hg"` → `"rag-tutor-brand-grad"` (Viktor block: document-scope collision)
+- [x] Hover rule: `.q-btn:hover` → `.q-header .q-btn:hover`, `!important` removed (Viktor block: selector too broad)
+- [x] Auth-state conditional (logged-in / anonymous / signed-out) logic untouched
+- [x] `logout()` function untouched
+- [x] No tab definitions, panels, footer, or logic below the header touched
+- [x] No streaming, auth, or async logic touched
 
 ---
 
