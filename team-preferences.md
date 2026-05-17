@@ -543,9 +543,19 @@ These rules apply to Claude (the orchestrator) directly — not to sub-agents.
    places to look. One targeted Read costs nothing compared to a wrong answer.
 
 3. Ad-hoc commit messages (work requested by Eran outside the formal commit protocol)
-   must open the body with:
+   must open the body with the EXACT phrase (copy it verbatim — no variations):
+
        Requested by Eran Mani, our team lead:
-   followed by the description of what was done and why.
+
+   WRONG (seen in past commits — never use these):
+       "Requested by EranMani:"             ← missing title, wrong name format
+       "Requested by Eran:"                 ← missing title
+       "Requested by EranMani, our team lead:" ← wrong name format (no space)
+
+   CORRECT:
+       "Requested by Eran Mani, our team lead: <one sentence what was asked>"
+
+   This must be the very first line of the commit body, before any other description.
 
 4. Before every agent spawn, ask this question aloud:
    "Do I already know the exact file, the exact lines, and the exact new content?"
@@ -562,6 +572,7 @@ These rules apply to Claude (the orchestrator) directly — not to sub-agents.
 | 2026-05-08 | Initial creation | /init protocol complete |
 | 2026-05-09 | Added Mira dynamic invocation rule | Only invoke on user-facing commits to reduce token cost |
 | 2026-05-09 | Added Model Assignments section | Haiku/Sonnet/Opus tiering to reduce cost without quality loss |
+| 2026-05-17 | Strengthened commit attribution rule #3 | Repeated violations using wrong phrase "Requested by EranMani:" instead of "Requested by Eran Mani, our team lead:" |
 | 2026-05-09 | Added Worklog Archive Trigger section | Lower threshold (3 sessions) for proactive archiving |
 | 2026-05-09 | Added worktree isolation note to Parallelization | Needed for Wave B (commits 08+09) |
 | 2026-05-09 | Viktor model tier rule added | Two Opus passes on Commit 07 schema cost 107k tokens — Opus only for complex/auth/concurrent commits |
