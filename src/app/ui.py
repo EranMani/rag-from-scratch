@@ -440,7 +440,7 @@ def setup_ui(fastapi_app):
             # ------------------------------------------------------------------ Chat tab
             with ui.tab_panel(chat_tab).style("padding:0; height:100%; overflow:hidden; display:flex; flex-direction:column"):
                 with ui.row().style(
-                    "width:100%; flex:1; min-height:0; gap:0; overflow:hidden; align-items:stretch"
+                    "width:100%; flex:1; min-height:0; gap:0; overflow:hidden; align-items:flex-start"
                 ):
                     # --- Profile sidebar ---
                     @ui.refreshable
@@ -519,7 +519,7 @@ def setup_ui(fastapi_app):
                     await profile_panel()
 
                     # --- Chat area ---
-                    with ui.column().style("flex:1; min-height:0; overflow:hidden; position:relative"):
+                    with ui.column().style("flex:1; min-height:0; height:100%; overflow:hidden; position:relative"):
                         with ui.column().style(
                             "position:absolute; top:0; left:0; right:0; bottom:0; "
                             "overflow-y:auto; padding:1.5rem; padding-bottom:120px"
