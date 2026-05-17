@@ -46,12 +46,9 @@ def init_user_db() -> None:
     email => unique entrance identifier
     password_hash => fundamental security requirement, never store the raw plaintext password
     created_at => record the registering date
+    is_admin => 1 for admin users, 0 for regular users
     """
     with _connect() as conn:
-        # NOTE: Running execute, SQLite doesn't write to the file. The changes are kept within a temporary transaction.
-        # This allows running multiple commands before writing them.
-        # commit() makes sure to write changes to the file safely.
-        # Other processes will be able to see the changes after running commit.
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
@@ -59,47 +56,45 @@ def init_user_db() -> None:
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
                 display_name TEXT,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                is_admin INTEGER NOT NULL DEFAULT 0
             )
             """
         )
+        # Migration: add is_admin to existing databases that predate this column
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
+        except Exception:
+            pass  # column already exists
         conn.commit()
 
 
-def create_user(email: str, password_hash: str, display_name: str | None) -> str:
+def create_user(email: str, password_hash: str, display_name: str | None, is_admin: bool = False) -> str:
     """Create the registered user in the system"""
-    # Create a unique identifier
     user_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     with _connect() as conn:
-        # Store the hash password, not the raw text for security reasons
-        # Use placeholders as values to avoid exposing db to SQL injection
-        # SQLite will inject the values in the query with the placeholders
         conn.execute(
-            "INSERT INTO users (id, email, password_hash, display_name, created_at) VALUES (?, ?, ?, ?, ?)",
-            (user_id, email.lower(), password_hash, display_name, now)
+            "INSERT INTO users (id, email, password_hash, display_name, created_at, is_admin) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, email.lower(), password_hash, display_name, now, 1 if is_admin else 0)
         )
         conn.commit()
-    # The ID will be the anchor in the session, used by the agent
     return user_id
 
 
 def get_user_by_email(email: str) -> dict | None:
-    # Use context manager to avoid connection leaks, automatically closes even if error happend
     with _connect() as conn:
-        # Use placeholder to avoid SQL injection
         row = conn.execute(
-            "SELECT id, email, password_hash, display_name, created_at FROM users WHERE email = ?",
+            "SELECT id, email, password_hash, display_name, created_at, is_admin FROM users WHERE email = ?",
             (email.lower(),),
-        ).fetchone() # Email is unique, expecting only one value
+        ).fetchone()
     return dict(row) if row else None
-
 
 
 def get_user_by_id(user_id: str) -> dict | None:
     with _connect() as conn:
         row = conn.execute(
-            "SELECT id, email, password_hash, display_name, created_at FROM users WHERE id = ?",
+            "SELECT id, email, password_hash, display_name, created_at, is_admin FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
     return dict(row) if row else None
@@ -108,9 +103,28 @@ def get_user_by_id(user_id: str) -> dict | None:
 def list_users() -> list[dict]:
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT id, email, display_name, created_at FROM users ORDER BY created_at DESC"
+            "SELECT id, email, display_name, created_at, is_admin FROM users ORDER BY created_at DESC"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def seed_admin_user() -> None:
+    """Ensure the built-in admin account exists. Safe to call on every startup (no-op if already present)."""
+    from app.auth.password import hash_password
+    if get_user_by_email("admin"):
+        return
+    admin_id = create_user(
+        email="admin",
+        password_hash=hash_password("admin"),
+        display_name="Admin",
+        is_admin=True,
+    )
+    # Create a profile so the admin can use the chat tab without errors
+    try:
+        from app.profile.db import create_profile
+        create_profile(admin_id)
+    except Exception:
+        pass
 
 
 def delete_user(user_id: str) -> bool:

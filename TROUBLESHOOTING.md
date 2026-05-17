@@ -277,3 +277,25 @@ Memory file `feedback_spec_validation_before_invocation.md` written.
 **SVG rendering lesson (technical, not process)**
 
 The first attempt used an SVG `<text>` element with `fill="url(#gradient-id)"` for the brand mark gradient. SVG gradient fills on `<text>` elements are browser-dependent and failed silently. The reliable technique is SVG `<path>` strokes with `stroke="url(#gradient-id)"` — path strokes with gradient renders correctly across all browsers. This is documented in LEARNING_LOG.md (C27 full entry).
+
+---
+
+### TRB-013 — Admin tab and admin API endpoints accessible to all authenticated users
+
+**Date:** 2026-05-17
+**Component:** Auth / API / UI (`src/app/auth/db.py`, `src/app/auth/schemas.py`, `src/app/api/routes/admin.py`, `src/app/api/routes/auth.py`, `src/app/main.py`, `src/app/ui.py`)
+**Symptom:** Any logged-in user could see the Admin tab in the UI and call `/api/admin/users` (list all users) and `/api/admin/users/{user_id}` (delete any user). There was no role distinction between regular users and administrators.
+
+**Root cause:** The users table had no role column. The admin API routes only checked `get_current_user` (valid JWT = access granted) with no further privilege check. The Admin tab in the UI was rendered unconditionally for all authenticated sessions.
+
+**Fix:** Four layers updated together so that role enforcement is consistent at the database, API, token, and UI levels:
+
+1. **Database** (`auth/db.py`) — Added `is_admin INTEGER NOT NULL DEFAULT 0` to the `users` table. A safe `ALTER TABLE … ADD COLUMN` migration runs on every startup so existing databases gain the column without data loss. All `SELECT` queries were updated to include `is_admin`. `create_user()` gained an `is_admin: bool = False` parameter. A `seed_admin_user()` function inserts the built-in admin account (`email="admin"`, `password="admin"`, `is_admin=1`) on first startup and is a no-op thereafter.
+
+2. **API routes** (`api/routes/admin.py`) — Both admin endpoints now call `_require_admin(current_user)` before any logic. If `current_user["is_admin"]` is falsy, a **403 Forbidden** is returned immediately. Previously only a 401 (unauthenticated) was possible.
+
+3. **Auth contract** (`auth/schemas.py`, `api/routes/auth.py`) — `UserPublic` gains `is_admin: bool`. The `/api/auth/me` endpoint now returns this field so the UI can read the flag without an extra round-trip. `LoginBody.email` was relaxed from `EmailStr` to `str` so the built-in `admin` username (no `@` sign) passes server-side validation.
+
+4. **UI** (`ui.py`) — `verify_stored_bearer()` stores `is_admin` in `app.storage.user` after each successful `/api/auth/me` call. The Admin tab is created but immediately hidden with `admin_tab.set_visibility(False)` for any session where `is_admin` is not `True`. The login input label was changed from "Email" to "Username or Email" to reflect that the admin account uses a plain username.
+
+**Why only one admin account:** The system is a single-tenant learning tool. Administrative actions (listing and deleting users) carry irreversible consequences — a deleted user loses all mastery history permanently due to `ON DELETE CASCADE`. Granting admin rights to all authenticated users would allow any registered learner to erase other learners' data. A single seeded admin account with a known credential provides operator-level access without exposing a role-promotion endpoint that could be abused.

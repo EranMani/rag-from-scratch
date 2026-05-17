@@ -36,6 +36,7 @@ async def me(user: dict = Depends(get_current_user)):
         user_id=user["id"],
         email=user["email"],
         display_name=user["display_name"],
+        is_admin=bool(user.get("is_admin", 0)),
     )
 
 

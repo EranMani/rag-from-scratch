@@ -25,18 +25,22 @@ from app.auth.deps import get_current_user
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
+def _require_admin(current_user: dict) -> None:
+    if not current_user.get("is_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+
+
 @router.get("/users")
 async def get_users(current_user: dict = Depends(get_current_user)) -> list[dict]:
-    """List all registered users. Requires authentication."""
+    """List all registered users. Requires admin role."""
+    _require_admin(current_user)
     return await asyncio.to_thread(list_users)
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_user(user_id: str, current_user: dict = Depends(get_current_user)):
-    """Delete a user by ID. Returns 204 on success, 404 if user doesn't exist.
-
-    Cascades to profile deletion — the agent loses all memory of this user.
-    """
+    """Delete a user by ID. Requires admin role. Returns 204 on success, 404 if not found."""
+    _require_admin(current_user)
     deleted = await asyncio.to_thread(delete_user, user_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

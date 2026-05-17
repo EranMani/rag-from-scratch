@@ -36,8 +36,8 @@ class RegisterBody(BaseModel):
 
 
 class LoginBody(BaseModel):
-    """Inbound payload for login — no length constraint because we only verify against the stored hash."""
-    email: EmailStr
+    """Inbound payload for login — accepts username or email, no format constraint."""
+    email: str  # plain str so "admin" (no @) is valid
     password: str
 
 
@@ -53,11 +53,8 @@ class TokenResponse(BaseModel):
 
 
 class UserPublic(BaseModel):
-    """Safe outbound representation of a user — excludes password_hash.
-
-    Never expose the hash to the client, even though it can't be reversed.
-    Defense in depth: minimize the attack surface of every response.
-    """
+    """Safe outbound representation of a user — excludes password_hash."""
     user_id: str
     email: str
     display_name: str | None
+    is_admin: bool = False

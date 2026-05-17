@@ -104,10 +104,11 @@ def setup_ui(fastapi_app):
                 app.storage.user["user_id"] = data["user_id"]
                 app.storage.user["email"] = data.get("email", "")
                 app.storage.user["display_name"] = data.get("display_name", "")
+                app.storage.user["is_admin"] = bool(data.get("is_admin", False))
                 return True
         except Exception:
             pass
-        for key in ("access_token", "user_id", "email", "display_name"):
+        for key in ("access_token", "user_id", "email", "display_name", "is_admin"):
             app.storage.user.pop(key, None)
         return False
 
@@ -136,7 +137,7 @@ def setup_ui(fastapi_app):
         ):
             ui.html('<div style="width:36px;height:36px;background:linear-gradient(135deg,#0369a1,#4f46e5);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:white;font-family:monospace">&lt;/&gt;</div>')
             ui.label("Sign in").style("font-size:1.5rem; font-weight:600; color:#38bdf8")
-            email = ui.input("Email").props("type=email").classes("w-full").style(
+            email = ui.input("Username or Email").classes("w-full").style(
                 "background:#1e293b; border:1px solid #334155; border-radius:8px"
             )
             password = ui.input(
@@ -155,7 +156,7 @@ def setup_ui(fastapi_app):
                     ui.notify(f"Network error: {e}", type="negative")
                     return
                 if r.status_code != 200:
-                    ui.notify("Invalid email or password", type="negative")
+                    ui.notify("Invalid username/email or password", type="negative")
                     return
                 data = r.json()
                 app.storage.user["access_token"] = data["access_token"]
@@ -424,6 +425,8 @@ def setup_ui(fastapi_app):
             with ui.tabs().classes("w-full") as tabs:
                 chat_tab = ui.tab("Chat")
                 admin_tab = ui.tab("Admin")
+                if not app.storage.user.get("is_admin", False):
+                    admin_tab.set_visibility(False)
 
         if not can_use_chat:
             ui.navigate.to("/login")
