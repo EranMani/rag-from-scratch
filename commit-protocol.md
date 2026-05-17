@@ -37,7 +37,7 @@
 | 25 | profile-scoring-rewrite | backend | ✅ done · 2026-05-12 |
 | 26 | ui-foundation | frontend | ✅ done · 2026-05-17 |
 | 27 | ui-header | frontend | ✅ done · 2026-05-17 |
-| 28 | ui-chat | frontend | pending |
+| 28 | ui-chat | frontend | ✅ done · 2026-05-17 |
 | 29 | ui-sidebar-admin | frontend | pending |
 | 30 | nginx-config | devops | pending |
 | 31 | aws-ec2-deployment | devops | pending |

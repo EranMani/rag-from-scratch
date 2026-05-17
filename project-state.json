@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-17 (Commit 27 ui-header done — state corrected from stale)",
+  "last_updated": "2026-05-17 (Commit 28 ui-chat done)",
   "status": "active",
   "current_commit": {
-    "number": "28",
-    "name": "ui-chat",
+    "number": "29",
+    "name": "ui-sidebar-admin",
     "status": "pending",
     "assignee": "frontend"
   },
@@ -35,17 +35,17 @@
     "24",
     "25",
     "26",
-    "27"
+    "27",
+    "28"
   ],
   "commits_pending": [
-    "28",
     "29",
     "30",
     "31",
     "32",
     "33"
   ],
-  "next_commit": "28",
+  "next_commit": "29",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
