@@ -299,3 +299,23 @@ The first attempt used an SVG `<text>` element with `fill="url(#gradient-id)"` f
 4. **UI** (`ui.py`) — `verify_stored_bearer()` stores `is_admin` in `app.storage.user` after each successful `/api/auth/me` call. The Admin tab is created but immediately hidden with `admin_tab.set_visibility(False)` for any session where `is_admin` is not `True`. The login input label was changed from "Email" to "Username or Email" to reflect that the admin account uses a plain username.
 
 **Why only one admin account:** The system is a single-tenant learning tool. Administrative actions (listing and deleting users) carry irreversible consequences — a deleted user loses all mastery history permanently due to `ON DELETE CASCADE`. Granting admin rights to all authenticated users would allow any registered learner to erase other learners' data. A single seeded admin account with a known credential provides operator-level access without exposing a role-promotion endpoint that could be abused.
+
+---
+
+### TRB-014 — "Already have an account?" on the register page flashes the main page before redirecting to login
+
+**Date:** 2026-05-18
+**Component:** UI (`src/app/ui.py`)
+**Symptom:** Clicking "Already have an account? Sign in" on the register page briefly renders the main chat page (`/`) before the browser lands on `/login`. The flash is visible and feels like a broken navigation.
+
+**Root cause:** The link target was `/` instead of `/login`. The main page's `index()` handler calls `verify_stored_bearer()` — if the user is unauthenticated it redirects to `/login`, but only after the page has already begun rendering. That partial render causes the visible flash.
+
+**Fix:** Changed the link target from `"/"` to `"/login"` so navigation goes directly to the login page with no intermediate stop.
+
+```python
+# Before (broken)
+ui.link("Already have an account? Sign in", "/").classes("text-sky-400 text-sm")
+
+# After (fixed)
+ui.link("Already have an account? Sign in", "/login").classes("text-sky-400 text-sm")
+```
