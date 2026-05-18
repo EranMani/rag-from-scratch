@@ -196,7 +196,7 @@ def setup_ui(fastapi_app):
 
         ui.add_head_html('''<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2 family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 .rag-login-input .q-field__control { background: #0a1628 !important; border-radius: 10px !important; }
 .rag-login-input.q-field--outlined .q-field__control:before { border-color: #334155 !important; border-radius: 10px !important; transition: border-color 0.2s, box-shadow 0.2s; }
@@ -361,17 +361,62 @@ def setup_ui(fastapi_app):
   bottom: 0; left: 0; right: 0; height: 1px;
   background: linear-gradient(90deg, transparent 0%, #334155 20%, #6366f1 50%, #334155 80%, transparent 100%);
 }
-.q-page { padding: 0 !important; }
 
-.q-page-container { padding: 0 !important; }
-.q-page {
+/* OVERHAUL: Fluid layout layout engine matching top-down grid dynamics safely */
+html, body {
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.q-layout {
+  height: 100vh !important;
   display: flex !important;
   flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+/* Let the header size itself dynamically based on its content/tabs */
+.q-header {
+  position: relative !important;
+  flex-shrink: 0 !important;
+}
+
+/* Let the main container consume exactly 100% of whatever height remains */
+.q-page-container {
   flex: 1 1 auto !important;
   min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding-top: 0 !important; /* Disables Quasar's calculated ghost paddings */
 }
+
+.q-page {
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.nicegui-content {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
 .q-tab-panels {
   flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+.q-panel {
+  height: 100% !important;
   min-height: 0 !important;
   overflow: hidden !important;
 }
@@ -430,6 +475,7 @@ def setup_ui(fastapi_app):
         with ui.header().classes("rag-header-accent").style(
             "background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%); position:relative; padding:0"
         ):
+            # Restored standard paddings here — no more calculated vertical shifting or big gaps
             with ui.row().style("width:100%; justify-content:space-between; align-items:center; padding:1rem 2rem"):
                 with ui.column().style("gap:0"):
                     with ui.row().style("align-items:center; gap:10px"):
@@ -479,28 +525,27 @@ def setup_ui(fastapi_app):
             "flex:1; min-height:0; overflow:hidden"
         ):
             # ------------------------------------------------------------------ Chat tab
-            with ui.tab_panel(chat_tab).style("padding:0; height:100%; overflow:hidden; display:flex; flex-direction:column"):
-                with ui.row().style(
-                    "width:100%; flex:1; min-height:0; gap:0; overflow:hidden; align-items:stretch"
-                ):
+            with ui.tab_panel(chat_tab).style(
+                "padding: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column;"
+            ):
+                
+                # 1. Main Content Container Row (Knowledge Profile & Messaging Space)
+                # flex:1 forces it to consume every available layout pixel without ever bleeding over
+                with ui.row().style("width: 100%; flex: 1; min-height: 0; gap: 0; overflow: hidden; align-items: stretch;"):
                     # --- Profile sidebar ---
                     @ui.refreshable
                     async def profile_panel():
                         with ui.column().classes("rag-profile-sidebar").style(
-                            "width:280px; min-width:280px; flex:0 0 280px; align-self:stretch; "
-                            "height:100%; min-height:100%; box-sizing:border-box; "
+                            "width:280px; min-width:280px; flex:0 0 280px; "
+                            "height:100%; box-sizing:border-box; "
                             "background:#1e293b; border-right:1px solid #334155; "
                             "padding:1rem; gap:1rem; overflow-y:auto"
                         ):
-                            ui.label("Knowledge Profile").style(
-                                "font-size:0.9rem; font-weight:600; color:#38bdf8"
-                            )
+                            ui.label("Knowledge Profile").style("font-size:0.9rem; font-weight:600; color:#38bdf8")
 
                             headers = auth_headers()
                             if not headers:
-                                ui.label("Sign in to track your progress.").style(
-                                    "font-size:0.8rem; color:#64748b"
-                                )
+                                ui.label("Sign in to track your progress.").style("font-size:0.8rem; color:#64748b")
                                 return
 
                             try:
@@ -509,9 +554,7 @@ def setup_ui(fastapi_app):
                                     raise ValueError(f"status {r.status_code}")
                                 profile = r.json()
                             except Exception:
-                                ui.label("Profile unavailable.").style(
-                                    "font-size:0.8rem; color:#94a3b8"
-                                )
+                                ui.label("Profile unavailable.").style("font-size:0.8rem; color:#94a3b8")
                                 return
 
                             mastery = profile.get("mastery_level") or "novice"
@@ -527,52 +570,48 @@ def setup_ui(fastapi_app):
                             topic_scores: dict = profile.get("topic_scores") or {}
 
                             if not topic_scores:
-                                ui.label("Start chatting to build your profile.").style(
-                                    "font-size:0.8rem; color:#64748b; font-style:italic"
-                                )
+                                ui.label("Start chatting to build your profile.").style("font-size:0.8rem; color:#64748b; font-style:italic")
                             else:
-                                ui.label("Topic Scores").style(
-                                    "font-size:0.75rem; font-weight:600; color:#64748b; margin-top:0.25rem"
-                                )
+                                ui.label("Topic Scores").style("font-size:0.75rem; font-weight:600; color:#64748b; margin-top:0.25rem")
                                 for slug, label in _MODULE_LABELS.items():
                                     score: float = topic_scores.get(slug, 0.0)
                                     with ui.column().style("gap:0.25rem; width:100%"):
                                         with ui.row().style("justify-content:space-between; align-items:center; width:100%"):
                                             ui.label(label).style("font-size:0.72rem; color:#94a3b8")
-                                            ui.label(f"{int(score * 100)}%").style(
-                                                "font-size:0.72rem; color:#64748b; font-family:ui-monospace,monospace"
-                                            )
-                                        ui.linear_progress(value=score, show_value=False).style("width:100%").props(
-                                            "color=sky-600 track-color=slate-700"
-                                        )
+                                            ui.label(f"{int(score * 100)}%").style("font-size:0.72rem; color:#64748b; font-family:ui-monospace,monospace")
+                                        ui.linear_progress(value=score, show_value=False).style("width:100%").props("color=sky-600 track-color=slate-700")
 
                             interaction_count = profile.get("interaction_count", 0)
                             last_activity = profile.get("last_activity_at")
-                            ui.label(f"Queries: {interaction_count}").style(
-                                "font-size:0.72rem; color:#64748b; margin-top:0.5rem"
-                            )
+                            ui.label(f"Queries: {interaction_count}").style("font-size:0.72rem; color:#64748b; margin-top:0.5rem")
                             if last_activity:
                                 last_str = (last_activity[:16].replace("T", " ") if len(last_activity) >= 16 else last_activity)
-                                ui.label(f"Last active: {last_str}").style(
-                                    "font-size:0.72rem; color:#64748b"
-                                )
+                                ui.label(f"Last active: {last_str}").style("font-size:0.72rem; color:#64748b")
 
                     await profile_panel()
 
-                    # --- Chat area ---
-                    with ui.column().style("flex:1; min-height:0; overflow:hidden; position:relative"):
-                        with ui.column().style(
-                            "position:absolute; top:0; left:0; right:0; bottom:0; "
-                            "overflow-y:auto; padding:1.5rem; padding-bottom:120px"
-                        ):
+                    # --- Chat message log box viewport ---
+                    with ui.column().style("flex:1; height:100%; min-height:0; overflow:hidden; position:relative"):
+                        with ui.column().style("position:absolute; top:0; left:0; right:0; bottom:0; overflow-y:auto; padding:1.5rem"):
                             chat_area = ui.column().style("width:100%; gap:1rem")
 
                             with chat_area:
-                                with ui.card().style(
-                                    "background:#1e293b; border:1px solid #334155; border-left:3px solid #38bdf8; max-width:75%; border-radius:12px"
-                                ):
+                                with ui.card().style("background:#1e293b; border:1px solid #334155; border-left:3px solid #38bdf8; max-width:75%; border-radius:12px"):
                                     _dn = app.storage.user.get("display_name") or app.storage.user.get("email")
                                     ui.markdown(_build_welcome_message(_dn, _welcome_profile))
+
+                # 2. Input Container Control Footer Row Panel
+                # Clean, top-down stacking. No absolute hacks needed anymore.
+                with ui.row().style(
+                    "width: 100%; height: 80px; min-height: 80px; flex-shrink: 0; "
+                    "padding: 0 2rem; gap: 0.6rem; align-items: center; "
+                    "background: #1e293b; border-top: 1px solid #334155; "
+                    "box-shadow: 0 -4px 24px rgba(0,0,0,0.5); box-sizing: border-box;"
+                ):
+                    question_input = ui.input(
+                        placeholder="Ask about RAG, vector databases, LangChain..."
+                    ).classes("rag-chat-input").props("outlined").style("flex:1")
+                    send_btn = ui.button(icon="send").classes("rag-send-btn").props("unelevated").style("color:white; font-size:1.1rem")
 
             # ------------------------------------------------------------------ Admin tab
             with ui.tab_panel(admin_tab).style(
@@ -775,20 +814,6 @@ def setup_ui(fastapi_app):
 
                     await admin_panel()
 
-        # Footer — input bar, hidden when Admin tab is active
-        footer = ui.footer().style(
-            "background:#1e293b; border-top:1px solid #334155; box-shadow:0 -4px 24px rgba(0,0,0,0.5); padding:0.875rem 2rem"
-        )
-        with footer:
-            with ui.row().style("width:100%; max-width:900px; margin:0 auto; gap:0.6rem; align-items:center"):
-                question_input = ui.input(
-                    placeholder="Ask about RAG, vector databases, LangChain..."
-                ).classes("rag-chat-input").props("outlined").style("flex:1")
-                send_btn = ui.button(icon="send").classes("rag-send-btn").props("unelevated").style(
-                    "color:white; font-size:1.1rem"
-                )
-
-        tabs.on("update:model-value", lambda e: footer.set_visibility(e.args == "Chat"))
 
         async def send():
             question = question_input.value.strip()
