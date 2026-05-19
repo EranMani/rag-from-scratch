@@ -35,7 +35,7 @@ from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
 
-from agents.nodes.assess import _CURRICULUM_DIR, assess_node
+from agents.nodes.assess import _CURRICULUM_DIR, _select_test_slug, assess_node
 from agents.state import VALID_MODULE_SLUGS, AgentState, EvaluationOutput
 
 
@@ -249,8 +249,9 @@ class TestGate1TestMode:
 
     @pytest.mark.asyncio
     async def test_test_mode_uses_identified_gap_slug(self) -> None:
-        """Test mode prefers a slug from identified_gaps when available."""
-        state = _base_state(identified_gaps=["vector_databases"])
+        """Test mode prefers a gap slug when it is within the user's eligible phase."""
+        # novice → Phase 1 eligible; rag_pipeline_architecture is a Phase 1 gap
+        state = _base_state(user_level="novice", identified_gaps=["rag_pipeline_architecture"])
         with (
             patch(
                 "agents.nodes.assess._run_passive_assessment",
@@ -260,8 +261,8 @@ class TestGate1TestMode:
             patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
         ):
             result = await assess_node(state)  # type: ignore[arg-type]
-        assert result["pending_test_slug"] == "vector_databases", (
-            f"Expected pending_test_slug='vector_databases', got {result['pending_test_slug']!r}"
+        assert result["pending_test_slug"] == "rag_pipeline_architecture", (
+            f"Expected pending_test_slug='rag_pipeline_architecture', got {result['pending_test_slug']!r}"
         )
 
     @pytest.mark.asyncio
@@ -845,6 +846,89 @@ class TestGate8GraphTopologySmoke:
 # ---------------------------------------------------------------------------
 # TestOffTopicSuppression — off-topic queries must not produce a knowledge check
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# TestPhaseGateSlugSelection — _select_test_slug phase-gating (Commit 34)
+# ---------------------------------------------------------------------------
+
+class TestPhaseGateSlugSelection:
+    """_select_test_slug returns only slugs eligible for the user's current phase."""
+
+    _PHASE_1_SLUGS: frozenset[str] = frozenset({"embeddings_and_similarity", "rag_pipeline_architecture"})
+    _PHASE_2_SLUGS: frozenset[str] = frozenset({"chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting"})
+    _PHASE_3_SLUGS: frozenset[str] = frozenset({"evaluation_and_metrics", "production_patterns"})
+
+    def test_novice_returns_only_phase_1_slug(self) -> None:
+        """novice level: selected slug must be a Phase 1 topic."""
+        state = _base_state(user_level="novice", identified_gaps=[])
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result in self._PHASE_1_SLUGS, (
+            f"novice must get a Phase 1 slug, got {result!r}"
+        )
+
+    def test_beginner_returns_only_phase_1_slug(self) -> None:
+        """beginner level: selected slug must be a Phase 1 topic."""
+        state = _base_state(user_level="beginner", identified_gaps=[])
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result in self._PHASE_1_SLUGS, (
+            f"beginner must get a Phase 1 slug, got {result!r}"
+        )
+
+    def test_intermediate_returns_only_phase_2_slug(self) -> None:
+        """intermediate level: selected slug must be a Phase 2 topic."""
+        state = _base_state(user_level="intermediate", identified_gaps=[])
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result in self._PHASE_2_SLUGS, (
+            f"intermediate must get a Phase 2 slug, got {result!r}"
+        )
+
+    def test_advanced_returns_only_phase_3_slug(self) -> None:
+        """advanced level: selected slug must be a Phase 3 topic."""
+        state = _base_state(user_level="advanced", identified_gaps=[])
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result in self._PHASE_3_SLUGS, (
+            f"advanced must get a Phase 3 slug, got {result!r}"
+        )
+
+    def test_expert_returns_phase_1_slug_first(self) -> None:
+        """expert level: canonical ordering puts Phase 1 first, so first slug is Phase 1."""
+        state = _base_state(user_level="expert", identified_gaps=[])
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result in self._PHASE_1_SLUGS, (
+            f"expert canonical ordering must start with Phase 1 slug, got {result!r}"
+        )
+
+    def test_gap_in_eligible_phase_returned_first(self) -> None:
+        """Gap within the eligible phase is returned before canonical fallback."""
+        state = _base_state(
+            user_level="intermediate",
+            identified_gaps=["retrieval_methods"],
+        )
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result == "retrieval_methods", (
+            f"Phase 2 gap 'retrieval_methods' must be returned first, got {result!r}"
+        )
+
+    def test_gap_outside_eligible_phase_is_skipped(self) -> None:
+        """Gap from a non-eligible phase is skipped; canonical phase slug is returned instead."""
+        state = _base_state(
+            user_level="beginner",
+            identified_gaps=["evaluation_and_metrics"],  # Phase 3 — not eligible for beginner
+        )
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result in self._PHASE_1_SLUGS, (
+            f"Phase 3 gap must be skipped for beginner; expected Phase 1 slug, got {result!r}"
+        )
+
+    def test_returns_none_when_valid_slugs_empty(self) -> None:
+        """None returned when VALID_MODULE_SLUGS is patched to empty."""
+        state = _base_state(user_level="novice", identified_gaps=[])
+        with patch("agents.nodes.assess.VALID_MODULE_SLUGS", new=frozenset()):
+            result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result is None, (
+            f"Must return None when VALID_MODULE_SLUGS is empty, got {result!r}"
+        )
+
 
 class TestOffTopicSuppression:
     """Off-topic queries suppress pending_test_question; on-topic queries do not."""

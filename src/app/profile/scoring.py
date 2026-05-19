@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 # Phase gate definitions (from knowledge-base/curriculum/gates.md).
 # frozenset: immutable + O(1) membership lookup — safe and fast when the agent
 # checks user progress multiple times per turn.
-_PHASE_1_TOPICS: frozenset[str] = frozenset({"embeddings_and_similarity", "rag_pipeline_architecture"})
-_PHASE_2_TOPICS: frozenset[str] = frozenset({"chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting"})
-_PHASE_3_TOPICS: frozenset[str] = frozenset({"evaluation_and_metrics", "production_patterns"})
+PHASE_1_TOPICS: frozenset[str] = frozenset({"embeddings_and_similarity", "rag_pipeline_architecture"})
+PHASE_2_TOPICS: frozenset[str] = frozenset({"chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting"})
+PHASE_3_TOPICS: frozenset[str] = frozenset({"evaluation_and_metrics", "production_patterns"})
 
 # Academic standards — the score a user must demonstrate to advance.
 # These thresholds are the "syllabus gates" of the system.
@@ -57,7 +57,7 @@ class TopicScoreUpdate(TypedDict):
 
 def _phase_1_passed(scores: dict[str, float | None]) -> bool:
     """True if all Phase 1 topic scores >= 0.70. None (unassessed) always fails."""
-    for slug in _PHASE_1_TOPICS:
+    for slug in PHASE_1_TOPICS:
         s = scores.get(slug)
         if s is None or s < _PHASE_1_THRESHOLD:
             return False
@@ -71,7 +71,7 @@ def _phase_2_passed(scores: dict[str, float | None]) -> bool:
     across the full RAG knowledge domain — pointed skill alone isn't enough.
     """
     topic_scores: list[float] = []
-    for slug in _PHASE_2_TOPICS:
+    for slug in PHASE_2_TOPICS:
         s = scores.get(slug)
         if s is None or s < _PHASE_2_INDIVIDUAL_THRESHOLD:
             return False
@@ -83,7 +83,7 @@ def _phase_2_passed(scores: dict[str, float | None]) -> bool:
 
 def _phase_3_passed(scores: dict[str, float | None]) -> bool:
     """True if all Phase 3 topic scores >= 0.75. None always fails."""
-    for slug in _PHASE_3_TOPICS:
+    for slug in PHASE_3_TOPICS:
         s = scores.get(slug)
         if s is None or s < _PHASE_3_THRESHOLD:
             return False
@@ -111,7 +111,7 @@ def get_mastery_level(
     if p1:
         return "intermediate"
     # beginner: at least one Phase 1 topic has a non-null score, phase_1 not passed
-    if any(topic_scores.get(slug) is not None for slug in _PHASE_1_TOPICS):
+    if any(topic_scores.get(slug) is not None for slug in PHASE_1_TOPICS):
         return "beginner"
     return "novice"
 
