@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-19 (Commit 30 ui-landing-page done)",
+  "last_updated": "2026-05-19 (Commit 30.5 ui-landing-raf-guard done)",
   "status": "active",
   "current_commit": {
-    "number": "30.5",
-    "name": "ui-landing-raf-guard",
+    "number": "31",
+    "name": "ui-auth-pages",
     "status": "pending",
     "assignee": "frontend"
   },
@@ -38,10 +38,10 @@
     "27",
     "28",
     "29",
-    "30"
+    "30",
+    "30.5"
   ],
   "commits_pending": [
-    "30.5",
     "31",
     "32",
     "33",
@@ -49,7 +49,7 @@
     "35",
     "36"
   ],
-  "next_commit": "30.5",
+  "next_commit": "31",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
