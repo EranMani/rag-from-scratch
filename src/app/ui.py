@@ -955,6 +955,7 @@ document.addEventListener("DOMContentLoaded", function() {
       ctx.fill();
     }
 
+    if (!document.contains(canvas)) { return; }
     raf = requestAnimationFrame(draw);
   }
   draw();

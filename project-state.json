@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-17 (Commit 29 ui-sidebar-admin done)",
+  "last_updated": "2026-05-19 (Commit 30 ui-landing-page done)",
   "status": "active",
   "current_commit": {
-    "number": "30",
-    "name": "ui-landing-page",
+    "number": "30.5",
+    "name": "ui-landing-raf-guard",
     "status": "pending",
     "assignee": "frontend"
   },
@@ -37,10 +37,11 @@
     "26",
     "27",
     "28",
-    "29"
+    "29",
+    "30"
   ],
   "commits_pending": [
-    "30",
+    "30.5",
     "31",
     "32",
     "33",
@@ -48,19 +49,19 @@
     "35",
     "36"
   ],
-  "next_commit": "30",
+  "next_commit": "30.5",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "27",
-      "tests": "not run — CSS/SVG/style-only commit; no logic paths changed",
-      "viktor": "not triggered — pure CSS/style commit; no logic risk",
-      "sage": "not triggered — no user data, no auth, no external API",
-      "quinn": "not triggered — no logic coverage applicable",
-      "mira": "not triggered — visual delta only; no product scope concerns",
-      "gate_wave": "none — gate triage: CSS/style commit introduces zero gatable risk",
-      "note": "C27 ran multiple informal fix passes (4 total incl. gate-fix passes) across the session. The no-gate-fix-passes rule and model tiering enforcement were codified as lessons post-C27."
+      "number": "30",
+      "tests": "not run — static UI page; no logic paths, no backend routes changed",
+      "viktor": "BLOCKED — rAF loop missing DOM guard (`document.contains(canvas)` before rAF call). Deferred per no-gate-fix-passes rule. Fix scheduled as Commit 30.5.",
+      "sage": "not triggered — static marketing page; no user data rendered, no auth, no external API calls",
+      "quinn": "not triggered — no logic coverage applicable; visual-only commit",
+      "mira": "not triggered — static page, no product scope changes",
+      "gate_wave": "Viktor only (new JS animation loop with rAF)",
+      "note": "C30: NiceGUI full-bleed layout pattern established. CSS namespace isolation with rag-landing- prefix. Viktor deferred block: rAF canvas guard. See DECISIONS.md C30 entries."
     },
     "commit_26": {
       "number": "26",

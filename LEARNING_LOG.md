@@ -1745,3 +1745,12 @@ async def index():
 - `src/app/ui.py` — new `@ui.page("/landing")` 8-section static marketing page with namespaced CSS (`rag-landing-*`), particle canvas animation with JS, full-viewport layout override, changed unauthenticated redirect from `/login` to `/landing`
 
 ---
+
+**Commit 30.5 — `ui-landing-raf-guard`** · 2026-05-19 · Claude · `bug fix`
+
+> **In one sentence:** Added `if (!document.contains(canvas)) { return; }` before `requestAnimationFrame(draw)` in the particle canvas animation to stop the rAF loop from firing on a detached DOM element after NiceGUI full-page navigation.
+
+**Files touched:**
+- `src/app/ui.py` — one-line rAF guard added inside `draw()` in `landing_page()` particle canvas JS block
+
+---

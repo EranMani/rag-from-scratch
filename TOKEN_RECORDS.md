@@ -515,6 +515,24 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 30.5 — `ui-landing-raf-guard` · 2026-05-19 · Claude (direct Edit)
+
+> Gate wave: Viktor only (JS logic fix — resolves C30 BLOCKED finding).
+> Fix applied directly by Claude via Edit tool (exact file+line+content known; no Aria invocation).
+> Ryan entry: one-liner (routine bug fix); written directly by Claude per no-agent-for-known-edits rule.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Viktor | Haiku | 39,967 | 8 | **+25k** over ≤15k | PASS — C30 BLOCKED finding resolved; thorough correctness analysis |
+| **Total** | | **39,967** | **8** | **+25k** over ≤15k target | Viktor Haiku consistently overshoots ≤15k even for tiny diffs |
+
+**Notes:**
+- Implementation: Claude direct Edit (~0 tokens) — single-line rAF guard; no agent invocation per no-agent-for-known-edits rule.
+- Viktor 39,967: analyzed API correctness (`document.contains()` return semantics), placement safety, and null-canvas edge case. Thorough for a 1-line diff; Haiku reviewers consistently exceed ≤15k when given any code analysis task.
+- No Ryan agent invocation: one-liner written directly by Claude (~0 tokens saved vs. ~25–30k Ryan invocation).
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -540,6 +558,7 @@ No token data recorded. Tracking began at Commit 10.
 | 28 | ui-chat | 101,862 | none | over ≤75k | Aria ✅ (57,908); Ryan one-liner 43,954 (consistently over ≤15k) |
 | 29 | ui-sidebar-admin | 106,985 | none | over ≤75k | Aria 68k (+8k); Ryan 39k (over ≤15k, pattern); gate correctly skipped |
 | 30 | ui-landing-page | 303,447 | Viktor (Haiku, BLOCKED) | **well over** | 5 Aria passes (TL visual loop); Viktor 59k (Haiku); rAF fix deferred to C30.5 |
+| 30.5 | ui-landing-raf-guard | 39,967 | Viktor (Haiku, PASS) | over ≤15k | Direct Edit (no agent); Viktor only gate |
 
 ---
 
