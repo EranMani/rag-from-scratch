@@ -193,3 +193,24 @@ being "skipped" from accidentally passing a gate.
   }
 }
 ```
+
+---
+
+## MCQ Question Scoring
+
+MCQ questions are scored **binary** — no partial credit:
+
+| Evaluation method | Score |
+|---|---|
+| Answer matches correct answer key | 1.0 |
+| Answer does not match | 0.0 |
+
+MCQ scores feed the same session/topic score formula as open-ended questions:
+- `session_score = mean(question_scores_in_session)`
+- `topic_score = 0.7 × current_session + 0.3 × best_prior_session`
+
+Minimum questions per session for a valid score (inherited from existing rule): 3.
+
+Because MCQ scoring is binary, per-question scores cluster at 0.0 and 1.0, but
+the session and topic scores remain continuous (mean of binary values across all
+questions answered in a session).

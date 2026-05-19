@@ -691,4 +691,33 @@
 - **Reason:** The landing page makes no `await`-able calls (no API, no storage reads, no auth checks). Using `async def` would be cargo-cult — NiceGUI supports both, but only async functions gain anything from the `async` keyword. Synchronous page functions are simpler and avoid accidental `await` calls being added in future edits.
 - **Consequences:** If `/landing` ever needs an API call or storage read, it must be upgraded to `async def`. This is a one-word change with no other side effects.
 
+---
+
+## MCQ Question Banks (C33)
+
+### MCQ as phase-gate advancement instrument, not in-session learning (Commit 33)
+- **Date:** 2026-05-19
+- **Commit:** 33
+- **Decided by:** Lara + Claude (replan decision 2026-05-19)
+- **Decision:** MCQ (multiple-choice) questions are used exclusively for phase-gate advancement tests. Open-ended questions remain the primary in-session learning and assessment instrument.
+- **Reason:** Phase-gate advancement requires a deterministic, reliable signal — one that does not depend on LLM evaluator accuracy or rubric interpretation. MCQ answer-key comparison is exact: no LLM call, no partial credit ambiguity, no evaluator variance. Open-ended questions are better for learning (they require recall and synthesis) but their rubric-based scoring adds noise at gate decision points.
+- **Alternatives considered:** Using open-ended questions for both learning and gates — rejected because LLM evaluator variance could cause a learner to pass or fail a gate based on evaluator inconsistency rather than actual mastery.
+- **Consequences:** Two question types coexist in the curriculum. The open-ended scorer will eventually be validated; at that point, MCQ can be supplemented or replaced at gate transitions. Until then, MCQ is the only advancement format.
+
+### Separate `questions/mcq/[slug].md` file tree (Commit 33)
+- **Date:** 2026-05-19
+- **Commit:** 33
+- **Decided by:** Lara
+- **Decision:** MCQ files live in `knowledge-base/curriculum/questions/mcq/[slug].md` — a parallel subdirectory to the existing `questions/[slug].md` open-ended banks.
+- **Reason:** Keeping MCQ and open-ended questions in separate files prevents format drift (one file, two incompatible formats) and makes the distinction explicit for Nova's Commit 35 (mcq-assessment-engine), which reads only `questions/mcq/`. A mixed file would require parsing to distinguish question types.
+- **Consequences:** Nova's assessment engine (Commit 35) imports from `questions/mcq/` exclusively. Onboarding (Commit 36) reads from `questions/mcq/` as a read-only diagnostic source.
+
+### 5 MCQ questions per topic with 2/2/1 difficulty distribution (Commit 33)
+- **Date:** 2026-05-19
+- **Commit:** 33
+- **Decided by:** Lara
+- **Decision:** Each topic has exactly 5 MCQ questions: 2 beginner, 2 intermediate, 1 advanced.
+- **Reason:** 5 questions satisfies the `min_questions_per_session=3` gate from `gates.md` while keeping advancement tests concise. The 2/2/1 distribution ensures the gate tests foundational knowledge (2 beginner) and practitioner-level application (2 intermediate) before advanced synthesis (1 advanced). A purely uniform distribution (1/1/1/1/1) would underweight the core knowledge the gates are designed to verify.
+- **Consequences:** If future data shows 5 questions is insufficient for discriminating mastery, the bank can grow to 8–10. The schema and engine support any bank size — only the minimum 3 is enforced at runtime.
+
 *Last updated: 2026-05-19 — Commit 30 complete (ui-landing-page: NiceGUI container override, static page pattern)*

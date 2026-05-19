@@ -245,4 +245,10 @@
 **Used in:** `src/agents/state.py`, `src/agents/nodes/assess.py`
 **Introduced in:** Commit 24
 
-*Last updated: 2026-05-12 — Commit 25 complete (Knowledge Base expanded to 8 topics; Mastery Level to phase-gate formula; Topic Score null/0.0 distinction; TopicScoreUpdate session_history field; Session History term added)*
+### MCQ (Multiple-Choice Question)
+**Meaning on this project:** A curriculum question format with exactly 4 options (A–D), a single unambiguous correct answer, and an explanation. Used exclusively as a phase-gate advancement instrument — binary-scored by answer-key comparison (no LLM evaluator required). Scores are 1.0 (correct) or 0.0 (incorrect); no partial credit. MCQ questions live in `knowledge-base/curriculum/questions/mcq/[slug].md` (5 per topic, 2 beginner + 2 intermediate + 1 advanced).
+**Distinct from:** Open-ended questions (which use rubric-based LLM evaluation with correct/partial/incorrect verdicts and are the primary in-session learning format); phase gate threshold (the score a topic must reach to advance, not the question format used to measure it).
+**Used in:** `knowledge-base/curriculum/questions/mcq/`, `knowledge-base/curriculum/mcq-format.md`, `knowledge-base/curriculum/gates.md`
+**Introduced in:** Commit 33
+
+*Last updated: 2026-05-19 — Commit 33 complete (MCQ term added; MCQ format and scoring rules introduced)*

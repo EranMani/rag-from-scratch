@@ -1,11 +1,16 @@
 # Decisions Index
 *Always-loaded companion to DECISIONS.md. One-liner per decision — full prose in DECISIONS.md.*
+## MCQ Question Banks (C33)
+71. **MCQ as phase-gate advancement instrument** — binary answer-key comparison (no LLM evaluator); eliminates evaluator variance at gate decision points; open-ended questions remain for in-session learning
+72. **Separate `questions/mcq/[slug].md` file tree** — parallel to open-ended banks; prevents format drift; gives Nova (C35) a clean, unambiguous import path
+73. **5 MCQs per topic, 2/2/1 distribution** — satisfies `min_questions_per_session=3`; weights foundational knowledge (beginner) before practitioner application (intermediate) before synthesis (advanced)
+
 ## UI Foundation (C26)
 68. **Font injection per `@ui.page`** — NiceGUI creates a fresh HTML document per route; font links must be injected in each page function independently
 69. **`!important` on Quasar button gradient** — Quasar re-applies its own background after render; `!important` is the reliable override; class-based approach is the clean future fix
 70. **Google Fonts CDN accepted (portfolio)** — privacy trade-off logged (CWE-829); self-host `@fontsource/inter` if real users added
 
-*Last updated: 2026-05-17 — Commit 26*
+*Last updated: 2026-05-19 — Commit 33*
 
 ---
 

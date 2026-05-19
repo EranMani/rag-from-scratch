@@ -5,23 +5,22 @@
 ---
 
 ## Current State
-*Last updated: Commit 22 · 2026-05-11*
+*Last updated: Commit 33 · 2026-05-19*
 
-**Last completed:** Commit 22 `rag-curriculum-design` (complete)
+**Last completed:** Commit 33 `question-bank-mcq` (complete)
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
-- Nova (Commit 24): Question banks are live at `knowledge-base/curriculum/questions/[slug].md`.
-  Each file has 8 questions with full rubrics (correct/partial/incorrect criteria).
-  Nova's assessment prompt must reference these files directly. The rubric verdict vocabulary
-  is exactly: `correct`, `partial`, `incorrect` — no other values are valid (see `gates.md`).
-- Rex (Commit 25): `knowledge-base/curriculum/topic-slugs.json` is a valid JSON array of
-  exactly 8 canonical slugs. Use this as the authoritative list for `VALID_MODULE_SLUGS`
-  and `TopicScoresDelta`. Do not hardcode slugs anywhere else.
-- Nova + Rex (Commit 23/24/25): Phase gate logic is fully specified in `gates.md`. The
-  scoring formula, null-topic handling, and minimum-questions-per-session rule are all
-  defined there. Do not interpret gate logic from any other source.
+- Nova (Commit 35 `mcq-assessment-engine`): MCQ question files live at
+  `knowledge-base/curriculum/questions/mcq/[slug].md`. Format schema is at
+  `knowledge-base/curriculum/mcq-format.md`. Each file has exactly 5 questions.
+  Answer key field: `**Correct answer:** [A|B|C|D]`. Binary scoring only — answer key
+  comparison, no LLM rubric evaluation for MCQ. Session minimum of 3 questions still applies.
+- Nova (Commit 36 `onboarding-level-check`): `embeddings_and_similarity` and
+  `rag_pipeline_architecture` MCQ files can source onboarding diagnostics (3 questions each,
+  mixed difficulty). Onboarding questions are read-only references — do not modify MCQ banks
+  for onboarding.
 
 **Open Handoffs — Inbound:**
 - (none)
@@ -51,6 +50,7 @@ No archived sessions yet.
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
 | 1 | Commit 22 `rag-curriculum-design` | Complete | Dual gate for Phase 2 (per-topic + mean threshold); spaced repetition scoring formula |
+| 2 | Commit 33 `question-bank-mcq` | Complete | MCQ as binary-scored gate instrument, separate from open-ended learning questions |
 
 ---
 
@@ -185,6 +185,72 @@ No scope overflows. All deliverables are within the Commit 22 spec.
   relevant to answering the question
 - Context recall (RAGAS) — the fraction of information needed to answer the question
   that is present in the retrieved chunks
+
+---
+
+---
+
+## Session 02 — Commit 33: `question-bank-mcq`
+
+**Date:** 2026-05-19
+**Status:** Complete
+
+### Files Created
+
+- `knowledge-base/curriculum/mcq-format.md` — MCQ schema, field definitions, quality constraints, scoring rules, file organization reference
+- `knowledge-base/curriculum/questions/mcq/embeddings_and_similarity.md` — 5 MCQs
+- `knowledge-base/curriculum/questions/mcq/rag_pipeline_architecture.md` — 5 MCQs
+- `knowledge-base/curriculum/questions/mcq/chunking_strategies.md` — 5 MCQs
+- `knowledge-base/curriculum/questions/mcq/vector_databases.md` — 5 MCQs
+- `knowledge-base/curriculum/questions/mcq/retrieval_methods.md` — 5 MCQs
+- `knowledge-base/curriculum/questions/mcq/context_and_prompting.md` — 5 MCQs
+- `knowledge-base/curriculum/questions/mcq/evaluation_and_metrics.md` — 5 MCQs
+- `knowledge-base/curriculum/questions/mcq/production_patterns.md` — 5 MCQs
+
+### Files Modified
+
+- `knowledge-base/curriculum/gates.md` — appended MCQ scoring addendum (binary scoring, same session/topic formula, same 3-question session minimum)
+
+### Key Decisions
+
+**1. MCQ files stored in a separate subdirectory (`questions/mcq/`)**
+Separating MCQ files from open-ended question banks prevents Nova from accidentally
+loading MCQ rubric logic into the LLM evaluator prompt. The two formats serve different
+pipeline stages and must be clearly distinguished by path. If they were co-located in
+the same directory, a glob pattern like `questions/*.md` would pick up both formats.
+
+**2. Binary scoring — no partial credit for MCQ**
+MCQ questions either match the answer key (1.0) or do not (0.0). Partial credit
+requires rubric evaluation, which defeats the purpose of MCQ as a deterministic,
+LLM-evaluator-free instrument for phase gate advancement. The session/topic formula
+remains identical — only the per-question score range changes (0/1 instead of 0/0.5/1).
+
+**3. Difficulty distribution: 2 beginner + 2 intermediate + 1 advanced per topic**
+The distribution weights toward approachable questions. A gate test that is heavily
+advanced would produce low pass rates not because learners lack mastery but because
+advanced questions require synthesis beyond what a gate test should measure. The single
+advanced question per topic is sufficient to distinguish thorough from surface understanding.
+
+**4. No framework-specific questions**
+All 40 questions are answerable from RAG concept knowledge. No question references
+LangChain, LlamaIndex, or any specific library. This ensures the MCQ bank remains
+valid regardless of which frameworks the learner has worked with.
+
+### Self-Review Checklist
+
+- [x] All 8 MCQ files exist under `knowledge-base/curriculum/questions/mcq/`
+- [x] Every file has exactly 5 questions
+- [x] Every question has all required fields: Question, Options (A-D), Correct answer, Explanation
+- [x] No question has more than 1 correct answer marked
+- [x] Difficulty distribution per file: 2 beginner + 2 intermediate + 1 advanced
+- [x] `mcq-format.md` exists with schema and scoring rules
+- [x] `gates.md` has MCQ scoring addendum appended
+- [x] Worklog updated
+
+### Scope Overflow Check
+
+No scope overflows. All deliverables are within the Commit 33 spec. No `src/` files,
+no test files, no infrastructure files touched.
 
 ---
 

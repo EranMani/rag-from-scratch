@@ -4,7 +4,7 @@
 > Quality signal: tests pass · no Viktor hard blocks · learning log entry written.
 >
 > Companion file: TOKEN_OPTIMIZATION.md — the methods behind the numbers.
-> Last updated: 2026-05-19 (Commit 32)
+> Last updated: 2026-05-19 (Commit 33)
 
 ---
 
@@ -574,6 +574,21 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 33 — `question-bank-mcq` · 2026-05-19 · Lara
+
+> Gate wave: Ryan only — knowledge-base Markdown content only; no code, no auth, no external APIs, no user-facing behavior change.
+> Viktor/Sage/Quinn/Mira all correctly skipped per gate triage matrix.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Lara | Sonnet | 50,432 | 17 | ✅ under ≤60k | 8 MCQ files + mcq-format.md + gates.md update; clean single pass |
+| Ryan | Haiku | 40,264 | 9 ⚠️ | over ≤15k | over 5-tool cap (used 9); full entry (DECISIONS.md updated) |
+| **Total** | | **90,696** | **26** | over ≤75k | Ryan over tool cap is the sole driver |
+
+**Tool cap violation:** Ryan hit 9 tool uses against a 5-cap. Investigate whether the Edit anchor was ambiguous or Ryan added reads.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -604,6 +619,7 @@ No token data recorded. Tracking began at Commit 10.
 | 32 | ui-chat-shell | 271,427 | Viktor×2 + Sage (Haiku) | **well over** | Aria 2 tool caps (123k impl); Viktor 96k (2-pass, file reads); Sage 52k (file reads); Ryan 34k |
 | 32b | ui-chat-shell (TL revision) | 74,876 | none (CSS-only) | over ≤60k | Aria single-pass layout+logo+progress overhaul; no gate wave (CSS/structure only) |
 | 32c | ui-chat-shell (6-issue revision) | 44,287 | none (CSS/structure) | over ≤60k | Aria single-pass: composer move, progress bars, spacing, input bg, send btn, bubbles |
+| 33 | question-bank-mcq | 90,696 | Ryan only | over ≤75k | Lara ✅ (50,432 · 17 uses); Ryan 40k (9 uses, over 5-cap) |
 
 ---
 

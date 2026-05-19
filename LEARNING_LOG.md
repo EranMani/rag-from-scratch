@@ -1766,3 +1766,37 @@ async def index():
 > **In one sentence:** Unified chat page styling and labels across all UI kit components (ChatShell, KnowledgeProfile, Composer, Bubbles); refactored composer layout from row to column wrapper.
 
 ---
+
+**Commit 33 — `question-bank-mcq`** · 2026-05-19 · Lara · `new feature`
+
+> **In one sentence:** Created MCQ (multiple-choice question) banks for all 8 RAG curriculum topics — 40 questions total (5 per topic) with deterministic binary scoring for phase-gate advancement.
+
+**Interview talking point:**
+> **Q:** How do you gate learner progression through a multi-topic curriculum without introducing evaluator variance or requiring an LLM grader?
+>
+> **A:** MCQ answer-key comparison is deterministic — no rubric ambiguity, no evaluator variance, no LLM cost. Open-ended questions stay as in-session learning; MCQs provide the binary signal for gating. Same `session_score` formula applies to both, so curriculum flow treats them identically.
+
+**What happened and why:**
+- Created MCQ question banks in `knowledge-base/curriculum/questions/mcq/[slug].md` for all 8 topics: 2 beginner, 2 intermediate, 1 advanced per topic. This satisfies `min_questions_per_session=3` from phase gates while keeping assessments concise.
+- Created `knowledge-base/curriculum/mcq-format.md` schema document defining field constraints, answer-key format, and scoring rules. This makes the distinction from open-ended questions explicit and prevents format drift.
+- Appended binary scoring addendum to `knowledge-base/curriculum/gates.md`. MCQ scores (0.0 or 1.0) feed the same `session_score = mean(question_scores)` formula as open-ended rubric scores, so progression logic doesn't need to distinguish between question types.
+- Separated MCQ file tree from open-ended questions. Nova's Commit 35 (mcq-assessment-engine) will read only from `questions/mcq/` to avoid format confusion and ensure engine input is always well-formed.
+
+**Reasoning & discovery:**
+1. Phase gate advancement requires a deterministic signal — no ambiguity, no variance between assessments, no evaluator drift. Open-ended rubrics need LLM evaluation; MCQ answer keys don't.
+2. Parallel file trees (open-ended vs. MCQ) make the format distinction structural rather than documenting a convention. Prevents accidental mixing and gives Nova a clear read path for Commit 35.
+3. 5 questions per topic (2+2+1) balances gate rigor — must demonstrate beginner and intermediate knowledge before synthesis — with session time constraints. The question bank can be rotated in future iterations without changing gate logic.
+
+**Files touched:**
+- `knowledge-base/curriculum/questions/mcq/rag-fundamentals.md` — 5 MCQ bank for Topic 1
+- `knowledge-base/curriculum/questions/mcq/retrieval-systems.md` — 5 MCQ bank for Topic 2
+- `knowledge-base/curriculum/questions/mcq/embeddings.md` — 5 MCQ bank for Topic 3
+- `knowledge-base/curriculum/questions/mcq/vector-search.md` — 5 MCQ bank for Topic 4
+- `knowledge-base/curriculum/questions/mcq/reranking.md` — 5 MCQ bank for Topic 5
+- `knowledge-base/curriculum/questions/mcq/llm-integration.md` — 5 MCQ bank for Topic 6
+- `knowledge-base/curriculum/questions/mcq/evaluation.md` — 5 MCQ bank for Topic 7
+- `knowledge-base/curriculum/questions/mcq/production-rag.md` — 5 MCQ bank for Topic 8
+- `knowledge-base/curriculum/mcq-format.md` — new; defines MCQ schema, field constraints, and scoring rules
+- `knowledge-base/curriculum/gates.md` — appended binary scoring rules for MCQ advancement gating
+
+---

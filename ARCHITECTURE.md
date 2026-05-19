@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-19 (Commit 30 — ui-landing-page)
+> Last updated: 2026-05-19 (Commit 33 — question-bank-mcq)
 
 ---
 
@@ -140,11 +140,17 @@ responsive to who they are, not a static Q&A tool.
 ### RAG Curriculum
 - **Type:** knowledge base (Markdown + JSON artifacts)
 - **Owner:** Lara
-- **Purpose:** Defines the complete RAG learning curriculum: canonical 8-topic slug list, three-phase progression with hard gates, per-topic test question banks with LLM-evaluable rubrics, and scoring formula for Nova/Rex implementation
+- **Purpose:** Defines the complete RAG learning curriculum: canonical 8-topic slug list, three-phase progression with hard gates, per-topic test question banks with LLM-evaluable rubrics, MCQ phase-gate advancement questions, and scoring formula for Nova/Rex implementation
 - **Location:** `knowledge-base/curriculum/`
-- **Key artifacts:** `topic-slugs.json` (machine-readable slug list), `gates.md` (phase gate thresholds + scoring formula), `curriculum-map.md` (topic tree + learning objectives), `questions/[slug].md` (8-question banks with correct/partial/incorrect rubrics)
-- **Consumed by:** Nova (Commit 24 — assessment engine rewrite); Rex (Commit 25 — profile scoring rewrite); Mira+Lara (Commit 23 — scoring model product spec)
-- **Introduced in:** Commit 22
+- **Key artifacts:**
+  - `topic-slugs.json` — machine-readable canonical 8-slug list
+  - `gates.md` — phase gate thresholds + scoring formula (open-ended + MCQ binary scoring rules)
+  - `curriculum-map.md` — topic tree + learning objectives
+  - `questions/[slug].md` — 8 open-ended question banks with correct/partial/incorrect rubrics (LLM-evaluable)
+  - `questions/mcq/[slug].md` — 8 MCQ banks (5 questions each); deterministic answer-key scoring; used exclusively for phase-gate advancement tests (Commit 33)
+  - `mcq-format.md` — MCQ question schema, quality constraints, scoring rules (Commit 33)
+- **Consumed by:** Nova (Commit 24 — assessment engine); Rex (Commit 25 — profile scoring); Mira+Lara (Commit 23 — scoring model spec); Nova (Commits 35 + 36 — MCQ assessment engine + onboarding)
+- **Introduced in:** Commit 22; MCQ banks added in Commit 33
 
 ### ChatResponse
 - **Type:** typed wire schema (Pydantic model)
