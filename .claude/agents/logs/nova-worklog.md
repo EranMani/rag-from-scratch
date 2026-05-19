@@ -5,13 +5,18 @@
 ---
 
 ## Current State
-*Last updated: off-topic suppression fix · 2026-05-16*
+*Last updated: Commit 34 — phase-gate-enforcement · 2026-05-20*
 
-**Last completed:** off-topic suppression fix (ad-hoc) ✅
+**Last completed:** Commit 34 — phase-gate-enforcement ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
+- → Nova (Commit 35 `mcq-assessment-engine`): `PHASE_1_TOPICS`, `PHASE_2_TOPICS`, `PHASE_3_TOPICS`
+  are now public — import from `app.profile.scoring`. `_select_test_slug` is phase-gated on
+  `user_level` — MCQ engine inherits this gate automatically. No new AgentState fields added.
+
+**Open Handoffs — Outbound (stale — preserved for reference):**
 - Commit 19 (Aria — SSE endpoint): `ChatResponse` is defined in `src/rag/chain.py`.
   Fields: `answer: str`, `user_level: str | None`, `assessed_topics: dict[str, float]`.
   The SSE `done` event payload is `{"type": "done", **ChatResponse.model_dump()}` — the
@@ -19,10 +24,8 @@
   `user_level` is populated from `AgentState.user_level` after the graph run completes.
   `assessed_topics` is the `topic_scores_delta` dict (topic slug → score delta float).
 
-**Open Handoffs — Inbound (consumed this session):**
+**Open Handoffs — Inbound (consumed):**
 - Commit 17 outbound handoff (PROMPT_TEMPLATES / DEFAULT_PROMPT import pattern): CONSUMED.
-  `generate_node` now uses `PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)` +
-  `template.format_messages(context=context)[0]`.
 - Commit 05 Mira handoff (last_activity_at): CONSUMED.
 - Commit 14 handoff (compute_topic_scores import path, no json.loads): CONSUMED.
 
@@ -140,6 +143,7 @@ The commit plan has been updated. Here is what changed for you:
 | 11 | hotfix `assess-node-openai-schema` | ✅ Done | Replaced dict[str, float] in AssessmentOutput with TopicScoresDelta (explicit fixed-field Pydantic model); assess_node converts back to sparse dict before state write. |
 | 12 | Commit 24 `assessment-engine-rewrite` | ✅ Done | New EvaluationOutput model (not AssessmentOutput) for eval mode; _is_evaluation_mode() uses last-message HumanMessage inspection; regex-based curriculum file parser; TopicScoresDelta + VALID_MODULE_SLUGS updated to canonical 8 slugs. |
 | 13 | ad-hoc: off-topic suppression fix | ✅ Done | `_run_passive_assessment` returns `(delta, is_rag_related)` tuple; off-topic queries skip knowledge check entirely; exception fallback is permissive (returns True); 6 stale tests fixed to mock `_run_passive_assessment` explicitly. |
+| 14 | Commit 34 `phase-gate-enforcement` | ✅ Done | `_LEVEL_TO_PHASE` dict with `PHASE_1_TOPICS` default; `_ORDERED_SLUGS` promoted to module scope; scoring.py constants made public; 8 new tests + 1 stale test corrected; hit 26 tool cap (worklog written by orchestrator). |
 
 ---
 
@@ -283,6 +287,40 @@ The test failures in the first run were diagnostic: six pre-existing tests that 
 `_run_passive_assessment` started failing because they hit the live LLM which returned `relevant_slug=None`.
 This revealed that those tests were implicitly depending on the live LLM to produce an on-topic classification —
 a fragile assumption. The fix corrects both the production bug and the test fragility simultaneously.
+
+---
+
+## Session 14 — Commit 34: `phase-gate-enforcement`
+
+**Date:** 2026-05-20
+**Status:** ✅ Done
+**Note:** Nova hit 26 tool cap before writing worklog. This entry written by orchestrator (Claude) from Nova's completion report.
+
+### AI Problem Being Solved
+
+`_select_test_slug()` drew questions from all 8 topic slugs regardless of the user's curriculum phase. A `novice` could receive a Phase 3 question on `production_patterns`. The fix gates question selection to the phase determined by `user_level` — Phase 1 for novice/beginner, Phase 2 for intermediate, Phase 3 for advanced, all phases (canonical order) for expert.
+
+### Key Decisions
+
+**`_LEVEL_TO_PHASE` dict with `PHASE_1_TOPICS` fallback.** An if/elif chain was the obvious alternative. Dict lookup is O(1), explicit about coverage (all 5 keys visible at a glance), and the `.get(user_level, PHASE_1_TOPICS)` fallback is conservative — unknown levels default to the most restrictive gate. This also makes the mapping independently testable.
+
+**`_ORDERED_SLUGS` promoted to module scope.** It was previously a local variable inside `_select_test_slug`, recreated on every call. Module scope is the correct home for a constant; the promotion also makes it importable for test assertions.
+
+**`PHASE_1/2/3_TOPICS` made public in `scoring.py`.** The leading underscore indicated internal-only use. `assess.py` legitimately needs these constants for the phase gate — the leading underscore was an artificial barrier. Python convention: underscore-free at module boundary means "part of the public API of this module."
+
+**One stale test updated.** `test_test_mode_uses_identified_gap_slug` used `identified_gaps=["vector_databases"]` (Phase 2) with `user_level="novice"`. The phase gate correctly skips this gap. Test updated to use a Phase 1 gap — this reflects correct behavior, not a regression.
+
+### Changes Made
+
+1. `src/app/profile/scoring.py` — Renamed `_PHASE_1_TOPICS`, `_PHASE_2_TOPICS`, `_PHASE_3_TOPICS` to public; updated 4 internal references in `_phase_1_passed`, `_phase_2_passed`, `_phase_3_passed`, `get_mastery_level`.
+
+2. `src/agents/nodes/assess.py` — Added `from app.profile.scoring import PHASE_1_TOPICS, PHASE_2_TOPICS, PHASE_3_TOPICS`; added `_ALL_TOPICS`, `_LEVEL_TO_PHASE`, `_ORDERED_SLUGS` at module scope; rewrote `_select_test_slug` to resolve `eligible` from `_LEVEL_TO_PHASE` before gap/canonical checks.
+
+3. `tests/test_assess_node.py` — Imported `_select_test_slug`; added `TestPhaseGateSlugSelection` (8 tests: novice/beginner/intermediate/advanced/expert/gap-in-phase/gap-out-of-phase/empty-slugs); updated 1 stale test.
+
+### Approach
+
+The problem was a missing eligibility filter — the solution already existed structurally in `scoring.py`. The only design question was how to map `user_level` → eligible set. Dict over if/elif was the clear choice; the fallback makes the contract explicit. Test coverage was written to adversarially verify the boundary conditions (Phase 3 gap skipped for beginner, Phase 1 returned first for expert) rather than just the happy path.
 
 ---
 

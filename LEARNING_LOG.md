@@ -1800,3 +1800,75 @@ async def index():
 - `knowledge-base/curriculum/gates.md` — appended binary scoring rules for MCQ advancement gating
 
 ---
+
+**Commit 34 — phase-gate-enforcement** · 2026-05-20 · Nova · `new feature | architectural`
+
+> **In one sentence:** Assessment question selection is now gated to the user's current curriculum phase — novice and beginner users receive only Phase 1 questions, intermediate only Phase 2, advanced only Phase 3, and experts cycle through all phases in canonical order.
+
+**Interview talking point:**
+> **Q:** How does the adaptive RAG tutor prevent a beginner from being assessed on advanced topics before mastering the fundamentals?
+>
+> **A:** `_select_test_slug()` now resolves an `eligible` frozenset from a `_LEVEL_TO_PHASE` dict keyed on `user_level` before checking gaps or canonical ordering. A Phase 3 gap for a beginner is skipped entirely — the function only considers slugs that fall inside the user's current phase. The phase topic sets were already defined in `scoring.py`; this commit made them public so the assess node could import and apply them.
+
+**What happened and why:**
+- `_PHASE_1_TOPICS`, `_PHASE_2_TOPICS`, `_PHASE_3_TOPICS` in `scoring.py` were private (underscore-prefixed) — accessible only within the scoring module. Made them public so `assess.py` could import them without duplicating the curriculum definition.
+- Added `_LEVEL_TO_PHASE: dict[str, frozenset[str]]` at module level in `assess.py` mapping all 5 `user_level` values to their eligible topic set. Default fallback is `PHASE_1_TOPICS` — unknown levels are treated as the most restrictive gate.
+- Rewrote `_select_test_slug()` to resolve `eligible` from `_LEVEL_TO_PHASE` before either gap or canonical checks. Both checks now filter by `eligible` first, then `VALID_MODULE_SLUGS`.
+- `_ORDERED_SLUGS` promoted from a local variable (recreated per call) to a module-level constant — correct home for an immutable list used as a fallback ordering.
+- One stale test (`test_test_mode_uses_identified_gap_slug`) used a Phase 2 gap slug (`vector_databases`) for a novice user. Phase gate correctly skips this — test updated to use a Phase 1 gap.
+
+**Reasoning & discovery:**
+1. The phase topic constants already existed in `scoring.py` — the scoring engine had always known which topics belong to which phase. The private naming was an artificial barrier. Making them public was the minimal change that gave `assess.py` what it needed without duplicating the curriculum definition.
+2. Dict lookup over if/elif: a dict makes coverage explicit (all 5 keys visible at a glance), is O(1), and the `.get(user_level, PHASE_1_TOPICS)` fallback is conservative — unknown levels default to the most restrictive gate rather than silently passing through.
+3. Expert users get `_ALL_TOPICS` (all 8 slugs), but `_ORDERED_SLUGS` still determines which slug comes first — Phase 1 leads. This means experts cycle through the same structured progression rather than getting random access.
+
+**The key change:**
+
+```python
+# src/agents/nodes/assess.py — before
+def _select_test_slug(state: AgentState) -> str | None:
+    gaps: list[str] = state.get("identified_gaps") or []
+    for slug in gaps:
+        if slug in VALID_MODULE_SLUGS:          # no phase check
+            return slug
+    _ORDERED_SLUGS = [...]                      # local variable, recreated per call
+    for slug in _ORDERED_SLUGS:
+        if slug in VALID_MODULE_SLUGS:          # no phase check
+            return slug
+    return None
+
+# src/agents/nodes/assess.py — after
+_LEVEL_TO_PHASE: dict[str, frozenset[str]] = {
+    "novice":       PHASE_1_TOPICS,
+    "beginner":     PHASE_1_TOPICS,
+    "intermediate": PHASE_2_TOPICS,
+    "advanced":     PHASE_3_TOPICS,
+    "expert":       _ALL_TOPICS,
+}
+
+def _select_test_slug(state: AgentState) -> str | None:
+    user_level: str = state.get("user_level") or "novice"
+    eligible: frozenset[str] = _LEVEL_TO_PHASE.get(user_level, PHASE_1_TOPICS)
+    gaps: list[str] = state.get("identified_gaps") or []
+    for slug in gaps:
+        if slug in eligible and slug in VALID_MODULE_SLUGS:   # phase-gated
+            return slug
+    for slug in _ORDERED_SLUGS:
+        if slug in eligible and slug in VALID_MODULE_SLUGS:   # phase-gated
+            return slug
+    return None
+```
+
+**Design pattern:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Dict dispatch with conservative fallback | `_LEVEL_TO_PHASE.get(user_level, PHASE_1_TOPICS)` | All 5 levels explicit; unknown levels default to most restrictive gate; no if/elif branching needed |
+| Public module API for cross-domain constants | `_PHASE_X_TOPICS` → `PHASE_X_TOPICS` | Scoring module is the canonical source; assess node consumes without duplication |
+
+**Files touched:**
+- `src/app/profile/scoring.py` — made `PHASE_1/2/3_TOPICS` public; updated 4 internal references
+- `src/agents/nodes/assess.py` — added `_LEVEL_TO_PHASE`, `_ALL_TOPICS`, `_ORDERED_SLUGS` at module scope; rewrote `_select_test_slug`
+- `tests/test_assess_node.py` — added `TestPhaseGateSlugSelection` (8 tests); updated 1 stale test
+
+---

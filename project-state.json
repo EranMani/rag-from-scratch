@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-19 (Commit 33 question-bank-mcq done)",
+  "last_updated": "2026-05-20 (Commit 34 phase-gate-enforcement done)",
   "status": "active",
   "current_commit": {
-    "number": "34",
-    "name": "phase-gate-enforcement",
+    "number": "35",
+    "name": "mcq-assessment-engine",
     "status": "pending",
     "assignee": "ai-engineer"
   },
@@ -42,10 +42,10 @@
     "30.5",
     "31",
     "32",
-    "33"
+    "33",
+    "34"
   ],
   "commits_pending": [
-    "34",
     "35",
     "36",
     "37",
@@ -55,7 +55,7 @@
     "41",
     "42"
   ],
-  "next_commit": "34",
+  "next_commit": "35",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

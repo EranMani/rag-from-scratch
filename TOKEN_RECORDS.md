@@ -574,6 +574,29 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 34 — `phase-gate-enforcement` · 2026-05-20 · Nova
+
+> Gate wave: Viktor only (logic change in `_select_test_slug` — routing correctness, type safety).
+> Sage skipped — no auth, secrets, or external API calls.
+> Quinn skipped — wave runs at Commit 35 (per cadence).
+> Mira skipped — internal AI routing; no user-facing behavior visible until Commits 37–38.
+> Ryan: one-liner (internal routing change, no architectural pattern).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Nova (implementation) | Sonnet | 59,236 | 26 ⚠️ | ✅ under ≤60k | Hit 26 tool cap; worklog written by orchestrator |
+| Viktor | Haiku | 37,240 | 0 | **+22k** over ≤15k | PASS WITH COMMENTS — 3 advisories (docstring, type annotation, ordering contract) |
+| Ryan | Haiku | 33,287 | 4 | **+18k** over ≤15k | one-liner; within 5-tool cap |
+| **Total** | | **129,763** | **30** | over ≤75k | Viktor + Ryan over ≤15k target; Nova ✅ |
+
+**Notes:**
+- Nova: 59,236 tokens (just under ≤60k) / 26 tool uses (1 over 25 cap). Two-phase discipline largely held. Tool cap triggered before worklog write — orchestrator wrote the session entry from Nova's completion report.
+- Viktor 37,240 tokens: PASS WITH COMMENTS — 3 advisories: (1) docstring completeness, (2) `user_level` type annotation, (3) `_ORDERED_SLUGS` phase boundary comment. None blocking.
+- Ryan 33,287 tokens / 4 tool uses: one-liner; within the 5-tool cap (improvement on prior Ryan runs).
+- Pre-existing test failures unchanged: `test_profile_api.py::test_valid_token_returns_200` (register 500) + 2 in `test_update_profile_node.py` — all confirmed pre-existing via git stash check.
+
+---
+
 ## Commit 33 — `question-bank-mcq` · 2026-05-19 · Lara
 
 > Gate wave: Ryan only — knowledge-base Markdown content only; no code, no auth, no external APIs, no user-facing behavior change.
@@ -620,6 +643,7 @@ No token data recorded. Tracking began at Commit 10.
 | 32b | ui-chat-shell (TL revision) | 74,876 | none (CSS-only) | over ≤60k | Aria single-pass layout+logo+progress overhaul; no gate wave (CSS/structure only) |
 | 32c | ui-chat-shell (6-issue revision) | 44,287 | none (CSS/structure) | over ≤60k | Aria single-pass: composer move, progress bars, spacing, input bg, send btn, bubbles |
 | 33 | question-bank-mcq | 90,696 | Ryan only | over ≤75k | Lara ✅ (50,432 · 17 uses); Ryan 40k (9 uses, over 5-cap) |
+| 34 | phase-gate-enforcement | 129,763 | Viktor only (Haiku) | over ≤75k | Nova ✅ (59,236 · 26 uses, hit cap); Viktor 37k; Ryan 33k |
 
 ---
 

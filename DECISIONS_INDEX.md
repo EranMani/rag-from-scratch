@@ -5,6 +5,9 @@
 72. **Separate `questions/mcq/[slug].md` file tree** — parallel to open-ended banks; prevents format drift; gives Nova (C35) a clean, unambiguous import path
 73. **5 MCQs per topic, 2/2/1 distribution** — satisfies `min_questions_per_session=3`; weights foundational knowledge (beginner) before practitioner application (intermediate) before synthesis (advanced)
 
+## Phase Gate Enforcement (C34)
+74. **`_LEVEL_TO_PHASE` dict with `PHASE_1_TOPICS` fallback** — dict lookup (`_LEVEL_TO_PHASE.get(user_level, PHASE_1_TOPICS)`) over if/elif; unknown/invalid levels fall through to the most restrictive gate (Phase 1); O(1) vs O(n); all 5 Literal values covered explicitly
+
 ## UI Foundation (C26)
 68. **Font injection per `@ui.page`** — NiceGUI creates a fresh HTML document per route; font links must be injected in each page function independently
 69. **`!important` on Quasar button gradient** — Quasar re-applies its own background after render; `!important` is the reliable override; class-based approach is the clean future fix
