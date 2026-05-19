@@ -43,7 +43,7 @@
 | 30.5 | ui-landing-raf-guard | frontend | ✅ done · 2026-05-19 |
 | 31 | ui-auth-pages | frontend | ✅ done · 2026-05-19 |
 | 32 | ui-chat-shell | frontend | ✅ done · 2026-05-19 |
-| 33 | question-bank-mcq | curriculum-specialist | pending |
+| 33 | question-bank-mcq | curriculum-specialist | ✅ done · 2026-05-19 |
 | 34 | phase-gate-enforcement | ai-engineer | pending |
 | 35 | mcq-assessment-engine | ai-engineer | pending |
 | 36 | onboarding-level-check | ai-engineer | pending |
