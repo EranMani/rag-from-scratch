@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-19 (Commit 31 ui-auth-pages done)",
+  "last_updated": "2026-05-19 (Commit 32 ui-chat-shell done; Replan: progression system added)",
   "status": "active",
   "current_commit": {
-    "number": "32",
-    "name": "ui-chat-shell",
+    "number": "33",
+    "name": "question-bank-mcq",
     "status": "pending",
-    "assignee": "frontend"
+    "assignee": "curriculum-specialist"
   },
   "commits_done": [
     "01",
@@ -40,16 +40,22 @@
     "29",
     "30",
     "30.5",
-    "31"
+    "31",
+    "32"
   ],
   "commits_pending": [
-    "32",
     "33",
     "34",
     "35",
-    "36"
+    "36",
+    "37",
+    "38",
+    "39",
+    "40",
+    "41",
+    "42"
   ],
-  "next_commit": "32",
+  "next_commit": "33",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
@@ -131,6 +137,22 @@
         "09"
       ],
       "note": "retrieve_node and generate_node are independent"
+    },
+    {
+      "wave": "D",
+      "commits": [
+        "33",
+        "34"
+      ],
+      "note": "knowledge-base only (Lara) vs AI layer (Nova) — no shared files"
+    },
+    {
+      "wave": "E",
+      "commits": [
+        "35",
+        "36"
+      ],
+      "note": "both depend on 34; 35 also needs 33"
     }
   ],
   "rollback_history": [],
@@ -146,6 +168,17 @@
       "approved_by": "Team Lead · 2026-05-11"
     },
     {
+      "date": "2026-05-17",
+      "trigger": "UI quality — NiceGUI default appearance deemed insufficient for portfolio presentation. Team Lead requires a modern, visually striking UI that conveys 'wow' on first impression.",
+      "commits_added": ["26 ui-foundation", "27 ui-header", "28 ui-chat", "29 ui-sidebar-admin"],
+      "commits_reordered": ["26 nginx-config → 30", "27 aws-ec2-deployment → 31", "28 integration-tests → 32", "29 documentation → 33"],
+      "commits_removed": [],
+      "new_agent": "Aria (frontend) — already active; 4 new UI redesign commits assigned",
+      "scope_rule": "Visual-only changes to src/app/ui.py. Hard rule: no streaming logic, no auth handlers, no state touched in any of the 4 commits.",
+      "consulted": "Aria (design direction + commit structure) + Mira (scope and timing review). Both consulted before replan drafted.",
+      "approved_by": "Team Lead · 2026-05-17"
+    },
+    {
       "date": "2026-05-19",
       "trigger": "Requirement changed — Team Lead wants a landing page as the first user-facing page (app entry point), plus full UI overhaul of auth and chat pages to match the JSX UI kit in UI_Design/ui_kits/app/. Each page implemented as a separate commit. Landing page routes unauthenticated users away from /login to /landing.",
       "commits_added": ["30 ui-landing-page", "31 ui-auth-pages", "32 ui-chat-shell"],
@@ -158,15 +191,15 @@
       "approved_by": "Team Lead · 2026-05-19"
     },
     {
-      "date": "2026-05-17",
-      "trigger": "UI quality — NiceGUI default appearance deemed insufficient for portfolio presentation. Team Lead requires a modern, visually striking UI that conveys 'wow' on first impression.",
-      "commits_added": ["26 ui-foundation", "27 ui-header", "28 ui-chat", "29 ui-sidebar-admin"],
-      "commits_reordered": ["26 nginx-config → 30", "27 aws-ec2-deployment → 31", "28 integration-tests → 32", "29 documentation → 33"],
+      "date": "2026-05-19",
+      "trigger": "Requirement changed — structured module progression (phase-gated advancement), MCQ question format, and new-user onboarding placement added to product scope. Scoped with Mira before replan. Commit 32 ui-chat-shell confirmed done by Team Lead.",
+      "commits_added": ["33 question-bank-mcq", "34 phase-gate-enforcement", "35 mcq-assessment-engine", "36 onboarding-level-check", "37 mcq-chat-ui", "38 progression-ui"],
+      "commits_reordered": ["old-33 nginx-config → 39", "old-34 aws-ec2-deployment → 40", "old-35 integration-tests → 41", "old-36 documentation → 42"],
       "commits_removed": [],
-      "new_agent": "Aria (frontend) — already active; 4 new UI redesign commits assigned",
-      "scope_rule": "Visual-only changes to src/app/ui.py. Hard rule: no streaming logic, no auth handlers, no state touched in any of the 4 commits.",
-      "consulted": "Aria (design direction + commit structure) + Mira (scope and timing review). Both consulted before replan drafted.",
-      "approved_by": "Team Lead · 2026-05-17"
+      "new_agent": "none — Lara, Nova, Aria already active; new commits assigned to their existing domains",
+      "key_decisions": "soft gate (redirect not refuse); advancement questions are MCQ only until open-question scorer validated; onboarding is self-report + 2–3 diagnostic questions, skippable; phase gate math already exists in scoring.py — commit 34 wires it into assess_node._select_test_slug()",
+      "consulted": "Mira (two rounds — progression gating + assessment format). Approved.",
+      "approved_by": "Team Lead · 2026-05-19"
     }
   ],
   "claude_decisions": [

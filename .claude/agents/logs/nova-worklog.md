@@ -1,4 +1,4 @@
-# Nova — Worklog
+﻿# Nova — Worklog
 # Project: rag-from-scratch
 # Stack: Python 3.11+, FastAPI, LangGraph, LangChain, ChromaDB, SQLite
 
@@ -1581,3 +1581,23 @@ Visual-only changes to `src/app/ui.py`. No AI/agent layer impact, no graph or pr
 **Your next commit is now: Commit 32 `integration-tests`** (co-owned with Rex)
 Spec updated: `commit-specs/commit-32.md`.
 Dependency unchanged: Commit 32 still depends on Commit 25 (all AI features complete).
+
+---
+
+## Replan Notice — 2026-05-19
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** nothing
+
+**What was added:**
+- Commit 34 `phase-gate-enforcement` — wire phase gate logic into assess_node._select_test_slug(); soft gate redirects for phase-locked topics; add current_phase, phase_gate_status, question_tier to AgentState
+- Commit 35 `mcq-assessment-engine` — MCQ question parsing and deterministic scoring; add question_type, mcq_options, mcq_correct_index to AgentState; gate advancement on MCQ only
+- Commit 36 `onboarding-level-check` — new-user flow: self-report + 2–3 diagnostic questions → phase placement; add onboarding_complete, placement_phase to AgentState; skippable; graceful fallback
+
+**What changed in your sequence:**
+- Commits 34, 35, 36 are new and come before the renamed Commit 41 (was 35) integration-tests
+- 34 and 35/36 can partially parallelize: Wave D is 33∥34; Wave E is 35∥36 after both are done
+- Phase gate math already exists in src/app/profile/scoring.py — _phase_1_passed/_phase_2_passed are correct; commit 34 wires them into assess_node, it does not rewrite them
+
+**Your next commit is now: Commit 34 `phase-gate-enforcement`** (after Commit 33 question-bank-mcq and Commit 32 ui-chat-shell are both done — 32 is already done)

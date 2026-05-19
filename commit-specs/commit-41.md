@@ -1,10 +1,10 @@
-# Commit 35 Spec — `integration-tests`
+﻿# Commit 41 Spec — `integration-tests`
 > **Project:** rag-from-scratch · **Assignee:** Rex + Nova · **Load only for the active commit.**
-> **Note:** This was formerly Commit 32 — renumbered by replan 2026-05-19 to make room for 3 UI commits (30–32).
+> **Note:** This was formerly Commit 32, renumbered to 35 (replan 2026-05-19), then to 41 (replan 2026-05-19 — progression system added commits 33–38). Scope now includes progression system flows: phase gate enforcement, MCQ scoring, onboarding level-check.
 
 ---
 
-### Commit 35 — `integration-tests`
+### Commit 41 — `integration-tests`
 
 **Commit message:** `test: full graph integration tests and edge case coverage`
 

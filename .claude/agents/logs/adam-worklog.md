@@ -1,4 +1,4 @@
-# Adam — DevOps Worklog
+﻿# Adam — DevOps Worklog
 
 ## Current State
 
@@ -109,3 +109,19 @@ The commit plan has been updated again. Here is what changed for you:
 **Specs updated:** `commit-specs/commit-33.md` and `commit-specs/commit-34.md`
 
 **Your next commit is now: Commit 33 `nginx-config`** (after Aria completes Commits 30, 31, 32)
+
+---
+
+## Replan Notice — 2026-05-19
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** nothing
+
+**What changed in your sequence:**
+- Old Commit 33 `nginx-config` → now **Commit 39** (renumbered; content unchanged)
+- Old Commit 34 `aws-ec2-deployment` → now **Commit 40** (renumbered; content unchanged)
+- 6 new progression commits (33–38) were inserted before your work
+
+**Your next commit is now: Commit 39 `nginx-config`** (after Commit 38 progression-ui is complete)
+Specs: rename commit-specs/commit-39.md and commit-specs/commit-40.md — already renamed — content is unchanged.

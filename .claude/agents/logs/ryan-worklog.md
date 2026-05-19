@@ -1,4 +1,4 @@
-# Ryan — Tech Writer Worklog
+﻿# Ryan — Tech Writer Worklog
 
 ## Current State
 Last updated: Commit 28 `ui-chat`
@@ -25,3 +25,18 @@ C28 is a refactor/style commit with zero logic, async, auth, or architectural ch
 
 **Deferred:**
 Nothing. Style commits do not require decision records or glossary entries.
+
+---
+
+## Replan Notice — 2026-05-19
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** nothing
+
+**What changed in your sequence:**
+- Old Commit 36 `documentation` → now **Commit 42** (renumbered; content unchanged)
+- 6 new progression commits (33–38) were inserted before your work
+- Documentation scope will expand: the progression system (phase gates, MCQ format, onboarding flow) introduces new concepts, decisions, and API behavior that will need documenting
+
+**Your next commit is now: Commit 42 `documentation`** (after Commit 41 integration-tests is complete)

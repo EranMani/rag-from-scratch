@@ -1,4 +1,4 @@
-# Aria — Worklog
+﻿# Aria — Worklog
 # Project: rag-from-scratch
 # Stack: Python / NiceGUI / FastAPI
 
@@ -929,3 +929,25 @@ The commit plan has been updated. Here is what changed for you:
 **Full specs:** `commit-specs/commit-30.md`, `commit-specs/commit-31.md`, `commit-specs/commit-32.md`
 
 **Your next commit is now: Commit 30 `ui-landing-page`**
+
+---
+
+## Replan Notice — 2026-05-19
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** nothing
+
+**What was added:**
+- Commit 37 `mcq-chat-ui` — render MCQ option buttons in chat when question_type == "mcq" (new AgentState field from Nova's Commit 35); clicking an option sends the answer; buttons disable after selection; label advancement questions "✦ Advancement Check" vs learning questions "○ Knowledge Check"
+- Commit 38 `progression-ui` — phase gate milestone card in chat when a phase is passed; phase-aware module progress in sidebar; "Unlocks after Phase N" indicator for phase-locked topics
+
+**Note:** Commit 32 `ui-chat-shell` has been confirmed done by the Team Lead (2026-05-19).
+
+**What changed in your sequence:**
+- Commits 37 and 38 are new and come after Nova's Commits 35 and 36
+- Commit 37 depends on Nova's Commit 35 (mcq-assessment-engine) — MCQ state fields must exist before rendering
+- Commit 38 depends on Commit 37
+- Old Commit 33 `nginx-config` → now Commit 39 (Adam); old Commit 34 → 40
+
+**Your next commit is now: Commit 37 `mcq-chat-ui`** (after Nova's Commits 35 and 36 are complete)

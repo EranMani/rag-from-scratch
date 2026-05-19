@@ -1,4 +1,4 @@
-# Rex — Worklog
+﻿# Rex — Worklog
 # Project: rag-from-scratch
 # Stack: Python 3.11+, FastAPI, LangChain, ChromaDB, SQLite, JWT (PyJWT), NiceGUI
 
@@ -844,3 +844,18 @@ The purity test also served as a mutation guard — the second assertion in `Tes
 
 — Rex
 Co-Authored-By: Rex <rex.stockagent@gmail.com>
+
+---
+
+## Replan Notice — 2026-05-19
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** nothing
+
+**What changed in your sequence:**
+- Old Commit 35 `integration-tests` → now **Commit 41** (renumbered)
+- 6 new progression commits (33–38) were inserted before the integration-tests commit
+- Commit 41 integration-tests will now also need to cover the progression system flows: phase gate enforcement, MCQ scoring, onboarding level-check, soft gate redirects
+
+**Your next commit is now: Commit 41 `integration-tests`** (co-owned with Nova; after Commits 38 and 40 are complete)

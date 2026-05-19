@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 27 `ui-header` · 2026-05-17*
+*Last updated: Ad-hoc product assessment · 2026-05-19*
 
-**Last completed:** Commit 27 `ui-header` — brand name review ("RAG Tutor" vs "Educational RAG System")
+**Last completed:** Ad-hoc assessment — three feature ideas (question-gating, onboarding level-check, mixed question formats)
 **Currently active:** none
 **Blocked by:** none
 
@@ -31,6 +31,7 @@ No archived sessions yet.
 | 03 | 21 `production-compose` | Done | Monitoring profile opt-in in dev is a net positive; .env.prod.example needs a deployment order callout; portfolio signal is strong |
 | 04 | 23 `scoring-model-product-spec` | Done | Produced full product spec draft for docs/scoring-model.md; decided trigger threshold (0.60), opt-in test framing, no score decay, user_level mapping |
 | 05 | 27 `ui-header` | Done | "RAG Tutor" is product-correct; flagged naming consistency sweep as a follow-up commit before any external portfolio presentation |
+| 06 | Ad-hoc | Done | Question-gating: agree with full confidence. Level-check: agree with self-report + 3-question diagnostic hybrid. Mixed formats: agree with open-first, MCQ-secondary, ~60/40 ratio |
 
 ---
 

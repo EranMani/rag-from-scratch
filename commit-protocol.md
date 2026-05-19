@@ -42,11 +42,17 @@
 | 30 | ui-landing-page | frontend | ✅ done · 2026-05-19 |
 | 30.5 | ui-landing-raf-guard | frontend | ✅ done · 2026-05-19 |
 | 31 | ui-auth-pages | frontend | ✅ done · 2026-05-19 |
-| 32 | ui-chat-shell | frontend | pending |
-| 33 | nginx-config | devops | pending |
-| 34 | aws-ec2-deployment | devops | pending |
-| 35 | integration-tests | backend + ai-engineer | pending |
-| 36 | documentation | tech-writer | pending |
+| 32 | ui-chat-shell | frontend | ✅ done · 2026-05-19 |
+| 33 | question-bank-mcq | curriculum-specialist | pending |
+| 34 | phase-gate-enforcement | ai-engineer | pending |
+| 35 | mcq-assessment-engine | ai-engineer | pending |
+| 36 | onboarding-level-check | ai-engineer | pending |
+| 37 | mcq-chat-ui | frontend | pending |
+| 38 | progression-ui | frontend | pending |
+| 39 | nginx-config | devops | pending |
+| 40 | aws-ec2-deployment | devops | pending |
+| 41 | integration-tests | backend + ai-engineer | pending |
+| 42 | documentation | tech-writer | pending |
 
 ---
 
@@ -56,6 +62,8 @@
 Wave A (Phase 1):    01 ∥ 02 ∥ 03  — all touch distinct files, no shared state
 Wave B (Phase 3):    08 ∥ 09       — retrieve_node and generate_node are independent
 Wave C (Phase 8):    28 (integration tests — single owner pair, no further split)
+Wave D (Progression): 33 ∥ 34      — knowledge-base only (Lara) vs AI layer (Nova), no shared files
+Wave E (Progression): 35 ∥ 36      — both depend on 34; 35 also needs 33
 ```
 
 ---

@@ -1,10 +1,10 @@
-# Commit 33 Spec — `nginx-config`
+﻿# Commit 39 Spec — `nginx-config`
 > **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
-> **Note:** This was formerly Commit 30 — renumbered by replan 2026-05-19 to make room for 3 UI commits (30–32).
+> **Note:** This was formerly Commit 30, renumbered to 33 (replan 2026-05-19), then to 39 (replan 2026-05-19 — progression system added commits 33–38).
 
 ---
 
-### Commit 33 — `nginx-config`
+### Commit 39 — `nginx-config`
 
 **Commit message:** `feat: nginx reverse proxy with WebSocket support, HTTPS, and monitoring routes`
 

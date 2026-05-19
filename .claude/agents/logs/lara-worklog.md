@@ -1,4 +1,4 @@
-# Lara — Worklog
+﻿# Lara — Worklog
 # Project: rag-from-scratch
 # Stack: Markdown curriculum artifacts, JSON schemas, docs/ product specs
 
@@ -206,3 +206,28 @@ from question content (what the user *asked*) rather than test performance (how 
 - KEEP: `chunking_strategies`, `vector_databases`, `retrieval_methods`, `production_patterns`
 
 **Next commit:** Commit 22 `rag-curriculum-design`
+
+---
+
+## Replan Notice — 2026-05-19
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** nothing
+
+**What was added:**
+- Commit 33 `question-bank-mcq` — add 3–4 MCQ questions (4-choice format) per topic to all 8 question banks; tag every existing question as tier: advancement or tier: learning; define MCQ block format in each file header; knowledge-base/ only, no code
+
+**What changed in your sequence:**
+- Commit 33 is new and comes immediately after Commit 32 (already done)
+- Commit 33 can run in parallel with Commit 34 (Nova, Wave D) — no shared files
+- Nova's Commit 35 (mcq-assessment-engine) depends on your Commit 33 being complete
+
+**MCQ format guidance:**
+- advancement questions = designated assessment questions that gate phase progression
+- learning questions = conversational probes the agent uses while teaching (do not gate)
+- MCQ format: question + 4 options (A/B/C/D), one marked correct, all options plausible
+- Ratio target: 60% MCQ for factual/definitional questions, 40% open for reasoning/synthesis
+- All existing open questions keep their existing format — just add the tier tag
+
+**Your next commit is now: Commit 33 `question-bank-mcq`**

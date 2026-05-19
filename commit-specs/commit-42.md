@@ -1,10 +1,10 @@
-# Commit 36 Spec — `documentation`
+﻿# Commit 42 Spec — `documentation`
 > **Project:** rag-from-scratch · **Assignee:** Ryan · **Load only for the active commit.**
-> **Note:** This was formerly Commit 33 — renumbered by replan 2026-05-19 to make room for 3 UI commits (30–32).
+> **Note:** This was formerly Commit 33, renumbered to 36 (replan 2026-05-19), then to 42 (replan 2026-05-19 — progression system added commits 33–38).
 
 ---
 
-### Commit 36 — `documentation`
+### Commit 42 — `documentation`
 
 **Commit message:** `docs: README, architecture overview, getting started guide`
 

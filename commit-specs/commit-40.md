@@ -1,10 +1,10 @@
-# Commit 34 Spec — `aws-ec2-deployment`
+﻿# Commit 40 Spec — `aws-ec2-deployment`
 > **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
-> **Note:** This was formerly Commit 31 — renumbered by replan 2026-05-19 to make room for 3 UI commits (30–32).
+> **Note:** This was formerly Commit 31, renumbered to 34 (replan 2026-05-19), then to 40 (replan 2026-05-19 — progression system added commits 33–38).
 
 ---
 
-### Commit 34 — `aws-ec2-deployment`
+### Commit 40 — `aws-ec2-deployment`
 
 **Commit message:** `feat: EC2 deployment scripts — systemd, SSL, swapfile, backup`
 
