@@ -41,7 +41,7 @@
 | 29 | ui-sidebar-admin | frontend | ✅ done · 2026-05-17 |
 | 30 | ui-landing-page | frontend | ✅ done · 2026-05-19 |
 | 30.5 | ui-landing-raf-guard | frontend | ✅ done · 2026-05-19 |
-| 31 | ui-auth-pages | frontend | pending |
+| 31 | ui-auth-pages | frontend | ✅ done · 2026-05-19 |
 | 32 | ui-chat-shell | frontend | pending |
 | 33 | nginx-config | devops | pending |
 | 34 | aws-ec2-deployment | devops | pending |
