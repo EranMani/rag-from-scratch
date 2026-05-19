@@ -4,9 +4,9 @@
   "status": "active",
   "current_commit": {
     "number": "30",
-    "name": "nginx-config",
+    "name": "ui-landing-page",
     "status": "pending",
-    "assignee": "devops"
+    "assignee": "frontend"
   },
   "commits_done": [
     "01",
@@ -43,7 +43,10 @@
     "30",
     "31",
     "32",
-    "33"
+    "33",
+    "34",
+    "35",
+    "36"
   ],
   "next_commit": "30",
   "open_handoffs": [],
@@ -140,6 +143,18 @@
       "new_agent": "Lara (curriculum-specialist) — RAG curriculum expert, owns knowledge-base/ artifacts only",
       "slug_schema_change": "6 → 8 slugs. Drop: rag_fundamentals (split), langchain (removed). Add: rag_pipeline_architecture, embeddings_and_similarity, context_and_prompting, evaluation_and_metrics. Keep: chunking_strategies, vector_databases, retrieval_methods, production_patterns.",
       "approved_by": "Team Lead · 2026-05-11"
+    },
+    {
+      "date": "2026-05-19",
+      "trigger": "Requirement changed — Team Lead wants a landing page as the first user-facing page (app entry point), plus full UI overhaul of auth and chat pages to match the JSX UI kit in UI_Design/ui_kits/app/. Each page implemented as a separate commit. Landing page routes unauthenticated users away from /login to /landing.",
+      "commits_added": ["30 ui-landing-page", "31 ui-auth-pages", "32 ui-chat-shell"],
+      "commits_reordered": ["30 nginx-config → 33", "31 aws-ec2-deployment → 34", "32 integration-tests → 35", "33 documentation → 36"],
+      "commits_removed": [],
+      "new_agent": "none — Aria already active; 3 new UI commits assigned",
+      "scope_rule": "Visual-only changes to src/app/ui.py. Hard rule: no streaming logic, no auth handlers, no state touched in any of the 3 commits.",
+      "routing_decision": "Option A — new /landing route + one-line redirect change in index(). No route restructure. Auth pages and chat stay at existing paths.",
+      "consulted": "Aria (routing + CSS isolation + canvas timing + commit scope). Approved after Aria consultation.",
+      "approved_by": "Team Lead · 2026-05-19"
     },
     {
       "date": "2026-05-17",

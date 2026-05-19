@@ -689,3 +689,27 @@ The commit plan has been updated. You have four new commits assigned:
 **Your next commit is: Commit 26 `ui-foundation`**
 
 Design reference: Vercel + Linear hybrid. The problem is absence of hierarchy, depth, and identity — not the palette. See `commit-specs/commit-26.md` through `commit-specs/commit-29.md` for full specs.
+
+---
+
+## 📋 Replan Notice — 2026-05-19
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was added:** Three new UI commits assigned to you, to be done in order:
+- Commit 30 `ui-landing-page` — new `/landing` NiceGUI route (full marketing page) + one-line redirect change in `index()`
+- Commit 31 `ui-auth-pages` — refine `/login` and `/register` copy and layout to match Auth.jsx
+- Commit 32 `ui-chat-shell` — update chat page header, sidebar, bubbles, and composer to match the full UI kit
+
+**What changed in your sequence:** Your queue was previously empty after Commit 29. You now have Commits 30, 31, 32 — all frontend, all `src/app/ui.py` only.
+
+**Key technical flags (read before starting Commit 30):**
+- Canvas timing: wrap particle init in `document.addEventListener('DOMContentLoaded', ...)`. Parent container must have explicit height before `getBoundingClientRect()` is called or the canvas silently inits at 0×0.
+- CSS isolation: NiceGUI does NOT isolate CSS per page. Namespace ALL landing-page classes with `rag-landing-`. The auth and chat pages already use `rag-login-input` — follow the same discipline.
+- HeroMock bubbles: use INLINE styles on mock bubble elements. Do NOT use class names shared with the real chat page (`bubble`, `msg-row`, `avatar` etc.) or chat CSS will corrupt them.
+- Mastery taglines (Commit 32): additive only — no new API call. Read `mastery` from the already-fetched `profile` dict.
+- Tab rename (Commit 32): "Chat"→"Learn", "Admin"→"System" — string literals only, zero logic change.
+
+**Full specs:** `commit-specs/commit-30.md`, `commit-specs/commit-31.md`, `commit-specs/commit-32.md`
+
+**Your next commit is now: Commit 30 `ui-landing-page`**

@@ -1,47 +1,44 @@
-# Commit 33 Spec — `documentation`
-> **Project:** rag-from-scratch · **Assignee:** Ryan · **Load only for the active commit.**
+# Commit 33 Spec — `nginx-config`
+> **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
+> **Note:** This was formerly Commit 30 — renumbered by replan 2026-05-19 to make room for 3 UI commits (30–32).
 
 ---
 
-### Commit 33 — `documentation`
+### Commit 33 — `nginx-config`
 
-**Commit message:** `docs: README, architecture overview, getting started guide`
+**Commit message:** `feat: nginx reverse proxy with WebSocket support, HTTPS, and monitoring routes`
 
 **Body:**
-Complete documentation pass for the portfolio project. Covers the full system including
-the curriculum-driven adaptive assessment model introduced in Commits 22–25.
+Adds nginx as a service in `docker-compose.prod.yml` and writes `nginx/nginx.conf`.
 
-`README.md`:
-- Project description and north star
-- Tech stack overview with reasoning
-- Architecture diagram (ASCII or Mermaid)
-- How to run locally (`docker compose up`)
-- How to run with monitoring stack (`docker compose --profile monitoring up`)
-- Environment variables (reference `.env.example`)
-- Overview of the adaptive learning model (curriculum phases, test-based scoring)
+Required config (non-negotiable):
+- HTTP → HTTPS redirect (301), except `/.well-known/acme-challenge/` for Certbot renewal
+- SSL termination with Let's Encrypt certs at `/etc/letsencrypt/live/{domain}/`
+- `proxy_read_timeout 86400` — **critical**: NiceGUI WebSocket silently disconnects
+  at the default 60s timeout without this
+- `proxy_buffering off` — required for NiceGUI SSE fallback and any streaming responses
+- WebSocket upgrade headers: `Upgrade`, `Connection: upgrade`
+- `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto` headers
 
-`GETTING_STARTED.md` (update existing file):
-- Step-by-step local setup
-- How to create an account and test the adaptive agent
-- How to inspect your profile progression
-- How the curriculum phases work (what to expect as a new user)
+Security:
+- `location /metrics { deny all; return 403; }` — Prometheus scrape endpoint must
+  not be publicly accessible
+- Monitoring dashboards proxied at internal paths with HTTP basic auth:
+  `/grafana/` → Grafana, `/kibana/` → Kibana, `/prometheus/` → Prometheus
+- Security headers: `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`,
+  `Strict-Transport-Security max-age=31536000`
 
-`docs/API_REFERENCE.md`:
-- All endpoints: `/api/auth/register`, `/api/auth/login`, `/api/auth/me`,
-  `/api/profile/me`, `/api/chat`, `/api/ingest`, `/api/health`, `/metrics`
-- Request/response schemas
-
-**Assignee:** Ryan (`ryan.tech.writer.agent@gmail.com`)
+**Assignee:** Adam (`adam.stockagent@gmail.com`)
 
 **Files touched:**
-- `README.md`
-- `GETTING_STARTED.md`
-- `docs/API_REFERENCE.md` (new)
+- `nginx/nginx.conf` (new)
+- `docker-compose.prod.yml` (add nginx service with cert volumes)
 
-**Depends on:** 31
+**Depends on:** 32
 
 **Testing — done when:**
-- [ ] `README.md` has a working quickstart (someone with Docker can run it from scratch following the README)
-- [ ] All API endpoints are documented with example request/response
-- [ ] Architecture diagram reflects the actual system (LangGraph graph, curriculum assessment, profile flow, caching)
-- [ ] Adaptive learning model section accurately describes the 3-phase curriculum and scoring model
+- [ ] `nginx -t` (config test) passes inside the nginx container
+- [ ] `curl -I http://domain` returns 301 redirect to https
+- [ ] NiceGUI chat page remains connected for > 60 seconds without disconnect
+- [ ] `GET /metrics` returns 403 from outside the Docker network
+- [ ] WebSocket connection established (check browser DevTools Network tab)

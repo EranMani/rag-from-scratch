@@ -91,3 +91,21 @@ All four touch only `src/app/ui.py` with a hard scope rule (no streaming, no aut
 **Your next commit is now: Commit 30 `nginx-config`**
 Specs updated: `commit-specs/commit-30.md` and `commit-specs/commit-31.md`.
 Dependency updated: Commit 30 now depends on Commit 29 (last UI commit).
+
+---
+
+## 📋 Replan Notice — 2026-05-19
+
+The commit plan has been updated again. Here is what changed for you:
+
+**What changed:** Three new Aria UI commits (30, 31, 32) were inserted before your nginx commit. Your commits have shifted by 3 positions again:
+- `nginx-config` → **Commit 33** (was 30)
+- `aws-ec2-deployment` → **Commit 34** (was 31)
+
+**Dependency updated:**
+- Commit 33 `nginx-config` now depends on Commit 32 (last UI commit)
+- Commit 34 `aws-ec2-deployment` now depends on Commit 33
+
+**Specs updated:** `commit-specs/commit-33.md` and `commit-specs/commit-34.md`
+
+**Your next commit is now: Commit 33 `nginx-config`** (after Aria completes Commits 30, 31, 32)

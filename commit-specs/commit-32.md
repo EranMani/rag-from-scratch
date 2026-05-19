@@ -1,36 +1,172 @@
-# Commit 32 Spec — `integration-tests`
-> **Project:** rag-from-scratch · **Assignee:** Rex + Nova · **Load only for the active commit.**
+# Commit 32 Spec — `ui-chat-shell`
+> **Project:** rag-from-scratch · **Assignee:** Aria · **Load only for the active commit.**
 
 ---
 
-### Commit 32 — `integration-tests`
+### Commit 32 — `ui-chat-shell`
 
-**Commit message:** `test: full graph integration tests and edge case coverage`
+**Commit message:** `feat: update chat page to match ChatShell, KnowledgeProfile, Bubbles, and Composer specs (EranMani)`
 
 **Body:**
-Integration tests that exercise the full LangGraph pipeline with real profile state
-transitions. These are end-to-end tests, not unit tests — they verify that commits
-07–25 work correctly as a system, including the curriculum-driven assessment and
-8-slug scoring model.
+Updates the `/` chat page CSS, copy, and component styling to match the full UI kit.
+No streaming logic, session handling, auth, send function, timer, or admin panel is touched.
 
-Test scenarios:
-- Fresh user (no profile): graph runs, test question administered, profile created with first scores
-- Return user (existing profile): graph runs, test answer evaluated, delta merged into existing scores
-- Assessment failure: graph takes fallback edge, profile not updated, answer still returned
-- Anonymous user (`user_id=None`): graph runs, no profile writes, no error
-- Empty knowledge base (no docs): graph returns graceful "no information" answer
-- Phase gate check: user at Phase 1 passing threshold advances to Phase 2 topic testing
-- Score migration: existing profile with pre-replan slugs migrates correctly on startup
+**Requested by EranMani.**
 
-**Assignee:** Rex + Nova (coordinate — Rex owns profile assertions, Nova owns graph assertions)
+---
 
-**Files touched:**
-- `tests/test_integration.py` (new)
+### Reference files (read all before writing any code)
 
-**Depends on:** 25 (all features complete)
+- `UI_Design/ui_kits/app/ChatShell.jsx` — header, overall layout, tab structure
+- `UI_Design/ui_kits/app/KnowledgeProfile.jsx` — sidebar section labels, mastery chip, module rows, stats
+- `UI_Design/ui_kits/app/Composer.jsx` — input bar, send button, hint text
+- `UI_Design/ui_kits/app/Bubbles.jsx` — UserBubble, AssistantBubble, ThinkingBubble
+- `UI_Design/ui_kits/app/KnowledgeCheck.jsx` — knowledge check card
+- `UI_Design/colors_and_type.css` — all design tokens
+- `UI_Design/reference/design-spec.md` §3.4 — copy changes and visual rules
+- `UI_Design/screenshots/03-screen.png` — visual target
 
-**Testing — done when:**
-- [ ] All 7 test scenarios pass
-- [ ] Tests do not require a live OpenAI key (Ollama or stubbed provider)
-- [ ] Profile state in SQLite is verifiably correct after each scenario
-- [ ] DB migration idempotency confirmed in a dedicated test scenario
+---
+
+### Header — changes only
+
+**Tab labels (string literals only — no tab logic, no event handler changes):**
+- `"Chat"` → `"Learn"`
+- `"Admin"` → `"System"`
+
+**Logout button:**
+- `"Log out"` → `"Sign out"`
+
+**User pill:**
+- Refine to match ChatShell.jsx `user-pill` styling: avatar initials circle + email inline
+- Current implementation already close; adjust border color, padding, font size to match spec
+
+---
+
+### Knowledge Profile sidebar (`profile_panel`) — changes only
+
+**Section heading:**
+- `"Knowledge Profile"` → `"Your Profile"`
+
+**Mastery tagline (NEW — add below mastery chip):**
+Add one line of copy per mastery level, pulled from `KnowledgeProfile.jsx` `MASTERY_COPY`:
+```
+novice:       "Just getting started — great time to build foundations."
+intermediate: "You've got the core. Time to go deeper."
+advanced:     "Strong foundations. Let's tackle production complexity."
+expert:       "You're in the top tier. Ask me anything."
+```
+Render as a label below the mastery chip. Style: `--c-muted`, `0.8rem`, italic.
+This is purely additive — no new API call, no new state. Read `mastery` from the already-fetched `profile` dict.
+
+**Topic scores section heading:**
+- `"Topic Scores"` → `"Module Progress"`
+
+**Stats copy:**
+- `"Queries: N"` → `"N questions asked"` (move the count before the label)
+- `"Last active: [date]"` → `"Last session: [date]"`
+
+**Module row styling:**
+Update progress bar rows to match `ModuleRow` in KnowledgeProfile.jsx:
+- Module number prefix (01, 02, etc.) displayed inline: `"01 · RAG Fundamentals"`
+- Score displayed as decimal (e.g., `0.71`) not percentage — **keep existing `int(score * 100)%` format** if it's already there; only change the label prefix format
+
+---
+
+### Chat message area — changes only
+
+**Assistant bubble label:**
+- `"RAG Assistant"` → `"RAG Tutor"`
+
+**User bubble styling:**
+Update to match `UserBubble` in Bubbles.jsx:
+- Label above bubble: user's display_name or email prefix, right-aligned, `--c-subtle`, `0.7rem`
+- Bubble: sunset gradient background, rounded `20px 20px 4px 20px` (top-right corner squared)
+
+**Assistant bubble styling:**
+Update to match `AssistantBubble` in Bubbles.jsx:
+- Avatar circle: `"RT"` initials, violet background, 32px, to the left of bubble
+- Label: `"RAG Tutor"`, left-aligned, `--c-subtle`, `0.7rem`
+- Bubble: `--c-card` background, `border-radius: 4px 20px 20px 20px` (top-left squared)
+- Border: `1px solid rgba(139,92,246,0.2)`
+- Shadow: `--glow-card`
+
+**Thinking indicator:**
+- Keep existing three-dot animation — it already matches `ThinkingBubble`
+- Add `"RT"` avatar circle to the left of the thinking dots (same as assistant bubble)
+
+**Welcome card:**
+- Keep existing logic — content is dynamically generated by `_build_welcome_message()`
+- Update styling to match `WelcomeCard` in Bubbles.jsx (card background, border, padding)
+
+---
+
+### Input bar (Composer) — changes only
+
+**Placeholder text:**
+- `"Ask about RAG, vector databases, LangChain..."` → `"Ask anything about RAG, embeddings, retrieval, LangChain…"`
+
+**Hint text (NEW — add below input):**
+Add a small label below the composer row:
+```
+"Enter to send · Shift+Enter for newline"
+```
+Style: `--c-subtle`, `0.72rem`, centered. This is purely visual — the keydown.enter handler already exists.
+
+**Send button:**
+- Keep existing gradient and glow — already matches spec
+- Add `title="Send (Enter)"` tooltip attribute
+
+---
+
+### Knowledge check card — verify only
+
+Read `KnowledgeCheck.jsx`. Verify the existing card styling matches:
+- `"✦ Knowledge Check"` label in `--c-neural` (`#a78bfa`)
+- Violet ambient glow: `box-shadow: 0 0 16px rgba(139,92,246,0.2)`
+- Border: `1px solid rgba(139,92,246,0.35)`
+- Background: `rgba(139,92,246,0.08)`
+
+If any of these differ from the current implementation, align them. No logic change.
+
+---
+
+### What must NOT change
+
+- `send()` async function — not a single line
+- `profile_panel.refresh()` call
+- `admin_panel()` refreshable — keep the entire admin tab exactly as-is
+- `streaming_md` content updates and token accumulation loop
+- `stage_timer` and `_advance()` thinking stage logic
+- `session` dict and session_id
+- `auth_headers()` and `verify_stored_bearer()` usage
+- Any `app.storage.user` reads or writes
+- `fetch_profile_email()` call at bottom of `index()`
+- `send_btn.on_click(send)` and `question_input.on("keydown.enter", send)` handlers
+
+---
+
+### Files touched
+
+- `src/app/ui.py` — `index()` function CSS block + string literals only
+
+---
+
+### Testing — done when
+
+- [ ] Header tabs read "Learn" and "System"
+- [ ] Logout button reads "Sign out"
+- [ ] Sidebar heading reads "Your Profile"
+- [ ] Mastery tagline appears below mastery chip (correct text per level)
+- [ ] Module section heading reads "Module Progress"
+- [ ] Stats read "N questions asked" and "Last session:"
+- [ ] Assistant label reads "RAG Tutor" in chat messages
+- [ ] User bubble is right-aligned, gradient background, rounded correctly
+- [ ] Assistant bubble has "RT" avatar circle, card background, rounded correctly
+- [ ] Thinking indicator has "RT" avatar to its left
+- [ ] Input placeholder reads "Ask anything about RAG, embeddings, retrieval, LangChain…"
+- [ ] Hint text visible below input bar
+- [ ] Knowledge check card styling matches KnowledgeCheck.jsx
+- [ ] Sending a message and streaming still works end-to-end
+- [ ] Profile panel refreshes after a send (logic unchanged)
+- [ ] Admin panel renders correctly for admin users (untouched)

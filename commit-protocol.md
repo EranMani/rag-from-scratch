@@ -39,10 +39,13 @@
 | 27 | ui-header | frontend | ✅ done · 2026-05-17 |
 | 28 | ui-chat | frontend | ✅ done · 2026-05-17 |
 | 29 | ui-sidebar-admin | frontend | ✅ done · 2026-05-17 |
-| 30 | nginx-config | devops | ✅ done · 2026-05-17 |
-| 31 | aws-ec2-deployment | devops | pending |
-| 32 | integration-tests | backend + ai-engineer | pending |
-| 33 | documentation | tech-writer | pending |
+| 30 | ui-landing-page | frontend | pending |
+| 31 | ui-auth-pages | frontend | pending |
+| 32 | ui-chat-shell | frontend | pending |
+| 33 | nginx-config | devops | pending |
+| 34 | aws-ec2-deployment | devops | pending |
+| 35 | integration-tests | backend + ai-engineer | pending |
+| 36 | documentation | tech-writer | pending |
 
 ---
 
