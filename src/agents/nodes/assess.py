@@ -74,7 +74,7 @@ Architecture details: docs/architecture/assessment-node.md
 import logging
 import pathlib
 import re
-from typing import Any, Literal
+from typing import Any
 
 from langchain_core.messages import AIMessage
 
@@ -95,6 +95,7 @@ logger = logging.getLogger(__name__)
 _CURRICULUM_DIR = (
     pathlib.Path(__file__).resolve().parents[3] / "knowledge-base" / "curriculum" / "questions"
 )
+_MCQ_DIR = _CURRICULUM_DIR / "mcq"
 
 # Maps LLM evaluation verdicts to numeric scores for active testing
 _VERDICT_SCORE: dict[str, float] = {
@@ -170,6 +171,8 @@ def _build_test_result(
     pending_test_question: str | None = None,
     pending_test_slug: str | None = None,
     test_answer_score: float | None = None,
+    is_mcq: bool = False,
+    pending_mcq_correct_answer: str | None = None,
     messages: list[Any] | None = None,
 ) -> dict[str, Any]:
     """Construct the standard node output for test-selection mode."""
@@ -181,6 +184,8 @@ def _build_test_result(
         "pending_test_question": pending_test_question,
         "pending_test_slug": pending_test_slug,
         "test_answer_score": test_answer_score,
+        "is_mcq": is_mcq,
+        "pending_mcq_correct_answer": pending_mcq_correct_answer,
     }
     if messages is not None:
         result["messages"] = messages
@@ -203,6 +208,8 @@ def _build_eval_result(
         "pending_test_question": None,
         "pending_test_slug": None,
         "test_answer_score": test_answer_score,
+        "is_mcq": False,
+        "pending_mcq_correct_answer": None,
     }
 
 
@@ -251,31 +258,6 @@ def _validated_passive_delta(result: PassiveAssessmentOutput) -> dict[str, float
 # Curriculum content loaders
 # ---------------------------------------------------------------------------
 
-def _load_question_text(slug: str, question_index: int = 0) -> str:
-    """Load a question from a curriculum Markdown file by index.
-
-    Args:
-        slug: A valid topic slug from VALID_MODULE_SLUGS.
-        question_index: Zero-based index; wrapped via modulo for safe rotation.
-
-    Raises:
-        FileNotFoundError: If the curriculum file for slug does not exist.
-        ValueError: If no question sections are found in the file.
-    """
-    path = _CURRICULUM_DIR / f"{slug}.md"
-    content = path.read_text(encoding="utf-8")
-
-    # Extract all **Question:** blocks — captures text until the next ** header or EOF
-    matches = re.findall(r"\*\*Question:\*\*\s*\n(.*?)(?=\n\n\*\*|\Z)", content, re.DOTALL)
-
-    if not matches:
-        raise ValueError(f"No question blocks found in curriculum file for slug '{slug}'")
-
-    # Modulo ensures round-robin rotation driven by conversation depth
-    idx = question_index % len(matches)
-    return matches[idx].strip()
-
-
 def _load_rubric_text(slug: str, question_index: int = 0) -> str:
     """Extract grading criteria (Correct/Partial/Incorrect) for a question.
 
@@ -306,6 +288,59 @@ def _load_rubric_text(slug: str, question_index: int = 0) -> str:
         if match:
             rubric_parts.append(f"**{label}:**\n{match.group(1).strip()}")
     return "\n\n".join(rubric_parts)
+
+
+# ---------------------------------------------------------------------------
+# MCQ loaders and evaluator
+# ---------------------------------------------------------------------------
+
+def _load_mcq_question(slug: str, question_index: int) -> tuple[str, str]:
+    """Load an MCQ question from knowledge-base/curriculum/questions/mcq/[slug].md.
+
+    Returns (display_text, correct_answer) where display_text is ready to send as AI message.
+
+    Raises:
+        FileNotFoundError: If the mcq file for slug does not exist.
+        ValueError: If the question block is malformed (missing required fields).
+    """
+    path = _MCQ_DIR / f"{slug}.md"
+    content = path.read_text(encoding="utf-8")
+
+    # Split into blocks by ## MCQ- headers
+    blocks = re.split(r"(?=^## MCQ-)", content, flags=re.MULTILINE)
+    question_blocks = [b for b in blocks if b.strip().startswith("## MCQ-")]
+
+    if not question_blocks:
+        raise ValueError(f"No MCQ question blocks found in file for slug '{slug}'")
+
+    idx = question_index % len(question_blocks)
+    block = question_blocks[idx]
+
+    q_match = re.search(r"\*\*Question:\*\*\s*\n(.*?)(?=\n\n\*\*|\Z)", block, re.DOTALL)
+    if not q_match:
+        raise ValueError(f"MCQ block {idx} for slug '{slug}' missing **Question:** field")
+    question_text = q_match.group(1).strip()
+
+    opts_match = re.search(r"\*\*Options:\*\*\s*\n(.*?)(?=\n\n\*\*|\Z)", block, re.DOTALL)
+    if not opts_match:
+        raise ValueError(f"MCQ block {idx} for slug '{slug}' missing **Options:** field")
+    options_text = opts_match.group(1).strip()
+
+    ans_match = re.search(r"\*\*Correct answer:\*\*\s*([A-Da-d])", block)
+    if not ans_match:
+        raise ValueError(f"MCQ block {idx} for slug '{slug}' missing **Correct answer:** field")
+    correct_answer = ans_match.group(1).strip().upper()
+
+    display_text = f"Knowledge check: {question_text}\n\n{options_text}"
+    return display_text, correct_answer
+
+
+def _evaluate_mcq_answer(user_message: str, correct_answer: str) -> float:
+    """Deterministic binary MCQ evaluator — no LLM call."""
+    match = re.search(r"\b([A-Da-d])\b", user_message.strip())
+    if match and match.group(1).upper() == correct_answer.upper():
+        return 1.0
+    return 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -419,9 +454,9 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
 
     try:
         q_idx = _select_question_index(state)
-        question_text = _load_question_text(slug, q_idx)
+        display_text, correct_answer = _load_mcq_question(slug, q_idx)
     except (FileNotFoundError, ValueError) as exc:
-        logger.warning("assess_node: failed to load question for slug '%s': %s", slug, exc)
+        logger.warning("assess_node: failed to load MCQ question for slug '%s': %s", slug, exc)
         return _build_test_result(
             topic_scores_delta=passive_delta,
             identified_gaps=gaps,
@@ -434,14 +469,16 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
         identified_gaps=gaps,
         assessment_error=False,
         test_mode=True,
-        pending_test_question=question_text,
+        pending_test_question=display_text,
         pending_test_slug=slug,
-        messages=[AIMessage(content=f"\n\nKnowledge check: {question_text}")],
+        is_mcq=True,
+        pending_mcq_correct_answer=correct_answer,
+        messages=[AIMessage(content=f"\n\n{display_text}")],
     )
 
 
 async def _evaluate_answer(state: AgentState) -> dict[str, Any]:
-    """Evaluate the user's answer against the rubric via LLM structured output."""
+    """Evaluate the user's answer — MCQ binary path or LLM rubric path."""
     pending_slug: str | None = state.get("pending_test_slug")
 
     if pending_slug not in VALID_MODULE_SLUGS:
@@ -451,6 +488,24 @@ async def _evaluate_answer(state: AgentState) -> dict[str, Any]:
             state.get("trace_id"),
         )
         return _build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
+
+    if state.get("is_mcq"):
+        correct = state.get("pending_mcq_correct_answer")
+        if correct is None:
+            logger.error(
+                "assess_node: is_mcq=True but pending_mcq_correct_answer is None; trace_id=%s",
+                state.get("trace_id"),
+            )
+            return _build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
+        user_msg = (state.get("messages") or [])[-1].content or ""
+        score = _evaluate_mcq_answer(user_msg, correct)
+        delta: dict[str, float] = {pending_slug: score} if score > 0.0 else {}
+        return _build_eval_result(
+            topic_scores_delta=delta,
+            identified_gaps=[],
+            assessment_error=False,
+            test_answer_score=score,
+        )
 
     try:
         q_idx = _select_question_index(state)
@@ -469,10 +524,10 @@ async def _evaluate_answer(state: AgentState) -> dict[str, Any]:
 
         score = _verdict_to_score(result.verdict)
         # Sparse delta: only updates the tested topic, only if the user scored > 0
-        delta: dict[str, float] = {pending_slug: score} if score > 0.0 else {}
+        llm_delta: dict[str, float] = {pending_slug: score} if score > 0.0 else {}
 
         return _build_eval_result(
-            topic_scores_delta=delta,
+            topic_scores_delta=llm_delta,
             identified_gaps=result.identified_gaps,
             assessment_error=False,
             test_answer_score=score,

@@ -169,6 +169,8 @@ async def chat(
         "topic_scores_delta": {},
         "identified_gaps": [],
         "assessment_error": False,
+        "is_mcq": False,
+        "pending_mcq_correct_answer": None,
         "trace_id": str(uuid.uuid4()),
         "latency_ms": 0,
         "cache_hit": "miss",

@@ -27,6 +27,7 @@ Design notes:
 from __future__ import annotations
 
 import pathlib
+import re
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 
@@ -35,7 +36,13 @@ from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
 
-from agents.nodes.assess import _CURRICULUM_DIR, _select_test_slug, assess_node
+from agents.nodes.assess import (
+    _CURRICULUM_DIR,
+    _evaluate_mcq_answer,
+    _load_mcq_question,
+    _select_test_slug,
+    assess_node,
+)
 from agents.state import VALID_MODULE_SLUGS, AgentState, EvaluationOutput
 
 
@@ -60,6 +67,8 @@ def _base_state(**overrides: Any) -> dict[str, Any]:
         "pending_test_question": None,
         "pending_test_slug": None,
         "test_answer_score": None,
+        "is_mcq": False,
+        "pending_mcq_correct_answer": None,
         "trace_id": "test-trace-24",
         "latency_ms": 0,
         "cache_hit": "miss",
@@ -79,6 +88,24 @@ def _eval_mode_state(**overrides: Any) -> dict[str, Any]:
         pending_test_question="In your own words, explain what a vector embedding is.",
         pending_test_slug="embeddings_and_similarity",
         test_mode=True,
+    )
+    base.update(overrides)
+    return base
+
+
+def _mcq_eval_state(**overrides: Any) -> dict[str, Any]:
+    """State that triggers MCQ evaluation mode."""
+    base = _base_state(
+        messages=[
+            AIMessage(content="Knowledge check: Why must documents be split?\n\nA. Cost\nB. Token limit\nC. Quality\nD. LLM"),
+            HumanMessage(content="B"),
+        ],
+        question="B",
+        pending_test_question="Knowledge check: Why must documents be split?\n\nA. Cost\nB. Token limit\nC. Quality\nD. LLM",
+        pending_test_slug="chunking_strategies",
+        test_mode=True,
+        is_mcq=True,
+        pending_mcq_correct_answer="B",
     )
     base.update(overrides)
     return base
@@ -123,6 +150,8 @@ def _make_full_initial_state(question: str = "What is RAG?") -> dict[str, Any]:
         "pending_test_question": None,
         "pending_test_slug": None,
         "test_answer_score": None,
+        "is_mcq": False,
+        "pending_mcq_correct_answer": None,
         "trace_id": "test-trace-24-e2e",
         "latency_ms": 0,
         "cache_hit": "miss",
@@ -209,6 +238,10 @@ class TestGate1TestMode:
             ),
             patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
             patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+            patch(
+                "agents.nodes.assess._load_mcq_question",
+                return_value=("Knowledge check: stub question\n\nA. a\nB. b\nC. c\nD. d", "B"),
+            ),
         ):
             result = await assess_node(_base_state())  # type: ignore[arg-type]
         assert result["pending_test_question"], (
@@ -225,6 +258,10 @@ class TestGate1TestMode:
             ),
             patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
             patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+            patch(
+                "agents.nodes.assess._load_mcq_question",
+                return_value=("Knowledge check: stub question\n\nA. a\nB. b\nC. c\nD. d", "B"),
+            ),
         ):
             result = await assess_node(_base_state())  # type: ignore[arg-type]
         assert result["test_mode"] is True, (
@@ -241,6 +278,10 @@ class TestGate1TestMode:
             ),
             patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
             patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+            patch(
+                "agents.nodes.assess._load_mcq_question",
+                return_value=("Knowledge check: stub question\n\nA. a\nB. b\nC. c\nD. d", "B"),
+            ),
         ):
             result = await assess_node(_base_state())  # type: ignore[arg-type]
         assert result["pending_test_slug"] in VALID_MODULE_SLUGS, (
@@ -259,6 +300,10 @@ class TestGate1TestMode:
             ),
             patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
             patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+            patch(
+                "agents.nodes.assess._load_mcq_question",
+                return_value=("Knowledge check: stub question\n\nA. a\nB. b\nC. c\nD. d", "B"),
+            ),
         ):
             result = await assess_node(state)  # type: ignore[arg-type]
         assert result["pending_test_slug"] == "rag_pipeline_architecture", (
@@ -280,10 +325,16 @@ class TestGate1TestMode:
         mock_llm.with_structured_output = MagicMock(return_value=mock_chain)
         mock_provider = MagicMock()
         mock_provider.get_llm = MagicMock(return_value=mock_llm)
-        with patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")):
-            with patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD):
-                with patch("agents.nodes.assess.get_provider", return_value=mock_provider):
-                    result = await assess_node(_base_state())  # type: ignore[arg-type]
+        with (
+            patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
+            patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+            patch("agents.nodes.assess.get_provider", return_value=mock_provider),
+            patch(
+                "agents.nodes.assess._load_mcq_question",
+                return_value=("Knowledge check: stub question\n\nA. a\nB. b\nC. c\nD. d", "B"),
+            ),
+        ):
+            result = await assess_node(_base_state())  # type: ignore[arg-type]
         assert result["pending_test_question"], (
             "On-topic query must still set pending_test_question"
         )
@@ -520,7 +571,7 @@ class TestGate4FallbackOnFailure:
 
     @pytest.mark.asyncio
     async def test_error_fallback_returns_all_keys(self) -> None:
-        """Fallback result from any failure mode contains all 7 declared output keys."""
+        """Fallback result from any failure mode contains all 9 declared output keys."""
         with patch("agents.nodes.assess.get_provider", side_effect=Exception("any error")):
             with patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")):
                 with patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD):
@@ -528,9 +579,10 @@ class TestGate4FallbackOnFailure:
         expected = {
             "topic_scores_delta", "identified_gaps", "assessment_error",
             "test_mode", "pending_test_question", "pending_test_slug", "test_answer_score",
+            "is_mcq", "pending_mcq_correct_answer",
         }
         assert set(result.keys()) == expected, (
-            f"Fallback must return all 7 keys, got {set(result.keys())}"
+            f"Fallback must return all 9 keys, got {set(result.keys())}"
         )
 
     @pytest.mark.asyncio
@@ -695,6 +747,8 @@ class TestGate7OutputKeyBoundary:
         "pending_test_question",
         "pending_test_slug",
         "test_answer_score",
+        "is_mcq",
+        "pending_mcq_correct_answer",
     })
 
     _FORBIDDEN_KEYS: frozenset[str] = frozenset({
@@ -812,6 +866,8 @@ class TestGate8GraphTopologySmoke:
                 "pending_test_question": None,
                 "pending_test_slug": None,
                 "test_answer_score": None,
+                "is_mcq": False,
+                "pending_mcq_correct_answer": None,
             }
 
         def capture_update_profile(state: dict[str, Any]) -> dict[str, Any]:
@@ -958,6 +1014,10 @@ class TestOffTopicSuppression:
             ),
             patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
             patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+            patch(
+                "agents.nodes.assess._load_mcq_question",
+                return_value=("Knowledge check: stub question\n\nA. a\nB. b\nC. c\nD. d", "B"),
+            ),
         ):
             result = await assess_node(_base_state())  # type: ignore[arg-type]
         assert result["pending_test_question"], (
@@ -966,3 +1026,215 @@ class TestOffTopicSuppression:
         assert result["test_mode"] is True, (
             "On-topic query must set test_mode=True"
         )
+
+
+# ---------------------------------------------------------------------------
+# TestMcqLoader — _load_mcq_question(slug, question_index)
+# ---------------------------------------------------------------------------
+
+class TestMcqLoader:
+    """Tests for _load_mcq_question: file loading, format contract, error paths."""
+
+    def test_valid_slug_returns_tuple(self) -> None:
+        """Valid slug returns a (display_text, correct_answer) tuple."""
+        display_text, correct_answer = _load_mcq_question("chunking_strategies", 0)
+        assert isinstance(display_text, str)
+        assert isinstance(correct_answer, str)
+
+    def test_display_text_starts_with_knowledge_check(self) -> None:
+        """display_text must start with 'Knowledge check:'."""
+        display_text, _ = _load_mcq_question("chunking_strategies", 0)
+        assert display_text.startswith("Knowledge check:"), (
+            f"display_text must start with 'Knowledge check:', got: {display_text[:40]!r}"
+        )
+
+    def test_display_text_contains_all_four_options(self) -> None:
+        """display_text must contain all 4 options matching '^[A-D].' pattern."""
+        display_text, _ = _load_mcq_question("chunking_strategies", 0)
+        matches = re.findall(r"^[A-D]\.", display_text, re.MULTILINE)
+        assert len(matches) == 4, (
+            f"Expected 4 options matching '^[A-D].', found {len(matches)}: {matches}"
+        )
+
+    def test_correct_answer_is_valid_letter(self) -> None:
+        """correct_answer must be one of 'A', 'B', 'C', 'D'."""
+        _, correct_answer = _load_mcq_question("chunking_strategies", 0)
+        assert correct_answer in ("A", "B", "C", "D"), (
+            f"correct_answer must be A/B/C/D, got {correct_answer!r}"
+        )
+
+    def test_first_question_correct_answer_is_b(self) -> None:
+        """MCQ-1 for chunking_strategies has correct answer B (known from file)."""
+        _, correct_answer = _load_mcq_question("chunking_strategies", 0)
+        assert correct_answer == "B", (
+            f"MCQ-1 chunking_strategies correct answer must be 'B', got {correct_answer!r}"
+        )
+
+    def test_unknown_slug_raises_file_not_found(self) -> None:
+        """Unknown slug raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            _load_mcq_question("nonexistent_slug", 0)
+
+    def test_malformed_question_block_raises_value_error(self, tmp_path: pathlib.Path) -> None:
+        """MCQ file missing **Question:** field raises ValueError."""
+        bad_mcq = tmp_path / "bad_topic.md"
+        bad_mcq.write_text(
+            "## MCQ-1 — Broken question\n\n**Difficulty:** beginner\n\n"
+            "**Options:**\nA. Opt1\nB. Opt2\nC. Opt3\nD. Opt4\n\n"
+            "**Correct answer:** A\n",
+            encoding="utf-8",
+        )
+        from agents.nodes.assess import _MCQ_DIR
+        with patch("agents.nodes.assess._MCQ_DIR", new=tmp_path):
+            with pytest.raises(ValueError):
+                _load_mcq_question("bad_topic", 0)
+
+    def test_modulo_wrapping_returns_same_as_index_zero(self) -> None:
+        """question_index=5 wraps to same question as index=0 for a 5-question file."""
+        text_0, ans_0 = _load_mcq_question("chunking_strategies", 0)
+        text_5, ans_5 = _load_mcq_question("chunking_strategies", 5)
+        assert text_0 == text_5, "question_index=5 must wrap to question_index=0 (5 % 5 == 0)"
+        assert ans_0 == ans_5
+
+
+# ---------------------------------------------------------------------------
+# TestMcqEvaluator — _evaluate_mcq_answer(user_message, correct_answer)
+# ---------------------------------------------------------------------------
+
+class TestMcqEvaluator:
+    """Deterministic binary MCQ scorer — no LLM involved."""
+
+    def test_exact_match_returns_1_0(self) -> None:
+        """Exact letter match returns 1.0."""
+        assert _evaluate_mcq_answer("B", "B") == 1.0
+
+    def test_case_insensitive_match_returns_1_0(self) -> None:
+        """Lowercase user answer matched case-insensitively."""
+        assert _evaluate_mcq_answer("b", "B") == 1.0
+
+    def test_wrong_letter_returns_0_0(self) -> None:
+        """Wrong letter returns 0.0."""
+        assert _evaluate_mcq_answer("A", "B") == 0.0
+
+    def test_letter_extracted_from_prose_returns_1_0(self) -> None:
+        """Letter extracted from prose when user says 'Option B is correct'."""
+        assert _evaluate_mcq_answer("Option B is correct", "B") == 1.0
+
+    def test_no_letter_in_message_returns_0_0(self) -> None:
+        """No matching letter in message returns 0.0."""
+        assert _evaluate_mcq_answer("none of the above", "B") == 0.0
+
+    def test_letter_followed_by_period_returns_1_0(self) -> None:
+        """'B.' — letter with trailing period — must be extracted and matched."""
+        assert _evaluate_mcq_answer("B.", "B") == 1.0
+
+
+# ---------------------------------------------------------------------------
+# TestMcqEvaluationIntegration — _evaluate_answer with is_mcq=True
+# ---------------------------------------------------------------------------
+
+class TestMcqEvaluationIntegration:
+    """Integration tests for the MCQ branch in _evaluate_answer."""
+
+    @pytest.mark.asyncio
+    async def test_correct_mcq_answer_returns_score_1_0(self) -> None:
+        """is_mcq=True with correct answer: binary score 1.0 returned, no LLM call."""
+        with patch("agents.nodes.assess.get_provider") as mock_gp:
+            result = await assess_node(_mcq_eval_state())  # type: ignore[arg-type]
+        mock_gp.assert_not_called()
+        assert result["test_answer_score"] == 1.0, (
+            f"Correct MCQ answer must score 1.0, got {result['test_answer_score']!r}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_mcq_flags_cleared_after_evaluation(self) -> None:
+        """is_mcq and pending_mcq_correct_answer cleared to False/None after MCQ eval."""
+        with patch("agents.nodes.assess.get_provider"):
+            result = await assess_node(_mcq_eval_state())  # type: ignore[arg-type]
+        assert result["is_mcq"] is False, (
+            f"is_mcq must be False after MCQ evaluation, got {result['is_mcq']!r}"
+        )
+        assert result["pending_mcq_correct_answer"] is None, (
+            f"pending_mcq_correct_answer must be None after MCQ evaluation, got {result['pending_mcq_correct_answer']!r}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_mcq_evaluation_identified_gaps_is_empty(self) -> None:
+        """identified_gaps is empty list in MCQ evaluation result."""
+        with patch("agents.nodes.assess.get_provider"):
+            result = await assess_node(_mcq_eval_state())  # type: ignore[arg-type]
+        assert result["identified_gaps"] == [], (
+            f"MCQ path must return empty identified_gaps, got {result['identified_gaps']!r}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_incorrect_mcq_answer_returns_score_0_0(self) -> None:
+        """is_mcq=True with wrong answer: binary score 0.0 returned."""
+        state = _mcq_eval_state(
+            messages=[
+                AIMessage(content="Knowledge check: Why must documents be split?\n\nA. Cost\nB. Token limit\nC. Quality\nD. LLM"),
+                HumanMessage(content="A"),
+            ],
+            question="A",
+        )
+        with patch("agents.nodes.assess.get_provider"):
+            result = await assess_node(state)  # type: ignore[arg-type]
+        assert result["test_answer_score"] == 0.0, (
+            f"Wrong MCQ answer must score 0.0, got {result['test_answer_score']!r}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_non_mcq_path_calls_get_provider(self) -> None:
+        """is_mcq=False in eval mode calls the LLM path (get_provider invoked)."""
+        eval_out = _make_eval_output("partial")
+        mock_provider = _make_provider_mock()
+        mock_prompt, _ = _make_prompt_mock(eval_out)
+        with (
+            patch("agents.nodes.assess.get_provider", return_value=mock_provider) as mock_gp,
+            patch("agents.nodes.assess.assessment_prompt", mock_prompt),
+            patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
+            patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
+        ):
+            await assess_node(_eval_mode_state())  # type: ignore[arg-type]
+        mock_gp.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_mcq_none_correct_answer_returns_assessment_error(self) -> None:
+        """is_mcq=True with pending_mcq_correct_answer=None must flag assessment_error."""
+        state = _mcq_eval_state(pending_mcq_correct_answer=None)
+        with patch("agents.nodes.assess.get_provider") as mock_gp:
+            result = await assess_node(state)  # type: ignore[arg-type]
+        assert result["assessment_error"] is True, (
+            "Missing correct answer with is_mcq=True must return assessment_error=True"
+        )
+        mock_gp.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_evaluate_answer_invalid_slug_with_is_mcq_returns_error(self) -> None:
+        """Slug validation fires before MCQ branch — invalid slug returns assessment_error."""
+        state = _mcq_eval_state(pending_test_slug="fake_topic")
+        with patch("agents.nodes.assess.get_provider") as mock_gp:
+            result = await assess_node(state)  # type: ignore[arg-type]
+        assert result["assessment_error"] is True
+        assert result.get("test_answer_score") is None, (
+            "Invalid slug must not produce a score"
+        )
+        mock_gp.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_select_test_question_mcq_answer_is_single_letter(self) -> None:
+        """pending_mcq_correct_answer must be a single letter A-D, not question text."""
+        state = _base_state(
+            identified_gaps=["chunking_strategies"],
+            user_level="novice",
+        )
+        with patch(
+            "agents.nodes.assess._run_passive_assessment",
+            new=AsyncMock(return_value=({}, True)),
+        ):
+            result = await assess_node(state)  # type: ignore[arg-type]
+        if result.get("test_mode"):
+            answer = result.get("pending_mcq_correct_answer")
+            assert answer in ("A", "B", "C", "D"), (
+                f"pending_mcq_correct_answer must be A/B/C/D, got {answer!r}"
+            )

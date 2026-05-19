@@ -129,6 +129,15 @@ class AgentState(TypedDict):
     test_answer_score: float | None
     """Score for the most recently evaluated test answer: 1.0 correct, 0.5 partial, 0.0 incorrect."""
 
+    is_mcq: bool
+    """True when the pending test question is MCQ format (A/B/C/D options).
+    False for open-ended questions and when no question is pending."""
+
+    pending_mcq_correct_answer: str | None
+    """The correct answer letter ('A', 'B', 'C', or 'D') for the current MCQ question.
+    Set when assess_node delivers an MCQ question; cleared after evaluation.
+    None when no MCQ question is pending."""
+
     # --- Observability ---
     trace_id: str
     """Unique identifier for this request trace; set before graph entry."""

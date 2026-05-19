@@ -32,12 +32,14 @@ class ChatResponse(BaseModel):
                          Empty dict when assessment did not run or errored.
         test_question:   Curriculum question selected by assess_node for this
                          turn, or None when no question was selected.
+        is_mcq:          True when test_question is MCQ format (A/B/C/D options).
     """
 
     answer: str = ""
     user_level: str | None = None
     assessed_topics: dict[str, float] = {}
     test_question: str | None = None
+    is_mcq: bool = False
 
 
 def build_chat_response(state: dict[str, Any]) -> ChatResponse:
@@ -52,4 +54,5 @@ def build_chat_response(state: dict[str, Any]) -> ChatResponse:
         user_level=state.get("user_level"),
         assessed_topics=state.get("topic_scores_delta", {}),
         test_question=state.get("pending_test_question"),
+        is_mcq=bool(state.get("is_mcq", False)),
     )
