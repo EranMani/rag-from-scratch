@@ -488,6 +488,33 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 30 — `ui-landing-page` · 2026-05-19 · Aria
+
+> Gate wave: Viktor only (routing change + JS canvas injection — not pure CSS/style).
+> Sage skipped — static marketing page; no user input, no auth, no external APIs.
+> Quinn skipped — no testable business logic.
+> Mira skipped — product scope approved in 2026-05-19 replan.
+> Multiple visual fix passes by Aria (Team Lead review loop, not gate-fix passes).
+> Viktor BLOCKED: rAF loop doesn't guard against canvas DOM removal. Deferred per no-gate-fix-passes rule — fix scheduled for Commit 30.5 before Commit 31.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Aria (implementation) | Sonnet | 81,574 | 16 | **+22k** over ≤60k | full 8-section page + particle canvas; 16 tool uses (within 25 cap) |
+| Viktor | Haiku | 59,056 | 8 | **+44k** over ≤15k | BLOCKED: rAF canvas guard missing; extensive analysis of CSS namespace + JS correctness |
+| Aria (NiceGUI container fix) | Sonnet | 55,050 | 17 | — | layout fix: `.nicegui-content` display:block override; not a gate-fix pass |
+| Aria (section width stretch) | Sonnet | 51,912 | 20 | — | removed max-width 1140px; clamp() padding; Team Lead visual review feedback |
+| Aria (mock width + card colors) | Sonnet | 55,855 | 14 | — | hero mock flex-basis; card gradient corrected to --g-card token |
+| Claude (direct edits) | — | ~0 | — | — | nav links, scrollbar, back-to-top button, sign-in link — known exact edits |
+| **Total** | | **303,447** | **75** | **well over** — 5 Aria passes; Viktor Haiku over ≤15k |
+
+**Root causes:**
+- 5 Aria passes total: 1 implementation + 4 visual fix iterations from Team Lead review loop. Each pass ~51–81k.
+- Viktor 59k on Haiku: extensive analysis of CSS namespace correctness + JS canvas pattern. Haiku reviewer over ≤15k is consistent pattern.
+- Viktor deferred block (rAF guard): per no-gate-fix-passes rule, fix goes into Commit 30.5 — did not add another gate cycle.
+- Direct Claude edits (nav hrefs, scroll CSS, back-to-top button, sign-in button) cost ~0 agent tokens — Edit tool used directly.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -512,6 +539,7 @@ No token data recorded. Tracking began at Commit 10.
 | 27 | ui-header | ~367k (2 passes) | Viktor+Mira (p1) · Viktor+Sage (p2) | **well over** | Pass 1 rejected; retry introduced CWE-79 XSS; 2 gate cycles on retry |
 | 28 | ui-chat | 101,862 | none | over ≤75k | Aria ✅ (57,908); Ryan one-liner 43,954 (consistently over ≤15k) |
 | 29 | ui-sidebar-admin | 106,985 | none | over ≤75k | Aria 68k (+8k); Ryan 39k (over ≤15k, pattern); gate correctly skipped |
+| 30 | ui-landing-page | 303,447 | Viktor (Haiku, BLOCKED) | **well over** | 5 Aria passes (TL visual loop); Viktor 59k (Haiku); rAF fix deferred to C30.5 |
 
 ---
 

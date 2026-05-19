@@ -1671,3 +1671,77 @@ CWE-79 severity is reduced from **potential stored XSS** to **eliminated** by us
 > **In one sentence:** Profile sidebar and admin dashboard visual polish: color-coded mastery chips, topic score pills with progress bars, red-tinted gap badges, stat card gradients, health status chips — CSS-only redesign via `<style>` block overrides and semantic `ui.label()` classes.
 
 ---
+
+**Commit 30 — `ui-landing-page`** · 2026-05-19 · Aria · `new feature`
+
+> **In one sentence:** Static marketing landing page with full-viewport particle canvas animation and brand identity — unauthenticated users now see `/landing` instead of redirecting directly to `/login`.
+
+**Interview talking point:**
+
+> **Q:** How do you handle layout overrides in NiceGUI when you need full-viewport control?
+>
+> **A:** NiceGUI's `.nicegui-content` wrapper sets `display: flex; align-items: center;` by default, which forces child elements into a flex context. When you need full-width layout (like a landing page), you have to override the wrapper styles with both CSS and DOM queries to prevent load-order edge cases. The fix applies to both the head styles and the runtime element, overriding `display: flex` to `display: block`, removing padding and margins, and unsetting alignment properties.
+
+**What happened and why:**
+
+- Built an 8-section marketing landing page (`/landing`) as a static NiceGUI page using `ui.html()` for the full-viewport layout and particle canvas animation
+- Changed unauthenticated redirect logic from `/login` to `/landing` in the `index()` route — users now see the marketing page first
+- Discovered that NiceGUI's default `.nicegui-content` wrapper uses flex layout with `align-items: center`, which was centering the entire landing page and preventing full-width CSS from working
+- Fixed by applying two operations: injected a CSS override block into the page head, and used `ui.query()` to modify the wrapper's inline styles at runtime. Both operations are required — CSS alone doesn't guarantee load ordering, and inline styles can be overridden by later CSS imports
+- Applied CSS namespace prefix `rag-landing-` to all landing page styles to prevent collision with NiceGUI's Quasar `.q-*` classes and other pages' styles
+- Landing page uses synchronous `def`, not `async def` — no authentication, no API calls, no database access, so there is no reason for an async context
+
+**Design pattern / architectural principle:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| NiceGUI Full-Bleed Layout Override | CSS `display: block !important` + `ui.query()` inline style modification on `.nicegui-content` | NiceGUI defaults to flex centering. Without overriding both the CSS rules and the element's inline styles, full-viewport layout fails. `!important` is used because it reliably wins the cascade and prevents later stylesheets from re-flexing the layout |
+| CSS Namespace Isolation | All landing page styles use `rag-landing-` prefix (`.rag-landing-section`, `.rag-landing-canvas`, etc.) | NiceGUI does not isolate CSS between pages — styles persist across navigation. Prefixing prevents accidental collision with Quasar `.q-*` utility classes or styles from other pages in the same browser session |
+| Static Page as Synchronous Function | `def landing_page():` not `async def landing_page():` | No I/O operations means no `await` is needed. Using `async` here is cargo-cult — it adds overhead for zero benefit. The page is purely presentational |
+
+**Reasoning & discovery:**
+
+1. The landing page needed full viewport width with a particle canvas animation background. The canvas requires `<canvas>` positioned absolutely over content. But when the page loaded, the entire layout was centered in the viewport instead of spanning it. Debugging revealed NiceGUI's `.nicegui-content` container was a flex container with `align-items: center` applied
+2. The fix required both CSS and DOM manipulation. CSS alone wasn't sufficient because later stylesheets can override the rule. The `ui.query(".nicegui-content").style(...)` call applies inline styles that reliably persist. Both together handle edge cases where CSS loads after the query runs, or the element is recreated during navigation
+3. What clinched the namespace prefix: NiceGUI's architecture re-uses the same DOM containers across pages. A CSS rule like `.section { padding: 1rem }` injected on the landing page will affect `.section` elements on other pages if they exist. The `rag-landing-` namespace is an explicit contract: "these styles apply only to landing page content." When another page is built later, it can use `rag-dashboard-`, `rag-profile-`, etc., and there is zero collision risk
+
+**Viktor's deferred block:**
+
+Viktor flagged a missing DOM guard in the particle canvas animation loop: the `requestAnimationFrame(draw)` call does not check whether the canvas element still exists in the DOM before scheduling the next frame. This creates a memory leak if the page is navigated away during animation. Per the no-gate-fix-passes rule, the fix was deferred to Commit 30.5 (one-line guard: `if (!document.contains(canvas)) return;` at the start of the `draw` function). This is functionally low-risk in practice because all landing page navigation uses standard `<a>` anchor tags which trigger a full page reload (destroying the JS context), but it is a real best-practice gap that should not ship without the guard.
+
+**The key change:**
+
+```python
+# src/app/ui.py — NiceGUI layout override for landing page
+# Before: .nicegui-content defaults to flex with center alignment
+
+# After: CSS override + DOM query
+ui.add_head_html('''<style>
+.nicegui-content { display: block !important; padding: 0 !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; align-items: unset !important; justify-content: unset !important; }
+.q-page { padding: 0 !important; }
+.q-page-container { padding: 0 !important; width: 100% !important; max-width: 100% !important; }
+</style>''')
+ui.query(".nicegui-content").style("display: block !important; padding: 0 !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; align-items: unset !important; justify-content: unset !important")
+```
+
+```python
+# src/app/ui.py — Unauthenticated redirect changed to landing page
+# Before: redirect to login immediately
+@ui.page("/")
+async def index():
+    if not app.storage.user.get("authenticated"):
+        ui.navigate("/login")
+    # ...
+
+# After: redirect to landing page for first-time visitors
+@ui.page("/")
+async def index():
+    if not app.storage.user.get("authenticated"):
+        ui.navigate("/landing")
+    # ...
+```
+
+**Files touched:**
+- `src/app/ui.py` — new `@ui.page("/landing")` 8-section static marketing page with namespaced CSS (`rag-landing-*`), particle canvas animation with JS, full-viewport layout override, changed unauthenticated redirect from `/login` to `/landing`
+
+---

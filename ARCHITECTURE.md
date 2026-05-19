@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-12 (Commit 25 — profile-scoring-rewrite)
+> Last updated: 2026-05-19 (Commit 30 — ui-landing-page)
 
 ---
 
@@ -68,10 +68,15 @@ responsive to who they are, not a static Q&A tool.
 ### NiceGUI UI
 - **Type:** frontend
 - **Owner:** Aria
-- **Purpose:** Browser-based chat interface; auth pages; profile sidebar panel
+- **Purpose:** Browser-based chat interface; auth pages; profile sidebar panel; marketing landing page
+- **Routes:**
+  - `@ui.page("/landing")` — static marketing landing page; unauthenticated entry point (Commit 30); synchronous `def`, no auth/session/API calls; 8 sections + particle canvas animation
+  - `@ui.page("/")` `async def index()` — main chat app; authenticated users only; redirects to `/landing` if unauthenticated (changed from `/login` in Commit 30)
+  - `@ui.page("/login")` / `@ui.page("/register")` — auth pages
 - **Layout:** `ui.row` with 280px profile sidebar (left) and `flex:1` chat column (right), introduced Commit 19
 - **Profile panel:** `@ui.refreshable async def profile_panel()` nested inside `index()`; fetches `GET /api/profile/me` on load; handles anonymous / API failure / empty / active user states; `profile_panel.refresh()` called from `send()` after each completed turn (Commit 20)
 - **send() flow** (Commit 20): `ui.timer(2.5, _advance)` cycles stage labels ("Retrieving context..." → "Personalizing your answer..." → "Generating response...") while SSE stream runs; `stage_active = [True]` mutable flag guards `_advance` against use-after-delete; `finally` block sets `stage_active[0] = False` → `cancel()` → `delete()` in that order; adaptation badge added from `done_data["user_level"]`; `profile_panel.refresh()` called before re-enabling send button
+- **CSS isolation:** all landing page styles namespaced `rag-landing-*`; injected per-page via `ui.add_head_html()`; NiceGUI container constraints (`.nicegui-content`, `.q-page`, `.q-page-container`) overridden in landing page only for full-bleed layout
 - **Depends on:** FastAPI app (mounted via ui.run_with())
 - **Introduced in:** existing codebase
 

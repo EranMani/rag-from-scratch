@@ -276,6 +276,934 @@ def setup_ui(fastapi_app):
             )
             ui.link("Already have an account? Sign in", "/login").classes("text-pink-400 text-sm")
 
+    @ui.page("/landing")
+    def landing_page():
+        ui.add_head_html('''<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ---- Landing page namespace: rag-landing- ---- */
+html { scroll-behavior: smooth; }
+body { background: #120e28; color: #e2e8f0; font-family: "Inter", system-ui, sans-serif; margin: 0; }
+
+.rag-landing-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  background: #120e28;
+  box-sizing: border-box;
+}
+
+/* NAV */
+.rag-landing-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2.5rem;
+  background: rgba(12,10,30,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(139,92,246,0.12);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.rag-landing-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+.rag-landing-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(249,115,22,0.15) 0%, rgba(139,92,246,0.15) 100%);
+  border: 1px solid rgba(249,115,22,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #f97316;
+  font-family: "Inter", system-ui;
+}
+.rag-landing-wordmark {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+.rag-landing-nav-links {
+  display: flex;
+  gap: 2rem;
+}
+.rag-landing-nav-links a {
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.2s;
+  cursor: pointer;
+}
+.rag-landing-nav-links a:hover { color: #e2e8f0; }
+@media (max-width: 767px) { .rag-landing-nav-links { display: none; } }
+
+.rag-landing-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 24px rgba(236,72,153,0.32), 0 0 0 1px rgba(249,115,22,0.4) inset;
+  transition: box-shadow 0.2s, transform 0.15s;
+  text-decoration: none;
+  font-family: "Inter", system-ui;
+}
+.rag-landing-btn-primary:hover {
+  box-shadow: 0 6px 32px rgba(236,72,153,0.55), 0 0 0 1px rgba(249,115,22,0.6) inset;
+  transform: translateY(-1px);
+}
+.rag-landing-btn-primary.large {
+  padding: 0.8rem 2rem;
+  font-size: 1rem;
+  border-radius: 999px;
+}
+
+.rag-landing-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid rgba(139,92,246,0.3);
+  border-radius: 999px;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  text-decoration: none;
+  font-family: "Inter", system-ui;
+}
+.rag-landing-btn-ghost:hover { border-color: rgba(236,72,153,0.5); color: #e2e8f0; }
+.rag-landing-btn-ghost.large {
+  padding: 0.8rem 2rem;
+  font-size: 1rem;
+}
+
+/* HERO */
+.rag-landing-hero {
+  position: relative;
+  min-height: 580px;
+  display: flex;
+  align-items: center;
+  padding: 5rem clamp(1.5rem, 5vw, 6rem) 4rem;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 8% 92%, rgba(249,115,22,0.07) 0%, transparent 38%),
+              radial-gradient(ellipse at 92% 8%, rgba(139,92,246,0.07) 0%, transparent 38%),
+              #120e28;
+}
+.rag-landing-hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  opacity: 0.17;
+  pointer-events: none;
+}
+.rag-landing-hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+.rag-landing-hero-left {
+  flex: 1;
+  min-width: 0;
+}
+.rag-landing-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #94a3b8;
+  margin-bottom: 1.25rem;
+}
+.rag-landing-h1 {
+  font-size: clamp(2.4rem, 4vw, 3.2rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: #f97316;
+  margin: 0 0 1.25rem;
+}
+.rag-landing-sub {
+  font-size: 1rem;
+  color: #94a3b8;
+  max-width: 480px;
+  line-height: 1.65;
+  margin: 0 0 2rem;
+}
+.rag-landing-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.rag-landing-social-proof {
+  font-size: 0.78rem;
+  color: #64748b;
+  letter-spacing: 0.01em;
+}
+
+/* HERO MOCK */
+.rag-landing-hero-mock {
+  flex: 0 0 clamp(340px, 38%, 480px);
+  background: linear-gradient(160deg, rgba(30,22,60,0.96) 0%, rgba(22,16,58,0.96) 100%);
+  border: 1px solid rgba(139,92,246,0.22);
+  border-radius: 16px;
+  box-shadow: 0 8px 48px rgba(139,92,246,0.18), 0 0 0 1px rgba(249,115,22,0.06) inset;
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+@media (max-width: 768px) { .rag-landing-hero-mock { display: none; } }
+.rag-landing-mock-title {
+  padding: 0.6rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  border-bottom: 1px solid rgba(139,92,246,0.12);
+  background: rgba(12,10,30,0.6);
+}
+.rag-landing-mock-body {
+  padding: 0.875rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.rag-landing-mock-bubble-user {
+  align-self: flex-end;
+  max-width: 82%;
+  background: linear-gradient(135deg, #ea580c, #be185d);
+  color: #fff0f6;
+  border-radius: 14px 14px 3px 14px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+.rag-landing-mock-row-assistant {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.rag-landing-mock-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(249,115,22,0.2), rgba(139,92,246,0.2));
+  border: 1px solid rgba(249,115,22,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: #f97316;
+  flex-shrink: 0;
+}
+.rag-landing-mock-bubble-assistant {
+  flex: 1;
+  background: rgba(22,16,44,0.9);
+  border: 1px solid rgba(139,92,246,0.18);
+  border-radius: 3px 14px 14px 14px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #e2e8f0;
+}
+.rag-landing-mock-em { color: #e879f9; }
+.rag-landing-mock-code {
+  background: #16103a;
+  border: 1px solid #2e2558;
+  border-radius: 3px;
+  padding: 0.1em 0.3em;
+  font-size: 0.72rem;
+  color: #e879f9;
+  font-family: ui-monospace, monospace;
+}
+.rag-landing-mock-kc {
+  background: rgba(139,92,246,0.08);
+  border: 1px solid rgba(139,92,246,0.28);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+}
+.rag-landing-mock-kc-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #a78bfa;
+  margin-bottom: 0.35rem;
+}
+.rag-landing-mock-kc-q {
+  font-size: 0.78rem;
+  color: #e2e8f0;
+  line-height: 1.4;
+}
+
+/* MARQUEE */
+.rag-landing-marquee {
+  width: 100%;
+  overflow: hidden;
+  background: rgba(12,10,30,0.7);
+  backdrop-filter: blur(4px);
+  border-top: 1px solid rgba(139,92,246,0.1);
+  border-bottom: 1px solid rgba(139,92,246,0.1);
+  padding: 0.875rem 0;
+}
+.rag-landing-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: rag-landing-marquee 30s linear infinite;
+  white-space: nowrap;
+}
+.rag-landing-marquee-item {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  padding: 0 1rem;
+}
+.rag-landing-marquee-dot {
+  color: #ec4899;
+  padding: 0 0.25rem;
+}
+@keyframes rag-landing-marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* SECTIONS */
+.rag-landing-section {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5rem clamp(1.5rem, 5vw, 6rem);
+}
+.rag-landing-section-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #94a3b8;
+  margin-bottom: 1rem;
+}
+.rag-landing-h2 {
+  font-size: clamp(1.75rem, 3vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  color: #f8fafc;
+  margin: 0 0 1.5rem;
+}
+.rag-landing-h2-gradient {
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: #f97316;
+}
+
+/* PROBLEM SECTION */
+.rag-landing-problem-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3.5rem;
+  align-items: start;
+}
+@media (max-width: 767px) { .rag-landing-problem-grid { grid-template-columns: 1fr; } }
+.rag-landing-body-p {
+  font-size: 0.95rem;
+  color: #94a3b8;
+  line-height: 1.7;
+  margin: 0 0 1rem;
+}
+.rag-landing-before-after {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.rag-landing-ba-card {
+  background: linear-gradient(160deg, rgba(30,22,60,0.92) 0%, rgba(22,16,58,0.92) 100%);
+  border: 1px solid #241d4a;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 28px rgba(139,92,246,0.1);
+}
+.rag-landing-ba-card.bad  { border-top: 2px solid rgba(248,113,113,0.5); }
+.rag-landing-ba-card.good { border-top: 2px solid rgba(249,115,22,0.5); }
+.rag-landing-ba-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  margin-bottom: 0.75rem;
+}
+.rag-landing-ba-card.bad  .rag-landing-ba-tag { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+.rag-landing-ba-card.good .rag-landing-ba-tag { background: rgba(249,115,22,0.1);  color: #f97316; border: 1px solid rgba(249,115,22,0.2); }
+.rag-landing-ba-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.rag-landing-ba-list li {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  padding-left: 1.1rem;
+  position: relative;
+  line-height: 1.4;
+}
+.rag-landing-ba-card.bad  .rag-landing-ba-list li::before { content: "×"; position: absolute; left: 0; color: #f87171; }
+.rag-landing-ba-card.good .rag-landing-ba-list li::before { content: "✓"; position: absolute; left: 0; color: #4ade80; }
+
+/* FEATURES SECTION */
+.rag-landing-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+@media (max-width: 767px) { .rag-landing-features { grid-template-columns: 1fr; } }
+.rag-landing-feature {
+  background: linear-gradient(160deg, rgba(30,22,60,0.92) 0%, rgba(22,16,58,0.92) 100%);
+  border: 1px solid #241d4a;
+  border-radius: 14px;
+  padding: 1.75rem 1.5rem;
+  box-shadow: 0 4px 28px rgba(139,92,246,0.1);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.rag-landing-feature:hover {
+  box-shadow: 0 8px 36px rgba(139,92,246,0.2);
+  transform: translateY(-2px);
+}
+.rag-landing-feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(22,16,44,0.9);
+  border: 1px solid rgba(139,92,246,0.2);
+  margin-bottom: 1.25rem;
+}
+.rag-landing-feature h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0 0 0.6rem;
+  letter-spacing: -0.01em;
+}
+.rag-landing-feature p {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* MODULES SECTION */
+.rag-landing-modules {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+@media (max-width: 900px)  { .rag-landing-modules { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 600px)  { .rag-landing-modules { grid-template-columns: 1fr; } }
+.rag-landing-module {
+  background: linear-gradient(160deg, rgba(30,22,60,0.92) 0%, rgba(22,16,58,0.92) 100%);
+  border: 1px solid #241d4a;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 24px rgba(139,92,246,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.rag-landing-module-num {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  font-family: ui-monospace, monospace;
+}
+.rag-landing-module-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: -0.01em;
+}
+.rag-landing-module-desc {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  flex: 1;
+}
+.rag-landing-module-bar-track {
+  height: 4px;
+  background: rgba(36,29,74,0.8);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 0.25rem;
+}
+.rag-landing-module-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #f97316 0%, #ec4899 55%, #8b5cf6 100%);
+}
+
+/* CTA FOOTER */
+.rag-landing-cta-footer {
+  text-align: center;
+  padding: 6rem clamp(1.5rem, 5vw, 6rem);
+  background: radial-gradient(ellipse at 50% 80%, rgba(249,115,22,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse at 50% 20%, rgba(139,92,246,0.06) 0%, transparent 60%),
+              #120e28;
+  border-top: 1px solid rgba(139,92,246,0.1);
+}
+.rag-landing-cta-footer .rag-landing-section-eyebrow { text-align: center; }
+.rag-landing-cta-footer-body {
+  font-size: 0.95rem;
+  color: #94a3b8;
+  max-width: 520px;
+  margin: 0 auto 2rem;
+  line-height: 1.7;
+}
+.rag-landing-cta-footer-sub {
+  margin-top: 1.25rem;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+.rag-landing-cta-footer-sub a {
+  color: #e2e8f0;
+  border-bottom: 1px solid rgba(236,72,153,0.4);
+  padding-bottom: 1px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* SITE FOOTER */
+.rag-landing-site-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem clamp(1.5rem, 5vw, 6rem);
+  border-top: 1px solid rgba(139,92,246,0.1);
+  background: #0c0a1e;
+}
+.rag-landing-site-footer-copy {
+  font-size: 0.75rem;
+  color: #64748b;
+  letter-spacing: 0.03em;
+}
+/* Strip NiceGUI/Quasar container constraints — landing page only */
+.nicegui-content { display: block !important; padding: 0 !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; align-items: unset !important; justify-content: unset !important; }
+.q-page { padding: 0 !important; }
+.q-page-container { padding: 0 !important; width: 100% !important; max-width: 100% !important; }
+#q-app, .q-layout { width: 100% !important; max-width: 100% !important; overflow-x: hidden !important; }
+
+/* Custom scrollbar */
+html { scrollbar-width: thin; scrollbar-color: #8b5cf6 #0c0a1e; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0c0a1e; }
+::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { opacity: 0.85; }
+
+/* Back-to-top button */
+#rag-landing-totop {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 999;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 24px rgba(236,72,153,0.4), 0 0 0 1px rgba(249,115,22,0.3) inset;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.2s, box-shadow 0.2s;
+  font-family: "Inter", system-ui;
+}
+#rag-landing-totop.rag-totop-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+#rag-landing-totop:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(236,72,153,0.6), 0 0 0 1px rgba(249,115,22,0.5) inset;
+}
+</style>''')
+
+        ui.add_head_html('''<script>
+document.addEventListener("DOMContentLoaded", function() {
+  var canvas = document.getElementById("rag-particle-canvas");
+  if (!canvas) return;
+  var ctx = canvas.getContext("2d");
+  var raf;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var colors = ["#f97316", "#ec4899", "#8b5cf6"];
+  var density = 28;
+
+  function resize() {
+    var r = canvas.getBoundingClientRect();
+    canvas.width = r.width * dpr;
+    canvas.height = r.height * dpr;
+    ctx.scale(dpr, dpr);
+  }
+  resize();
+  window.addEventListener("resize", resize);
+
+  function W() { return canvas.getBoundingClientRect().width; }
+  function H() { return canvas.getBoundingClientRect().height; }
+
+  var nodes = [];
+  for (var i = 0; i < density; i++) {
+    nodes.push({
+      x: Math.random() * W(),
+      y: Math.random() * H(),
+      vx: (Math.random() - 0.5) * 0.18,
+      vy: (Math.random() - 0.5) * 0.18,
+      r: 1.5 + Math.random() * 2.5,
+      c: colors[Math.floor(Math.random() * colors.length)]
+    });
+  }
+
+  var LINK_DIST = 180;
+  var t = 0;
+
+  function draw() {
+    var cw = W(), ch = H();
+    ctx.clearRect(0, 0, cw, ch);
+    t += 0.006;
+
+    for (var i = 0; i < nodes.length; i++) {
+      for (var j = i + 1; j < nodes.length; j++) {
+        var a = nodes[i], b = nodes[j];
+        var dx = a.x - b.x, dy = a.y - b.y;
+        var d = Math.sqrt(dx*dx + dy*dy);
+        if (d < LINK_DIST) {
+          var alpha = (1 - d / LINK_DIST) * 0.5;
+          var phase = (Math.sin(t * 1.2 + i * 0.4 + j * 0.3) + 1) / 2;
+          var hue = phase < 0.5 ? "236,72,153" : "139,92,246";
+          ctx.strokeStyle = "rgba(" + hue + "," + (alpha * 0.8) + ")";
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    for (var k = 0; k < nodes.length; k++) {
+      var n = nodes[k];
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < -20) n.x = cw + 20; if (n.x > cw + 20) n.x = -20;
+      if (n.y < -20) n.y = ch + 20; if (n.y > ch + 20) n.y = -20;
+
+      var grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r * 5);
+      grad.addColorStop(0, n.c);
+      grad.addColorStop(1, "transparent");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r * 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = n.c;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    raf = requestAnimationFrame(draw);
+  }
+  draw();
+});
+</script>''')
+
+        ui.add_head_html('''<script>
+window.addEventListener("scroll", function() {
+  var btn = document.getElementById("rag-landing-totop");
+  if (!btn) return;
+  if (window.scrollY > 320) {
+    btn.classList.add("rag-totop-visible");
+  } else {
+    btn.classList.remove("rag-totop-visible");
+  }
+});
+document.addEventListener("click", function(e) {
+  if (e.target.closest("#rag-landing-totop")) {
+    window.scrollTo({top: 0, behavior: "smooth"});
+  }
+});
+</script>''')
+
+        ui.query("body").style("background:#120e28; color:#e2e8f0; font-family:'Inter',system-ui; margin:0; padding:0")
+        ui.query(".nicegui-content").style("display: block !important; padding: 0 !important; max-width: 100% !important; width: 100% !important; margin: 0 !important; align-items: unset !important; justify-content: unset !important")
+        ui.query(".q-page").style("padding: 0 !important; min-height: unset !important")
+
+        # Section A — Navbar
+        ui.html('''<div class="rag-landing-wrap">
+<nav class="rag-landing-nav">
+  <a class="rag-landing-brand" href="/landing" style="text-decoration:none">
+    <div class="rag-landing-brand-mark">R</div>
+    <span class="rag-landing-wordmark">RAG Tutor</span>
+  </a>
+  <div class="rag-landing-nav-links">
+    <a href="#problem">What It Solves</a>
+    <a href="#how-it-works">How It Works</a>
+    <a href="#curriculum">Curriculum</a>
+  </div>
+  <div style="display:flex;align-items:center;gap:0.625rem">
+    <a class="rag-landing-btn-primary" href="/login">Sign in</a>
+    <a class="rag-landing-btn-primary" href="/register">Start Learning Free
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12 h14"/><path d="M13 6 l6 6 -6 6"/></svg>
+    </a>
+  </div>
+</nav>
+
+<!-- Section B — Hero -->
+<section class="rag-landing-hero">
+  <canvas id="rag-particle-canvas" class="rag-landing-hero-canvas"></canvas>
+  <div class="rag-landing-hero-content">
+    <div class="rag-landing-hero-left">
+      <div class="rag-landing-eyebrow">AI-NATIVE LEARNING SYSTEM</div>
+      <h1 class="rag-landing-h1">Master RAG.<br>Ship with confidence.</h1>
+      <p class="rag-landing-sub">RAG Tutor adapts to your level in real time — tracking your gaps, building on your strengths, and guiding you from fundamentals to production-grade systems.</p>
+      <div class="rag-landing-cta-row">
+        <a class="rag-landing-btn-primary large" href="/register">Start for Free
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12 h14"/><path d="M13 6 l6 6 -6 6"/></svg>
+        </a>
+        <a class="rag-landing-btn-ghost large" href="#how-it-works">See how it works
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5 v14"/><path d="M6 13 l6 6 6 -6"/></svg>
+        </a>
+      </div>
+      <div class="rag-landing-social-proof">No credit card required &nbsp;·&nbsp; Personalizes to your level instantly</div>
+    </div>
+    <!-- Hero mock — all inline styles, no shared class names with real chat page -->
+    <div class="rag-landing-hero-mock">
+      <div class="rag-landing-mock-title">LIVE &nbsp;·&nbsp; RAG TUTOR</div>
+      <div class="rag-landing-mock-body">
+        <div style="display:flex;justify-content:flex-end">
+          <div class="rag-landing-mock-bubble-user">Why does cosine similarity outperform dot product for normalized embeddings?</div>
+        </div>
+        <div class="rag-landing-mock-row-assistant">
+          <div class="rag-landing-mock-avatar">RT</div>
+          <div class="rag-landing-mock-bubble-assistant">For unit-normalized vectors they&#39;re mathematically equivalent — same ranking, different scale. Where it matters is when norms <span class="rag-landing-mock-em">aren&#39;t</span> equal: dot product amplifies high-norm chunks. With <span class="rag-landing-mock-code">bge-large</span> embeddings you&#39;ll see a measurable shift on rare-token queries.</div>
+        </div>
+        <div class="rag-landing-mock-kc">
+          <div class="rag-landing-mock-kc-label">&#10022; Knowledge Check</div>
+          <div class="rag-landing-mock-kc-q">Which embedding model normalizes outputs by default?</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Section C — Marquee -->
+<div class="rag-landing-marquee" aria-hidden="true">
+  <div class="rag-landing-marquee-track">
+    <span class="rag-landing-marquee-item">RAG Fundamentals</span><span class="rag-landing-marquee-dot">·</span>
+    <span class="rag-landing-marquee-item">Vector Databases</span><span class="rag-landing-marquee-dot">·</span>
+    <span class="rag-landing-marquee-item">Retrieval Methods</span><span class="rag-landing-marquee-dot">·</span>
+    <span class="rag-landing-marquee-item">Chunking Strategies</span><span class="rag-landing-marquee-dot">·</span>
+    <span class="rag-landing-marquee-item">LangChain</span><span class="rag-landing-marquee-dot">·</span>
+    <span class="rag-landing-marquee-item">Production Patterns</span><span class="rag-landing-marquee-dot">·</span>
+    <span class="rag-landing-marquee-item">RAG Fundamentals</span><span class="rag-landing-marquee-dot">·</span>
+    <span class="rag-landing-marquee-item">Vector Databases</span><span class="rag-landing-marquee-dot">·</span>
+    <span class="rag-landing-marquee-item">Retrieval Methods</span><span class="rag-landing-marquee-dot">·</span>
+    <span class="rag-landing-marquee-item">Chunking Strategies</span><span class="rag-landing-marquee-dot">·</span>
+    <span class="rag-landing-marquee-item">LangChain</span><span class="rag-landing-marquee-dot">·</span>
+    <span class="rag-landing-marquee-item">Production Patterns</span><span class="rag-landing-marquee-dot">·</span>
+  </div>
+</div>
+
+<!-- Section D — Problem -->
+<div class="rag-landing-section" id="problem">
+  <div class="rag-landing-problem-grid">
+    <div>
+      <div class="rag-landing-section-eyebrow">THE PROBLEM</div>
+      <h2 class="rag-landing-h2 rag-landing-h2-gradient">RAG is everywhere.<br>Understanding it deeply is rare.</h2>
+      <p class="rag-landing-body-p">Most teams bolt together a LangChain tutorial and call it a RAG pipeline. Then they wonder why retrieval quality degrades, why hallucinations creep in at the edges, why their re-ranker makes things worse.</p>
+      <p class="rag-landing-body-p">The real issues — chunking strategy, embedding model choice, index configuration, retrieval scoring, hybrid search, production caching — live in the space between the tutorial and the production system.</p>
+      <p class="rag-landing-body-p">RAG Tutor closes that gap. Not with more documentation. With a tutor that knows exactly where you are and what you need next.</p>
+    </div>
+    <div class="rag-landing-before-after">
+      <div class="rag-landing-ba-card bad">
+        <span class="rag-landing-ba-tag">Without</span>
+        <ul class="rag-landing-ba-list">
+          <li>Hardcoded k=4. No re-rank.</li>
+          <li>Fixed-size chunks. Lost context.</li>
+          <li>Cosine, no hybrid. Rare tokens miss.</li>
+          <li>No eval. Vibes-based shipping.</li>
+          <li>Latency unknown. Caches absent.</li>
+        </ul>
+      </div>
+      <div class="rag-landing-ba-card good">
+        <span class="rag-landing-ba-tag">With RAG Tutor</span>
+        <ul class="rag-landing-ba-list">
+          <li>Adaptive k, learned per query class.</li>
+          <li>Recursive chunking by doc structure.</li>
+          <li>Hybrid BM25 + dense, with reranker.</li>
+          <li>Recall@10 in CI. Regression alarms.</li>
+          <li>Cache layers tuned to p50 latency.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section E — Features -->
+<div class="rag-landing-section" id="how-it-works" style="padding-top:2rem">
+  <div class="rag-landing-section-eyebrow" style="text-align:center">HOW IT WORKS</div>
+  <h2 class="rag-landing-h2" style="text-align:center;margin-bottom:3rem">Built different.</h2>
+  <div class="rag-landing-features">
+    <div class="rag-landing-feature">
+      <div class="rag-landing-feature-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 3 a3 3 0 0 0 -3 3 a3 3 0 0 0 -3 3 v3 a3 3 0 0 0 3 3 v3 a3 3 0 0 0 3 3 h0 a3 3 0 0 0 3 -3 V3 a0 0 0 0 0 0 0 z"/>
+          <path d="M15 3 a3 3 0 0 1 3 3 a3 3 0 0 1 3 3 v3 a3 3 0 0 1 -3 3 v3 a3 3 0 0 1 -3 3 h0 a3 3 0 0 1 -3 -3 V3 a0 0 0 0 1 0 0 z"/>
+        </svg>
+      </div>
+      <h3>Knows what you know</h3>
+      <p>Every question you ask updates your knowledge profile. RAG Tutor adapts every response to your current mastery level — not a generic difficulty setting.</p>
+    </div>
+    <div class="rag-landing-feature">
+      <div class="rag-landing-feature-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 2 L2 7 l10 5 10 -5 z"/>
+          <path d="M2 17 l10 5 10 -5"/>
+          <path d="M2 12 l10 5 10 -5"/>
+        </svg>
+      </div>
+      <h3>From zero to production</h3>
+      <p>Six modules cover every layer of the RAG stack — fundamentals, vector databases, retrieval methods, chunking, LangChain, and production patterns. In that order, for a reason.</p>
+    </div>
+    <div class="rag-landing-feature">
+      <div class="rag-landing-feature-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12 h4 l2 -2 l2 2 h2"/>
+          <path d="M14 14 l2 2 l5 -7"/>
+        </svg>
+      </div>
+      <h3>Learns from your answers</h3>
+      <p>After each response, RAG Tutor surfaces a knowledge check. Your answers train its model of you — so the next response is sharper, more targeted, more useful.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Section F — Modules -->
+<div class="rag-landing-section" id="curriculum">
+  <div class="rag-landing-section-eyebrow">CURRICULUM</div>
+  <h2 class="rag-landing-h2">Six modules. One coherent path.</h2>
+  <p style="color:#94a3b8;max-width:520px;font-size:1rem;margin-bottom:2.25rem;line-height:1.6">Designed to build on each other — not to be consumed in isolation.</p>
+  <div class="rag-landing-modules">
+    <div class="rag-landing-module">
+      <div class="rag-landing-module-num">01</div>
+      <div class="rag-landing-module-title">RAG Fundamentals</div>
+      <div class="rag-landing-module-desc">The architecture, the intuition, the why.</div>
+      <div class="rag-landing-module-bar-track"><div class="rag-landing-module-bar-fill" style="width:92%"></div></div>
+    </div>
+    <div class="rag-landing-module">
+      <div class="rag-landing-module-num">02</div>
+      <div class="rag-landing-module-title">Vector Databases</div>
+      <div class="rag-landing-module-desc">FAISS, Pinecone, Weaviate — and when to use each.</div>
+      <div class="rag-landing-module-bar-track"><div class="rag-landing-module-bar-fill" style="width:71%"></div></div>
+    </div>
+    <div class="rag-landing-module">
+      <div class="rag-landing-module-num">03</div>
+      <div class="rag-landing-module-title">Retrieval Methods</div>
+      <div class="rag-landing-module-desc">Semantic, keyword, hybrid, re-ranking.</div>
+      <div class="rag-landing-module-bar-track"><div class="rag-landing-module-bar-fill" style="width:48%"></div></div>
+    </div>
+    <div class="rag-landing-module">
+      <div class="rag-landing-module-num">04</div>
+      <div class="rag-landing-module-title">Chunking Strategies</div>
+      <div class="rag-landing-module-desc">The decision that breaks more pipelines than any other.</div>
+      <div class="rag-landing-module-bar-track"><div class="rag-landing-module-bar-fill" style="width:32%"></div></div>
+    </div>
+    <div class="rag-landing-module">
+      <div class="rag-landing-module-num">05</div>
+      <div class="rag-landing-module-title">LangChain</div>
+      <div class="rag-landing-module-desc">Chains, agents, and retrieval pipelines in code.</div>
+      <div class="rag-landing-module-bar-track"><div class="rag-landing-module-bar-fill" style="width:12%"></div></div>
+    </div>
+    <div class="rag-landing-module">
+      <div class="rag-landing-module-num">06</div>
+      <div class="rag-landing-module-title">Production Patterns</div>
+      <div class="rag-landing-module-desc">Caching, eval, observability, latency tuning.</div>
+      <div class="rag-landing-module-bar-track"><div class="rag-landing-module-bar-fill" style="width:4%"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Section G — CTA Footer -->
+<div class="rag-landing-cta-footer">
+  <div class="rag-landing-section-eyebrow" style="text-align:center">GET STARTED</div>
+  <h2 class="rag-landing-h2 rag-landing-h2-gradient" style="font-size:clamp(2.2rem,4vw,3.2rem);margin-bottom:1.25rem">Start learning today.</h2>
+  <p class="rag-landing-cta-footer-body">Your first session is free. No setup. No configuration. Just ask your first question and watch the system adapt.</p>
+  <a class="rag-landing-btn-primary large" href="/register">Get Started
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12 h14"/><path d="M13 6 l6 6 -6 6"/></svg>
+  </a>
+  <div class="rag-landing-cta-footer-sub">Already have an account? <a href="/login">Sign in &#8594;</a></div>
+</div>
+
+<!-- Section H — Site Footer -->
+<footer class="rag-landing-site-footer">
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="rag-landing-brand-mark" style="width:24px;height:24px;font-size:0.7rem">R</div>
+    <span class="rag-landing-wordmark" style="font-size:1rem">RAG Tutor</span>
+  </div>
+  <div class="rag-landing-site-footer-copy">&#169; 2026 RAG Tutor &nbsp;·&nbsp; retrieve &nbsp;·&nbsp; augment &nbsp;·&nbsp; generate &nbsp;·&nbsp; master</div>
+</footer>
+
+<button id="rag-landing-totop" aria-label="Back to top">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
+  </svg>
+</button>
+</div>''')
+
     @ui.page("/")
     async def index():
         ui.add_head_html('''<link rel="preconnect" href="https://fonts.googleapis.com">
@@ -545,7 +1473,7 @@ html, body {
                 tabs.set_visibility(False)
 
         if not can_use_chat:
-            ui.navigate.to("/login")
+            ui.navigate.to("/landing")
             return
 
         session = create_session()

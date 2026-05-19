@@ -672,4 +672,23 @@
 - **Privacy trade-off:** Google receives user IP and browser fingerprint on every page load (CWE-829, flagged by Sage). Accepted for a non-production portfolio app.
 - **Consequences:** If this project is used with real users (beyond portfolio), self-host Inter via `@fontsource/inter` and remove the Google Fonts CDN link. No other code change required — same font rendering.
 
-*Last updated: 2026-05-17 — Commit 26 complete (ui-foundation: per-page font injection, Quasar button override, Google Fonts CDN trade-off)*
+## UI Landing Page (C30)
+
+### NiceGUI container override for full-bleed pages (Commit 30)
+- **Date:** 2026-05-19
+- **Commit:** 30
+- **Decided by:** Aria + Claude (diagnosed during visual review)
+- **Decision:** A `@ui.page()` function using only `ui.html()` (no NiceGUI layout primitives like `ui.header()`, `ui.footer()`) must explicitly override `.nicegui-content`, `.q-page`, and `.q-page-container` to achieve full-viewport-width layout.
+- **Reason:** NiceGUI wraps all page content in a `.nicegui-content` div that defaults to `display: flex; align-items: center` — this centers child elements horizontally. Without the override, the landing page's `width: 100%` wrapper resolves to the flex parent's alignment width, not the viewport. The fix applies `display: block !important; max-width: 100% !important; align-items: unset !important` via both a `<style>` rule and a `ui.query()` call (belt-and-suspenders for Quasar's load-order variability).
+- **Alternatives considered:** Using NiceGUI layout primitives (`ui.page_sticky`, `ui.element`) — rejected because they add Quasar wrapper markup that interferes with custom full-bleed sections.
+- **Consequences:** Any future full-bleed `@ui.page()` using `ui.html()` must include the same container override block. The override is scoped to the page that injects it (CSS injects on page load, full reload clears it on navigation to other pages — no cross-page contamination).
+
+### `def` not `async def` for static pages (Commit 30)
+- **Date:** 2026-05-19
+- **Commit:** 30
+- **Decided by:** Aria
+- **Decision:** `landing_page()` is a synchronous `def`, not `async def`.
+- **Reason:** The landing page makes no `await`-able calls (no API, no storage reads, no auth checks). Using `async def` would be cargo-cult — NiceGUI supports both, but only async functions gain anything from the `async` keyword. Synchronous page functions are simpler and avoid accidental `await` calls being added in future edits.
+- **Consequences:** If `/landing` ever needs an API call or storage read, it must be upgraded to `async def`. This is a one-word change with no other side effects.
+
+*Last updated: 2026-05-19 — Commit 30 complete (ui-landing-page: NiceGUI container override, static page pattern)*

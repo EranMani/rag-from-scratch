@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 29 · 2026-05-17*
+*Last updated: Session 14e hero-mock sizing + card gradient fix · 2026-05-19*
 
-**Last completed:** Commit 29 — ui-sidebar-admin: mastery tier badge, score pills (% text + 4px bar), gap badge red-tint, stat card gradient + colored top-border, health status chips ✅
+**Last completed:** Session 14e — hero mock responsive sizing (`flex: 0 0 clamp(340px, 38%, 480px)`); hide breakpoint moved to 768px; all four card-like elements updated to correct `--g-card` token gradient ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -23,18 +23,25 @@
 
 **Decisions Other Agents Must Know:**
 - The profile panel is defined as a nested `@ui.refreshable` async function inside `index()`. This keeps it in scope of both `auth_headers()` and `http()` closures without threading those as parameters. Commit 20 must call `profile_panel.refresh()` (not re-invoke `await profile_panel()`) to trigger a re-render.
-- The `not can_use_chat` branch now redirects to `/login` instead of rendering an inline form. This eliminates the duplicate `do_login()` closure that previously lived in `index()`.
+- The `not can_use_chat` branch now redirects to `/landing` (changed from `/login` in Commit 30) instead of rendering an inline form.
 - `ui.footer()` must be a direct child of the page, not nested inside any `ui.row()` or `ui.column()`. The same constraint applies to `ui.header()`, `ui.left_drawer()`, and `ui.right_drawer()`.
 - `register_page` guard is now `if await verify_stored_bearer()` — redirects authenticated users regardless of `allow_anonymous_chat`, matching the symmetry of `login_page`.
 - Tab panels have `padding:0` on the Chat panel to preserve the full-bleed sidebar layout; the outer row height formula is now `calc(100vh - 168px)` (header ~64px + tab bar ~24px + footer ~80px).
 - Footer visibility is toggled via `tabs.on("update:model-value", ...)` using `set_visibility()`. The footer object must be captured as a variable (`footer = ui.footer()`) so the callback can reference it.
 - Admin panel delete buttons use a default-argument capture (`uid=uid, email=email`) inside the for-loop closure to avoid the classic Python late-binding bug where all buttons would reference the last iteration's values.
+- `landing_page()` is a synchronous `def` (not `async def`) because it does no API calls. All CSS is injected via `ui.add_head_html()` using the `rag-landing-` namespace. The particle canvas JS is also injected via `ui.add_head_html()` as an inline `<script>`, initialized in `DOMContentLoaded` to ensure the canvas element exists in the DOM before `getBoundingClientRect()` is called. Every CSS class in the landing page uses the `rag-landing-` prefix to prevent collision with `.q-*` Quasar classes or `.nicegui-markdown` rules from the chat page.
+- The hero mock uses only `rag-landing-mock-*` class names — no shared names with the real chat page bubble or avatar classes.
 
 ---
 
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 14e | 30 fix 4 | ✅ Done | Hero mock `flex: 0 0 clamp(340px,38%,480px)` + hide breakpoint 900→768px; card gradients rgba(22,16,44)→rgba(30,22,60) / rgba(28,20,52)→rgba(22,16,58) on all four card elements |
+| 14d | 30 fix 3 | ✅ Done | Remove `max-width:1140px; margin:0 auto` from section + hero-content; `clamp(1.5rem,5vw,6rem)` H-padding on hero, cta-footer, site-footer |
+| 14c | 30 fix 2 | ✅ Done | `display:block` + unset flex on `.nicegui-content`; Quasar container chain rules; `overflow-x:hidden` off body; `box-sizing:border-box` on `.rag-landing-wrap` |
+| 14b | 30 fix | ✅ Done | `ui.query(".nicegui-content")` + `ui.query(".q-page")` strip container constraints; matching CSS rules in landing `<style>` block |
+| 14 | 30 | ✅ Done | Static landing page as single `ui.html()` block; CSS namespaced `rag-landing-`; particle canvas JS in DOMContentLoaded; hero mock inline styles only; redirect `/` unauthenticated → `/landing` |
 | 13 | 29 | ✅ Done | Mastery chip via ui.label+classes (not ui.html); % text monospace alongside 4px bar; gap badges red-tinted; stat_card gets border_color param + gradient bg; health chips replace dot+text pattern |
 | 12 | 28 | ✅ Done | Gradient user bubble; border-left on AI card + welcome card; indigo KC card (bg/border/shadow/label color/✦ prefix); thinking label #818cf8 |
 | 11G | 27 gate-fix | ✅ Done | XSS: ui.html→ui.label for email pill; overflow:visible removed; double storage read collapsed to single dict; CSS color fallback on .rag-brand-name |
@@ -50,6 +57,144 @@
 | 7 | feature | ✅ Done | Tab bar Chat/Admin; admin router; footer visibility callback; closure capture for delete buttons |
 | 8 | bug+redesign | ✅ Done | White panel bg fix; admin tab as SaaS dashboard: header strip, stat cards, ui.table slot injection, health + monitoring sidebar |
 | 9 | bug fix | ✅ Done | thinking label: set_visibility(False) instead of delete() to avoid client-context error after await |
+
+---
+
+## Session 14e — Commit 30 fix 4: hero mock sizing + card gradient correction
+
+**Date:** 2026-05-19
+**Status:** ✅ Done
+
+### Approach
+
+Two independent CSS fixes. Fix 1: the hero mock at 340px fixed width looked undersized after the hero-content was made full-width in Session 14d — a fixed 340px against a fluid wide layout has no proportional relationship to the content it sits beside. The correct shape is a responsive flex-basis using `clamp()`: `flex: 0 0 clamp(340px, 38%, 480px)` sets 340px as the floor, 480px as the ceiling, and scales linearly at 38% of the parent between those bounds. `flex-shrink: 0` was removed because it is now redundant — `flex: 0 0 ...` already sets the shrink factor to 0 as its second parameter. The hide breakpoint moved from 900px to 768px so the mock stays visible on iPad-sized tablets (typically 768–1024px), which are a realistic reading viewport for marketing pages.
+
+Fix 2: the card gradients were using `rgba(22,16,44)` / `rgba(28,20,52)` which are near-black — barely distinguishable from the `#120e28` page background. The correct values from the `--g-card` token are `rgba(30,22,60)` (lighter violet-tinted dark) and `rgba(22,16,58)` (lighter indigo-tinted dark). Both are still very dark but have enough separation from the page background to read as elevated surfaces. The 0.92 opacity on `.rag-landing-ba-card`, `.rag-landing-feature`, and `.rag-landing-module` was preserved; the 0.96 opacity on `.rag-landing-hero-mock` was also preserved. Only the rgb triplets changed.
+
+### Changes Made
+
+| File | Rule | Property | Old value | New value |
+|---|---|---|---|---|
+| `src/app/ui.py` | `.rag-landing-hero-mock` | sizing | `width: 340px; flex-shrink: 0;` | `flex: 0 0 clamp(340px, 38%, 480px);` |
+| `src/app/ui.py` | `.rag-landing-hero-mock` | background | `rgba(22,16,44,0.96) ... rgba(28,20,52,0.96)` | `rgba(30,22,60,0.96) ... rgba(22,16,58,0.96)` |
+| `src/app/ui.py` | `@media` hide breakpoint | max-width | `900px` | `768px` |
+| `src/app/ui.py` | `.rag-landing-ba-card` | background | `rgba(22,16,44,0.92) ... rgba(28,20,52,0.92)` | `rgba(30,22,60,0.92) ... rgba(22,16,58,0.92)` |
+| `src/app/ui.py` | `.rag-landing-feature` | background | `rgba(22,16,44,0.92) ... rgba(28,20,52,0.92)` | `rgba(30,22,60,0.92) ... rgba(22,16,58,0.92)` |
+| `src/app/ui.py` | `.rag-landing-module` | background | `rgba(22,16,44,0.92) ... rgba(28,20,52,0.92)` | `rgba(30,22,60,0.92) ... rgba(22,16,58,0.92)` |
+
+---
+
+## Session 14d — Commit 30 fix 3: gutter width fix
+
+**Date:** 2026-05-19
+**Status:** ✅ Done
+
+### Approach
+
+At viewports wider than ~1200px, all content sections rendered as a narrow centered strip with large empty gutters flanking both sides. The cause was a two-place `max-width: 1140px; margin: 0 auto` constraint: one on `.rag-landing-section` and one on `.rag-landing-hero-content`. Both pinned their content to a 1140px column regardless of the viewport, producing the guttered appearance.
+
+The fix was to remove both `max-width` and `margin: 0 auto` from those two rules and replace with `width: 100%; box-sizing: border-box`. Horizontal gutters are now supplied entirely by `padding: 5rem clamp(1.5rem, 5vw, 6rem)` — which scales fluidly: 1.5rem at narrow viewports, up to 6rem at very wide ones, with a linear interpolation across the 5vw range in between. The same `clamp()` expression was applied consistently to `.rag-landing-hero` (replacing `2.5rem` in its existing `padding: 5rem 2.5rem 4rem`), `.rag-landing-cta-footer` (replacing `2.5rem`), and `.rag-landing-site-footer` (replacing the uniform `2rem`). This ensures all full-bleed sections share the same horizontal rhythm regardless of viewport width.
+
+The inner grid/flex rules (`.rag-landing-problem-grid`, `.rag-landing-features`, `.rag-landing-modules`) were not touched — they already fill their parent, and the parent is now full-width.
+
+### Changes Made
+
+| File | Line (approx) | Change |
+|---|---|---|
+| `src/app/ui.py` | ~404 — `.rag-landing-hero` | `padding: 5rem 2.5rem 4rem` → `padding: 5rem clamp(1.5rem, 5vw, 6rem) 4rem` |
+| `src/app/ui.py` | ~424 — `.rag-landing-hero-content` | Removed `max-width: 1140px` and `margin: 0 auto`; added `box-sizing: border-box` |
+| `src/app/ui.py` | ~606 — `.rag-landing-section` | Removed `max-width: 1140px` and `margin: 0 auto`; added `width: 100%; box-sizing: border-box`; `padding: 5rem 2.5rem` → `padding: 5rem clamp(1.5rem, 5vw, 6rem)` |
+| `src/app/ui.py` | ~790 — `.rag-landing-cta-footer` | `padding: 6rem 2.5rem` → `padding: 6rem clamp(1.5rem, 5vw, 6rem)` |
+| `src/app/ui.py` | ~824 — `.rag-landing-site-footer` | `padding: 2rem` → `padding: 2rem clamp(1.5rem, 5vw, 6rem)` |
+
+---
+
+## Session 14c — Session 30 fix 2: H1 centering + right-crop
+
+**Date:** 2026-05-19
+**Status:** ✅ Done
+
+### Approach
+
+Two bugs were reported at 100% browser zoom. Bug 1: the H1 "Master RAG. Ship with confidence." was horizontally centered instead of left-aligned. Bug 2: content was cropped on the right side, only visible at reduced zoom.
+
+The root cause of both bugs is the same: `.nicegui-content` is a flex container (confirmed by NiceGUI's own stylesheet). The previous fix (Session 14b) only reset `padding`, `max-width`, `width`, and `margin` — it did not touch `display`, `align-items`, or `justify-content`. So `.rag-landing-wrap` was still being placed as a flex item inside a flex parent with `align-items: center`, causing it to (a) center horizontally and (b) collapse its intrinsic width rather than stretching to fill the parent — making the `max-width: 1140px` interior sections overflow the collapsed width.
+
+Two approaches were considered: (a) add `align-self: stretch` to `.rag-landing-wrap` so it stretches within the flex parent, or (b) override the parent itself to `display: block` so flex layout is cancelled entirely. Option (b) is more robust — it makes `.rag-landing-wrap` a normal block child that naturally stretches full width without needing defensive `align-self` on the child. The `display: block !important` override also covers future NiceGUI version changes that might alter `flex-direction` or `flex-wrap` without us noticing.
+
+The `overflow-x: hidden` on `body` was hiding the symptom (cropped content) rather than fixing the cause. Moving it off `body` onto `.rag-landing-wrap` (where it already lived in the CSS block) is the correct scope — the wrap is the scrolling boundary, not the entire document.
+
+The Quasar container chain rules (`.q-page-container`, `#q-app`, `.q-layout`) are belt-and-suspenders: they ensure no ancestor of `.nicegui-content` in the Quasar/Vue tree introduces a width constraint that would re-introduce the collapse.
+
+### Changes Made
+
+| File | Location | Change |
+|---|---|---|
+| `src/app/ui.py` | Landing `<style>` block — `.nicegui-content` rule | Added `display: block !important; align-items: unset !important; justify-content: unset !important`; `max-width: none` → `max-width: 100%` |
+| `src/app/ui.py` | Landing `<style>` block — after `.q-page` rule | Added `.q-page-container` and `#q-app, .q-layout` override rules |
+| `src/app/ui.py` | Landing `<style>` block — `.rag-landing-wrap` | Added `max-width: 100%; box-sizing: border-box;` |
+| `src/app/ui.py` | `landing_page()` — `ui.query(".nicegui-content").style(...)` | Added `display: block !important; align-items: unset !important; justify-content: unset !important`; `max-width: none` → `max-width: 100%` |
+| `src/app/ui.py` | `landing_page()` — `ui.query("body").style(...)` | Removed `overflow-x:hidden` |
+
+---
+
+## Session 14b — Commit 30 layout fix: full-width sections
+
+**Date:** 2026-05-19
+**Status:** ✅ Done
+
+### Approach
+
+The landing page rendered close to the reference but sections felt oddly centered and did not span the full viewport width. The root cause is that `landing_page()` uses `ui.html()` inside a plain NiceGUI page, which means the HTML block renders as a child of `.nicegui-content` (the NiceGUI content wrapper) and `.q-page` (the Quasar page container). Both of those elements carry default CSS that constrains their children: `.nicegui-content` has padding and a max-width, and `.q-page` has Quasar's default padding.
+
+The chat page avoids this because `index()` uses `ui.header()`, `ui.footer()`, and `ui.left_drawer()` — Quasar layout primitives that bypass the content container entirely. `landing_page()` has none of those, so the entire `rag-landing-wrap` div is rendered inside a constrained box.
+
+The fix has two layers for redundancy:
+1. `ui.query()` calls injected after the body style call — these apply inline styles directly to the elements via NiceGUI's Vue binding layer, which fires at render time.
+2. Matching CSS rules added to the landing page's own `<style>` block — these catch any cases where the inline style loses specificity against Quasar's own stylesheet (possible on Quasar version upgrades or in production builds with a different CSS ordering).
+
+Both layers use `!important` on the critical properties (`padding`, `max-width`, `width`, `margin`) to ensure they override Quasar's default utility classes regardless of cascade order.
+
+The `.rag-landing-hero` background check confirmed no issue: `.rag-landing-hero` has no explicit `width` set, which is correct — block elements stretch to their parent by default, and the parent (`.rag-landing-wrap`, which has `width: 100%`) is now unconstrained. The `.rag-landing-hero-content` keeps its intentional `max-width: 1140px; margin: 0 auto` for readability — only the hero background spans full width, not the text.
+
+### Changes Made
+
+| File | Location | Change |
+|---|---|---|
+| `src/app/ui.py` | Landing `<style>` block — end, before `</style>` | Added `.nicegui-content` and `.q-page` override rules |
+| `src/app/ui.py` | `landing_page()` — after body `ui.query()`, before `ui.html()` | Added `ui.query(".nicegui-content").style(...)` and `ui.query(".q-page").style(...)` |
+| `.claude/agents/logs/aria-worklog.md` | Current State + Session Index | Updated to reflect layout fix |
+
+---
+
+## Session 14 — Commit 30: ui-landing-page
+
+**Date:** 2026-05-19
+**Status:** ✅ Done
+
+### Approach
+
+The core question for this commit was: how to render a full multi-section marketing page inside NiceGUI, which normally renders Python-defined widgets. The options were (1) build every section from `ui.column()`, `ui.row()`, `ui.label()`, and `ui.html()` primitives for each element, or (2) emit each section (or the whole page) as a single `ui.html()` block with namespaced CSS.
+
+Option 1 would give finer Python control over each element but would add thousands of NiceGUI widget instantiations for a page that is purely static — no server-side logic, no async, no re-renders. NiceGUI wraps every widget in a Vue component, so a 200-element page built from primitives would have ~200 reactive bindings for zero benefit. Option 2 emits a single DOM node and lets the browser handle the rest. For a static marketing page, option 2 is the correct choice: faster, simpler, and no NiceGUI overhead.
+
+The CSS namespace decision was non-negotiable. NiceGUI does not scope styles per page — a `<style>` block injected in `/landing` persists in the browser session when the user navigates to `/` or `/login`. The `rag-landing-` prefix ensures no collision with `.q-*` Quasar classes (which govern the chat layout), `.nicegui-markdown` rules (which style chat responses), or the generic `.btn`, `.bubble`, `.hero` class names that appear in the JSX reference files.
+
+The particle canvas implementation required two constraints from the spec that interact with each other: `DOMContentLoaded` initialization (because NiceGUI injects `<head>` scripts before the page body is in the DOM), and an explicit `min-height: 580px` on the hero section (so `getBoundingClientRect()` returns non-zero dimensions on first call before the user has scrolled). Both constraints are in place. The canvas element has `opacity: 0.17` on the `.rag-landing-hero-canvas` CSS class, keeping text fully legible.
+
+The hero mock uses exclusively `rag-landing-mock-*` class names — none of which overlap with the `.bubble`, `.msg-row`, `.avatar`, or `.kc-card` names from the JSX reference. This was the explicit requirement in the spec and the primary CSS collision risk.
+
+The `landing_page()` function is synchronous (`def`, not `async def`) because it performs no awaitable operations. The only async requirement on this page would be `verify_stored_bearer()`, which is not needed — the landing page is public and always renders regardless of auth state. The unauthenticated redirect is handled one layer up in `index()`.
+
+Browser testing is required before the commit gate to verify: canvas animation is visible (bounds ≠ 0×0 in DevTools), marquee loops seamlessly, and navigation targets (`/register`, `/login`) are correct. No browser was available during implementation.
+
+### Changes Made
+
+| File | Location | Change |
+|---|---|---|
+| `src/app/ui.py` | New `@ui.page("/landing")` | `landing_page()` function: CSS injection, JS particle animation, 8-section HTML (A navbar, B hero, C marquee, D problem, E features, F modules, G CTA footer, H site footer) |
+| `src/app/ui.py` | `index()` — unauthenticated branch | `ui.navigate.to("/login")` → `ui.navigate.to("/landing")` |
+| `.claude/agents/logs/aria-worklog.md` | Current State + Session 14 | Updated |
 
 ---
 
