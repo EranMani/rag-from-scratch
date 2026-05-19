@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Tabs & Nav</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 22px 26px;
+    background: var(--c-frame); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    display: grid; gap: 18px;
+  }
+  .tabs { display: flex; gap: 6px; padding: 4px; background: var(--c-card); border-radius: var(--r-pill); width: max-content; }
+  .tab {
+    padding: 8px 18px; border-radius: var(--r-pill);
+    font-family: var(--f-sans); font-size: 12.5px; font-weight: 600;
+    color: var(--c-muted); cursor: pointer; letter-spacing: 0.02em;
+    border: 1px solid transparent;
+  }
+  .tab.active {
+    color: var(--c-fg-strong);
+    background-image: linear-gradient(var(--c-card), var(--c-card)), var(--g-horizon);
+    background-origin: border-box; background-clip: padding-box, border-box;
+    border-color: transparent;
+    box-shadow: 0 0 0 1px rgba(236,72,153,0.4), 0 4px 22px rgba(236,72,153,0.18);
+  }
+  .links { display: flex; gap: 24px; align-items: center; }
+  .link { font-family: var(--f-sans); font-size: 13px; color: var(--c-muted); text-decoration: none; }
+  .link:hover { color: var(--c-fg); }
+  .link.active { color: var(--c-fg-strong); position: relative; }
+  .link.active::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -6px; height: 2px;
+    background: var(--g-horizon); border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="tabs">
+      <span class="tab active">Learn</span>
+      <span class="tab">System</span>
+      <span class="tab">Docs</span>
+    </div>
+    <div class="links">
+      <a class="link active">Features</a>
+      <a class="link">How It Works</a>
+      <a class="link">Docs</a>
+      <a class="link">Pricing</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Eyebrows & Labels</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 22px 28px;
+    background: var(--g-card); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+    display: grid; gap: 20px; grid-template-columns: 1fr 1fr;
+  }
+  .ev { display:flex; flex-direction: column; gap: 6px; }
+  .eyebrow { font-family: var(--f-sans); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--c-muted); }
+  .h2 { font-family: var(--f-sans); font-size: 1.4rem; font-weight: 600; color: var(--c-fg-strong); line-height: 1.2; margin: 0; }
+  .caption { font-family: var(--f-mono); font-size: 10.5px; color: var(--c-subtle); }
+  .label { font-family: var(--f-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="ev">
+      <span class="eyebrow">THE PROBLEM</span>
+      <h2 class="h2">Understanding it deeply is rare.</h2>
+      <span class="caption">eyebrow · 11px · 0.12em · muted</span>
+    </div>
+    <div class="ev">
+      <span class="label">MODULE PROGRESS</span>
+      <h2 class="h2">Retrieval Methods</h2>
+      <span class="caption">label · 11px · 0.08em · muted</span>
+    </div>
+  </div>
+</body>
+</html>

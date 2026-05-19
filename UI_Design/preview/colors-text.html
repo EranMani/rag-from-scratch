@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Text Colors</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 24px 28px;
+    background: var(--g-card); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+    display: grid; gap: 14px;
+  }
+  .row { display: grid; grid-template-columns: 160px 1fr 120px; align-items: baseline; gap: 14px; }
+  .name { font-family: var(--f-mono); font-size: 12px; color: var(--c-muted); }
+  .sample { font-family: var(--f-sans); font-size: 16px; font-weight: 500; }
+  .hex { font-family: var(--f-mono); font-size: 11px; color: var(--c-subtle); text-align: right; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="row"><span class="name">--c-fg-strong</span><span class="sample" style="color:#f8fafc">Headings, emphasis</span><span class="hex">#f8fafc</span></div>
+    <div class="row"><span class="name">--c-fg</span><span class="sample" style="color:#e2e8f0">Body text, chat messages</span><span class="hex">#e2e8f0</span></div>
+    <div class="row"><span class="name">--c-muted</span><span class="sample" style="color:#94a3b8">Secondary labels, eyebrows</span><span class="hex">#94a3b8</span></div>
+    <div class="row"><span class="name">--c-subtle</span><span class="sample" style="color:#64748b">Tertiary, disabled, captions</span><span class="hex">#64748b</span></div>
+  </div>
+</body>
+</html>

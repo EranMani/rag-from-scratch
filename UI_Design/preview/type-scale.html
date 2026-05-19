@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Type Scale</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 24px 28px;
+    background: var(--g-card); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+    display: grid; gap: 12px;
+  }
+  .row { display: grid; grid-template-columns: 90px 1fr 140px; align-items: baseline; gap: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--c-hairline); }
+  .row:last-child { border-bottom: 0; }
+  .tag { font-family: var(--f-mono); font-size: 11px; color: var(--c-muted); }
+  .meta { font-family: var(--f-mono); font-size: 10px; color: var(--c-subtle); text-align: right; }
+  .h1 { font-family: var(--f-sans); font-size: 2.5rem; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; color: var(--c-fg-strong); }
+  .h2 { font-family: var(--f-sans); font-size: 1.5rem; font-weight: 600; color: var(--c-fg-strong); line-height: 1.2; }
+  .h3 { font-family: var(--f-sans); font-size: 1.1rem; font-weight: 700; background: var(--g-sunset); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .body { font-family: var(--f-sans); font-size: 1rem; color: var(--c-fg); }
+  .lbl { font-family: var(--f-sans); font-size: 13px; color: var(--c-muted); font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="row"><span class="tag">h1 · 40</span><span class="h1">Built different.</span><span class="meta">700 · -0.02em</span></div>
+    <div class="row"><span class="tag">h2 · 24</span><span class="h2">From zero to production</span><span class="meta">600 · -0.02em</span></div>
+    <div class="row"><span class="tag">h3 · 18</span><span class="h3">Knows what you know</span><span class="meta">700 · grad clip</span></div>
+    <div class="row"><span class="tag">body · 16</span><span class="body">Every question you ask updates your knowledge profile.</span><span class="meta">400 · 1.55</span></div>
+    <div class="row"><span class="tag">label · 13</span><span class="lbl">Email address</span><span class="meta">500 · muted</span></div>
+  </div>
+</body>
+</html>

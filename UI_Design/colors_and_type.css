@@ -1,0 +1,232 @@
+/* ============================================================
+   RAG Tutor — Design Tokens
+   Colors, gradients, type, spacing, shadow systems.
+   Import this file once in any HTML root to pick up the system.
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* ---------- Surface scale (deepest → most elevated) ---------- */
+  --c-canvas:        #120e28;  /* page background — deepest void */
+  --c-frame:         #0c0a1e;  /* headers, drawers, surfaces darker than canvas */
+  --c-sidebar:       #16103a;  /* sidebar, secondary panels */
+  --c-card:          #1e163c;  /* cards, modals, elevated surfaces */
+  --c-surface-alt:   #231848;  /* input bar, footer zone */
+  --c-border:        #241d4a;  /* default borders, dividers */
+  --c-border-soft:   rgba(139, 92, 246, 0.18);
+  --c-hairline:      rgba(255, 255, 255, 0.04);
+
+  /* ---------- Brand gradient stops ---------- */
+  --c-warm:          #f97316;  /* orange — energy, CTA accents */
+  --c-coral:         #ec4899;  /* pink — emotion, focus, glow anchor */
+  --c-violet:        #8b5cf6;  /* purple — AI, depth, sidebar accents */
+  --c-blue:          #38bdf8;  /* sky — data, highlights, code */
+
+  /* ---------- Text ---------- */
+  --c-fg:            #e2e8f0;  /* primary body text */
+  --c-fg-strong:     #f8fafc;  /* headings, emphasis */
+  --c-muted:         #94a3b8;  /* secondary text, labels */
+  --c-subtle:        #64748b;  /* tertiary text, disabled */
+
+  /* ---------- Semantic ---------- */
+  --c-success:       #4ade80;  /* health checks, success states */
+  --c-warning:       #fbbf24;  /* degraded services, soft warnings */
+  --c-error:         #f87171;  /* errors, delete actions */
+  --c-neural:        #a78bfa;  /* knowledge check cards, AI-specific accents */
+  --c-mono-accent:   #e879f9;  /* magenta for inline mono data */
+
+  /* ---------- Brand gradients ---------- */
+  --g-sunset:  linear-gradient(135deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%);
+  --g-horizon: linear-gradient(90deg,  #f97316 0%, #ec4899 40%, #8b5cf6 70%, #38bdf8 100%);
+  --g-deep:    linear-gradient(160deg, rgba(22,16,44,0.98) 0%, rgba(28,20,52,0.98) 100%);
+  --g-glow-bg: radial-gradient(ellipse at 8% 92%, rgba(249,115,22,0.07), transparent 38%),
+               radial-gradient(ellipse at 92% 8%, rgba(139,92,246,0.07), transparent 38%);
+  --g-card:    linear-gradient(160deg, rgba(30,22,60,0.92) 0%, rgba(22,16,58,0.92) 100%);
+
+  /* ---------- Glow system (hierarchy is sacred) ---------- */
+  --glow-cta-rest:    0 4px 24px rgba(236, 72, 153, 0.32), 0 0 0 1px rgba(249,115,22,0.4) inset;
+  --glow-cta-hover:   0 6px 32px rgba(236, 72, 153, 0.55), 0 0 0 1px rgba(249,115,22,0.6) inset;
+  --glow-focus:       0 0 0 3px rgba(236, 72, 153, 0.18), 0 4px 18px rgba(236,72,153,0.18);
+  --glow-card:        0 4px 28px rgba(139, 92, 246, 0.12);
+  --glow-card-lift:   0 8px 36px rgba(139, 92, 246, 0.22);
+  --glow-sidebar:     inset 0 0 60px rgba(139, 92, 246, 0.04);
+  --glow-warm:        0 0 32px rgba(249, 115, 22, 0.25);
+
+  /* ---------- Radii ---------- */
+  --r-xs:  4px;
+  --r-sm:  8px;
+  --r-md:  12px;
+  --r-lg:  16px;
+  --r-xl:  24px;
+  --r-pill: 999px;
+
+  /* ---------- Spacing scale (4-pt base) ---------- */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  20px;
+  --s-6:  24px;
+  --s-8:  32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --s-20: 80px;
+  --s-24: 96px;
+
+  /* ---------- Type families ---------- */
+  --f-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+
+  /* ---------- Type scale ---------- */
+  --t-display:  3.5rem;   /* hero H1 */
+  --t-h1:       2.5rem;   /* page section */
+  --t-h2:       1.875rem; /* sub-section */
+  --t-h3:       1.25rem;  /* card heading */
+  --t-h4:       1.1rem;   /* dense card heading */
+  --t-body:     1rem;
+  --t-body-sm:  0.9rem;
+  --t-label:    0.82rem;
+  --t-caption:  0.72rem;
+  --t-mono:     0.85rem;
+  --t-wordmark: 1.35rem;
+
+  /* ---------- Motion ---------- */
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:    cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-soft:  cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast:     120ms;
+  --t-base:     220ms;
+  --t-slow:     420ms;
+  --t-breathe:  6s;
+}
+
+/* ============================================================
+   Base reset & body
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--c-canvas);
+  color: var(--c-fg);
+  font-family: var(--f-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============================================================
+   Semantic typography classes
+   ============================================================ */
+
+.rag-display, .rag-h1, .rag-h2, .rag-h3 { line-height: 1.1; letter-spacing: -0.02em; }
+
+.rag-display {
+  font-size: var(--t-display);
+  font-weight: 700;
+  background: var(--g-sunset);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rag-h1 {
+  font-size: var(--t-h1);
+  font-weight: 700;
+  color: var(--c-fg-strong);
+}
+
+.rag-h1--gradient {
+  background: var(--g-sunset);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rag-h2 {
+  font-size: var(--t-h2);
+  font-weight: 600;
+  color: var(--c-fg-strong);
+}
+
+.rag-h3 {
+  font-size: var(--t-h3);
+  font-weight: 700;
+  background: var(--g-sunset);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rag-wordmark {
+  font-size: var(--t-wordmark);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: var(--g-sunset);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rag-body  { font-size: var(--t-body);    color: var(--c-fg); }
+.rag-body-sm { font-size: var(--t-body-sm); color: var(--c-fg); }
+
+.rag-label {
+  font-size: var(--t-label);
+  font-weight: 500;
+  color: var(--c-muted);
+}
+
+.rag-eyebrow {
+  font-size: var(--t-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--c-muted);
+}
+
+.rag-caption {
+  font-size: var(--t-caption);
+  color: var(--c-subtle);
+}
+
+.rag-mono {
+  font-family: var(--f-mono);
+  font-size: var(--t-mono);
+  color: var(--c-blue);
+  font-variant-ligatures: none;
+}
+
+.rag-mono--magenta { color: var(--c-mono-accent); }
+
+/* ============================================================
+   Utility surfaces (use sparingly in cards/UI kit)
+   ============================================================ */
+
+.rag-card {
+  background: var(--g-card);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--glow-card);
+}
+
+.rag-gradient-border {
+  position: relative;
+  border-radius: var(--r-lg);
+  background: var(--c-card);
+}
+.rag-gradient-border::before {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--g-horizon);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+}

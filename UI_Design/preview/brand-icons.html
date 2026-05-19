@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Iconography</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 22px;
+    background: var(--g-card); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px;
+  }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .ico { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r-md); background: var(--c-card); border: 1px solid var(--c-border); color: var(--c-muted); }
+  .ico.warm { color: #f97316; box-shadow: 0 0 18px rgba(249,115,22,0.18); border-color: rgba(249,115,22,0.3); }
+  .ico.pink { color: #ec4899; }
+  .ico.violet { color: #a78bfa; }
+  .ico.blue { color: #38bdf8; }
+  .name { font-family: var(--f-mono); font-size: 10px; color: var(--c-muted); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="cell"><span class="ico warm"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></span><span class="name">send</span></div>
+    <div class="cell"><span class="ico pink"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><span class="name">search</span></div>
+    <div class="cell"><span class="ico violet"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/></svg></span><span class="name">graph</span></div>
+    <div class="cell"><span class="ico blue"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span><span class="name">code</span></div>
+    <div class="cell"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="name">chat</span></div>
+    <div class="cell"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg></span><span class="name">target</span></div>
+    <div class="cell"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2v6"/><path d="M12 22v-6"/><path d="M4.93 4.93l4.24 4.24"/><path d="M14.83 14.83l4.24 4.24"/><path d="M2 12h6"/><path d="M22 12h-6"/></svg></span><span class="name">scan</span></div>
+    <div class="cell"><span class="ico violet"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l2.5 5.5L20 9l-4 4 1 5.5L12 16l-5 2.5L8 13 4 9l5.5-1.5z"/></svg></span><span class="name">star</span></div>
+    <div class="cell"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span><span class="name">grid</span></div>
+    <div class="cell"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20l9-16H3z"/></svg></span><span class="name">layers</span></div>
+    <div class="cell"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="20 6 9 17 4 12"/></svg></span><span class="name">check</span></div>
+    <div class="cell"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span><span class="name">info</span></div>
+  </div>
+</body>
+</html>

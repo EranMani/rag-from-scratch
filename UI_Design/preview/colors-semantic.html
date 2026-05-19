@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Semantic Colors</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 22px;
+    background: var(--g-card); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+  }
+  .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .cell { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  .chip {
+    padding: 6px 12px; border-radius: var(--r-pill);
+    font-family: var(--f-mono); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .name { font-family: var(--f-mono); font-size: 11px; color: var(--c-fg); }
+  .hex { font-family: var(--f-mono); font-size: 10px; color: var(--c-subtle); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="row">
+      <div class="cell">
+        <span class="chip" style="background: rgba(74,222,128,0.14); color:#4ade80; border:1px solid rgba(74,222,128,0.3)">healthy</span>
+        <div><div class="name">--c-success</div><div class="hex">#4ade80</div></div>
+      </div>
+      <div class="cell">
+        <span class="chip" style="background: rgba(251,191,36,0.14); color:#fbbf24; border:1px solid rgba(251,191,36,0.3)">degraded</span>
+        <div><div class="name">--c-warning</div><div class="hex">#fbbf24</div></div>
+      </div>
+      <div class="cell">
+        <span class="chip" style="background: rgba(248,113,113,0.14); color:#f87171; border:1px solid rgba(248,113,113,0.3)">error</span>
+        <div><div class="name">--c-error</div><div class="hex">#f87171</div></div>
+      </div>
+      <div class="cell">
+        <span class="chip" style="background: rgba(167,139,250,0.14); color:#a78bfa; border:1px solid rgba(167,139,250,0.3)">knowledge</span>
+        <div><div class="name">--c-neural</div><div class="hex">#a78bfa</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

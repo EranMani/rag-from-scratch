@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Spacing</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 22px 28px;
+    background: var(--g-card); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+  }
+  .row { display: flex; align-items: end; gap: 12px; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .bar { background: linear-gradient(135deg,#f97316,#ec4899,#8b5cf6); border-radius: 3px; width: 100%; min-height: 4px; }
+  .tag { font-family: var(--f-mono); font-size: 10.5px; color: var(--c-muted); }
+  .px { font-family: var(--f-mono); font-size: 10px; color: var(--c-subtle); }
+  .col.s1 .bar { height: 4px; }
+  .col.s2 .bar { height: 8px; }
+  .col.s3 .bar { height: 12px; }
+  .col.s4 .bar { height: 16px; }
+  .col.s5 .bar { height: 20px; }
+  .col.s6 .bar { height: 24px; }
+  .col.s8 .bar { height: 32px; }
+  .col.s10 .bar { height: 40px; }
+  .col.s12 .bar { height: 48px; }
+  .col.s16 .bar { height: 64px; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="row">
+      <div class="col s1"><div class="bar"></div><div class="tag">--s-1</div><div class="px">4</div></div>
+      <div class="col s2"><div class="bar"></div><div class="tag">--s-2</div><div class="px">8</div></div>
+      <div class="col s3"><div class="bar"></div><div class="tag">--s-3</div><div class="px">12</div></div>
+      <div class="col s4"><div class="bar"></div><div class="tag">--s-4</div><div class="px">16</div></div>
+      <div class="col s5"><div class="bar"></div><div class="tag">--s-5</div><div class="px">20</div></div>
+      <div class="col s6"><div class="bar"></div><div class="tag">--s-6</div><div class="px">24</div></div>
+      <div class="col s8"><div class="bar"></div><div class="tag">--s-8</div><div class="px">32</div></div>
+      <div class="col s10"><div class="bar"></div><div class="tag">--s-10</div><div class="px">40</div></div>
+      <div class="col s12"><div class="bar"></div><div class="tag">--s-12</div><div class="px">48</div></div>
+      <div class="col s16"><div class="bar"></div><div class="tag">--s-16</div><div class="px">64</div></div>
+    </div>
+  </div>
+</body>
+</html>

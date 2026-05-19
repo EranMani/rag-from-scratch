@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Brand Gradient</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 24px;
+    background: var(--g-card); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+    display: grid; gap: 14px;
+  }
+  .bar { height: 56px; border-radius: var(--r-md); position: relative; overflow: hidden; }
+  .bar.sunset  { background: var(--g-sunset); }
+  .bar.horizon { background: var(--g-horizon); }
+  .stops { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stop { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--c-frame); border: 1px solid var(--c-border); border-radius: var(--r-sm); }
+  .swatch { width: 18px; height: 18px; border-radius: 4px; }
+  .name { font-family: var(--f-mono); font-size: 11px; color: var(--c-muted); }
+  .hex  { font-family: var(--f-mono); font-size: 11px; color: var(--c-fg); }
+  .lbl  { font-family: var(--f-mono); font-size: 10px; color: var(--c-subtle); text-transform: uppercase; letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div>
+      <div class="lbl">--g-sunset · 135°</div>
+      <div class="bar sunset"></div>
+    </div>
+    <div>
+      <div class="lbl">--g-horizon · 90°</div>
+      <div class="bar horizon"></div>
+    </div>
+    <div class="stops">
+      <div class="stop"><span class="swatch" style="background:#f97316"></span><span><div class="hex">#f97316</div><div class="name">--c-warm</div></span></div>
+      <div class="stop"><span class="swatch" style="background:#ec4899"></span><span><div class="hex">#ec4899</div><div class="name">--c-coral</div></span></div>
+      <div class="stop"><span class="swatch" style="background:#8b5cf6"></span><span><div class="hex">#8b5cf6</div><div class="name">--c-violet</div></span></div>
+      <div class="stop"><span class="swatch" style="background:#38bdf8"></span><span><div class="hex">#38bdf8</div><div class="name">--c-blue</div></span></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Card Variants</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  .card {
+    padding: 16px 18px; border-radius: var(--r-lg);
+    background: linear-gradient(160deg, rgba(30,22,60,0.92) 0%, rgba(22,16,58,0.92) 100%);
+    border: 1px solid var(--c-border);
+    box-shadow: 0 4px 28px rgba(139,92,246,0.12);
+  }
+  .card.grad {
+    position: relative; background: var(--c-card);
+  }
+  .card.grad::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    padding: 1px; background: var(--g-horizon);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none;
+  }
+  .card.elev { box-shadow: 0 8px 36px rgba(139,92,246,0.22); border-color: rgba(139,92,246,0.24); }
+  .card.glow-top { border-top: 2px solid #f97316; }
+  .head { font-family: var(--f-sans); font-size: 14px; font-weight: 700; background: var(--g-sunset); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 4px; }
+  .body { font-family: var(--f-sans); font-size: 12px; color: var(--c-muted); line-height: 1.5; }
+  .tag { font-family: var(--f-mono); font-size: 9.5px; color: var(--c-subtle); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card">
+      <div class="head">Default card</div>
+      <div class="body">Standard surface for content. Violet ambient glow at 0.12.</div>
+      <div class="tag">.rag-card · radius 16</div>
+    </div>
+    <div class="card elev">
+      <div class="head">Hover / elevated</div>
+      <div class="body">Lift the violet glow to 0.22. No transform.</div>
+      <div class="tag">--glow-card-lift</div>
+    </div>
+    <div class="card grad">
+      <div class="head">Gradient border</div>
+      <div class="body">Pseudo-element masks a 1px brand stroke around the surface.</div>
+      <div class="tag">.rag-gradient-border</div>
+    </div>
+    <div class="card glow-top">
+      <div class="head">Login card</div>
+      <div class="body">Orange top-edge bar (2px). Register variant uses violet.</div>
+      <div class="tag">--c-warm top border</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Mono & Data</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 22px 24px;
+    background: var(--g-card); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+    display: grid; gap: 14px;
+  }
+  .label { font-family: var(--f-sans); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--c-muted); margin-bottom: 4px; }
+  .data { font-family: var(--f-mono); font-size: 14px; color: var(--c-blue); display: flex; gap: 18px; flex-wrap: wrap; }
+  .data span { display: flex; flex-direction: column; }
+  .data b { font-size: 22px; font-weight: 500; color: var(--c-blue); letter-spacing: -0.01em; }
+  .data em { font-style: normal; font-size: 10px; color: var(--c-subtle); text-transform: uppercase; letter-spacing: 0.08em; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.22); border-radius: 4px; font-family: var(--f-mono); font-size: 11px; color: var(--c-blue); }
+  .pill.magenta { color: var(--c-mono-accent); background: rgba(232,121,249,0.08); border-color: rgba(232,121,249,0.22); }
+  code { font-family: var(--f-mono); font-size: 12px; color: #e879f9; background: var(--c-frame); padding: 2px 6px; border-radius: 4px; }
+  hr { border: 0; border-top: 1px solid var(--c-hairline); margin: 4px 0; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div>
+      <div class="label">SCORES & LATENCIES</div>
+      <div class="data">
+        <span><b>0.847</b><em>recall@10</em></span>
+        <span><b>120ms</b><em>p50 latency</em></span>
+        <span><b>1,284</b><em>chunks</em></span>
+        <span><b>v0.4.2</b><em>build</em></span>
+      </div>
+    </div>
+    <hr/>
+    <div>
+      <div class="label">INLINE TOKENS</div>
+      <div class="data" style="font-size:12px; gap:8px">
+        <span class="pill">trace_id=0x9af</span>
+        <span class="pill magenta">embed=cosine</span>
+        <span class="pill">k=8</span>
+        <span class="pill magenta">top_p=0.95</span>
+      </div>
+    </div>
+    <hr/>
+    <div>
+      <div class="label">IN BODY</div>
+      <div style="color: var(--c-fg); font-size: 13.5px;">Set <code>chunk_size=512</code> and re-rank with <code>bge-reranker-v2</code>.</div>
+    </div>
+  </div>
+</body>
+</html>

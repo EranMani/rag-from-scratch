@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Knowledge Check Card</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 18px 22px;
+    background: linear-gradient(160deg, rgba(36,21,80,0.85), rgba(28,18,62,0.85));
+    border: 1px solid rgba(167,139,250,0.28);
+    border-radius: var(--r-lg);
+    box-shadow: 0 0 36px rgba(139,92,246,0.22), inset 0 0 60px rgba(139,92,246,0.06);
+  }
+  .label { font-family: var(--f-sans); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: #c4b5fd; display: flex; align-items: center; gap: 8px; }
+  .label .star { color: #a78bfa; font-size: 13px; }
+  .q { font-family: var(--f-sans); font-size: 15px; font-weight: 500; color: var(--c-fg); margin: 10px 0 12px; line-height: 1.5; }
+  .choices { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+  .choice {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; background: rgba(20, 14, 50, 0.6);
+    border: 1px solid var(--c-border); border-radius: var(--r-md);
+    font-family: var(--f-sans); font-size: 13px; color: var(--c-fg); cursor: pointer;
+  }
+  .key { font-family: var(--f-mono); font-size: 10px; color: var(--c-muted); padding: 2px 6px; background: var(--c-frame); border-radius: 4px; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="label"><span class="star">✦</span>Knowledge Check</div>
+    <div class="q">Which chunking strategy preserves semantic coherence best for long technical docs?</div>
+    <div class="choices">
+      <div class="choice"><span class="key">A</span>Fixed-size 256 tokens</div>
+      <div class="choice"><span class="key">B</span>Recursive by markdown heading</div>
+      <div class="choice"><span class="key">C</span>Sentence window with overlap</div>
+      <div class="choice"><span class="key">D</span>Semantic split by embedding shift</div>
+    </div>
+  </div>
+</body>
+</html>

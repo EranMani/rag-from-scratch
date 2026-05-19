@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 24px;
+    background: var(--g-card); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+    display: grid; gap: 18px; grid-template-columns: 1fr 1fr;
+    align-items: center;
+  }
+  .cell { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .meta { font-family: var(--f-mono); font-size: 10px; color: var(--c-subtle); }
+  button { font-family: var(--f-sans); font-weight: 600; font-size: 14px; border: 0; cursor: pointer; }
+  .btn-primary {
+    padding: 12px 22px; border-radius: var(--r-pill);
+    background: linear-gradient(135deg, #f97316, #ec4899, #8b5cf6); color: #fff;
+    box-shadow: 0 6px 32px rgba(236,72,153,0.55); letter-spacing: -0.005em;
+  }
+  .btn-secondary {
+    padding: 12px 22px; border-radius: var(--r-pill);
+    background: transparent; color: var(--c-fg); position: relative;
+    border: 1px solid transparent;
+    background-image: linear-gradient(var(--c-card), var(--c-card)), var(--g-horizon);
+    background-origin: border-box; background-clip: padding-box, border-box;
+  }
+  .btn-ghost { padding: 10px 16px; border-radius: var(--r-md); background: transparent; color: var(--c-muted); border: 1px solid var(--c-border); }
+  .btn-send {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: linear-gradient(135deg, #f97316, #ec4899);
+    color: white; display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 28px rgba(236,72,153,0.55);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="cell"><button class="btn-primary">Start for Free →</button><div class="meta">primary · gradient · pink glow 0.55</div></div>
+    <div class="cell"><button class="btn-secondary">See how it works ↓</button><div class="meta">secondary · gradient border</div></div>
+    <div class="cell"><button class="btn-ghost">Cancel</button><div class="meta">ghost · subtle border · muted</div></div>
+    <div class="cell"><button class="btn-send" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12l14-7-5 14-3-6-6-1z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" fill="currentColor"/></svg></button><div class="meta">send · 44px circle · highest glow</div></div>
+  </div>
+</body>
+</html>

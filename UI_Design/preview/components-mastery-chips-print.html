@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Mastery Chips (print)</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 26px;
+    background: var(--c-sidebar); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 14px; border-radius: var(--r-pill);
+    font-family: var(--f-sans); font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    align-self: start;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .nov { background: rgba(148,163,184,0.10); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.28); }
+  .nov .dot { background: #94a3b8; }
+  .int { background: rgba(249,115,22,0.10); color: #fb923c; border: 1px solid rgba(249,115,22,0.34); box-shadow: 0 0 18px rgba(249,115,22,0.12); }
+  .int .dot { background: #f97316; }
+  .adv { background: rgba(236,72,153,0.10); color: #f472b6; border: 1px solid rgba(236,72,153,0.36); box-shadow: 0 0 22px rgba(236,72,153,0.18); }
+  .adv .dot { background: #ec4899; }
+  .exp {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 14px; border-radius: var(--r-pill);
+    font-family: var(--f-sans); font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    background: rgba(139,92,246,0.12);
+    color: #a78bfa;
+    border: 1px solid rgba(139,92,246,0.45);
+    box-shadow: 0 0 24px rgba(139,92,246,0.32), inset 0 0 14px rgba(139,92,246,0.10);
+  }
+  .exp .dot { background: #8b5cf6; box-shadow: 0 0 10px rgba(139,92,246,0.7); }
+  .meta { font-family: var(--f-mono); font-size: 10px; color: var(--c-subtle); margin-top: 8px; }
+  .col { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+
+  /* ---------- Print ---------- */
+  @page { size: landscape; margin: 0.5cm; }
+
+  @media print {
+    html, body {
+      background: var(--c-canvas) !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      color-adjust: exact;
+      min-height: 0;
+      padding: 0;
+    }
+    body { min-height: auto; padding: 24px; }
+    .stage {
+      break-inside: avoid;
+      box-shadow: none;     /* drop screen-only ambient */
+    }
+    .chip, .exp {
+      break-inside: avoid;
+      box-shadow: none;     /* the chips' colored glows don't print well; tints + borders carry the meaning */
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="col"><span class="chip nov"><span class="dot"></span>Novice</span><span class="meta">slate · neutral</span></div>
+    <div class="col"><span class="chip int"><span class="dot"></span>Intermediate</span><span class="meta">orange</span></div>
+    <div class="col"><span class="chip adv"><span class="dot"></span>Advanced</span><span class="meta">pink</span></div>
+    <div class="col"><span class="exp"><span class="dot"></span>Expert</span><span class="meta">violet · premium tier</span></div>
+  </div>
+
+  <script>
+    (async () => {
+      try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (_) {}
+      setTimeout(() => window.print(), 500);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Surface Scale</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 18px;
+    background: var(--c-canvas); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 10px; }
+  .tile {
+    aspect-ratio: 1.4 / 1; border-radius: var(--r-md);
+    border: 1px solid var(--c-border);
+    padding: 12px; display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .name { font-family: var(--f-mono); font-size: 11px; color: var(--c-fg); }
+  .hex { font-family: var(--f-mono); font-size: 10px; color: var(--c-muted); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="row">
+      <div class="tile" style="background:#120e28"><div class="name">canvas</div><div class="hex">#120e28</div></div>
+      <div class="tile" style="background:#0c0a1e"><div class="name">frame</div><div class="hex">#0c0a1e</div></div>
+      <div class="tile" style="background:#16103a"><div class="name">sidebar</div><div class="hex">#16103a</div></div>
+      <div class="tile" style="background:#1e163c"><div class="name">card</div><div class="hex">#1e163c</div></div>
+      <div class="tile" style="background:#231848"><div class="name">alt</div><div class="hex">#231848</div></div>
+    </div>
+  </div>
+</body>
+</html>

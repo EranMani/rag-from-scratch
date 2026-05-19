@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Thinking Indicator</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 30px;
+    background: var(--g-card); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+    display: flex; align-items: center; gap: 28px;
+  }
+  .group {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 22px; border-radius: 14px;
+    background: rgba(20,14,50,0.6); border: 1px solid var(--c-border);
+    position: relative; overflow: hidden;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; animation: pulse 1.4s ease-in-out infinite; }
+  .d1 { background: #f97316; animation-delay: 0s; box-shadow: 0 0 12px rgba(249,115,22,0.6); }
+  .d2 { background: #ec4899; animation-delay: 0.2s; box-shadow: 0 0 12px rgba(236,72,153,0.6); }
+  .d3 { background: #8b5cf6; animation-delay: 0.4s; box-shadow: 0 0 12px rgba(139,92,246,0.6); }
+  @keyframes pulse { 0%,100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+  .group::after {
+    content: ""; position: absolute; bottom: 6px; left: -30%; right: -30%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(236,72,153,0.4), transparent);
+    animation: scan 2.5s ease-in-out infinite;
+  }
+  @keyframes scan { 0%, 100% { transform: translateX(-30%); opacity: 0; } 50% { opacity: 1; } 80% { transform: translateX(30%); } }
+  .label { font-family: var(--f-mono); font-size: 11px; color: var(--c-muted); letter-spacing: 0.06em; }
+  .meta { font-family: var(--f-mono); font-size: 10px; color: var(--c-subtle); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="group">
+      <span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span>
+      <span class="label">Retrieving…</span>
+    </div>
+    <div>
+      <div style="font-family: var(--f-sans); font-size: 13px; color: var(--c-fg); font-weight: 500;">Thinking indicator</div>
+      <div class="meta">3 dots · 1.4s loop · scan line · 2.5s</div>
+    </div>
+  </div>
+</body>
+</html>

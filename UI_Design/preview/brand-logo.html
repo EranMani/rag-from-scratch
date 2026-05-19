@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Brand · Logo</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body {
+    margin: 0; padding: 24px;
+    background: var(--c-canvas);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+  }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 36px 40px;
+    background:
+      radial-gradient(ellipse at 12% 88%, rgba(249,115,22,0.08), transparent 55%),
+      radial-gradient(ellipse at 88% 12%, rgba(139,92,246,0.08), transparent 55%),
+      linear-gradient(160deg, rgba(30,22,60,0.92) 0%, rgba(22,16,58,0.92) 100%);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+  }
+  .lockup {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 360px;
+    object-fit: contain;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <img class="lockup" src="../assets/rag-tutor-logo-full.png" alt="RAG Tutor — full logo lockup with robot mascot, wordmark, and tagline" />
+  </div>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Marquee</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 24px 0;
+    background: rgba(12,10,30,0.6);
+    backdrop-filter: blur(4px);
+    border-top: 1px solid var(--c-border);
+    border-bottom: 1px solid var(--c-border);
+    overflow: hidden;
+    position: relative;
+  }
+  .stage::before, .stage::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 60px; z-index: 2; pointer-events: none;
+  }
+  .stage::before { left: 0; background: linear-gradient(90deg, var(--c-canvas), transparent); }
+  .stage::after  { right: 0; background: linear-gradient(-90deg, var(--c-canvas), transparent); }
+  .track {
+    display: flex; gap: 36px; animation: marq 30s linear infinite;
+    font-family: var(--f-sans); font-size: 12px; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--c-muted);
+    width: max-content;
+  }
+  .track span { display: inline-flex; align-items: center; gap: 36px; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: #ec4899; box-shadow: 0 0 8px rgba(236,72,153,0.6); }
+  @keyframes marq { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="track">
+      <span>RAG Fundamentals<span class="dot"></span>Vector Databases<span class="dot"></span>Retrieval Methods<span class="dot"></span>Chunking Strategies<span class="dot"></span>LangChain<span class="dot"></span>Production Patterns<span class="dot"></span></span>
+      <span>RAG Fundamentals<span class="dot"></span>Vector Databases<span class="dot"></span>Retrieval Methods<span class="dot"></span>Chunking Strategies<span class="dot"></span>LangChain<span class="dot"></span>Production Patterns<span class="dot"></span></span>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Preview — Chat Bubbles</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  body { margin: 0; padding: 24px; background: var(--c-canvas); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .stage {
+    width: 100%; max-width: 700px;
+    padding: 22px;
+    background: var(--c-canvas); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+    box-shadow: var(--glow-card);
+    display: grid; gap: 14px;
+  }
+  .msg { display: flex; gap: 10px; align-items: flex-start; max-width: 100%; }
+  .msg.user { justify-content: flex-end; }
+  .av {
+    width: 28px; height: 28px; border-radius: 8px; flex: 0 0 28px;
+    background: linear-gradient(135deg, #f97316, #ec4899); display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--f-mono); font-size: 11px; color: #fff; font-weight: 700;
+  }
+  .av.user { background: linear-gradient(135deg, #8b5cf6, #38bdf8); }
+  .bubble {
+    padding: 12px 14px; border-radius: 14px; max-width: 78%;
+    font-family: var(--f-sans); font-size: 13.5px; line-height: 1.55;
+    background: var(--c-card); border: 1px solid var(--c-border);
+    color: var(--c-fg);
+  }
+  .bubble.assistant {
+    border-color: rgba(236,72,153,0.22);
+    box-shadow: 0 4px 22px rgba(236,72,153,0.08);
+  }
+  .bubble.user {
+    background: rgba(56,189,248,0.06);
+    border-color: rgba(56,189,248,0.22);
+    color: var(--c-fg);
+  }
+  .name { font-family: var(--f-mono); font-size: 10px; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; display: block; }
+  code { font-family: var(--f-mono); font-size: 12px; color: #e879f9; background: var(--c-frame); padding: 1px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="msg user">
+      <div class="bubble user"><span class="name" style="text-align:right">you</span>Why does my re-ranker make retrieval worse on short queries?</div>
+      <div class="av user">YO</div>
+    </div>
+    <div class="msg">
+      <div class="av">RT</div>
+      <div class="bubble assistant"><span class="name">RAG Tutor</span>Short queries lack the lexical surface area cross-encoders need. Try lowering <code>k</code> at retrieval and skipping re-rank below 6 tokens.</div>
+    </div>
+  </div>
+</body>
+</html>
