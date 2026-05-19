@@ -132,38 +132,49 @@ def setup_ui(fastapi_app):
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-.rag-login-input .q-field__control { background: #0c0a1e !important; border-radius: 10px !important; }
-.rag-login-input.q-field--outlined .q-field__control:before { border-color: #2e2558 !important; border-radius: 10px !important; transition: border-color 0.2s, box-shadow 0.2s; }
+.rag-login-input .q-field__control { background: #0c0a1e !important; border-radius: 12px !important; min-height: 32px !important; }
+.rag-login-input.q-field--outlined .q-field__control:before { border-color: #2e2558 !important; border-radius: 12px !important; transition: border-color 0.2s, box-shadow 0.2s; }
 .rag-login-input.q-field--outlined:hover .q-field__control:before { border-color: rgba(236,72,153,0.4) !important; }
-.rag-login-input.q-field--outlined.q-field--focused .q-field__control:before { border-color: #ec4899 !important; box-shadow: 0 0 0 3px rgba(236,72,153,0.15); }
-.rag-login-input .q-field__native { color: #ffffff !important; padding-left: 1rem !important; padding-right: 1rem !important; }
+.rag-login-input.q-field--outlined.q-field--focused .q-field__control:before { border-color: #ec4899 !important; border-width: 2px !important; box-shadow: 0 0 0 3px rgba(236,72,153,0.15) !important; }
+.rag-login-input:focus-within .q-field__control:before { border-color: #ec4899 !important; border-width: 2px !important; }
+.rag-login-input .q-field__native { color: #ffffff !important; padding: 6px 1rem !important; min-height: unset !important; }
 .rag-login-input .q-field__label { color: #94a3b8 !important; }
 .rag-login-input .q-field__placeholder { color: #4a5568 !important; }
+.auth-brand { display:flex; flex-direction:column; align-items:center; gap:0.5rem; padding-bottom:0.25rem; width:100%; }
+.auth-tag { font-size:0.78rem; color:#94a3b8; text-align:center; }
+.auth-sub { font-size:0.95rem; font-weight:600; color:#e2e8f0; text-align:center; width:100%; }
+.auth-field-wrap { display:flex; flex-direction:column; gap:0.25rem; width:100%; }
+.auth-field-label { font-size:0.82rem; font-weight:500; color:#e2e8f0; }
+.auth-submit { width:100%; border-radius:999px !important; overflow:hidden !important; box-shadow:0 4px 24px rgba(236,72,153,0.35) !important; }
+.auth-submit .q-btn__wrapper { background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%) !important; border-radius:999px !important; min-height:48px !important; opacity:1 !important; }
+.auth-submit .q-btn__content { color:white !important; font-weight:600 !important; font-size:1rem !important; }
+.auth-swap { font-size:0.82rem; color:#64748b; text-align:center; width:100%; }
+.auth-swap a { color:#f97316; cursor:pointer; text-decoration:none; }
+.auth-swap a:hover { text-decoration:underline; }
 </style>''')
         ui.query("body").style("background:radial-gradient(ellipse at 35% 0%, #2a1060 0%, #120e28 60%); color:#e2e8f0; font-family:'Inter',system-ui")
+        ui.query(".nicegui-content").style("display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:1rem; max-width:none")
+        ui.query(".q-page").style("display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%")
         with ui.column().style(
-            "width:100%; max-width:420px; margin:3rem auto; padding:2rem; gap:1.25rem; "
+            "width:100%; max-width:420px; margin:0; padding:2rem; gap:1.25rem; "
             "background:linear-gradient(160deg, rgba(22,16,44,0.98) 0%, rgba(28,20,52,0.98) 100%); "
             "border:1px solid rgba(139,92,246,0.2); border-top:3px solid #f97316; border-radius:16px; "
             "backdrop-filter:blur(12px); box-shadow:0 8px 48px rgba(139,92,246,0.15)"
         ):
-            with ui.row().style("align-items:center; gap:0.625rem"):
-                ui.html('''<svg width="36" height="36" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient id="lg-login" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-    <stop offset="0%" stop-color="#f97316"/><stop offset="50%" stop-color="#ec4899"/><stop offset="100%" stop-color="#8b5cf6"/>
-  </linearGradient></defs>
-  <path d="M10 6L4 14L10 22" stroke="url(#lg-login)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M18 6L24 14L18 22" stroke="url(#lg-login)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M15 8L13 20" stroke="url(#lg-login)" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
-</svg>''')
+            with ui.column().classes("auth-brand").style("width:100%"):
+                ui.html('<div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%);display:flex;align-items:center;justify-content:center;font-size:1.75rem;font-weight:800;color:white;font-family:Inter,system-ui">R</div>')
                 ui.html('<span style="font-size:1.5rem;font-weight:700;letter-spacing:-0.02em;font-family:Inter,system-ui;background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1">RAG Tutor</span>')
-            ui.label("Your AI-powered RAG learning assistant").style("font-size:1rem; color:#94a3b8; font-weight:500; margin-top:-0.25rem")
-            ui.label("Sign in to your account").style("font-size:0.78rem; color:#64748b; margin-top:-0.5rem")
+                ui.html('<div class="auth-tag">Your AI-powered RAG learning assistant</div>')
+            ui.html('<div class="auth-sub" style="width:100%">Sign in to continue your learning path</div>')
             ui.separator().style("border-color:rgba(139,92,246,0.2); margin:0.1rem 0")
-            email = ui.input("Username or Email").classes("rag-login-input w-full").props("outlined")
-            password = ui.input(
-                "Password", password=True, password_toggle_button=True
-            ).classes("rag-login-input w-full").props("outlined")
+            with ui.column().classes("auth-field-wrap"):
+                ui.html('<span class="auth-field-label">Email address</span>')
+                email = ui.input("").classes("rag-login-input w-full").props("outlined type=email")
+            with ui.column().classes("auth-field-wrap"):
+                ui.html('<span class="auth-field-label">Password</span>')
+                password = ui.input(
+                    "", password=True, password_toggle_button=True
+                ).classes("rag-login-input w-full").props("outlined")
 
             async def do_login():
                 try:
@@ -183,10 +194,8 @@ def setup_ui(fastapi_app):
                 await fetch_profile_email()
                 ui.navigate.to("/")
 
-            ui.button("Login", on_click=do_login).style(
-                "background:linear-gradient(135deg,#ea580c,#be185d) !important; color:white; width:100%; border-radius:10px; font-weight:600; box-shadow:0 4px 20px rgba(190,24,93,0.4)"
-            )
-            ui.link("Create a new account", "/register").classes("text-pink-400 text-sm")
+            ui.button("Continue →", on_click=do_login).props("unelevated no-caps").style("background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%) !important; color:white !important; width:100%; border-radius:999px; font-weight:600; min-height:48px; font-size:1rem; box-shadow:0 4px 24px rgba(236,72,153,0.45)")
+            ui.html('<div class="auth-swap" style="width:100%">Don\'t have an account? <a href="/register">Create one →</a></div>')
 
     @ui.page("/register")
     async def register_page():
@@ -198,17 +207,31 @@ def setup_ui(fastapi_app):
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-.rag-login-input .q-field__control { background: #0c0a1e !important; border-radius: 10px !important; }
-.rag-login-input.q-field--outlined .q-field__control:before { border-color: #2e2558 !important; border-radius: 10px !important; transition: border-color 0.2s, box-shadow 0.2s; }
-.rag-login-input.q-field--outlined:hover .q-field__control:before { border-color: rgba(236,72,153,0.4) !important; }
-.rag-login-input.q-field--outlined.q-field--focused .q-field__control:before { border-color: #8b5cf6 !important; box-shadow: 0 0 0 3px rgba(139,92,246,0.15); }
-.rag-login-input .q-field__native { color: #ffffff !important; padding-left: 1rem !important; padding-right: 1rem !important; }
+.rag-login-input .q-field__control { background: #0c0a1e !important; border-radius: 12px !important; min-height: 32px !important; }
+.rag-login-input.q-field--outlined .q-field__control:before { border-color: #2e2558 !important; border-radius: 12px !important; transition: border-color 0.2s, box-shadow 0.2s; }
+.rag-login-input.q-field--outlined:hover .q-field__control:before { border-color: rgba(139,92,246,0.4) !important; }
+.rag-login-input.q-field--outlined.q-field--focused .q-field__control:before { border-color: #8b5cf6 !important; border-width: 2px !important; box-shadow: 0 0 0 3px rgba(139,92,246,0.15) !important; }
+.rag-login-input:focus-within .q-field__control:before { border-color: #8b5cf6 !important; border-width: 2px !important; }
+.rag-login-input .q-field__native { color: #ffffff !important; padding: 6px 1rem !important; min-height: unset !important; }
 .rag-login-input .q-field__label { color: #94a3b8 !important; }
 .rag-login-input .q-field__placeholder { color: #4a5568 !important; }
+.auth-brand { display:flex; flex-direction:column; align-items:center; gap:0.5rem; padding-bottom:0.25rem; width:100%; }
+.auth-tag { font-size:0.78rem; color:#94a3b8; text-align:center; }
+.auth-sub { font-size:0.95rem; font-weight:600; color:#e2e8f0; text-align:center; width:100%; }
+.auth-field-wrap { display:flex; flex-direction:column; gap:0.25rem; width:100%; }
+.auth-field-label { font-size:0.82rem; font-weight:500; color:#e2e8f0; }
+.auth-submit { width:100%; border-radius:999px !important; overflow:hidden !important; box-shadow:0 4px 24px rgba(236,72,153,0.35) !important; }
+.auth-submit .q-btn__wrapper { background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%) !important; border-radius:999px !important; min-height:48px !important; opacity:1 !important; }
+.auth-submit .q-btn__content { color:white !important; font-weight:600 !important; font-size:1rem !important; }
+.auth-swap { font-size:0.82rem; color:#64748b; text-align:center; width:100%; }
+.auth-swap a { color:#8b5cf6; cursor:pointer; text-decoration:none; }
+.auth-swap a:hover { text-decoration:underline; }
 </style>''')
         ui.query("body").style("background:radial-gradient(ellipse at 65% 0%, #2a1060 0%, #120e28 60%); color:#e2e8f0; font-family:'Inter',system-ui")
+        ui.query(".nicegui-content").style("display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:1rem; max-width:none")
+        ui.query(".q-page").style("display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%")
         wrapper = ui.column().style(
-            "width:100%; max-width:420px; margin:3rem auto; padding:2rem; gap:1.25rem; "
+            "width:100%; max-width:420px; margin:0; padding:2rem; gap:1.25rem; "
             "background:linear-gradient(160deg, rgba(22,16,44,0.98) 0%, rgba(28,20,52,0.98) 100%); "
             "border:1px solid rgba(139,92,246,0.2); border-top:3px solid #8b5cf6; border-radius:16px; "
             "backdrop-filter:blur(12px); box-shadow:0 8px 48px rgba(139,92,246,0.15)"
@@ -217,35 +240,32 @@ def setup_ui(fastapi_app):
         def show_success():
             wrapper.clear()
             with wrapper:
-                ui.label("You're signed in").style(
+                ui.label("You're all set.").style(
                     "font-size:1.35rem; font-weight:600; background:linear-gradient(135deg,#f97316,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text"
                 )
-                ui.label("Your account is ready. Continue to the chat when you like.").style(
+                ui.label("Your profile is ready. Start with your first question →").style(
                     "font-size:0.9rem; color:#94a3b8"
                 )
-                ui.button("Go to chat", on_click=lambda: ui.navigate.to("/")).style(
-                    "background:linear-gradient(135deg,#ea580c,#be185d); color:white; width:100%; box-shadow:0 4px 20px rgba(190,24,93,0.35)"
-                )
+                ui.button("Go to chat →", on_click=lambda: ui.navigate.to("/")).props("unelevated no-caps").style("background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%) !important; color:white !important; width:100%; border-radius:999px; font-weight:600; min-height:48px; font-size:1rem; box-shadow:0 4px 24px rgba(236,72,153,0.45)")
 
         with wrapper:
-            with ui.row().style("align-items:center; gap:0.625rem"):
-                ui.html('''<svg width="36" height="36" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient id="lg-reg" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-    <stop offset="0%" stop-color="#f97316"/><stop offset="50%" stop-color="#ec4899"/><stop offset="100%" stop-color="#8b5cf6"/>
-  </linearGradient></defs>
-  <path d="M10 6L4 14L10 22" stroke="url(#lg-reg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M18 6L24 14L18 22" stroke="url(#lg-reg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M15 8L13 20" stroke="url(#lg-reg)" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
-</svg>''')
+            with ui.column().classes("auth-brand").style("width:100%"):
+                ui.html('<div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%);display:flex;align-items:center;justify-content:center;font-size:1.75rem;font-weight:800;color:white;font-family:Inter,system-ui">R</div>')
                 ui.html('<span style="font-size:1.5rem;font-weight:700;letter-spacing:-0.02em;font-family:Inter,system-ui;background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1">RAG Tutor</span>')
-            ui.label("Your AI-powered RAG learning assistant").style("font-size:1rem; color:#94a3b8; font-weight:500; margin-top:-0.25rem")
-            ui.label("Create your account").style("font-size:0.78rem; color:#64748b; margin-top:-0.5rem")
+                ui.html('<div class="auth-tag">Your AI-powered RAG learning assistant</div>')
+            ui.html('<div class="auth-sub" style="width:100%">Create your account to start learning</div>')
             ui.separator().style("border-color:rgba(139,92,246,0.2); margin:0.1rem 0")
-            email = ui.input("Email").props("type=email outlined").classes("rag-login-input w-full")
-            password = ui.input("Password", password=True, password_toggle_button=True).classes(
-                "rag-login-input w-full"
-            ).props("outlined")
-            display_name = ui.input("Display name (optional)").classes("rag-login-input w-full").props("outlined")
+            with ui.column().classes("auth-field-wrap"):
+                ui.html('<span class="auth-field-label">Display name</span>')
+                display_name = ui.input("").classes("rag-login-input w-full").props("outlined")
+            with ui.column().classes("auth-field-wrap"):
+                ui.html('<span class="auth-field-label">Email address</span>')
+                email = ui.input("").props("type=email outlined").classes("rag-login-input w-full")
+            with ui.column().classes("auth-field-wrap"):
+                ui.html('<span class="auth-field-label">Password</span>')
+                password = ui.input("", password=True, password_toggle_button=True).classes(
+                    "rag-login-input w-full"
+                ).props("outlined")
 
             async def do_register():
                 payload = {
@@ -271,10 +291,8 @@ def setup_ui(fastapi_app):
                 await fetch_profile_email()
                 show_success()
 
-            ui.button("Create account", on_click=do_register).style(
-                "background:linear-gradient(135deg,#ea580c,#be185d) !important; color:white; width:100%; border-radius:10px; font-weight:600; box-shadow:0 4px 20px rgba(190,24,93,0.4)"
-            )
-            ui.link("Already have an account? Sign in", "/login").classes("text-pink-400 text-sm")
+            ui.button("Create account →", on_click=do_register).props("unelevated no-caps").style("background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%) !important; color:white !important; width:100%; border-radius:999px; font-weight:600; min-height:48px; font-size:1rem; box-shadow:0 4px 24px rgba(236,72,153,0.45)")
+            ui.html('<div class="auth-swap" style="width:100%">Already learning? <a href="/login">Sign in →</a></div>')
 
     @ui.page("/landing")
     def landing_page():

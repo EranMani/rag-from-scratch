@@ -533,6 +533,27 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 31 — `ui-auth-pages` · 2026-05-19 · Aria
+
+> Gate wave: Mira only (copy changes and field reorder are user-facing UX changes).
+> Viktor, Sage, Quinn skipped — no new logic, no auth handler changes, no new code paths.
+> Ryan: one-liner (no ARCHITECTURE.md, DECISIONS.md, or GLOSSARY.md changes).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Aria (implementation) | Sonnet | 47,880 | 15 | ✅ under ≤60k | copy/CSS/field-order; 15 tool uses (within 25 cap) |
+| Mira | Haiku | 30,992 | 2 | **+16k** over ≤15k | PASS — field reorder correct; success CTA note (non-blocking) |
+| Ryan | Haiku | 37,190 | 9 | **+22k** over ≤15k | one-liner; 9 tool uses (over 5-cap) |
+| **Total** | | **116,062** | **26** | over ≤75k | Aria ✅; Mira/Ryan consistently over ≤15k target |
+
+**Notes:**
+- Aria: 15 tool uses (well within 25 cap); two-phase discipline held.
+- Gate correctly triaged: Viktor/Sage/Quinn all skipped (no logic, no auth handlers, no new code paths — pure copy/CSS/field-order). Mira triggered for field reorder + copy changes.
+- Mira: 30,992 tokens / 2 tool uses — PASS with one non-blocking note (success state "Start with your first question →" may feel prescriptive; low priority, test with users first).
+- Ryan: 37,190 tokens / 9 tool uses — over both targets. Pattern: Ryan Haiku consistently exceeds ≤15k even for one-liners; 9 tool uses vs. 5-cap. Ryan Haiku over-reading is a known pattern (see C28, C29, C30.5).
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -559,6 +580,7 @@ No token data recorded. Tracking began at Commit 10.
 | 29 | ui-sidebar-admin | 106,985 | none | over ≤75k | Aria 68k (+8k); Ryan 39k (over ≤15k, pattern); gate correctly skipped |
 | 30 | ui-landing-page | 303,447 | Viktor (Haiku, BLOCKED) | **well over** | 5 Aria passes (TL visual loop); Viktor 59k (Haiku); rAF fix deferred to C30.5 |
 | 30.5 | ui-landing-raf-guard | 39,967 | Viktor (Haiku, PASS) | over ≤15k | Direct Edit (no agent); Viktor only gate |
+| 31 | ui-auth-pages | 116,062 | Mira only (Haiku, PASS) | over ≤75k | Aria ✅ (47,880); Mira/Ryan over ≤15k (pattern) |
 
 ---
 

@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Session 14e hero-mock sizing + card gradient fix · 2026-05-19*
+*Last updated: Session 15 auth pages redesign · 2026-05-19*
 
-**Last completed:** Session 14e — hero mock responsive sizing (`flex: 0 0 clamp(340px, 38%, 480px)`); hide breakpoint moved to 768px; all four card-like elements updated to correct `--g-card` token gradient ✅
+**Last completed:** Session 15 — login and register pages updated to match Auth.jsx spec; copy, field labels, field order, brand block, and CSS classes applied; all Python handlers preserved exactly ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -37,6 +37,7 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 15 | 31 | ✅ Done | Auth pages: auth-brand block (centered, 48px SVG), auth-sub/auth-tag/auth-field-wrap/auth-submit/auth-swap CSS classes; field order display_name→email→password on register; all Python handlers untouched |
 | 14e | 30 fix 4 | ✅ Done | Hero mock `flex: 0 0 clamp(340px,38%,480px)` + hide breakpoint 900→768px; card gradients rgba(22,16,44)→rgba(30,22,60) / rgba(28,20,52)→rgba(22,16,58) on all four card elements |
 | 14d | 30 fix 3 | ✅ Done | Remove `max-width:1140px; margin:0 auto` from section + hero-content; `clamp(1.5rem,5vw,6rem)` H-padding on hero, cta-footer, site-footer |
 | 14c | 30 fix 2 | ✅ Done | `display:block` + unset flex on `.nicegui-content`; Quasar container chain rules; `overflow-x:hidden` off body; `box-sizing:border-box` on `.rag-landing-wrap` |
@@ -57,6 +58,39 @@
 | 7 | feature | ✅ Done | Tab bar Chat/Admin; admin router; footer visibility callback; closure capture for delete buttons |
 | 8 | bug+redesign | ✅ Done | White panel bg fix; admin tab as SaaS dashboard: header strip, stat cards, ui.table slot injection, health + monitoring sidebar |
 | 9 | bug fix | ✅ Done | thinking label: set_visibility(False) instead of delete() to avoid client-context error after await |
+
+---
+
+## Session 15 — Commit 31: auth pages redesign to match Auth.jsx spec
+
+**Date:** 2026-05-19
+**Status:** ✅ Done
+
+### Approach
+
+The existing login and register pages had their brand block as a horizontal row (SVG + wordmark side by side) with the tagline and sub-label as NiceGUI `ui.label()` elements. Auth.jsx specifies a centered vertical `auth-brand` column — logo above wordmark above tagline — which is a different visual rhythm: it signals a dedicated auth flow rather than a nav-bar brand fragment. The key question was whether to use `ui.column().classes("auth-brand")` or inline the CSS as a `ui.html()` block. I chose `ui.column().classes("auth-brand")` with a CSS class injected in the `<style>` block — it keeps the structure readable and consistent with how the rest of the card is built. Field labels presented a second choice: NiceGUI's `ui.input()` label renders as a floating placeholder inside the field, not a visible label above it. The Auth.jsx `Field` component uses a `<label>` with a `<span>` above the `<input>`. To match this pattern without breaking the Quasar styling, I wrapped each field in a `ui.column().classes("auth-field-wrap")` containing a `ui.html('<span class="auth-field-label">...</span>')` and an empty-label `ui.input("")` — the blank label string removes the floating label and the visible span above takes its place. The register field reorder (email/password/display_name → display_name/email/password) is purely a DOM order change; the `do_register()` payload still reads `email.value`, `password.value`, and `display_name.value` by name so no handler logic was touched. Focus ring colors: login page changed from pink (`rgba(236,72,153,*)`) to orange (`rgba(249,115,22,*)`) to match the orange top-bar accent. Register page kept violet as specified. Auth-swap link colors follow the same accent split: orange for login page swap link, violet for register page swap link.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `src/app/ui.py` `login_page()` | CSS block: new `.auth-brand`, `.auth-tag`, `.auth-sub`, `.auth-field-wrap`, `.auth-field-label`, `.auth-submit`, `.auth-swap` classes; orange focus ring `rgba(249,115,22,*)` replaces pink |
+| `src/app/ui.py` `login_page()` | Brand block restructured: horizontal row → centered `auth-brand` column; SVG 36px → 48px |
+| `src/app/ui.py` `login_page()` | Sub-label: `"Sign in to your account"` → `"Sign in to continue your learning path"` |
+| `src/app/ui.py` `login_page()` | Email field: `"Username or Email"` → visible label `"Email address"` above blank input |
+| `src/app/ui.py` `login_page()` | Password field: visible label `"Password"` above blank input |
+| `src/app/ui.py` `login_page()` | Button: `"Login"` → `"Continue →"` with `.auth-submit` class |
+| `src/app/ui.py` `login_page()` | Swap link: `ui.link("Create a new account")` → `ui.html` auth-swap div with `"Don't have an account? Create one →"` |
+| `src/app/ui.py` `register_page()` | CSS block: same new classes; violet focus ring preserved |
+| `src/app/ui.py` `register_page()` | Brand block restructured: horizontal row → centered `auth-brand` column; SVG 36px → 48px |
+| `src/app/ui.py` `register_page()` | Sub-label: `"Create your account"` → `"Create your account to start learning"` |
+| `src/app/ui.py` `register_page()` | Field order: email/password/display_name → display_name/email/password |
+| `src/app/ui.py` `register_page()` | All fields get visible above-input labels; blank input label strings |
+| `src/app/ui.py` `register_page()` | Button: `"Create account"` → `"Create account →"` with `.auth-submit` class |
+| `src/app/ui.py` `register_page()` | Swap link: `"Already have an account? Sign in"` → auth-swap div `"Already learning? Sign in →"` |
+| `src/app/ui.py` `show_success()` | Heading: `"You're signed in"` → `"You're all set."` |
+| `src/app/ui.py` `show_success()` | Body: updated to `"Your profile is ready. Start with your first question →"` |
+| `src/app/ui.py` `show_success()` | Button: `"Go to chat"` → `"Go to chat →"` with `.auth-submit` class |
 
 ---
 

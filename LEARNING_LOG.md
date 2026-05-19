@@ -1754,3 +1754,9 @@ async def index():
 - `src/app/ui.py` — one-line rAF guard added inside `draw()` in `landing_page()` particle canvas JS block
 
 ---
+
+**Commit 31 — `ui-auth-pages`** · 2026-05-19 · Aria · `new feature`
+
+> **In one sentence:** Redesigned login and register page layouts to match Auth.jsx UI kit — vertical brand column with SVG logo, visible input labels, corrected focus ring color, and reordered register form fields.
+
+---
