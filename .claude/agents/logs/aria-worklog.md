@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Session 15 auth pages redesign · 2026-05-19*
+*Last updated: Session 18 — layout restructure (composer inside chat col), bubbles match reference, send button circle, input transparent, progress bar radius · 2026-05-19*
 
-**Last completed:** Session 15 — login and register pages updated to match Auth.jsx spec; copy, field labels, field order, brand block, and CSS classes applied; all Python handlers preserved exactly ✅
+**Last completed:** Session 18 — 6-issue revision pass on chat page: composer moved inside chat column via absolute positioning (no longer a sibling footer), scroll area padded 90px at bottom; progress bar border-radius 999px→3px, height 5px→4px; module row gap 0.4rem→3px+margin-bottom:10px, sidebar column gap 24px→20px; input background transparent/border cleared, min-height 52→36px; send button 52px square→40px circle, gradient updated; chat bubbles restructured — user bubble row+avatar (violet-blue rounded square, "YOU" monospace label), thinking indicator avatar orange-pink rounded square, assistant bubble orange-pink avatar + "RAG TUTOR" monospace label + pink border card; zero logic changes ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -37,6 +37,8 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 17 | 32 TL review | ✅ Done | Header: one-row layout, CSS brand-mark "R", pill tabs, avatar gradient #8b5cf6→#38bdf8, border #241d4a; progress bars 5px + 4-stop gradient; sidebar 320px; mastery chip kit.css classes; stats separator |
+| 16 | 32 | ✅ Done | Chat shell: tabs Learn/System, sign out, RT avatar bubbles, mastery tagline, Module Progress, composer hint text, "RAG Tutor" label; no logic touched |
 | 15 | 31 | ✅ Done | Auth pages: auth-brand block (centered, 48px SVG), auth-sub/auth-tag/auth-field-wrap/auth-submit/auth-swap CSS classes; field order display_name→email→password on register; all Python handlers untouched |
 | 14e | 30 fix 4 | ✅ Done | Hero mock `flex: 0 0 clamp(340px,38%,480px)` + hide breakpoint 900→768px; card gradients rgba(22,16,44)→rgba(30,22,60) / rgba(28,20,52)→rgba(22,16,58) on all four card elements |
 | 14d | 30 fix 3 | ✅ Done | Remove `max-width:1140px; margin:0 auto` from section + hero-content; `clamp(1.5rem,5vw,6rem)` H-padding on hero, cta-footer, site-footer |
@@ -58,6 +60,41 @@
 | 7 | feature | ✅ Done | Tab bar Chat/Admin; admin router; footer visibility callback; closure capture for delete buttons |
 | 8 | bug+redesign | ✅ Done | White panel bg fix; admin tab as SaaS dashboard: header strip, stat cards, ui.table slot injection, health + monitoring sidebar |
 | 9 | bug fix | ✅ Done | thinking label: set_visibility(False) instead of delete() to avoid client-context error after await |
+
+---
+
+## Session 17 — Commit 32 TL review: chat layout, progress bars, logo overhaul
+
+**Date:** 2026-05-19
+**Status:** ✅ Done
+
+### Approach
+
+The Team Lead identified three independent issues with the Commit 32 output. The header had a two-row layout (brand column + user pill in row 1, tabs in row 2 below) — the spec calls for a single row where the pill tabs live between the brand and the user pill on the left/right split. The obvious question was whether to keep `ui.tabs()` as a sibling of the row or nest it inside. The spec is clear: tabs move into the LEFT inner row alongside the brand. I moved them there and added `props("dense indicator-color=transparent").classes("rag-pill-tabs")` — the CSS pill container handles the visual, not Quasar's built-in indicator. The old `rag-header-accent` class (which produced a bottom gradient line via `::after`) is now removed because the `border-bottom:1px solid #241d4a` on the header itself handles the separation. The SVG brand icon was replaced with a `ui.label("R")` styled as a CSS gradient box — it costs zero tokens in the DOM, renders identically, and has no SVG ID collision risk. For the progress bars, the change was straightforward: height 8px → 5px, border-radius 4px → 999px, 3-stop gradient → 4-stop with `#38bdf8`, and `border:none` on the track. Score format changed from `int(score * 100)%` to `score:.2f` — decimal is more precise and consistent with how the backend stores it. For the sidebar, the width, background, border, and padding were all updated. The mastery chip migration from inline `_mastery_styles` dict to `mastery-chip mc-{mastery}` classes is a clean separation: the dict is removed entirely and the CSS handles all four states including the `::before` dot indicator that wasn't in the previous design. The stats section gained a hairline separator (`border-top:1px solid rgba(255,255,255,0.04)`) and switched from prose labels to a two-column key/value monospace row pattern — this is a common SaaS sidebar idiom and reads better than a single combined string.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `src/app/ui.py` `:root` | Added 12 new CSS vars: `--c-surface-alt`, `--c-border-soft`, `--c-hairline`, `--c-fg`, `--c-fg-strong`, `--c-subtle`, `--c-neural`, `--g-sunset`, `--g-horizon`, `--g-card`, `--glow-card`, `--r-pill` |
+| `src/app/ui.py` CSS | Replaced 4 Quasar tab overrides with 6 `.rag-pill-tabs` rules |
+| `src/app/ui.py` CSS | Removed `.rag-header-accent::after` and `.nicegui-header.rag-header-accent` rules |
+| `src/app/ui.py` CSS | Progress bars: 8px → 5px, 4px radius → 999px, 3-stop → 4-stop gradient, border removed from track |
+| `src/app/ui.py` CSS | Added 14 new mastery chip rules: `.mastery-chip`, `.mastery-chip::before`, `.mc-novice/intermediate/advanced/expert` |
+| `src/app/ui.py` `index()` header | `ui.header().classes("rag-header-accent")` → `ui.header().style(...)` with `height:64px; border-bottom:1px solid #241d4a` |
+| `src/app/ui.py` `index()` header | Single outer row with left/right split; tabs moved from second child of header into left inner row |
+| `src/app/ui.py` `index()` header | SVG icon removed; replaced with `ui.label("R")` CSS gradient brand-mark |
+| `src/app/ui.py` `index()` header | Tabs: `ui.tabs().classes("w-full")` → `ui.tabs().props("dense indicator-color=transparent").classes("rag-pill-tabs")` |
+| `src/app/ui.py` `index()` header | Tab items: added `.props("no-caps")` |
+| `src/app/ui.py` `index()` header | Avatar gradient: `#f97316,#8b5cf6` → `#8b5cf6,#38bdf8` |
+| `src/app/ui.py` `index()` header | Pill border: `rgba(249,115,22,0.2)` → `#241d4a` |
+| `src/app/ui.py` `profile_panel()` | Sidebar: width 280→320px, bg/border/shadow/padding updated |
+| `src/app/ui.py` `profile_panel()` | "Your Profile" heading: gradient text → 11px uppercase muted |
+| `src/app/ui.py` `profile_panel()` | Mastery chip: `_mastery_styles` dict removed; `classes(f"mastery-chip mc-{mastery}")` applied |
+| `src/app/ui.py` `profile_panel()` | Mastery tagline style: italic 0.8rem → Inter 12.5px no italic |
+| `src/app/ui.py` `profile_panel()` | "Module Progress" heading: 0.82rem muted → 11px uppercase muted with `margin:0 0 12px` |
+| `src/app/ui.py` `profile_panel()` | Score format: `int(score * 100)%` → `score:.2f` at 0.75rem |
+| `src/app/ui.py` `profile_panel()` | Stats section: prose labels → `ui.column` with hairline separator + key/value monospace rows |
 
 ---
 

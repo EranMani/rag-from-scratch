@@ -4,7 +4,7 @@
 > Quality signal: tests pass · no Viktor hard blocks · learning log entry written.
 >
 > Companion file: TOKEN_OPTIMIZATION.md — the methods behind the numbers.
-> Last updated: 2026-05-12 (Commit 25)
+> Last updated: 2026-05-19 (Commit 32)
 
 ---
 
@@ -554,6 +554,26 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 32c — `ui-chat-shell` (6-issue TL revision) · 2026-05-19 · Aria
+
+> Gate wave: none — CSS/structure-only revision pass; same triage profile as C32b (no new logic, no auth, no `ui.html(f-string)` user data, no external APIs).
+> Team Lead reported 6 visual issues after C32b with reference screenshots; all resolved in single Aria Session 18 pass.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Aria (Session 18 — 6-issue revision) | Sonnet | 44,287 | ~15 | ✅ under ≤60k | composer move; progress bars; spacing; input bg; send btn; bubbles |
+| **Total** | | **44,287** | **~15** | ✅ under ≤60k | no gate wave |
+
+**Issues resolved:**
+1. Composer moved inside chat column (absolute `bottom:0`; scroll area gets `padding-bottom:90px`)
+2. Progress bars: `border-radius 999px → 3px`, `height 5px → 4px`
+3. Sidebar `gap 24px → 20px`; module rows `gap 0.4rem → 3px`
+4. Input background: transparent — all `.rag-chat-input` border/background rules cleared
+5. Send button: 52px square → 40px circle (`border-radius:50%`), gradient `#f97316→#ec4899`
+6. Chat bubbles: user → teal-tint card, avatar RIGHT; assistant → orange-pink avatar LEFT, "RAG TUTOR" label, pink-border card; thinking → 30px orange-pink rounded square
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -581,6 +601,9 @@ No token data recorded. Tracking began at Commit 10.
 | 30 | ui-landing-page | 303,447 | Viktor (Haiku, BLOCKED) | **well over** | 5 Aria passes (TL visual loop); Viktor 59k (Haiku); rAF fix deferred to C30.5 |
 | 30.5 | ui-landing-raf-guard | 39,967 | Viktor (Haiku, PASS) | over ≤15k | Direct Edit (no agent); Viktor only gate |
 | 31 | ui-auth-pages | 116,062 | Mira only (Haiku, PASS) | over ≤75k | Aria ✅ (47,880); Mira/Ryan over ≤15k (pattern) |
+| 32 | ui-chat-shell | 271,427 | Viktor×2 + Sage (Haiku) | **well over** | Aria 2 tool caps (123k impl); Viktor 96k (2-pass, file reads); Sage 52k (file reads); Ryan 34k |
+| 32b | ui-chat-shell (TL revision) | 74,876 | none (CSS-only) | over ≤60k | Aria single-pass layout+logo+progress overhaul; no gate wave (CSS/structure only) |
+| 32c | ui-chat-shell (6-issue revision) | 44,287 | none (CSS/structure) | over ≤60k | Aria single-pass: composer move, progress bars, spacing, input bg, send btn, bubbles |
 
 ---
 

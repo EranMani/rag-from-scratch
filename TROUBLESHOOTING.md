@@ -319,3 +319,65 @@ ui.link("Already have an account? Sign in", "/").classes("text-sky-400 text-sm")
 # After (fixed)
 ui.link("Already have an account? Sign in", "/login").classes("text-sky-400 text-sm")
 ```
+
+---
+
+### TRB-015 — Custom button background overridden by Quasar `.bg-primary !important`
+
+**Date:** 2026-05-19
+**Component:** UI / NiceGUI + Quasar (`src/app/ui.py`)
+**Symptom:** A button styled with a CSS class (`.rag-signout-btn`) kept rendering with the default Quasar primary blue background despite `background: linear-gradient(...) !important` in the stylesheet. Multiple CSS selector approaches all failed.
+
+**Root cause:** NiceGUI's `ui.button()` defaults `color="primary"`, which causes Quasar to add the class `.bg-primary` to the rendered button element. Quasar's own stylesheet defines `.bg-primary { background: var(--q-primary) !important }`. When two `!important` declarations compete, specificity determines the winner. Our single-class selector `.rag-signout-btn` had specificity `[0,1,0]`, same as `.bg-primary`. A compound selector `.rag-signout-btn.q-btn` raised specificity to `[0,2,0]`, but Quasar's component styles are injected dynamically at component mount time — *after* the `<style>` block in `<head>` — and in modern browsers, when specificity is equal, the later-loaded rule wins. So `.bg-primary` continued to win regardless.
+
+**Fix:** Apply the gradient background as an inline style with `!important` directly on the NiceGUI element via `.style("background:... !important")`. CSS cascade rules place inline `!important` at specificity `[1,0,0,0]`, which beats any stylesheet `!important` rule regardless of load order.
+
+```python
+# Failed — CSS class loses to Quasar's runtime-injected .bg-primary
+ui.button("Sign out", on_click=logout).classes("rag-signout-btn").props("flat dense")
+
+# Fixed — inline !important has absolute cascade priority
+ui.button("Sign out", on_click=logout).classes("rag-signout-btn").props("unelevated dense no-caps").style(
+    "background:linear-gradient(135deg,#f97316,#ec4899) !important; "
+    "box-shadow:0 4px 18px rgba(236,72,153,0.55) !important; ..."
+)
+```
+
+**Rule:** For any NiceGUI button where a CSS gradient must override Quasar's color system, set the background via `.style("... !important")` on the element. CSS classes alone cannot reliably win against Quasar's dynamically injected `.bg-{color}` rules.
+
+---
+
+### TRB-016 — Enter key and Shift+Enter conflict in NiceGUI `auto-grow` textarea
+
+**Date:** 2026-05-19
+**Component:** UI / NiceGUI (`src/app/ui.py`)
+**Symptom:** Attempts to implement "Enter sends, Shift+Enter inserts newline" in the chat input either (a) sent on Enter but also inserted a newline character, (b) broke Enter entirely, or (c) sent on Enter but Shift+Enter also sent instead of inserting a newline.
+
+**Root cause:** Three separate failure modes encountered:
+
+1. `question_input.on("keydown.enter.exact", send)` — Vue's `.exact` modifier fires the Python handler correctly on plain Enter, but does not call `event.preventDefault()`. The textarea (created by `auto-grow`) still inserts a newline *after* dispatching the event to Python, so the input contains a trailing `\n` at send time.
+
+2. JS-only approach (`addEventListener` with `e.preventDefault()` + `btn.click()`) — `btn.click()` on the `.rag-send-btn` DOM element does not trigger NiceGUI's server-side `on_click` event handler. NiceGUI/Quasar buttons wire their server callbacks through Vue's event system, not the native DOM click event. The button visually activates but the Python `send()` coroutine never runs.
+
+3. Combined JS `preventDefault` + Vue `keydown.enter` handler — correctly prevents the newline and fires `send()`, but implementing Shift+Enter reliably in a way that does not accidentally trigger send required additional complexity for minimal user benefit.
+
+**Fix:** Cancelled Shift+Enter support entirely. Used `question_input.on("keydown.enter", send)` with no JS involvement. Single-line send-on-Enter is the standard chat UX pattern and removes all edge cases. The `auto-grow` prop is kept for visual comfort as the user types long single-line queries.
+
+**Rule:** To call a Python NiceGUI event handler from JavaScript, use Vue event bindings (`element.on("event", handler)`) — never simulate DOM clicks on Quasar button elements. Native `element.click()` bypasses Vue's event system and will not reach the server.
+
+---
+
+### TRB-017 — Quasar `.q-tab-panel` default 16 px padding bleeds into full-bleed layout
+
+**Date:** 2026-05-19
+**Component:** UI / NiceGUI + Quasar (`src/app/ui.py`)
+**Symptom:** The chat page content area showed an unwanted gap around all four edges despite the outer layout row being styled with `padding:0`. Removing padding from `ui.row()` and `ui.column()` elements had no effect.
+
+**Root cause:** Quasar's `.q-tab-panel` component applies `padding: 16px` by default. NiceGUI's `ui.tab_panel()` wraps content in this component. Even with all custom containers at `padding:0`, Quasar's class introduces the gap before any user-authored element is reached.
+
+**Fix:** Added `padding: 0 !important` to the `.q-tab-panel` rule in the page's CSS block. Also added `padding: 0 !important` to `.nicegui-content` for the same reason — NiceGUI's default content wrapper also contributes padding that must be zeroed for full-bleed layouts.
+
+```css
+.q-tab-panel { padding: 0 !important; }
+.nicegui-content { padding: 0 !important; }
+```

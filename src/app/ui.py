@@ -8,6 +8,33 @@ from app.core.config import settings
 
 _STAGE_LABELS = ["Retrieving context...", "Preparing your answer...", "Generating response..."]
 
+
+def rag_icon(name: str, size: int = 18, color: str = "currentColor") -> str:
+    _paths = {
+        "send":          '<path d="M22 2 L11 13"/><path d="M22 2 l-7 20 -4 -9 -9 -4 z"/>',
+        "search":        '<circle cx="11" cy="11" r="7"/><path d="M21 21 l-4.3 -4.3"/>',
+        "arrow":         '<path d="M5 12 h14"/><path d="M13 6 l6 6 -6 6"/>',
+        "down":          '<path d="M12 5 v14"/><path d="M6 13 l6 6 6 -6"/>',
+        "chat":          '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+        "layers":        '<path d="M12 2 L2 7 l10 5 10 -5 z"/><path d="M2 17 l10 5 10 -5"/><path d="M2 12 l10 5 10 -5"/>',
+        "target":        '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>',
+        "check":         '<path d="M20 6 L9 17 L4 12"/>',
+        "code":          '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+        "user":          '<circle cx="12" cy="8" r="4"/><path d="M4 21 c0 -4.4 3.6 -8 8 -8 s8 3.6 8 8"/>',
+        "settings":      '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+        "plus":          '<path d="M12 5 v14"/><path d="M5 12 h14"/>',
+        "sparkle":       '<path d="M12 2 L13.5 10.5 L22 12 L13.5 13.5 L12 22 L10.5 13.5 L2 12 L10.5 10.5 Z"/>',
+        "brain":         '<path d="M9 3 a3 3 0 0 0 -3 3 a3 3 0 0 0 -3 3 v3 a3 3 0 0 0 3 3 v3 a3 3 0 0 0 3 3 h0 a3 3 0 0 0 3 -3 V3 a0 0 0 0 0 0 0 z"/><path d="M15 3 a3 3 0 0 1 3 3 a3 3 0 0 1 3 3 v3 a3 3 0 0 1 -3 3 v3 a3 3 0 0 1 -3 3 h0 a3 3 0 0 1 -3 -3 V3 a0 0 0 0 1 0 0 z"/>',
+        "stack":         '<rect x="3" y="3" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/>',
+        "check-circuit": '<path d="M3 12 h4 l2 -2 l2 2 h2"/><path d="M14 14 l2 2 l5 -7"/>',
+    }
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+        f'stroke="{color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" '
+        f'aria-hidden="true">{_paths.get(name, "")}</svg>'
+    )
+
+
 # Canonical module display names for topic_scores keys
 _MODULE_LABELS: dict[str, str] = {
     "rag_fundamentals": "RAG Fundamentals",
@@ -1244,6 +1271,18 @@ document.addEventListener("click", function(e) {
   --c-blue:   #38bdf8;
   --c-muted:  #94a3b8;
   --c-sunset: linear-gradient(135deg, #f97316, #ec4899, #8b5cf6);
+  --c-surface-alt: #231848;
+  --c-border-soft: rgba(139,92,246,0.18);
+  --c-hairline:    rgba(255,255,255,0.04);
+  --c-fg:          #e2e8f0;
+  --c-fg-strong:   #f8fafc;
+  --c-subtle:      #64748b;
+  --c-neural:      #a78bfa;
+  --g-sunset:      linear-gradient(135deg, #f97316 0%, #ec4899 50%, #8b5cf6 100%);
+  --g-horizon:     linear-gradient(90deg, #f97316 0%, #ec4899 40%, #8b5cf6 70%, #38bdf8 100%);
+  --g-card:        linear-gradient(160deg, rgba(30,22,60,0.92) 0%, rgba(22,16,58,0.92) 100%);
+  --glow-card:     0 4px 28px rgba(139,92,246,0.12);
+  --r-pill:        999px;
 }
 .nicegui-markdown h1,.nicegui-markdown h2,.nicegui-markdown h3{
   background:linear-gradient(135deg,#f97316,#ec4899);-webkit-background-clip:text;
@@ -1265,10 +1304,13 @@ document.addEventListener("click", function(e) {
 .nicegui-markdown li{margin:0.2rem 0}
 .q-tab-panels { background: #120e28 !important; }
 .q-tab-panel  { background: #120e28 !important; padding: 0 !important; }
-.q-tab { color: #64748b !important; font-size: 0.85rem; font-weight: 500; }
-.q-tab--active { color: #f97316 !important; }
-.q-tabs { background: #0c0a1e !important; border-bottom: 1px solid rgba(139,92,246,0.2); }
-.q-tab__indicator { background: linear-gradient(90deg,#f97316,#ec4899) !important; height: 3px !important; }
+/* Pill-style tabs */
+.rag-pill-tabs { background: transparent !important; border-bottom: none !important; min-height: auto !important; }
+.rag-pill-tabs .q-tabs__content { background: var(--c-card,#1e163c); border-radius: 999px; padding: 4px; gap: 0; min-height: auto !important; }
+.rag-pill-tabs .q-tab { padding: 7px 16px !important; border-radius: 999px !important; font-size: 12.5px !important; font-weight: 600 !important; color: var(--c-muted,#94a3b8) !important; min-height: auto !important; text-transform: none !important; }
+.rag-pill-tabs .q-tab--active { color: #fff !important; background: var(--c-frame,#0c0a1e) !important; box-shadow: 0 4px 18px rgba(236,72,153,0.20) !important; border: 1px solid transparent !important; }
+.rag-pill-tabs .q-tab__indicator { display: none !important; }
+.rag-pill-tabs .q-tab__label { font-size: 12.5px; font-weight: 600; }
 .q-table { background: #120e28 !important; color: #e2e8f0 !important; }
 .q-table thead tr th { background: #16103a !important; color: #94a3b8 !important; font-size: 0.7rem; letter-spacing: 0.06em; border-bottom: 1px solid #241d4a !important; }
 .q-table tbody tr td { border-bottom: 1px solid #1e163c !important; font-size: 0.82rem; }
@@ -1312,13 +1354,6 @@ document.addEventListener("click", function(e) {
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text; line-height: 1;
 }
-.rag-header-accent::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, #f97316 0%, #ec4899 40%, #8b5cf6 70%, #38bdf8 100%);
-  box-shadow: 0 0 16px rgba(236,72,153,0.5);
-}
 
 /* Layout engine */
 html, body {
@@ -1359,6 +1394,7 @@ html, body {
   height: 100% !important;
   min-height: 0 !important;
   overflow: hidden !important;
+  padding: 0 !important;
 }
 .q-tab-panels {
   flex: 1 1 auto !important;
@@ -1373,53 +1409,78 @@ html, body {
 .q-tab-panel {
   height: 100% !important;
   min-height: 0 !important;
-}
-.nicegui-header.rag-header-accent {
-  gap: 0 !important;
   padding: 0 !important;
 }
 .rag-profile-sidebar .q-linear-progress {
-  height: 8px !important;
-  min-height: 8px !important;
-  border-radius: 4px !important;
-  flex-shrink: 0 !important;
-  overflow: hidden !important;
+  height: 4px !important; min-height: 4px !important;
+  border-radius: 3px !important; flex-shrink: 0 !important; overflow: hidden !important;
 }
 .rag-profile-sidebar .q-linear-progress__track {
-  background: rgba(22, 14, 44, 0.85) !important;
-  border: 1px solid rgba(46, 37, 88, 0.8) !important;
-  opacity: 1 !important;
-  border-radius: 4px !important;
+  background: rgba(36,29,74,0.6) !important; border: none !important;
+  border-radius: 3px !important; opacity: 1 !important;
 }
 .rag-profile-sidebar .q-linear-progress__model {
-  background: linear-gradient(90deg, #f97316 0%, #ec4899 55%, #8b5cf6 100%) !important;
-  border-radius: 4px !important;
-  transition: transform 0.5s cubic-bezier(0.4,0,0.2,1) !important;
+  background: linear-gradient(90deg, #f97316, #ec4899, #8b5cf6, #38bdf8) !important;
+  border-radius: 3px !important;
+  box-shadow: 0 0 8px rgba(236,72,153,0.28) !important;
 }
+/* Mastery chip classes */
+.mastery-chip {
+  display:inline-flex; align-items:center; gap:8px; align-self:flex-start;
+  padding:7px 14px; border-radius:999px;
+  font-family:'Inter',system-ui; font-size:12px; font-weight:600;
+  text-transform:uppercase; letter-spacing:0.08em;
+}
+.mastery-chip::before { content:""; width:6px; height:6px; border-radius:50%; display:inline-block; }
+.mc-novice { background:rgba(148,163,184,0.10); color:#cbd5e1; border:1px solid rgba(148,163,184,0.28); }
+.mc-novice::before { background:#94a3b8; }
+.mc-intermediate { background:rgba(249,115,22,0.10); color:#fb923c; border:1px solid rgba(249,115,22,0.34); box-shadow:0 0 18px rgba(249,115,22,0.12); }
+.mc-intermediate::before { background:#f97316; }
+.mc-advanced { background:rgba(236,72,153,0.10); color:#f472b6; border:1px solid rgba(236,72,153,0.36); box-shadow:0 0 22px rgba(236,72,153,0.18); }
+.mc-advanced::before { background:#ec4899; }
+.mc-expert { background:rgba(139,92,246,0.12); color:#a78bfa; border:1px solid rgba(139,92,246,0.45); box-shadow:0 0 24px rgba(139,92,246,0.32),inset 0 0 14px rgba(139,92,246,0.10); }
+.mc-expert::before { background:#8b5cf6; box-shadow:0 0 10px rgba(139,92,246,0.7); }
 
 /* Chat input */
-.rag-chat-input .q-field__control { background: #1e1642 !important; border-radius: 14px !important; min-height: 52px !important; }
-.rag-chat-input.q-field--outlined .q-field__control:before { border-color: rgba(236,72,153,0.35) !important; border-radius: 14px !important; transition: border-color 0.2s, box-shadow 0.2s; }
-.rag-chat-input.q-field--outlined:hover .q-field__control:before { border-color: rgba(236,72,153,0.6) !important; }
-.rag-chat-input.q-field--outlined.q-field--focused .q-field__control:before { border-color: #ec4899 !important; box-shadow: 0 0 0 3px rgba(236,72,153,0.18), 0 0 16px rgba(236,72,153,0.12); }
-.rag-chat-input .q-field__native { color: #e2e8f0 !important; padding: 0 1rem !important; }
-.rag-chat-input .q-field__placeholder { color: #8b7aaa !important; }
+.rag-chat-input .q-field__control { background: transparent !important; border-radius: 0 !important; min-height: 36px !important; }
+.rag-chat-input.q-field--outlined .q-field__control:before { border: none !important; box-shadow: none !important; }
+.rag-chat-input .q-field__native { color: #e2e8f0 !important; padding: 0 !important; font-size: 14.5px !important; }
+.rag-chat-input .q-field__placeholder { color: #64748b !important; }
+.rag-chat-input .q-field__bottom { display: none !important; }
 
 /* Send button — sunset gradient */
 .rag-send-btn {
-  background: linear-gradient(135deg, #ea580c 0%, #be185d 100%) !important;
-  border-radius: 14px !important;
-  width: 52px !important; height: 52px !important; min-width: 52px !important;
+  background: linear-gradient(135deg, #f97316, #ec4899) !important;
+  border-radius: 50% !important;
+  width: 40px !important; height: 40px !important; min-width: 40px !important;
   flex-shrink: 0;
-  box-shadow: 0 0 0 1px rgba(236,72,153,0.3), 0 4px 20px rgba(236,72,153,0.35), 0 0 32px rgba(249,115,22,0.15);
+  box-shadow: 0 6px 28px rgba(236,72,153,0.55);
   transition: box-shadow 0.2s, transform 0.15s;
 }
 .rag-send-btn:not(.disabled):hover {
-  box-shadow: 0 0 0 1px rgba(236,72,153,0.5), 0 4px 28px rgba(236,72,153,0.55), 0 0 40px rgba(249,115,22,0.25) !important;
+  box-shadow: 0 8px 36px rgba(236,72,153,0.75) !important;
   transform: scale(1.06) !important;
-  transition: box-shadow 0.15s, transform 0.15s;
 }
-.rag-send-btn.disabled { opacity: 0.3 !important; box-shadow: none !important; }
+.rag-send-btn.disabled { opacity: 0.45 !important; box-shadow: none !important; cursor: not-allowed; }
+
+/* Chat bubble — strip p margins so label sits tight against text */
+.rag-bubble-card .nicegui-markdown p:first-child { margin-top: 0 !important; }
+.rag-bubble-card .nicegui-markdown p:last-child { margin-bottom: 0 !important; }
+.rag-bubble-card .nicegui-markdown p { margin: 0.25em 0 !important; }
+
+/* Sign out button — primary gradient pill with pink glow */
+.rag-signout-btn.q-btn {
+  background: linear-gradient(135deg, #f97316, #ec4899) !important;
+  border-radius: 8px !important;
+  padding: 0 14px !important;
+  height: 32px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 18px rgba(236,72,153,0.55) !important;
+  transition: box-shadow 0.2s, transform 0.15s !important;
+}
+.rag-signout-btn.q-btn .q-btn__content { color: #fff !important; }
+.rag-signout-btn.q-btn:hover { box-shadow: 0 6px 28px rgba(236,72,153,0.75) !important; transform: scale(1.04) !important; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -1448,46 +1509,56 @@ html, body {
             app.storage.user.clear()
             ui.navigate.to("/")
 
-        with ui.header().classes("rag-header-accent").style(
-            "background:#0c0a1e; position:relative; padding:0"
+        with ui.header().style(
+            "background:#0c0a1e; border-bottom:1px solid #241d4a; padding:0; position:relative; height:64px"
         ):
-            # Restored standard paddings here — no more calculated vertical shifting or big gaps
-            with ui.row().style("width:100%; justify-content:space-between; align-items:center; padding:1rem 2rem"):
-                with ui.column().style("gap:0"):
+            with ui.row().style(
+                "width:100%; height:100%; justify-content:space-between; align-items:center; padding:0 24px"
+            ):
+                # LEFT: brand + tabs
+                with ui.row().style("align-items:center; gap:32px"):
                     with ui.row().style("align-items:center; gap:10px"):
-                        ui.html('''<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="rag-brand-icon-grad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#f97316"/>
-      <stop offset="100%" stop-color="#fb923c"/>
-    </linearGradient>
-  </defs>
-  <path d="M10 6L4 14L10 22" stroke="url(#rag-brand-icon-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M18 6L24 14L18 22" stroke="url(#rag-brand-icon-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M15 8L13 20" stroke="url(#rag-brand-icon-grad)" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
-</svg>''')
+                        ui.label("R").style(
+                            "width:32px; height:32px; border-radius:8px; flex-shrink:0; "
+                            "background: radial-gradient(120% 120% at 30% 25%, rgba(255,255,255,0.18), transparent 60%),"
+                            "linear-gradient(135deg,#f97316,#ec4899,#8b5cf6); "
+                            "display:inline-flex; align-items:center; justify-content:center; "
+                            "font-family:'Inter',system-ui; font-weight:800; color:#fff; font-size:16px; "
+                            "box-shadow:0 4px 18px rgba(236,72,153,0.35); letter-spacing:-0.02em"
+                        )
                         ui.html('<span class="rag-brand-name">RAG Tutor</span>')
-                with ui.row().style("gap:0.75rem; align-items:center"):
+                    with ui.tabs().props("dense indicator-color=transparent").classes("rag-pill-tabs") as tabs:
+                        chat_tab = ui.tab("Learn").props("no-caps")
+                        admin_tab = ui.tab("System").props("no-caps")
+                # RIGHT: user pill + sign out
+                with ui.row().style("align-items:center; gap:14px"):
                     _user_store = {k: app.storage.user.get(k) for k in ("user_id", "email")}
                     uid = _user_store["user_id"]
                     if uid:
-                        label = _user_store["email"] or f"id …{uid[-8:]}"
-                        ui.label(label).style(
-                            "font-size:0.7rem; color:#94a3b8; background:rgba(255,255,255,0.06); "
-                            "border:1px solid rgba(249,115,22,0.15); border-radius:999px; "
-                            "padding:3px 10px; font-family:Inter,system-ui"
-                        )
-                        ui.button("Log out", on_click=logout).props("flat dense").style(
-                            "color:#64748b; font-size:0.75rem"
+                        _email_val = _user_store["email"] or f"id …{uid[-8:]}"
+                        _initials = _email_val.split("@")[0][:2].upper()
+                        with ui.row().style(
+                            "align-items:center; gap:6px; background:rgba(255,255,255,0.06); "
+                            "border:1px solid #241d4a; border-radius:999px; "
+                            "padding:3px 10px 3px 4px; font-family:Inter,system-ui"
+                        ):
+                            ui.label(_initials).style(
+                                "width:22px; height:22px; border-radius:50%; "
+                                "background:linear-gradient(135deg,#8b5cf6,#38bdf8); "
+                                "color:white; font-size:0.6rem; font-weight:700; "
+                                "display:flex; align-items:center; justify-content:center; flex-shrink:0"
+                            )
+                            ui.label(_email_val).style("font-size:0.72rem; color:#94a3b8")
+                        ui.button("Sign out", on_click=logout).classes("rag-signout-btn").props("unelevated dense no-caps").style(
+                            "background:linear-gradient(135deg,#f97316,#ec4899) !important; "
+                            "box-shadow:0 4px 18px rgba(236,72,153,0.55) !important; "
+                            "border-radius:8px !important; height:32px !important; "
+                            "font-size:0.75rem !important; font-weight:600 !important"
                         )
                     elif settings.allow_anonymous_chat:
                         ui.label("Anonymous demo").style("font-size:0.75rem; color:#64748b")
                         ui.link("Sign in", "/login").classes("text-sky-400 text-sm")
                         ui.link("Register", "/register").classes("text-sky-400 text-sm")
-
-            with ui.tabs().classes("w-full") as tabs:
-                chat_tab = ui.tab("Chat")
-                admin_tab = ui.tab("Admin")
             if not app.storage.user.get("is_admin", False):
                 tabs.set_visibility(False)
 
@@ -1512,12 +1583,15 @@ html, body {
                     @ui.refreshable
                     async def profile_panel():
                         with ui.column().classes("rag-profile-sidebar").style(
-                            "width:280px; min-width:280px; flex:0 0 280px; "
-                            "height:100%; box-sizing:border-box; "
-                            "background:linear-gradient(180deg,rgba(249,115,22,0.05) 0%,rgba(139,92,246,0.05) 100%),#16103a; border-right:2px solid rgba(236,72,153,0.2); "
-                            "padding:1rem; gap:1rem; overflow-y:auto"
+                            "width:320px; min-width:320px; flex:0 0 320px; height:100%; box-sizing:border-box; "
+                            "background:#16103a; border-right:1px solid #241d4a; "
+                            "box-shadow:inset 0 0 60px rgba(139,92,246,0.04); "
+                            "padding:24px 22px; gap:6px; overflow-y:auto"
                         ):
-                            ui.label("Knowledge Profile").style("font-size:0.9rem; font-weight:700; background:linear-gradient(135deg,#f97316,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text")
+                            ui.label("Your Profile").style(
+                                "font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.12em; "
+                                "color:#94a3b8; margin:0 0 8px"
+                            )
 
                             headers = auth_headers()
                             if not headers:
@@ -1534,62 +1608,110 @@ html, body {
                                 return
 
                             mastery = profile.get("mastery_level") or "novice"
-                            _mastery_styles = {
-                                "novice": "background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.3)",
-                                "intermediate": "background:rgba(249,115,22,0.12);color:#f97316;border:1px solid rgba(249,115,22,0.35);box-shadow:0 0 8px rgba(249,115,22,0.2)",
-                                "advanced": "background:rgba(236,72,153,0.12);color:#ec4899;border:1px solid rgba(236,72,153,0.35);box-shadow:0 0 8px rgba(236,72,153,0.2)",
-                                "expert": "background:linear-gradient(135deg,rgba(249,115,22,0.1),rgba(139,92,246,0.1));color:#a78bfa;border:1px solid rgba(139,92,246,0.4);box-shadow:0 0 12px rgba(139,92,246,0.25)",
+                            ui.label(mastery.capitalize()).classes(f"mastery-chip mc-{mastery}")
+
+                            _mastery_copy = {
+                                "novice": "Just getting started — great time to build foundations.",
+                                "intermediate": "You've got the core. Time to go deeper.",
+                                "advanced": "Strong foundations. Let's tackle production complexity.",
+                                "expert": "You're in the top tier. Ask me anything.",
                             }
-                            _chip_style = _mastery_styles.get(mastery, _mastery_styles["novice"])
-                            ui.label(mastery.capitalize()).classes("rag-mastery-chip").style(_chip_style)
+                            ui.label(_mastery_copy.get(mastery, _mastery_copy["novice"])).style(
+                                "font-family:'Inter',system-ui; font-size:12.5px; color:#94a3b8; line-height:1.5; margin-top:6px; margin-bottom:16px"
+                            )
 
                             topic_scores: dict = profile.get("topic_scores") or {}
+
+                            _MODULE_NUMS = {
+                                "rag_fundamentals": "01",
+                                "vector_databases": "02",
+                                "retrieval_methods": "03",
+                                "chunking_strategies": "04",
+                                "langchain": "05",
+                                "production_patterns": "06",
+                            }
 
                             if not topic_scores:
                                 ui.label("Start chatting to build your profile.").style("font-size:0.8rem; color:#64748b; font-style:italic")
                             else:
-                                ui.label("Topic Scores").style("font-size:0.82rem; font-weight:600; color:#64748b; margin-top:0.25rem")
+                                ui.label("Module Progress").style(
+                                    "font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.12em; color:#94a3b8; margin:0 0 8px"
+                                )
                                 for slug, label in _MODULE_LABELS.items():
                                     score: float = topic_scores.get(slug, 0.0)
-                                    with ui.column().style("gap:0.4rem; width:100%"):
+                                    num = _MODULE_NUMS.get(slug, "")
+                                    display_label = f"{num} · {label}" if num else label
+                                    with ui.column().style("gap:3px; width:100%; margin-bottom:8px"):
                                         with ui.row().style("justify-content:space-between; align-items:center; width:100%"):
-                                            ui.label(label).style("font-size:0.8rem; color:#94a3b8")
-                                            ui.label(f"{int(score * 100)}%").style("font-size:0.8rem; color:#64748b; font-family:ui-monospace,monospace")
+                                            ui.label(display_label).style("font-size:0.8rem; color:#f8fafc; font-weight:500")
+                                            ui.label(f"{round(score * 100)}%").style("font-size:0.75rem; color:var(--c-muted,#94a3b8); font-family:ui-monospace,monospace")
                                         ui.linear_progress(value=score, show_value=False).style("width:100%").props("color=deep-orange-400 track-color=blue-grey-900")
 
                             interaction_count = profile.get("interaction_count", 0)
                             last_activity = profile.get("last_activity_at")
-                            ui.label(f"Queries: {interaction_count}").style("font-size:0.78rem; color:#64748b; margin-top:0.5rem")
-                            if last_activity:
-                                last_str = (last_activity[:16].replace("T", " ") if len(last_activity) >= 16 else last_activity)
-                                ui.label(f"Last active: {last_str}").style("font-size:0.78rem; color:#64748b")
+                            with ui.column().style(
+                                "gap:6px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.04); width:100%"
+                            ):
+                                with ui.row().style("justify-content:space-between; width:100%"):
+                                    ui.label("questions asked").style("font-family:ui-monospace,monospace; font-size:11px; color:#94a3b8")
+                                    ui.label(str(interaction_count)).style("font-family:ui-monospace,monospace; font-size:11px; color:#e2e8f0; font-weight:500")
+                                if last_activity:
+                                    last_str = (last_activity[:16].replace("T", " ") if len(last_activity) >= 16 else last_activity)
+                                    with ui.row().style("justify-content:space-between; width:100%"):
+                                        ui.label("last session").style("font-family:ui-monospace,monospace; font-size:11px; color:#94a3b8")
+                                        ui.label(last_str).style("font-family:ui-monospace,monospace; font-size:11px; color:#e2e8f0; font-weight:500")
 
                     await profile_panel()
 
-                    # --- Chat message log box viewport ---
-                    with ui.column().style("flex:1; height:100%; min-height:0; overflow:hidden; position:relative; background:#120e28"):
-                        with ui.column().style("position:absolute; top:0; left:0; right:0; bottom:0; overflow-y:auto; padding:1.5rem; background:radial-gradient(ellipse at 8% 92%, rgba(249,115,22,0.07) 0%, transparent 38%), radial-gradient(ellipse at 92% 8%, rgba(139,92,246,0.07) 0%, transparent 38%), radial-gradient(ellipse at 50% 50%, rgba(236,72,153,0.03) 0%, transparent 60%), #120e28"):
-                            chat_area = ui.column().style("width:100%; gap:1rem")
-
+                    # --- Chat column (scroll area + composer inside) ---
+                    with ui.column().style("flex:1; min-height:0; overflow:hidden; position:relative; background:#120e28"):
+                        # Scroll area — stops at bottom:108px, leaving room for the composer
+                        with ui.column().classes("rag-scroll-area").style(
+                            "position:absolute; top:0; left:0; right:0; bottom:108px; overflow-y:auto; "
+                            "padding:32px 24px 24px; "
+                            "background:radial-gradient(ellipse at 8% 92%, rgba(249,115,22,0.07) 0%, transparent 38%), "
+                            "radial-gradient(ellipse at 92% 8%, rgba(139,92,246,0.07) 0%, transparent 38%), #120e28"
+                        ):
+                            chat_area = ui.column().style("max-width:760px; margin:0 auto; width:100%; gap:18px")
                             with chat_area:
-                                with ui.card().style("background:rgba(22,16,44,0.9); border:1px solid rgba(139,92,246,0.2); max-width:75%; border-radius:4px 20px 20px 20px; box-shadow:0 4px 28px rgba(139,92,246,0.12); backdrop-filter:blur(6px); padding:1rem 1.25rem"):
-                                    _dn = app.storage.user.get("display_name") or app.storage.user.get("email")
-                                    ui.markdown(_build_welcome_message(_dn, _welcome_profile))
+                                with ui.card().style(
+                                    "background:var(--c-card,#1e163c); border:1px solid var(--c-border,#241d4a); "
+                                    "border-radius:12px; box-shadow:0 4px 28px rgba(139,92,246,0.12); "
+                                    "backdrop-filter:blur(6px); padding:22px 24px"
+                                ):
+                                    _sessions = (_welcome_profile or {}).get("interaction_count", 0)
+                                    _session_word = "session" if _sessions == 1 else "sessions"
+                                    ui.label("Welcome back.").style(
+                                        "font-size:1.15rem; font-weight:700; color:#f97316; "
+                                        "letter-spacing:-0.01em; line-height:1.2"
+                                    )
+                                    ui.html(
+                                        f'<span style="font-size:0.875rem; color:#64748b; line-height:1.55; display:block; margin-top:6px">'
+                                        f'your profile has <strong style="color:#e2e8f0; font-weight:700">{_sessions}</strong> '
+                                        f'{_session_word} so far. What would you like to explore today?'
+                                        f'</span>'
+                                    )
 
-                # 2. Input Container Control Footer Row Panel
-                # Clean, top-down stacking. No absolute hacks needed anymore.
-                with ui.row().style(
-                    "width: 100%; flex-shrink: 0; "
-                    "padding: 1rem 2rem; gap: 0.75rem; align-items: center; "
-                    "background: linear-gradient(180deg, rgba(249,115,22,0.08) 0%, rgba(236,72,153,0.06) 50%, rgba(139,92,246,0.05) 100%), #231848; "
-                    "border-top: 2px solid transparent; border-image: linear-gradient(90deg,#f97316,#ec4899,#8b5cf6) 1; "
-                    "box-shadow: 0 -12px 40px rgba(236,72,153,0.2), 0 -4px 12px rgba(249,115,22,0.1); "
-                    "box-sizing: border-box;"
-                ):
-                    question_input = ui.input(
-                        placeholder="Ask about RAG, vector databases, LangChain..."
-                    ).classes("rag-chat-input").props("outlined auto-grow").style("flex:1")
-                    send_btn = ui.button(icon="send").classes("rag-send-btn").props("unelevated").style("color:white; font-size:1.1rem").props("color=orange")
+                        # Composer — pinned to bottom, height ~108px
+                        with ui.column().style(
+                            "position:absolute; bottom:0; left:0; right:0; "
+                            "padding:12px 24px 16px; "
+                            "background:linear-gradient(0deg, #120e28 60%, transparent)"
+                        ):
+                            with ui.row().style(
+                                "background:#231848; border:1px solid #241d4a; border-radius:16px; "
+                                "padding:8px 8px 8px 16px; gap:10px; align-items:center; "
+                                "max-width:760px; margin:0 auto; width:100%"
+                            ):
+                                question_input = ui.input(
+                                    placeholder="Ask anything about RAG, embeddings, retrieval, LangChain…"
+                                ).classes("rag-chat-input").props("outlined dense auto-grow").style("flex:1")
+                                with ui.button().classes("rag-send-btn").props("unelevated").props('title="Send (Enter)"').style(
+                                    "background:linear-gradient(135deg,#f97316,#ec4899) !important; "
+                                    "border-radius:50%; width:40px; height:40px; min-width:40px; flex-shrink:0; "
+                                    "display:inline-flex; align-items:center; justify-content:center; padding:0"
+                                ) as send_btn:
+                                    ui.html(rag_icon("send", 16, "#fff"))
 
             # ------------------------------------------------------------------ Admin tab
             with ui.tab_panel(admin_tab).style(
@@ -1803,22 +1925,44 @@ html, body {
 
             with chat_area:
                 _dn = app.storage.user.get("display_name") or app.storage.user.get("email", "You")
-                with ui.column().style("align-self:flex-end; max-width:75%; gap:0.2rem"):
-                    ui.label(_dn).style(
-                        "font-size:0.7rem; color:#64748b; text-align:right; align-self:flex-end"
-                    )
-                    with ui.card().style(
-                        "background:linear-gradient(135deg,#ea580c,#be185d); color:#fff0f6; width:fit-content; align-self:flex-end; "
-                        "border-radius:20px 20px 4px 20px; word-break:break-word; overflow-wrap:break-word; overflow:hidden; "
-                        "box-shadow:0 4px 20px rgba(190,24,93,0.35); padding:0.75rem 1rem"
+                _av = (_dn.split("@")[0] if "@" in _dn else _dn)[:2].upper()
+                with ui.row().style("align-self:flex-end; gap:12px; align-items:flex-start"):
+                    with ui.card().classes("rag-bubble-card").style(
+                        "background:rgba(56,189,248,0.06); border:1px solid rgba(56,189,248,0.22); "
+                        "border-radius:14px; word-break:break-word; overflow-wrap:break-word; overflow:hidden; "
+                        "padding:12px 16px; max-width:600px"
                     ):
-                        ui.label(question).style("word-break:break-word; overflow-wrap:break-word; max-width:100%")
+                        ui.label("YOU").style(
+                            "font-family:ui-monospace,monospace; font-size:10px; color:#64748b; "
+                            "text-transform:uppercase; letter-spacing:0.08em; margin-bottom:2px; "
+                            "width:100%; text-align:right"
+                        )
+                        ui.label(question).style(
+                            "font-size:14px; line-height:1.6; color:#e2e8f0; "
+                            "word-break:break-word; overflow-wrap:break-word"
+                        )
+                    ui.label(_av).style(
+                        "width:30px; height:30px; min-width:30px; border-radius:9px; flex-shrink:0; "
+                        "background:linear-gradient(135deg,#8b5cf6,#38bdf8); "
+                        "color:#fff; font-family:ui-monospace,monospace; font-size:11px; font-weight:700; "
+                        "display:flex; align-items:center; justify-content:center"
+                    )
+                ui.run_javascript(
+                    "var s=document.querySelector('.rag-scroll-area'); if(s) s.scrollTop=s.scrollHeight;"
+                )
 
                 stage_idx = [0]
                 stage_active = [True]
                 with ui.row().style(
-                    "align-items:center; gap:0.5rem; padding:0.3rem 0"
+                    "align-items:center; gap:12px; padding:4px 0"
                 ) as thinking:
+                    ui.label("RT").style(
+                        "width:30px; height:30px; min-width:30px; border-radius:9px; flex-shrink:0; "
+                        "background:linear-gradient(135deg,#f97316,#ec4899); "
+                        "color:#fff; font-family:ui-monospace,monospace; font-size:11px; font-weight:700; "
+                        "display:flex; align-items:center; justify-content:center; "
+                        "box-shadow:0 0 14px rgba(236,72,153,0.32)"
+                    )
                     ui.html('<span class="rag-thinking-dot"></span>'
                             '<span class="rag-thinking-dot"></span>'
                             '<span class="rag-thinking-dot"></span>')
@@ -1837,14 +1981,25 @@ html, body {
 
             # Pre-create the response card hidden; reveal on first token.
             with chat_area:
-                with ui.column().style("align-self:flex-start; max-width:75%; gap:0.2rem") as response_col:
-                    ui.label("RAG Assistant").style("font-size:0.7rem; color:#64748b")
-                    with ui.card().style(
-                        "background:rgba(22,16,44,0.9); border:1px solid rgba(139,92,246,0.2); width:fit-content; "
-                        "border-radius:4px 20px 20px 20px; word-break:break-word; overflow-wrap:break-word; overflow:hidden; "
-                        "box-shadow:0 4px 24px rgba(139,92,246,0.12); backdrop-filter:blur(6px); padding:0.75rem 1rem"
-                    ):
-                        streaming_md = ui.markdown("").style("width:100%; word-break:break-word; overflow-wrap:break-word")
+                with ui.row().style("align-self:flex-start; gap:12px; align-items:flex-start") as response_col:
+                    ui.label("RT").style(
+                        "width:30px; height:30px; min-width:30px; border-radius:9px; flex-shrink:0; "
+                        "background:linear-gradient(135deg,#f97316,#ec4899); "
+                        "color:#fff; font-family:ui-monospace,monospace; font-size:11px; font-weight:700; "
+                        "display:flex; align-items:center; justify-content:center; "
+                        "box-shadow:0 0 14px rgba(236,72,153,0.32)"
+                    )
+                    with ui.column().style("gap:6px; min-width:0; max-width:680px") as response_inner_col:
+                        with ui.card().classes("rag-bubble-card").style(
+                            "background:var(--c-card,#1e163c); border:1px solid rgba(236,72,153,0.22); "
+                            "border-radius:14px; word-break:break-word; overflow-wrap:break-word; overflow:hidden; "
+                            "box-shadow:0 4px 22px rgba(236,72,153,0.08); padding:12px 16px"
+                        ):
+                            ui.label("RAG TUTOR").style(
+                                "font-family:ui-monospace,monospace; font-size:10px; color:#64748b; "
+                                "text-transform:uppercase; letter-spacing:0.08em; margin-bottom:2px"
+                            )
+                            streaming_md = ui.markdown("").style("width:100%; word-break:break-word; overflow-wrap:break-word")
             response_col.set_visibility(False)
 
             ui.update()
@@ -1879,6 +2034,9 @@ html, body {
                             tokens.append(event.get("content", ""))
                             streaming_md.content = "".join(tokens)
                             ui.update()
+                            ui.run_javascript(
+                                "var s=document.querySelector('.rag-scroll-area'); if(s) s.scrollTop=s.scrollHeight;"
+                            )
                         elif event.get("type") == "done":
                             done_data = event
 
@@ -1891,7 +2049,7 @@ html, body {
                 thinking.set_visibility(False)
 
             # Append debug info and knowledge check to the already-rendered response column.
-            with response_col:
+            with response_inner_col:
                 cache_color = "#14532d" if result["cache_hit"] != "none" else "#162032"
                 with ui.expansion("Debug info").style(
                     "font-size:0.7rem; color:#64748b; margin-top:0.4rem; width:fit-content"
@@ -1948,6 +2106,9 @@ html, body {
             profile_panel.refresh()
             send_btn.enable()
             ui.update()
+            ui.run_javascript(
+                "var s=document.querySelector('.rag-scroll-area'); if(s) s.scrollTop=s.scrollHeight;"
+            )
 
         send_btn.on_click(send)
         question_input.on("keydown.enter", send)

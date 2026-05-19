@@ -1760,3 +1760,9 @@ async def index():
 > **In one sentence:** Redesigned login and register page layouts to match Auth.jsx UI kit — vertical brand column with SVG logo, visible input labels, corrected focus ring color, and reordered register form fields.
 
 ---
+
+**Commit 32 — `ui-chat-shell`** · 2026-05-19 · Aria · `update`
+
+> **In one sentence:** Unified chat page styling and labels across all UI kit components (ChatShell, KnowledgeProfile, Composer, Bubbles); refactored composer layout from row to column wrapper.
+
+---
