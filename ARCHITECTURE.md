@@ -157,9 +157,9 @@ responsive to who they are, not a static Q&A tool.
 - **Owner:** Nova
 - **Purpose:** Typed schema for the SSE `done` event payload. Single source of truth for the JSON shape that clients receive at the end of each streaming response.
 - **Location:** `src/rag/chain.py`
-- **Contract:** `answer: str`, `user_level: str | None` (`None` = assessment did not run), `assessed_topics: dict[str, float]` (topic slug → per-turn score delta)
+- **Contract:** `answer: str`, `user_level: str | None` (`None` = assessment did not run), `assessed_topics: dict[str, float]` (topic slug → per-turn score delta), `test_question: str | None` (MCQ display text with A–D options when a test was selected; None otherwise), `is_mcq: bool` (True when `test_question` is MCQ format — Aria uses this in Commit 37 to render A–D buttons vs. plain text input)
 - **Interface:** `build_chat_response(state: dict) → ChatResponse` — adapter that extracts fields from the final `AgentState` dict after `on_chain_end` fires
-- **Introduced in:** Commit 18
+- **Introduced in:** Commit 18; `test_question` added Commit 24; `is_mcq` added Commit 35
 
 ### Redis Cache
 - **Type:** cache
@@ -207,11 +207,12 @@ responsive to who they are, not a static Q&A tool.
 7.   retrieve_node → ChromaDB (or BM25 fallback) → docs, retrieval_source
 8.   generate_node → PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT) → SystemMessage(context) + messages → LLM → streams tokens
 9.       ↳ on_chat_model_stream events → SSE "token" events to client
-10.  assess_node → two modes: (A) test mode — deterministic question selection from curriculum,
-       no LLM call, returns pending_test_question/slug; (B) evaluation mode — LLM call →
+10.  assess_node → two modes: (A) test mode — phase-gated MCQ selection via _select_test_slug,
+       loads question from questions/mcq/[slug].md, sets is_mcq=True + pending_mcq_correct_answer;
+       (B) evaluation mode — if is_mcq: deterministic regex evaluator (no LLM); else LLM rubric eval →
        EvaluationOutput verdict → test_answer_score, topic_scores_delta
 11.  update_profile_node → compute_topic_scores() → update_profile() → SQLite
-12. build_chat_response(final_state) → ChatResponse → SSE "done" event: { answer, user_level, assessed_topics }
+12. build_chat_response(final_state) → ChatResponse → SSE "done" event: { answer, user_level, assessed_topics, test_question, is_mcq }
 13. MemorySaver checkpointer persists messages under thread_id for next turn
 ```
 

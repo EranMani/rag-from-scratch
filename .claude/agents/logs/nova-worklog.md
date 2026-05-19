@@ -5,16 +5,19 @@
 ---
 
 ## Current State
-*Last updated: Commit 34 — phase-gate-enforcement · 2026-05-20*
+*Last updated: Commit 35 — mcq-assessment-engine · 2026-05-20*
 
-**Last completed:** Commit 34 — phase-gate-enforcement ✅
+**Last completed:** Commit 35 — mcq-assessment-engine ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
-- → Nova (Commit 35 `mcq-assessment-engine`): `PHASE_1_TOPICS`, `PHASE_2_TOPICS`, `PHASE_3_TOPICS`
-  are now public — import from `app.profile.scoring`. `_select_test_slug` is phase-gated on
-  `user_level` — MCQ engine inherits this gate automatically. No new AgentState fields added.
+- → Aria (Commit 37 `mcq-chat-ui`): SSE done event now includes `"is_mcq": true|false`.
+  When `is_mcq=true`, `test_question` contains MCQ text with A–D options.
+  Aria should parse options using `"^[A-D]\."` line pattern.
+  User selection should be submitted as single letter ("A", "B", "C", or "D").
+- → Nova (Commit 36 `onboarding-level-check`): `_load_mcq_question(slug, index)` is the
+  function to use for diagnostic question loading. Same format, same file path convention.
 
 **Open Handoffs — Outbound (stale — preserved for reference):**
 - Commit 19 (Aria — SSE endpoint): `ChatResponse` is defined in `src/rag/chain.py`.
@@ -144,6 +147,32 @@ The commit plan has been updated. Here is what changed for you:
 | 12 | Commit 24 `assessment-engine-rewrite` | ✅ Done | New EvaluationOutput model (not AssessmentOutput) for eval mode; _is_evaluation_mode() uses last-message HumanMessage inspection; regex-based curriculum file parser; TopicScoresDelta + VALID_MODULE_SLUGS updated to canonical 8 slugs. |
 | 13 | ad-hoc: off-topic suppression fix | ✅ Done | `_run_passive_assessment` returns `(delta, is_rag_related)` tuple; off-topic queries skip knowledge check entirely; exception fallback is permissive (returns True); 6 stale tests fixed to mock `_run_passive_assessment` explicitly. |
 | 14 | Commit 34 `phase-gate-enforcement` | ✅ Done | `_LEVEL_TO_PHASE` dict with `PHASE_1_TOPICS` default; `_ORDERED_SLUGS` promoted to module scope; scoring.py constants made public; 8 new tests + 1 stale test corrected; hit 26 tool cap (worklog written by orchestrator). |
+| 15 | Commit 35.5 gate-fix: test additions | ✅ Done | 4 new tests for Quinn gaps + Viktor guard; `test_letter_followed_by_period_returns_1_0` confirms "B." regex extraction; invalid-slug-with-is_mcq guard; None correct answer guard; tuple-unpacking integrity; 71 tests total passing. |
+
+---
+
+## Session 15 — Commit 35.5: gate-fix test additions
+
+**Date:** 2026-05-20
+**Status:** ✅ Done
+
+### Context
+
+Commit 35 (`mcq-assessment-engine`) passed tests but carried two blocker findings from the quality gate. Claude applied the Viktor Hard Block fix (is_mcq=True + pending_mcq_correct_answer=None guard) and removed dead code (`_load_question_text`) directly. This session adds the four test gaps Quinn flagged.
+
+### Changes Made
+
+- Viktor guard already applied to `src/agents/nodes/assess.py` (by Claude before this session)
+- Dead code `_load_question_text` already removed (by Claude before this session)
+- `tests/test_assess_node.py` — 4 new test methods added:
+  1. `TestMcqEvaluator.test_letter_followed_by_period_returns_1_0` — confirms "B." regex extracts correctly to 1.0
+  2. `TestMcqEvaluationIntegration.test_mcq_none_correct_answer_returns_assessment_error` — verifies Viktor's guard
+  3. `TestMcqEvaluationIntegration.test_evaluate_answer_invalid_slug_with_is_mcq_returns_error` — slug guard fires before MCQ branch
+  4. `TestMcqEvaluationIntegration.test_select_test_question_mcq_answer_is_single_letter` — tuple unpacking integrity: `pending_mcq_correct_answer` is A/B/C/D not question text
+
+### Approach
+
+Test A (tuple unpacking) required NOT mocking `_load_mcq_question` — that was the point. Existing tests all mock it away, which is why the ordering bug would be invisible. `_run_passive_assessment` was mocked to avoid a live LLM call while keeping `_load_mcq_question` real. Tests B and D both fit naturally in `TestMcqEvaluationIntegration` since they test the `_evaluate_answer` integration path. Test C is a pure synchronous unit test and belongs in `TestMcqEvaluator`. All 71 tests pass on first run.
 
 ---
 
@@ -1637,5 +1666,57 @@ The commit plan has been updated. Here is what changed for you:
 - Commits 34, 35, 36 are new and come before the renamed Commit 41 (was 35) integration-tests
 - 34 and 35/36 can partially parallelize: Wave D is 33∥34; Wave E is 35∥36 after both are done
 - Phase gate math already exists in src/app/profile/scoring.py — _phase_1_passed/_phase_2_passed are correct; commit 34 wires them into assess_node, it does not rewrite them
+
+---
+
+## Session — Commit 35 · 2026-05-20
+
+**What was built:**
+Three test classes completing the Commit 35 test suite for the MCQ assessment engine:
+- `TestMcqLoader` — 8 tests covering `_load_mcq_question(slug, index)`: valid slug returns
+  typed tuple, display_text format contract (starts with "Knowledge check:", contains 4 A-D
+  options), correct answer is one of A/B/C/D, FileNotFoundError for unknown slug, ValueError
+  for malformed block (missing **Question:** field), and modulo wrapping (index=5 → index=0
+  for 5-question file). Uses real `chunking_strategies` MCQ file for format assertions.
+- `TestMcqEvaluator` — 5 tests covering `_evaluate_mcq_answer`: exact match, case-insensitive
+  match, wrong letter, letter extracted from prose, no matching letter.
+- `TestMcqEvaluationIntegration` — 5 tests covering the `is_mcq=True` branch in
+  `_evaluate_answer`: correct answer scores 1.0 without LLM call, flags cleared to False/None
+  after eval, identified_gaps is empty list, wrong answer scores 0.0, non-MCQ path calls
+  get_provider.
+
+Also fixed 7 pre-existing Gate1/OffTopic tests that were broken by the Commit 35 production
+change: `_select_test_question` now calls `_load_mcq_question` instead of `_load_question_text`,
+but those tests patched `pathlib.Path.read_text` with content that has no `## MCQ-` blocks.
+Fix: add `patch("agents.nodes.assess._load_mcq_question", return_value=(...stub...))` to the
+6 Gate1 tests and 1 OffTopic test that exercise the test-selection path without caring about
+MCQ content.
+
+Also added `import re` to the test file (used in `test_display_text_contains_all_four_options`).
+
+**Result:** 67 tests passing, 0 failures.
+
+**Approach:**
+The MCQ evaluation decision was straightforward once the architecture was clear: any question
+with a known correct answer is a closed-form problem — LLM evaluation adds variance and latency
+for zero benefit. The deterministic path was always the right answer; the only design question
+was how to extract the user's letter from freeform input. The regex `\b([A-Da-d])\b` was chosen
+over a strict single-character parse because users commonly say "I think B" or "Option B" —
+rejecting those is hostile. The word boundary `\b` prevents matching letters embedded in words
+(e.g. "above" contains 'a' but should not match). That clinched the approach: capture the first
+standalone letter, compare case-insensitively.
+
+For the pre-existing test failures: the root cause was that Commit 35 changed the test-selection
+path from `_load_question_text` (reads from curriculum dir, returns str) to `_load_mcq_question`
+(reads from mcq dir, returns tuple). Old tests that globally patched `pathlib.Path.read_text`
+with open-answer curriculum content now silently reached the MCQ parser with content that had no
+`## MCQ-` headers, causing ValueError. The fix was to patch `_load_mcq_question` directly in
+tests that only care about test-mode state fields — isolating the MCQ loader as a unit separate
+from the node flow tests.
+
+**Files changed:**
+- `tests/test_assess_node.py` — added `import re`; patched 6 Gate1 tests and 1 OffTopic test
+  to stub `_load_mcq_question`; appended `TestMcqLoader`, `TestMcqEvaluator`,
+  `TestMcqEvaluationIntegration` classes
 
 **Your next commit is now: Commit 34 `phase-gate-enforcement`** (after Commit 33 question-bank-mcq and Commit 32 ui-chat-shell are both done — 32 is already done)

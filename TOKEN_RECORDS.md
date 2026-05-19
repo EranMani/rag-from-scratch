@@ -597,6 +597,32 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commits 35 + 35.5 — `mcq-assessment-engine` + `mcq-assessment-engine-fix` · 2026-05-20 · Nova
+
+> Gate wave: Viktor + Quinn + Ryan (Haiku). Sage + Mira skipped per gate triage (no auth/secrets; internal engine change).
+> Viktor HARD BLOCK pass 1 → fix applied (Claude direct Edit, no agent) → no re-gate (no-gate-fix-passes rule).
+> Quinn NEEDS ADDITIONS pass 1 → 4 tests added (Nova 35.5 pass).
+> 3 Nova invocations due to tool cap splits: pass 1 hit cap mid-test-write; pass 2 completed tests; pass 3 wrote 35.5 additions.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Nova (C35 pass 1 — hit cap) | Sonnet | 66,319 | 26 ⚠️ | **+6k** over ≤60k | All prod code written; test classes not yet written (cap hit mid-write) |
+| Nova (C35 pass 2 — tests) | Sonnet | 65,339 | 22 | **+5k** over ≤60k | 18 new tests + fixed 7 existing; 67 pass |
+| Viktor | Haiku | 51,491 | 25 ⚠️ | **+36k** over ≤15k | HARD BLOCK: is_mcq=True + None correct_answer = silent 0.0; Advisory: dead code |
+| Quinn | Haiku | 57,539 | 17 | **+43k** over ≤15k | NEEDS ADDITIONS: 3 HIGH gaps (tuple unpack, invalid slug, B. edge case) |
+| Ryan | Haiku | 33,303 | 0 | **+18k** over ≤15k | Full entry; 0 tool uses (diff passed inline) |
+| Nova (C35.5 — fix tests) | Sonnet | 58,568 | 14 | ✅ under ≤60k | 4 new tests; 71 pass; Viktor fix already applied by Claude |
+| **Total** | | **332,559** | **104** | **well over** | 3 Nova passes (tool cap) + no-gate-fix rule overhead |
+
+**Notes:**
+- Viktor and Quinn over ≤15k target: both reviewers read beyond the diff (file reads via tool uses). Viktor 25 tool uses against a read-only review task.
+- No-gate-fix-passes rule honored: Viktor block and Quinn gaps went into 35.5 fix commit, not a re-review cycle.
+- Viktor fix applied by Claude direct Edit (no agent spawn): ~200 tokens vs ~25k agent overhead. Dead code also removed by Claude.
+- Ryan 0 tool uses: diff passed inline to prompt; no file reads needed. Ideal pattern — Ryan should always receive diff inline to avoid tool reads.
+- Nova tool cap pattern: 3 passes because first pass hit the 25-cap mid-test-write. Consider passing smaller context packages to stay under cap.
+
+---
+
 ## Commit 33 — `question-bank-mcq` · 2026-05-19 · Lara
 
 > Gate wave: Ryan only — knowledge-base Markdown content only; no code, no auth, no external APIs, no user-facing behavior change.
@@ -644,6 +670,7 @@ No token data recorded. Tracking began at Commit 10.
 | 32c | ui-chat-shell (6-issue revision) | 44,287 | none (CSS/structure) | over ≤60k | Aria single-pass: composer move, progress bars, spacing, input bg, send btn, bubbles |
 | 33 | question-bank-mcq | 90,696 | Ryan only | over ≤75k | Lara ✅ (50,432 · 17 uses); Ryan 40k (9 uses, over 5-cap) |
 | 34 | phase-gate-enforcement | 129,763 | Viktor only (Haiku) | over ≤75k | Nova ✅ (59,236 · 26 uses, hit cap); Viktor 37k; Ryan 33k |
+| 35+35.5 | mcq-assessment-engine + fix | 332,559 | Viktor+Quinn+Ryan (Haiku) | **well over** | 3 Nova passes (tool cap splits); Viktor Hard Block → 35.5 fix; Quinn 3 HIGH gaps |
 
 ---
 

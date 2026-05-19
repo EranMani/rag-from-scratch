@@ -720,4 +720,24 @@
 - **Reason:** 5 questions satisfies the `min_questions_per_session=3` gate from `gates.md` while keeping advancement tests concise. The 2/2/1 distribution ensures the gate tests foundational knowledge (2 beginner) and practitioner-level application (2 intermediate) before advanced synthesis (1 advanced). A purely uniform distribution (1/1/1/1/1) would underweight the core knowledge the gates are designed to verify.
 - **Consequences:** If future data shows 5 questions is insufficient for discriminating mastery, the bank can grow to 8–10. The schema and engine support any bank size — only the minimum 3 is enforced at runtime.
 
-*Last updated: 2026-05-19 — Commit 30 complete (ui-landing-page: NiceGUI container override, static page pattern)*
+## MCQ Assessment Engine (C35)
+
+### Regex extraction for freeform MCQ answer input (Commit 35)
+- **Date:** 2026-05-20
+- **Commit:** 35
+- **Decided by:** Nova
+- **Decision:** `_evaluate_mcq_answer` uses `re.search(r'\b([A-Da-d])\b', user_message.strip())` to extract the user's answer letter from freeform text, rather than requiring an exact single-character match.
+- **Reason:** Users naturally write "B", "b", "Option B", or "I think B is correct." Requiring an exact single-character input would fail silently for any of these natural variations. The word-boundary `\b` prevents matching letters embedded in words (e.g. "above" matches 'a' at character level but not at word boundary). Case-insensitive comparison handles "b" vs "B".
+- **Alternatives considered:** Strict single-character parse (`user_message.strip().upper()` if length == 1) — rejected because it silently scores 0.0 for users who write natural sentences; requires UX instruction that adds friction.
+- **Consequences:** First standalone A–D letter in the message wins. If a user writes "Not A, I think B", the evaluator selects 'A' (first match). This is an accepted edge case — the UI instructions (Commit 37) will guide users to answer with a single letter or option phrase.
+
+### `is_mcq` flag propagated to ChatResponse for rendering branch (Commit 35)
+- **Date:** 2026-05-20
+- **Commit:** 35
+- **Decided by:** Nova + Claude
+- **Decision:** `AgentState.is_mcq` is extracted into `ChatResponse.is_mcq` and included in the SSE `done` event. Aria reads this flag in Commit 37 to decide whether to render A–D option buttons or a plain text input.
+- **Reason:** The frontend cannot parse `test_question` text to determine whether to render MCQ buttons — it needs a typed signal from the backend. Putting the flag in `ChatResponse` keeps the rendering decision out of the UI layer and makes the API contract explicit.
+- **Alternatives considered:** Aria parses the `test_question` text for A/B/C/D options — rejected because parsing free text in the frontend is fragile; a dedicated boolean flag is the correct typed contract for a rendering decision.
+- **Consequences:** Aria (Commit 37) uses `done_data["is_mcq"]` as the branch condition. This field must remain in `ChatResponse` as long as MCQ is the assessment format.
+
+*Last updated: 2026-05-20 — Commit 35 complete (mcq-assessment-engine: MCQ evaluation engine, is_mcq flag, regex answer extraction)*

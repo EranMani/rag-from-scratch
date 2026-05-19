@@ -130,7 +130,17 @@
       "PowerShell(conda env *)",
       "Bash(conda activate *)",
       "PowerShell(python -c \"import ast; ast.parse\\(open\\('D:/AI/_My_Projects/rag-from-scratch/src/app/ui.py'\\).read\\(\\)\\); print\\('AST OK'\\)\")",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_assess_node.py -x -q)",
+      "Bash(\"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\\\\.venv\\\\Scripts\\\\python.exe\" -m pytest tests/test_assess_node.py -x -q)",
+      "Bash(ls *.cfg *.toml *.ini)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/ -x -q)",
+      "Bash(./.venv/Scripts/python.exe -m pytest tests/ -x -q)",
+      "Bash(./.venv/Scripts/python.exe -m pytest tests/test_profile_api.py::TestGetProfileAuthenticated::test_valid_token_returns_200 -v)",
+      "Bash(./.venv/Scripts/python.exe -m pytest tests/ -q --ignore=tests/test_profile_api.py)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_assess_node.py -v)",
+      "Bash(.venv/Scripts/python -c ' *)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_assess_node.py -q)"
     ]
   }
 }

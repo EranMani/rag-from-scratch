@@ -1872,3 +1872,38 @@ def _select_test_slug(state: AgentState) -> str | None:
 - `tests/test_assess_node.py` — added `TestPhaseGateSlugSelection` (8 tests); updated 1 stale test
 
 ---
+
+### Commit 35 — `mcq-assessment-engine` · 2026-05-20
+
+**What changed:** Replaced LLM scoring for multiple-choice questions with deterministic regex-based evaluation that extracts A–D answers from freeform user input.
+
+**Why it matters:** MCQs are closed-form problems with known correct answers — LLM scoring adds latency and variance for zero benefit. This is the foundation for the assessment UI (Commit 37) that needs to know at render time whether to show multiple-choice buttons or a text input.
+
+**Key design decision:** Word-boundary regex `\b([A-Da-d])\b` extracts the first standalone letter from user input (handles "B", "b", "Option B is correct", "I think B"). This respects natural language without being hostile to it — no need to force users into a strict format.
+
+**Code reference:**
+```python
+# from src/agents/nodes/assess.py
+
+def _evaluate_mcq_answer(user_message: str, correct_answer: str) -> float:
+    """Deterministic binary MCQ evaluator — no LLM call."""
+    match = re.search(r"\b([A-Da-d])\b", user_message.strip())
+    if match and match.group(1).upper() == correct_answer.upper():
+        return 1.0
+    return 0.0
+
+# In _evaluate_answer, branching on is_mcq flag:
+if state.get("is_mcq"):
+    correct = state.get("pending_mcq_correct_answer")
+    if correct is None:
+        logger.error("assess_node: is_mcq=True but pending_mcq_correct_answer is None; ...")
+        return _build_eval_result(..., assessment_error=True)
+    user_msg = (state.get("messages") or [])[-1].content or ""
+    score = _evaluate_mcq_answer(user_msg, correct)
+```
+
+**Gotcha:** 7 existing tests that globally patched `pathlib.Path.read_text` broke when `_select_test_question` started calling `_load_mcq_question` — which expects MCQ-formatted content from disk. Fix: patch `_load_mcq_question` directly in tests that only care about state transitions, not actual question content. Tests verifying the full evaluate path (with real question files) should not mock `_load_mcq_question`.
+
+**Handoff:** Aria (Commit 37) consumes `is_mcq` from `ChatResponse` to decide whether to render A–D buttons or plain text input. The flag flows: `AgentState.is_mcq` → `build_chat_response()` → `ChatResponse.is_mcq` → SSE `done` event payload. Aria reads `done_data["is_mcq"]` to set the render branch.
+
+---

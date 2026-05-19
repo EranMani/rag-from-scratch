@@ -8,6 +8,10 @@
 ## Phase Gate Enforcement (C34)
 74. **`_LEVEL_TO_PHASE` dict with `PHASE_1_TOPICS` fallback** — dict lookup (`_LEVEL_TO_PHASE.get(user_level, PHASE_1_TOPICS)`) over if/elif; unknown/invalid levels fall through to the most restrictive gate (Phase 1); O(1) vs O(n); all 5 Literal values covered explicitly
 
+## MCQ Assessment Engine (C35)
+75. **Regex extraction for freeform MCQ answers** — `\b([A-Da-d])\b` captures first standalone letter; accepts "B", "Option B", "I think B"; word boundary prevents matching 'a' in "above"; first match wins
+76. **`is_mcq` flag in `ChatResponse`** — typed boolean in SSE done event so Aria knows to render A–D buttons vs. plain input; parsing test_question text in the frontend is fragile; explicit field is the correct typed contract
+
 ## UI Foundation (C26)
 68. **Font injection per `@ui.page`** — NiceGUI creates a fresh HTML document per route; font links must be injected in each page function independently
 69. **`!important` on Quasar button gradient** — Quasar re-applies its own background after render; `!important` is the reliable override; class-based approach is the clean future fix
