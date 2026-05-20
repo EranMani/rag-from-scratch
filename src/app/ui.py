@@ -259,6 +259,8 @@ def setup_ui(fastapi_app):
                 await fetch_profile_email()
                 ui.navigate.to("/")
 
+            email.on("keydown.enter", do_login)
+            password.on("keydown.enter", do_login)
             ui.button("Continue →", on_click=do_login).props("unelevated no-caps").style("background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%) !important; color:white !important; width:100%; border-radius:999px; font-weight:600; min-height:48px; font-size:1rem; box-shadow:0 4px 24px rgba(236,72,153,0.45)")
             ui.html('<div class="auth-swap" style="width:100%">Don\'t have an account? <a href="/register">Create one →</a></div>')
 
@@ -303,15 +305,19 @@ def setup_ui(fastapi_app):
         )
 
         def show_success():
+            name = display_name.value.strip() if display_name.value else None
+            greeting = f"Welcome, {name}!" if name else "Welcome!"
             wrapper.clear()
             with wrapper:
-                ui.label("You're all set.").style(
-                    "font-size:1.35rem; font-weight:600; background:linear-gradient(135deg,#f97316,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text"
+                ui.label(greeting).style(
+                    "font-size:1.35rem; font-weight:700; background:linear-gradient(135deg,#f97316,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text; text-align:center; width:100%"
                 )
-                ui.label("Your profile is ready. Start with your first question →").style(
-                    "font-size:0.9rem; color:#94a3b8"
+                ui.label("We're getting your account ready…").style(
+                    "font-size:0.9rem; color:#94a3b8; text-align:center; width:100%"
                 )
-                ui.button("Go to chat →", on_click=lambda: ui.navigate.to("/")).props("unelevated no-caps").style("background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%) !important; color:white !important; width:100%; border-radius:999px; font-weight:600; min-height:48px; font-size:1rem; box-shadow:0 4px 24px rgba(236,72,153,0.45)")
+                with ui.row().style("justify-content:center; width:100%; padding:1rem 0"):
+                    ui.spinner("dots", size="3rem", color="#f97316")
+                ui.timer(2.5, lambda: ui.navigate.to("/"), once=True)
 
         with wrapper:
             with ui.column().classes("auth-brand").style("width:100%"):
@@ -356,6 +362,9 @@ def setup_ui(fastapi_app):
                 await fetch_profile_email()
                 show_success()
 
+            display_name.on("keydown.enter", do_register)
+            email.on("keydown.enter", do_register)
+            password.on("keydown.enter", do_register)
             ui.button("Create account →", on_click=do_register).props("unelevated no-caps").style("background:linear-gradient(135deg,#f97316 0%,#ec4899 50%,#8b5cf6 100%) !important; color:white !important; width:100%; border-radius:999px; font-weight:600; min-height:48px; font-size:1rem; box-shadow:0 4px 24px rgba(236,72,153,0.45)")
             ui.html('<div class="auth-swap" style="width:100%">Already learning? <a href="/login">Sign in →</a></div>')
 
@@ -1684,7 +1693,8 @@ html, body {
 
                         if qi < len(questions):
                             raw_q = questions[qi]
-                            lines = raw_q.strip().splitlines()
+                            raw_text = raw_q["text"] if isinstance(raw_q, dict) else raw_q
+                            lines = raw_text.strip().splitlines()
                             q_text = lines[0] if lines else ""
                             opt_lines = [l for l in lines[1:] if len(l) >= 3 and l[0] in "ABCD" and l[1] == "."]
 
