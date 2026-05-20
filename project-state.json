@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-20 (Commit 41 gate-remediation done)",
+  "last_updated": "2026-05-21 (Commit 43 phase-unlock-agent done)",
   "status": "active",
   "current_commit": {
-    "number": "42",
-    "name": "rag-specialist-persona",
+    "number": "44",
+    "name": "phase-unlock-ui",
     "status": "pending",
-    "assignee": "claude"
+    "assignee": "aria"
   },
   "commits_done": [
     "01",
@@ -52,11 +52,12 @@
     "38.5",
     "39",
     "40",
-    "41"
+    "41",
+    "42",
+    "43"
   ],
   "commits_pending": [
-    "42",
-    "43",
+    "44",
     "44",
     "45",
     "46",
@@ -64,7 +65,7 @@
     "48",
     "49"
   ],
-  "next_commit": "42",
+  "next_commit": "44",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

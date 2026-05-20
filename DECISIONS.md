@@ -652,6 +652,24 @@
 - **Reason:** The MCQ files are static markdown on disk (~KB each). The re-read cost is negligible (3 files, 3 regex parses) and eliminates: (a) session state management complexity, (b) the stale-cache attack surface (a user modifying session state between requests cannot change what the server considers correct), and (c) NiceGUI storage coupling in a pure FastAPI route. Freshness is free.
 - **Consequences:** If MCQ files change between a user's `/diagnostic` and `/complete` calls, they are scored against the new questions' correct answers. This is acceptable — MCQ files are static in production and change only via deployment. No user-visible inconsistency in practice.
 
+### Deterministic level-order comparison for gate crossing detection (Commit 43)
+- **Date:** 2026-05-21
+- **Commit:** 43
+- **Decided by:** Nova
+- **Decision:** Gate crossing detection in `update_profile_node` uses a module-level `_LEVEL_ORDER: dict[str, int]` (maps level names to integers 0–4) and `_GATE_THRESHOLDS: dict[str, int]` (maps phase names to their minimum new rank). No LLM involved — pure integer comparison.
+- **Alternatives considered:** Using the `get_mastery_level()` function recursively on the old scores to derive old level; LLM-assisted "did the user advance?" inference.
+- **Reason:** Gate crossing is a structural invariant — it can be fully expressed as `old_rank < threshold <= new_rank`. LLM inference would add hallucination risk, latency, and cost for a Boolean determination. The level ordering is fixed by the curriculum spec (novice → beginner → intermediate → advanced → expert); mapping to integers makes the comparison transparent and testable.
+- **Consequences:** `_LEVEL_ORDER` and `_GATE_THRESHOLDS` are the authoritative constants for gate detection logic. Any future level added to the curriculum must be inserted in the correct ordinal position. The `break` after the first matching gate means a multi-level jump in one session (e.g., novice → expert) emits only the lowest crossed gate — accepted edge-case behavior since scoring is incremental and such jumps are unrealistic in practice.
+
+### `generate_node` as the clearing node for `gate_just_passed` (Commit 43)
+- **Date:** 2026-05-21
+- **Commit:** 43
+- **Decided by:** Nova + Claude (gate review)
+- **Decision:** `generate_node` always returns `{"gate_just_passed": None}` — unconditionally. When a gate was crossed, it prepends the announcement; when no gate was crossed, it still writes `None` to clear any stale value. Clearing is not delegated to a separate cleanup node.
+- **Alternatives considered:** A dedicated `clear_gate_state_node` at the end of the graph; `update_profile_node` returning `{"gate_just_passed": None}` on the no-crossing path.
+- **Reason:** `generate_node` is the only node that reads `gate_just_passed`. Since it reads AND clears in one step, a separate cleanup node would either (a) require an extra graph edge or (b) force LangGraph to schedule two nodes where one suffices. `generate_node` always runs after `update_profile_node` in the normal graph path — it is the natural clearing point. (Viktor Advisory C43: `update_profile_node` should also return `{"gate_just_passed": None}` unconditionally for defensive consistency — deferred to Commit 43.5.)
+- **Consequences:** If `generate_node` fails to run in a turn (graph error, circuit breaker), `gate_just_passed` retains its value until the next successful turn. The next successful `generate_node` will then announce the gate — potentially one turn late. This is acceptable for the portfolio context; addressed defensively in Commit 43.5.
+
 ### Idempotent migration via per-row sentinel key check (Commit 25)
 - **Date:** 2026-05-12
 - **Commit:** 25

@@ -5,13 +5,20 @@
 ---
 
 ## Current State
-*Last updated: Commit 36 — onboarding-level-check · 2026-05-20*
+*Last updated: Commit 43 — phase-unlock-agent · 2026-05-20*
 
-**Last completed:** Commit 36 — onboarding-level-check ✅
+**Last completed:** Commit 43 — phase-unlock-agent ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
+- → Aria (Commit 44 `phase-unlock-ui`): `gate_just_passed` is now an `AgentState` field.
+  By the time `generate_node` returns it is always `None` (cleared after reading).
+  The SSE `done` event in `chat.py` serialises `AgentState` fields — verify `gate_just_passed`
+  serialises as `null` and does not cause unexpected behaviour in the progression UI.
+  The in-chat unlock announcement text is prepended to the LLM answer string itself,
+  so Aria does NOT need to render a separate UI component for the text — it appears in
+  the normal message stream. Commit 44 is for the celebration moment UX overlay only.
 - → Aria (Commit 37 `mcq-chat-ui`): SSE done event now includes `"is_mcq": true|false`.
   When `is_mcq=true`, `test_question` contains MCQ text with A–D options.
   Aria should parse options using `"^[A-D]\."` line pattern.

@@ -142,6 +142,12 @@
 **Used in:** `src/app/api/routes/chat.py` (`config = {"configurable": {"thread_id": session_id}}`)
 **Introduced in:** Commit 10
 
+### gate_just_passed
+**Meaning on this project:** An `AgentState` field (`str | None`) set by `update_profile_node` when the user's mastery level crosses a phase boundary in a single turn. Value is `"phase_1"`, `"phase_2"`, or `"phase_3"` if a gate was crossed; `None` otherwise. `generate_node` reads this field, prepends a structured phase-unlock announcement to the LLM response if set, and always clears it by returning `{"gate_just_passed": None}`. This ensures the announcement fires exactly once per gate crossing.
+**Distinct from:** `mastery_level` (the current level label, persisted in the DB); phase gate state (the underlying pass/fail booleans in `scoring.py`).
+**Used in:** `src/agents/state.py`, `src/agents/nodes/update_profile.py`, `src/agents/nodes/generate.py`
+**Introduced in:** Commit 43
+
 ### assessment_error
 **Meaning on this project:** A boolean field in `AgentState`. Set to `True` by `assess_node` when the LLM call or structured-output parsing fails during assessment. When `True`, the conditional edge `_route_after_assess` in `graph.py` routes to `update_profile_node` with empty deltas — the profile is not updated but the graph continues cleanly to END. When `False`, the normal path applies the assessment delta to the profile.
 **Distinct from:** A Python exception (which is caught inside `assess_node`; `assessment_error` is the state-level signal emitted after the exception is handled).

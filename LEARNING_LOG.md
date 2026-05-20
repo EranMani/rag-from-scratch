@@ -1011,3 +1011,85 @@ return decay_factor * best_prior + (1 - decay_factor) * signal
 - `AGENTS.md` — update: CONTENT SPECIALISTS section in team diagram; worklog reading map entry for RAG Specialist
 
 ---
+
+## Commit 43 — `phase-unlock-agent` · 2026-05-21 · Nova · `architectural | new feature`
+
+> **In one sentence:** Phase gate crossings now signal learners with a motivational announcement by adding `gate_just_passed` to the agent state and rendering announcements in the generate node — making curriculum progression visible to users instead of silent.
+
+**Interview talking point:**
+> **Q:** How do you add a motivational event signal to an agent system without creating coupling between the detection node and the render node?
+>
+> **A:** Introduce a transient state field (`gate_just_passed`) that is written by the detection node (update_profile) and cleared by the consuming node (generate) in the same turn. The signal is "fire once" by design — the update node reads the previous gate status, detects a crossing, and emits the field. The generate node consumes it, renders an announcement, and always writes `None` to clear it for the next turn. This keeps the two nodes decoupled (neither imports from the other) while ensuring the signal fires exactly once per gate crossing.
+
+**What happened and why:**
+- Phase gate crossings were invisible — a user who unlocked Phase 2 received no signal, so the motivational arc of the curriculum was broken. The learner couldn't tell they had progressed.
+- Added `gate_just_passed: str | None` field to `AgentState`. This carries the signal name (e.g., `"phase_1"` or `"phase_2"`) from one node to the next within a single turn, then is cleared.
+- Rewrote `_LEVEL_ORDER` and `_GATE_THRESHOLDS` constants in `update_profile_node`: define phase thresholds as integer rank values (novice=0, beginner=1, intermediate=2, advanced=3, expert=4). On every profile update, compare old rank to new rank — if the new rank crosses a threshold, emit the gate name. No LLM involved; it's pure arithmetic.
+- Added `_PHASE_ANNOUNCEMENTS` dict mapping gate names to user-visible text (e.g., `"Congratulations! You've unlocked Phase 2: Core Retrieval & Search."`). The generate node prepends this to the LLM response when `gate_just_passed` is set.
+- The generate node always returns `{"gate_just_passed": None}` to ensure the field is cleared for the next turn, preventing the announcement from firing twice.
+
+**Reasoning & discovery:**
+1. The problem: gate crossings happen deterministically (user_level changes from "beginner" to "intermediate") but produce no signal. Open-ended rubrics would require a second LLM call to ask "did the user just pass a gate?" — adding latency and cost for a question that can be answered with integer comparison.
+2. What was ruled out: storing the announcement in `AgentState` across multiple turns (couples the two nodes and risks duplicate announcements). Correct approach: fire-once event signal — transient field written and cleared in the same turn.
+3. What clinched the solution: LangGraph's checkpointer (MemorySaver) preserves state between node calls *within the same turn*, so a field written in update_profile and read/cleared in generate happens atomically. The turn boundary is the natural clearing point.
+
+**Design pattern:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Fire-once event signal | `gate_just_passed` written by detector, read-and-cleared by consumer in same turn | Decouples detection from rendering; signal fires exactly once per crossing; automatically clears at turn boundary |
+| Deterministic gate detection via rank comparison | `old_rank < threshold ≤ new_rank` using integer constants | No LLM overhead; O(n) gate checks per profile update where n ≤ 5 phases; portable and testable |
+| Transient state field | `gate_just_passed: str | None` — always cleared to `None` at turn end | Prevents stale signals from leaking to later turns; simple invariant: field is always `None` at turn start |
+
+**The key change:**
+```python
+# src/app/profile/scoring.py
+_LEVEL_ORDER = {"novice": 0, "beginner": 1, "intermediate": 2, "advanced": 3, "expert": 4}
+_GATE_THRESHOLDS = {"phase_1": 2, "phase_2": 3, "phase_3": 4}
+
+# In update_profile_node:
+old_rank = _LEVEL_ORDER.get(previous_level or "novice", 0)
+new_rank = _LEVEL_ORDER.get(score_update["mastery_level"], 0)
+
+gate_just_passed = None
+for gate_name, threshold in _GATE_THRESHOLDS.items():
+    if old_rank < threshold <= new_rank:
+        gate_just_passed = gate_name
+        break
+
+return {
+    "messages": [updated_msg],
+    "topic_scores_delta": score_update["topic_scores"],
+    "gate_just_passed": gate_just_passed,
+}
+```
+
+```python
+# src/agents/nodes/generate.py
+_PHASE_ANNOUNCEMENTS = {
+    "phase_1": "Congratulations! You've mastered RAG fundamentals. Unlocking Phase 2: Core Retrieval Systems.",
+    "phase_2": "Excellent work! You've completed Phase 2. Unlocking Phase 3: Advanced Production Patterns.",
+    "phase_3": "Outstanding! You've reached expert level in RAG systems. You're now ready for cutting-edge topics.",
+}
+
+# In generate_node:
+gate_just_passed = state.get("gate_just_passed")
+if gate_just_passed and gate_just_passed in _PHASE_ANNOUNCEMENTS:
+    announcement = _PHASE_ANNOUNCEMENTS[gate_just_passed]
+    response = AIMessage(content=announcement + "\n\n" + str(response.content))
+
+return {
+    "messages": [response],
+    "answer": response.content,
+    "gate_just_passed": None,  # clear for next turn
+}
+```
+
+**Files touched:**
+- `src/agents/state.py` — added `gate_just_passed: str | None` to `AgentState`
+- `src/agents/nodes/update_profile.py` — `_LEVEL_ORDER` and `_GATE_THRESHOLDS` constants; gate crossing detection loop; emit `gate_just_passed` in return dict
+- `src/agents/nodes/generate.py` — `_PHASE_ANNOUNCEMENTS` dict; announcement prepending and field clearing; always return `{"gate_just_passed": None}`
+- `tests/test_update_profile_node.py` — 8 new `TestGateDetection` tests covering all rank transitions and gate boundaries
+- `tests/test_generate_node.py` — 5 new gate-announcement tests (announcement rendering, field clearing, missing gate names)
+
+---

@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-20 (Commit 41 — gate-remediation)
+> Last updated: 2026-05-21 (Commit 43 — phase-unlock-agent)
 
 ---
 
@@ -100,6 +100,7 @@ responsive to who they are, not a static Q&A tool.
 - **Purpose:** Stateful graph that retrieves, generates, assesses, and updates user profiles adaptively
 - **Depends on:** ChromaDB, OpenAI/Ollama, SQLite (user_profiles), Redis
 - **Key data flows added (C41):** `session_question_counts: dict[str, int]` field tracks per-topic MCQ answer count within a session; `generate_node` reads profile via `asyncio.to_thread(get_profile_by_user_id, user_id)` and appends proximity hint to context when a Phase 1/2 topic score is in [0.60, 0.70); intermediate users with identified Phase 1 gaps receive Phase 1 remediation questions via `_select_test_slug`
+- **Key data flows added (C43):** `gate_just_passed: str | None` field in `AgentState`; `update_profile_node` detects level boundary crossing and sets it; `generate_node` reads it, prepends a structured phase-unlock announcement to the LLM response, then always returns `{"gate_just_passed": None}` to clear the field. The clearing node is `generate_node` — not a separate cleanup node — because announcements are always followed by the LLM answer in the same response.
 - **Introduced in:** Commits 07–17
 
 ### User Profile Service
@@ -127,7 +128,7 @@ responsive to who they are, not a static Q&A tool.
 - **Type:** LangGraph node (synchronous)
 - **Owner:** Nova
 - **Purpose:** Persists topic score deltas to the user profile after each assessed turn
-- **Contract:** reads `user_id`, `assessment_error`, `topic_scores_delta`, `session_question_counts` from `AgentState`; passes per-topic session count to `compute_topic_scores` for single-topic deltas; returns `{}`
+- **Contract:** reads `user_id`, `assessment_error`, `topic_scores_delta`, `session_question_counts` from `AgentState`; passes per-topic session count to `compute_topic_scores` for single-topic deltas. Returns `{}` on most paths; returns `{"gate_just_passed": "phase_N"}` when the computed `mastery_level` crosses a phase gate boundary (C43). Gate detection is deterministic: `_LEVEL_ORDER` dict maps level names to integers 0–4; loop over `_GATE_THRESHOLDS` breaks on first threshold crossed by old_rank → new_rank.
 - **Depends on:** Topic Scoring Service (`compute_topic_scores`), User Profile Service (`get_profile_by_user_id`, `update_profile`)
 - **Introduced in:** Commit 15 (stub from Commit 12 replaced)
 

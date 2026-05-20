@@ -687,6 +687,31 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 43 — `phase-unlock-agent` · 2026-05-21 · Nova
+
+> Gate wave: Viktor + Quinn (Haiku). Sage + Mira skipped (gate triage: no auth/secrets/user input; pure AI-agent logic + AgentState field addition).
+> Viktor: BLOCKED — state merge inconsistency (`update_profile_node` returns `{}` on no-gate path; should return `{"gate_just_passed": None}`) + 2 Advisories (gate threshold sort, AIMessage metadata loss). Per HARD RULE, fix deferred to Commit 43.5.
+> Quinn: NEEDS ADDITIONS — 3 gaps (multi-jump break test; no-gate empty-dict assertion; None vs missing key distinction). Deferred to Commit 43.5.
+> Team Lead approved commit despite Viktor Hard Block — fixes go into 43.5.
+> Ryan: pending.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Nova (implementation) | Sonnet | 73,623 | 28 ⚠️ | **+14k** over ≤60k | hit cap at 26; worklog write blocked; orchestrator updated worklog header directly (~0 tokens) |
+| Viktor | Haiku | 35,655 | 1 | **+21k** over ≤15k | BLOCKED: state merge inconsistency; 1 tool use (full context inline — zero file reads) ✅ |
+| Quinn | Haiku | 33,521 | 3 | **+19k** over ≤15k | NEEDS ADDITIONS: 3 gaps; 3 tool uses (reasonable) |
+| Ryan | Haiku | 59,296 | 2 | **+44k** over ≤15k | full entry; 2 tool uses (Read + Edit) ✅ |
+| **Total** | | **202,095** | **34** | over ≤75k | Nova over cap; Haiku reviewers over ≤15k (pattern); Ryan over ≤15k (full entry) |
+
+**Notes:**
+- Nova: 73,623 tokens / 28 uses (at cap). Hit cap before worklog write; orchestrator applied header update directly.
+- Viktor 1 tool use: first time Viktor achieved single-tool-use — context was 100% inline (diff + 3 file excerpts). This is the correct reviewer pattern.
+- Quinn 3 tool uses: reasonable for a coverage review with context fully inline.
+- Viktor Hard Block (state merge inconsistency) and Quinn NEEDS ADDITIONS deferred to Commit 43.5 per HARD RULE (no-gate-fix-passes).
+- All 61 tests pass. Feature is functionally correct — Viktor finding is defensive-programming concern, not correctness failure.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -728,6 +753,7 @@ No token data recorded. Tracking began at Commit 10.
 | 40 | langchain-curriculum | 95,726 | Ryan only (Haiku) | **over** ≤75k | Lara ✅ (59,294 · 25 uses); Ryan 36,432 (8 uses, hit 5-cap before LEARNING_LOG_SUMMARY edit — Claude applied direct Edit); zero gate wave (docs-only commit) |
 | 41 | gate-remediation | pending | Viktor+Quinn (Haiku) | pending | No impl agent (Claude direct Edits, ~0 tokens); Viktor 35,532 (3 uses, PASS); Quinn 58,355 (40 uses, NEEDS ADDITIONS); Ryan pending |
 | 42 | rag-specialist-persona | ~0 | zero gates (doc-only) | ✅ ~0 | Orchestrator direct Write+Edit calls; no subagent spawn (exact content known) |
+| 43 | phase-unlock-agent | 142,799 (excl. Ryan) | Viktor+Quinn (Haiku, Hard Block+NEEDS ADDITIONS) | **over** | Nova 73k (cap hit); Viktor 35k (1 tool use ✅); Quinn 33k (3 uses ✅); fixes → C43.5 |
 
 ---
 
