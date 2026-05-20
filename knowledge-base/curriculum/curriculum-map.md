@@ -1,7 +1,7 @@
 # RAG Curriculum Map
 # Project: rag-from-scratch
 # Maintained by: Lara (RAG Curriculum Specialist)
-# Last updated: 2026-05-11 (Commit 22)
+# Last updated: 2026-05-20 (Commit 40)
 
 ---
 
@@ -23,7 +23,8 @@ Phase 2 — Core Components
   ├── chunking_strategies          (entry: Phase 1 gate)
   ├── vector_databases             (entry: Phase 1 gate)
   ├── retrieval_methods            (entry: Phase 1 gate + vector_databases recommended first)
-  └── context_and_prompting        (entry: Phase 1 gate + rag_pipeline_architecture required)
+  ├── context_and_prompting        (entry: Phase 1 gate + rag_pipeline_architecture required)
+  └── langchain_fundamentals       (entry: Phase 1 gate + all other Phase 2 topics recommended first)
       ↓ Phase 2 Gate
 Phase 3 — Production
   ├── evaluation_and_metrics       (entry: Phase 2 gate)
@@ -251,6 +252,43 @@ design prompt templates that produce consistent, grounded responses.
 
 ---
 
+### Topic: `langchain_fundamentals`
+
+**Phase:** 2
+**Description:** Understand how LangChain connects the RAG components from Phase 2 into an
+operational pipeline. Covers the chain abstraction, LCEL, retriever interfaces, memory
+management, and composing a production RAG pipeline from components the learner already
+understands conceptually.
+
+**Prerequisites:**
+- Phase 1 gate passed
+- All other Phase 2 topics recommended first (`chunking_strategies`, `vector_databases`,
+  `retrieval_methods`, `context_and_prompting`)
+
+**Learning Objectives:**
+1. Describe the LangChain chain abstraction and LCEL pipe syntax — what `|` composes and
+   what types are compatible in a chain.
+2. Explain how LangChain's retriever interface wraps a vector store — what `.as_retriever()`
+   returns, what parameters it accepts, and how it connects to a chain.
+3. Trace a `create_retrieval_chain` call from query to response: which components are called
+   in which order and what each passes to the next.
+4. Explain ConversationBufferMemory and ConversationSummaryMemory — what each stores, when
+   each is appropriate, and what happens when the buffer exceeds the context limit.
+5. Identify at least three places where a LangChain pipeline can fail silently (e.g., retriever
+   returning empty results, chain swallowing exceptions, prompt template variable mismatch)
+   and describe how to surface those failures.
+
+**Typical Misconceptions:**
+- "LangChain is a RAG framework." (LangChain is a general LLM orchestration library.
+  Understanding the concepts independently of LangChain makes you a stronger practitioner.)
+- "LCEL is just Python pipes." (LCEL is a lazy evaluation graph — chains are not executed
+  when composed, only when invoked. This has implications for streaming, async, and error
+  handling.)
+- "LangChain handles memory automatically." (Memory components must be explicitly wired —
+  without them, each query has no conversation history.)
+
+---
+
 ## Phase 3 — Production
 
 ### Topic: `evaluation_and_metrics`
@@ -335,5 +373,6 @@ modes at scale.
 | `vector_databases` | 2 | Core | HNSW, IVF, ANN tradeoffs, metadata filtering |
 | `retrieval_methods` | 2 | Core | BM25, hybrid, reranking, MMR, HyDE |
 | `context_and_prompting` | 2 | Core | Prompt anatomy, window management, grounding |
+| `langchain_fundamentals` | 2 | Core | LCEL, retriever interface, memory, silent failures |
 | `evaluation_and_metrics` | 3 | Production | RAGAS, faithfulness, precision, recall |
 | `production_patterns` | 3 | Production | Caching, async, observability, cost |
