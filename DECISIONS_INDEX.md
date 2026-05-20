@@ -141,3 +141,7 @@
 
 ## RAG Specialist Persona (C42)
 78. **RAG Specialist — writer role with single-owner format** — Lara owns slug schema + format definition; Specialist writes question depth within it; prevents format drift when two agents author to the same question bank
+
+## Phase Unlock UI (C44)
+79. **UI-layer gate crossing detection via `_prev_mastery` mutable list** — `gate_just_passed` consumed+cleared by `generate_node` before `profile_panel.refresh()` runs; UI detects advance by comparing current mastery to prior-call value in closure
+80. **`_prev_mastery[0] is not None` guard** — prevents animation from firing on first panel load when no baseline mastery has been recorded yet

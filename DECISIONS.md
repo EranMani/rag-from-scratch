@@ -884,4 +884,24 @@
 - **Reason:** Lara's ceiling is pedagogically sound but surface-level — she can write "explain cosine similarity" but not "your production system shows faithfulness=0.6, diagnose the three most likely failure modes." The Specialist fills that gap without fragmenting the curriculum structure. Splitting ownership of the slug schema would create format drift: two agents with diverging format assumptions. Single-owner format (Lara) with a writer role (Specialist) is the minimal coupling design.
 - **Consequences:** The Specialist may never add topics, move topics between phases, or modify curriculum-map.md, gates.md, or topic-slugs.json. Format changes must go through Lara. If the Specialist identifies a curriculum gap, it is a handoff to Lara — not a self-assigned task.
 
-*Last updated: 2026-05-20 — Commit 42 complete (rag-specialist-persona: agent identity file + AGENTS.md registration)*
+*Last updated: 2026-05-21 — Commit 44 complete (phase-unlock-ui)*
+
+---
+
+## Phase Unlock UI (C44)
+
+### UI-layer gate crossing detection via `_prev_mastery` mutable list (Commit 44)
+- **Date:** 2026-05-21
+- **Commit:** 44
+- **Decided by:** Aria
+- **Decision:** Detect mastery advancement in the UI layer by comparing the incoming `mastery_level` to the previous render's value stored in `_prev_mastery = [None]` (mutable list closure), rather than exposing a `gate_just_passed` field from the profile API.
+- **Alternatives considered:** Adding `gate_just_passed` to the `/api/profile/me` response; reading it from a separate endpoint; driving the animation from a WebSocket push.
+- **Reason:** `gate_just_passed` is an `AgentState` field that is cleared by `generate_node` after it produces the in-chat announcement. By the time `profile_panel.refresh()` runs (triggered by the SSE done event), the field has already been consumed and set to `None`. The profile API (`/api/profile/me`) returns the user's stored profile only — it does not carry AgentState fields. The closure variable approach is zero-cost: it reuses the same mutable-list idiom already present in three places in `index()` (`_tab_state`, `_ob_step`, `_mcq_active`). Consistent pattern, no new API surface.
+- **Consequences:** The animation fires whenever `mastery_level` changes between two consecutive `profile_panel.refresh()` calls. If the page is reloaded mid-session after a gate crossing, the animation will not re-fire (the previous level is lost). This is the correct behavior — the celebration is a real-time moment, not a persistent state.
+
+### `_prev_mastery[0] is not None` guard (Commit 44)
+- **Date:** 2026-05-21
+- **Commit:** 44
+- **Decided by:** Aria
+- **Decision:** Gate the `_gate_crossed` check on `_prev_mastery[0] is not None` so the animation does not fire on the first panel load.
+- **Reason:** On first invocation, `_prev_mastery[0]` is `None`. Without the guard, `mastery != None` would always be `True` on first load, triggering the unlock animation for every user on every page load. The `is not None` check ensures at least one baseline mastery value has been recorded before a "change" can be detected.

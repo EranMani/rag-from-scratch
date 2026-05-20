@@ -754,6 +754,7 @@ No token data recorded. Tracking began at Commit 10.
 | 41 | gate-remediation | pending | Viktor+Quinn (Haiku) | pending | No impl agent (Claude direct Edits, ~0 tokens); Viktor 35,532 (3 uses, PASS); Quinn 58,355 (40 uses, NEEDS ADDITIONS); Ryan pending |
 | 42 | rag-specialist-persona | ~0 | zero gates (doc-only) | ✅ ~0 | Orchestrator direct Write+Edit calls; no subagent spawn (exact content known) |
 | 43 | phase-unlock-agent | 142,799 (excl. Ryan) | Viktor+Quinn (Haiku, Hard Block+NEEDS ADDITIONS) | **over** | Nova 73k (cap hit); Viktor 35k (1 tool use ✅); Quinn 33k (3 uses ✅); fixes → C43.5 |
+| 44 | phase-unlock-ui | 182,103 | Viktor+Sage+Mira+Ryan (Haiku) | **over** | Aria 44k (17 uses ✅); Viktor 35k (2 uses); Sage 32k (0 uses); Mira 30k (0 uses); Ryan 41k (8 uses, over 5-cap) |
 
 ---
 

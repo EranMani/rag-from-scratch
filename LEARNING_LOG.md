@@ -1093,3 +1093,40 @@ return {
 - `tests/test_generate_node.py` — 5 new gate-announcement tests (announcement rendering, field clearing, missing gate names)
 
 ---
+
+**Commit 44 — `phase-unlock-ui`** · 2026-05-21 · Aria (frontend) · `new feature`
+
+> **In one sentence:** Phase unlock events now animate visually in the profile panel, with locked phases shown as gated and unlocked phases displaying full progress.
+
+**Interview talking point:**
+
+> **Q:** How do you detect a state change that has already been consumed by another part of the system?
+>
+> **A:** Aria preserved the unlock event for frontend display by tracking the mastery level in a mutable-list closure (`_prev_mastery = [None]`). Since `gate_just_passed` is cleared by `generate_node` before the SSE done event arrives at the browser, she detects the unlock by comparing current mastery to the previous value across consecutive `profile_panel.refresh()` calls. The `_prev_mastery[0] is not None` guard prevents a false-positive animation on first load when state is cold.
+
+**What happened and why:**
+
+- **Problem:** Commit 43 added phase-unlock detection to the backend (emit `gate_just_passed` announcement), but the frontend had no way to know when a user advanced between phases. The `gate_just_passed` field is consumed by `generate_node` before the SSE done event triggers the browser to refresh the profile panel.
+- **Solution:** Aria added phase-grouped display to the Overview tab with locked/unlocked state visibility — locked phases show padlock icons and "Pass Phase X to unlock" hints, while unlocked phases show full progress bars and per-topic scores. The Current tab shows phase progression context ("Phase X of 3 — N topics complete"). A 2.5-second CSS `@keyframes rag-phase-unlock` green glow animates newly unlocked phase blocks.
+- **Detection pattern:** The closure variable `_prev_mastery = [None]` stores the previous mastery level. When `profile_panel.refresh()` fires, Aria compares current mastery to `_prev_mastery[0]`. If they differ and `_prev_mastery[0] is not None` (ruling out cold start), the unlock animation applies. This is the same mutable-list pattern used in `_tab_state` and `_ob_step` elsewhere in the panel.
+- **Security boundary:** All user-derived values (topic names, scores, mastery level) flow through `ui.label()` for escaping. The padlock icon is the only `ui.html()` call and is a static SVG string with no interpolation.
+
+**Reasoning & discovery:**
+
+1. **Initial constraint:** The backend unlock signal (`gate_just_passed`) is ephemeral — it's prepended to the LLM response in `generate_node` and then explicitly cleared before the node returns. The profile panel receives the announcement text but not the field itself, so there's no direct event signal to the frontend.
+2. **Ruled out:** A new backend field to persist unlock state would require API changes and compromise the "fire-once" event pattern. Parsing the announcement text in the frontend would couple UI logic to prompt wording. Adding a separate unlock endpoint would increase latency and complexity.
+3. **Clinched solution:** Aria observed that the mastery level itself changes when a gate is passed — it's the authoritative side effect. Comparing current mastery to previous mastery across refreshes gives us a durable, deterministic unlock signal that survives the consumption of `gate_just_passed` by the backend. The mutable-list closure mirrors the precedent already set in the profile panel code.
+
+**Design pattern:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Mutable-list closure (`[None]`) | State persists across function invocations without a class or instance variable; fits NiceGUI's functional composition model | Matches the idiom already used for `_tab_state` and `_ob_step` in `profile_panel()`; keeps refresh logic self-contained without introducing state containers |
+| Guard clause on cold start | `_prev_mastery[0] is not None` prevents animation on first panel load when state transitions from undefined to defined, not from level to level | Distinguishes an initial state load (no animation) from a true upgrade (trigger animation) |
+| CSS keyframe application via Quasar class | `ui.add_head_html()` injects `@keyframes rag-phase-unlock` once; Aria applies class conditionally per phase block | Separates animation definition from trigger logic; reusable across multiple phase blocks if needed in future |
+
+**Files touched:**
+
+- `src/app/ui.py` — `profile_panel()` function: `_prev_mastery = [None]` closure variable, `_gate_crossed` boolean detection, phase-grouped Overview tab layout (locked phases with padlock SVG + hints vs. unlocked phases with progress bars), phase progression context line in Current tab ("Phase X of 3 — N topics complete, M to go"), unlock animation CSS (`@keyframes rag-phase-unlock`, 2.5s green glow) injected via `ui.add_head_html()`
+
+---
