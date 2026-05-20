@@ -51,7 +51,7 @@
 | 37 | mcq-chat-ui | frontend | ✅ done · 2026-05-20 |
 | 38 | progression-ui | frontend | ✅ done · 2026-05-20 |
 | 38.5 | knowledge-profile-ui | frontend | ✅ done · 2026-05-20 |
-| 39 | scoring-correctness | backend + ai-engineer | pending |
+| 39 | scoring-correctness | backend + ai-engineer | ✅ done · 2026-05-20 |
 | 40 | langchain-curriculum | curriculum-specialist | pending |
 | 41 | gate-remediation | ai-engineer | pending |
 | 42 | rag-specialist-persona | claude | pending |
