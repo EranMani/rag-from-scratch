@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 33 · 2026-05-19*
+*Last updated: Commit 40 · 2026-05-20*
 
-**Last completed:** Commit 33 `question-bank-mcq` (complete)
+**Last completed:** Commit 40 `langchain-curriculum` (complete)
 **Currently active:** none
 **Blocked by:** none
 
@@ -21,6 +21,14 @@
   `rag_pipeline_architecture` MCQ files can source onboarding diagnostics (3 questions each,
   mixed difficulty). Onboarding questions are read-only references — do not modify MCQ banks
   for onboarding.
+- Nova (Commit 41 `gate-remediation`): `langchain_fundamentals` has been added as a Phase 2
+  topic. Nova must add this slug to three files in src/:
+  (1) `VALID_MODULE_SLUGS` in `src/agents/state.py`
+  (2) `PHASE_2_TOPICS` in `src/app/profile/scoring.py`
+  (3) `_ORDERED_SLUGS` in `src/agents/nodes/assess.py` — insert after `context_and_prompting`
+      and before the Phase 3 slugs (`evaluation_and_metrics`, `production_patterns`).
+  The slug must appear in Phase 2 position in all three lists. This is mandatory for the gate
+  logic to recognize `langchain_fundamentals` as a required Phase 2 topic.
 
 **Open Handoffs — Inbound:**
 - (none)
@@ -51,6 +59,7 @@ No archived sessions yet.
 |---|--------|--------|--------------|
 | 1 | Commit 22 `rag-curriculum-design` | Complete | Dual gate for Phase 2 (per-topic + mean threshold); spaced repetition scoring formula |
 | 2 | Commit 33 `question-bank-mcq` | Complete | MCQ as binary-scored gate instrument, separate from open-ended learning questions |
+| 3 | Commit 40 `langchain-curriculum` | Complete | langchain_fundamentals placed last in Phase 2; silent failure modes are the distinguishing advanced topic |
 
 ---
 
@@ -251,6 +260,91 @@ valid regardless of which frameworks the learner has worked with.
 
 No scope overflows. All deliverables are within the Commit 33 spec. No `src/` files,
 no test files, no infrastructure files touched.
+
+---
+
+---
+
+## Session 03 — Commit 40: `langchain-curriculum`
+
+**Date:** 2026-05-20
+**Status:** Complete
+
+### Files Created
+
+- `knowledge-base/curriculum/questions/langchain_fundamentals.md` — 8 open-ended questions with full rubrics (2 beginner, 4 intermediate, 2 advanced), covering all 5 learning objectives: LCEL composition and lazy evaluation, retriever interface, `create_retrieval_chain` execution trace, memory type tradeoffs, and silent failure modes
+- `knowledge-base/curriculum/questions/mcq/langchain_fundamentals.md` — 5 MCQs (2 beginner, 2 intermediate, 1 advanced) covering LCEL lazy evaluation, retriever interface, chain execution order, memory type selection, and the silent retrieval failure mode
+
+### Files Modified
+
+- `knowledge-base/curriculum/topic-slugs.json` — added `"langchain_fundamentals"` after `context_and_prompting`, before `evaluation_and_metrics`
+- `knowledge-base/curriculum/curriculum-map.md` — added topic entry for `langchain_fundamentals` in Phase 2 (after `context_and_prompting`), updated arc diagram, updated summary table
+- `knowledge-base/curriculum/gates.md` — updated Phase 2 gate to require 5 topics (added `langchain_fundamentals` to both the pseudocode formula and the JSON machine-readable block)
+
+### Key Decisions
+
+**1. Position: last in Phase 2**
+`langchain_fundamentals` is positioned after all other Phase 2 topics because it is
+a bridging topic — it shows how the conceptual pieces (chunking, vector DBs, retrieval,
+prompting) compose in an actual framework. A learner who does not yet understand why
+chunking overlap matters has nothing to connect LangChain's `RecursiveCharacterTextSplitter`
+to. The topic is most meaningful as synthesis, not as introduction.
+
+**2. Silent failure modes as the distinguishing advanced topic**
+The five learning objectives span framework mechanics (LCEL, retriever interface, chain
+execution, memory) plus one systems-thinking objective (silent failure modes). This final
+objective is what separates a practitioner who ran a tutorial from one who can maintain
+a production pipeline. It was elevated to advanced difficulty in both the open-ended bank
+(Q5, Q8) and the MCQ bank (MCQ-5) because it requires understanding multiple components
+and their interaction under failure conditions — not just recall of API mechanics.
+
+**3. No framework-specific setup questions**
+Questions do not ask "how do you install LangChain" or "what is the import path for LCEL."
+Every question requires conceptual reasoning — understanding why LCEL is lazy, what the
+retriever interface abstracts, or what happens when memory is not wired correctly. These
+are transferable to any LCEL-compatible framework version.
+
+**4. Phase 2 gate updated from 4 to 5 required topics**
+The gate formula, rationale paragraph, hard gate enforcement note, and JSON machine-readable
+block in `gates.md` were all updated. The per-topic threshold (0.70) and mean threshold
+(0.75) remain unchanged — the mean now covers 5 topics instead of 4. This was confirmed
+as the correct behavior: `langchain_fundamentals` is not a bonus topic, it is required
+for Phase 2 completion.
+
+### Self-Review Checklist
+
+- [x] `topic-slugs.json` is valid JSON, `langchain_fundamentals` is in Phase 2 position
+- [x] `curriculum-map.md` Phase 2 section includes full topic spec, arc diagram updated, summary table updated
+- [x] `questions/langchain_fundamentals.md` exists with 8 questions, all rubric fields present
+- [x] `questions/mcq/langchain_fundamentals.md` exists with 5 questions, 2 beginner + 2 intermediate + 1 advanced
+- [x] `gates.md` Phase 2 gate formula and JSON block both include `langchain_fundamentals`
+- [x] Outbound handoff to Nova (Commit 41) is explicit and actionable in worklog
+- [x] No `src/` files touched
+- [x] No `tests/` files touched
+- [x] No infrastructure files touched
+
+### Scope Overflow Check
+
+No scope overflows. All deliverables are within the Commit 40 spec. The decision to write
+8 open-ended questions (minimum was 5) is within scope — the spec says "minimum 5, aim for
+8–10 to allow question rotation."
+
+### Documentation Flags for Claude
+
+**DECISIONS.md:**
+- `langchain_fundamentals` positioned last in Phase 2 as a bridging/synthesis topic —
+  requires all other Phase 2 topics as conceptual prerequisites; most meaningful as
+  framework-level integration of already-understood concepts
+
+**GLOSSARY.md:**
+- LCEL (LangChain Expression Language) — LangChain's lazy evaluation graph DSL using the
+  `|` pipe operator to compose Runnable objects into chains that execute only on `.invoke()`
+- Runnable — the LangChain interface implemented by prompt templates, LLMs, retrievers,
+  output parsers, and custom components; enables composition with `|` in LCEL chains
+- ConversationBufferMemory — LangChain memory component that stores verbatim conversation
+  history; grows without bound and overflows context window in long conversations
+- ConversationSummaryMemory — LangChain memory component that compresses conversation
+  history using an LLM summary; incurs an additional LLM call per turn
 
 ---
 

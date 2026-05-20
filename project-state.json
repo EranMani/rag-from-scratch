@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-20 (Commit 38.5 knowledge-profile-ui done)",
+  "last_updated": "2026-05-20 (Commit 40 langchain-curriculum done)",
   "status": "active",
   "current_commit": {
-    "number": "39",
-    "name": "scoring-correctness",
+    "number": "41",
+    "name": "gate-remediation",
     "status": "pending",
-    "assignee": "backend + ai-engineer"
+    "assignee": "ai-engineer"
   },
   "commits_done": [
     "01",
@@ -49,11 +49,12 @@
     "36",
     "37",
     "38",
-    "38.5"
+    "38.5",
+    "39",
+    "40"
   ],
   "commits_pending": [
-    "39",
-    "40",
+    "41",
     "41",
     "42",
     "43",
@@ -64,7 +65,7 @@
     "48",
     "49"
   ],
-  "next_commit": "39",
+  "next_commit": "41",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

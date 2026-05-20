@@ -2186,3 +2186,9 @@ return decay_factor * best_prior + (1 - decay_factor) * signal
 - `tests/test_scoring.py` — 16 new tests across `TestPassiveScoringLogic`, `TestSessionMinimumGuard`, `TestQuestionIndexCycling` (317 pass total)
 
 ---
+
+## Commit 40 — `langchain-curriculum` · Lara · 2026-05-20
+
+`langchain_fundamentals` re-added as the fifth Phase 2 bridging topic; `topic-slugs.json`, `curriculum-map.md` (arc diagram + full spec), and `gates.md` (4→5 required topics, mean 0.75 unchanged) updated; 5 MCQs + 8 open-ended questions with full rubrics written; Nova wires slug to `VALID_MODULE_SLUGS`, `PHASE_2_TOPICS`, and `_ORDERED_SLUGS` in Commit 41.
+
+---
