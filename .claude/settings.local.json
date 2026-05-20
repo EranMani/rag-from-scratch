@@ -140,7 +140,22 @@
       "Bash(./.venv/Scripts/python.exe -m pytest tests/ -q --ignore=tests/test_profile_api.py)",
       "Bash(.venv/Scripts/python -m pytest tests/test_assess_node.py -v)",
       "Bash(.venv/Scripts/python -c ' *)",
-      "Bash(.venv/Scripts/python -m pytest tests/test_assess_node.py -q)"
+      "Bash(.venv/Scripts/python -m pytest tests/test_assess_node.py -q)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_onboarding.py -v)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_onboarding.py -x --tb=short)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_onboarding.py::TestOnboardingStatus::test_fresh_user_needed_true -x --tb=long -s)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_onboarding.py --tb=short)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_profile_api.py tests/test_update_profile_node.py --tb=no -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_assess_node.py::TestMcqLoader::test_malformed_question_block_raises_value_error tests/test_onboarding.py --tb=short -q)",
+      "Bash(.venv/Scripts/python.exe -m pytest --tb=no -q)",
+      "PowerShell(cd \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content LEARNING_LOG.md | Measure-Object -Line\\).Lines)",
+      "PowerShell(cd \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content \".claude/agents/logs/nova-worklog.md\" | Measure-Object -Line\\).Lines)",
+      "PowerShell(cd \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content \"DECISIONS.md\" | Measure-Object -Line\\).Lines)",
+      "PowerShell(cd \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content \"LEARNING_LOG.md\" | Measure-Object -Line\\).Lines)",
+      "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content LEARNING_LOG.md\\).Count)",
+      "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content DECISIONS.md\\).Count; \\(Get-Content ARCHITECTURE.md\\).Count)",
+      "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content ARCHITECTURE_SUMMARY.md\\).Count; \\(Get-Content DECISIONS_INDEX.md\\).Count)",
+      "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content TOKEN_RECORDS.md\\).Count; \\(Get-Content LEARNING_LOG_SUMMARY.md\\).Count)"
     ]
   }
 }

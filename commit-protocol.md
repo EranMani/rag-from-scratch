@@ -48,7 +48,7 @@
 | 35 | mcq-assessment-engine | ai-engineer | ✅ done · 2026-05-20 |
 | 35.5 | mcq-assessment-engine-fix | ai-engineer | ✅ done · 2026-05-20 (folded into 35) |
 | 36 | onboarding-level-check | ai-engineer | ✅ done · 2026-05-20 |
-| 37 | mcq-chat-ui | frontend | pending |
+| 37 | mcq-chat-ui | frontend | ✅ done · 2026-05-20 |
 | 38 | progression-ui | frontend | pending |
 | 39 | nginx-config | devops | pending |
 | 40 | aws-ec2-deployment | devops | pending |
