@@ -635,6 +635,23 @@
 - **Reason:** The spaced-repetition formula requires only `best_prior_session_score = max(session_history[slug])`. A join-and-aggregate query for every scoring call adds latency and schema complexity for data the model never reads past a single `max()`. Storing the flat list in the profile row keeps scoring O(1) for the common case and co-locates the data a single profile read already fetches.
 - **Consequences:** Session history grows unboundedly in the JSON column. For prolific users with many assessment sessions per topic, this column can become large. A cap (keep last N sessions per topic) can be added without schema migration when telemetry warrants it. Cross-topic analysis (e.g., "which topic has the most assessment sessions") is not suited to this schema and would require reading all profiles.
 
+### MCQ loader extracted to `mcq_utils.py` to avoid route→agent circular import (Commit 36)
+- **Date:** 2026-05-20
+- **Commit:** 36
+- **Decided by:** Nova (upfront, before writing any code)
+- **Decision:** `_load_mcq_question` was defined in `agents/nodes/assess.py`. When `app/api/routes/onboarding.py` needed the same function, importing it from `assess.py` would create a cross-layer dependency (route layer → agent node). Extracted to `src/agents/mcq_utils.py` — a shared utility module with zero agent state or LLM imports. `assess.py` imports via `from agents.mcq_utils import load_mcq_question as _load_mcq_question`, preserving all existing internal callers and test patch targets at `agents.nodes.assess._load_mcq_question`.
+- **Alternatives considered:** Inlining the function directly in `onboarding.py` (code duplication — same file-parsing regex in two places, drift risk); importing from `assess.py` directly (circular import risk if agent layer ever imports from route layer).
+- **Consequences:** Any future module needing MCQ file access imports from `agents.mcq_utils`. The function is now public (`load_mcq_question`, no leading underscore) since it's a shared utility. Test patch targets that reference `agents.nodes.assess._load_mcq_question` remain valid because the alias is still in scope in `assess.py`'s namespace.
+
+### Onboarding answers re-verified from source files on every `/complete` call (Commit 36)
+- **Date:** 2026-05-20
+- **Commit:** 36
+- **Decided by:** Nova
+- **Decision:** Correct answers are not cached server-side between the `/diagnostic` and `/complete` requests. Every call to `/complete` re-reads the MCQ markdown files and re-extracts correct answers at scoring time.
+- **Alternatives considered:** Session-level caching via `app.storage.user` (NiceGUI session storage); in-memory dict keyed by `user_id + slug`.
+- **Reason:** The MCQ files are static markdown on disk (~KB each). The re-read cost is negligible (3 files, 3 regex parses) and eliminates: (a) session state management complexity, (b) the stale-cache attack surface (a user modifying session state between requests cannot change what the server considers correct), and (c) NiceGUI storage coupling in a pure FastAPI route. Freshness is free.
+- **Consequences:** If MCQ files change between a user's `/diagnostic` and `/complete` calls, they are scored against the new questions' correct answers. This is acceptable — MCQ files are static in production and change only via deployment. No user-visible inconsistency in practice.
+
 ### Idempotent migration via per-row sentinel key check (Commit 25)
 - **Date:** 2026-05-12
 - **Commit:** 25

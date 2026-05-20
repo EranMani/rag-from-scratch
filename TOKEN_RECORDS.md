@@ -4,7 +4,7 @@
 > Quality signal: tests pass · no Viktor hard blocks · learning log entry written.
 >
 > Companion file: TOKEN_OPTIMIZATION.md — the methods behind the numbers.
-> Last updated: 2026-05-19 (Commit 33)
+> Last updated: 2026-05-20 (Commit 36)
 
 ---
 
@@ -638,6 +638,30 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 36 — `onboarding-level-check` · 2026-05-20 · Nova
+
+> Gate wave: Viktor + Sage (Haiku). Quinn + Mira skipped (Quinn wave at C40; Mira: backend-only).
+> Nova hit tool cap (26 uses) — tests failing 13/16 on 500; orchestrator fixed 2 issues directly (~0 tokens).
+> Viktor false positive Hard Block (import alias still valid; tests pass); PASS WITH COMMENTS net verdict.
+> Sage: 2 MEDIUM findings (list length/string length constraints) — bundled per calibration (MEDIUM = flag not block).
+> Ryan: TBD (not yet run — see approval prompt).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Nova (C36 pass 1 — hit cap) | Sonnet | 75,577 | 26 ⚠️ | **+16k** over ≤60k | Tests 13/16 failing (500); orchestrator fixed schema + patch target |
+| Viktor | Haiku | 45,544 | 14 | **+31k** over ≤15k | False positive Hard Block (import alias); 1 soft concern (incomplete answers) |
+| Sage | Haiku | 45,156 | 8 | **+30k** over ≤15k | 2 MEDIUM (list length, string length), 1 LOW (path traversal, mitigated), 2 INFO |
+| Ryan | Haiku | 38,449 | 8 | **+23k** over ≤15k | Over 5-tool cap (used 8); LEARNING_LOG full entry |
+| **Total** | | **204,726** | **56** | **over** | Nova over cap; Haiku reviewers over ≤15k (pattern) |
+
+**Notes:**
+- Nova: 75,577 tokens / 26 tool uses (at cap). Tests failed 13/16 due to bootstrap schema missing `is_admin` column. Orchestrator applied 2 fixes directly (Edit tool, ~0 tokens): schema fix + assess_node patch target.
+- Viktor false positive: flagged `_load_mcq_question` import broken — actually valid via import alias in assess.py (`load_mcq_question as _load_mcq_question`); 17 tests confirm. Net verdict: PASS WITH COMMENTS.
+- Sage 2 MEDIUM (list length + string length) bundled per calibration; not blocking.
+- Pre-existing failures: 10 (8 test_profile_api + 2 test_update_profile_node); confirmed via git stash check.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -671,6 +695,7 @@ No token data recorded. Tracking began at Commit 10.
 | 33 | question-bank-mcq | 90,696 | Ryan only | over ≤75k | Lara ✅ (50,432 · 17 uses); Ryan 40k (9 uses, over 5-cap) |
 | 34 | phase-gate-enforcement | 129,763 | Viktor only (Haiku) | over ≤75k | Nova ✅ (59,236 · 26 uses, hit cap); Viktor 37k; Ryan 33k |
 | 35+35.5 | mcq-assessment-engine + fix | 332,559 | Viktor+Quinn+Ryan (Haiku) | **well over** | 3 Nova passes (tool cap splits); Viktor Hard Block → 35.5 fix; Quinn 3 HIGH gaps |
+| 36 | onboarding-level-check | 204,726 | Viktor+Sage+Ryan (Haiku) | **over** | Nova cap; orchestrator 2 direct fixes; Viktor false positive; Sage 2 MEDIUM (bundled) |
 
 ---
 

@@ -152,6 +152,27 @@ responsive to who they are, not a static Q&A tool.
 - **Consumed by:** Nova (Commit 24 — assessment engine); Rex (Commit 25 — profile scoring); Mira+Lara (Commit 23 — scoring model spec); Nova (Commits 35 + 36 — MCQ assessment engine + onboarding)
 - **Introduced in:** Commit 22; MCQ banks added in Commit 33
 
+### Onboarding API
+- **Type:** REST API module
+- **Owner:** Nova
+- **Purpose:** Three-endpoint flow that places new users into the correct curriculum phase before their first chat: status check, MCQ diagnostic question loader, and placement scorer
+- **Location:** `src/app/api/routes/onboarding.py`
+- **Endpoints:**
+  - `GET /api/onboarding/status` — returns `{"needed": bool}`; `needed=True` when `mastery_level == "novice"` AND no topic scores exist
+  - `POST /api/onboarding/diagnostic` — accepts `{"level": "beginner"|"intermediate"|"expert"}`; returns 3 MCQ questions without correct answers; diagnostic slug maps level to MCQ bank
+  - `POST /api/onboarding/complete` — accepts level + answers array + skipped flag; scores answers against MCQ source files; applies placement scoring (2–3/3 → confirmed level, 1/3 → drop one level, 0/3 → drop two levels, floor: novice); writes `mastery_level` to profile
+- **Depends on:** `agents.mcq_utils` (MCQ loader), `app.profile.db` (get_or_create_profile, update_profile), `app.auth.deps` (JWT)
+- **Introduced in:** Commit 36
+
+### MCQ Utilities (`mcq_utils`)
+- **Type:** shared utility module
+- **Owner:** Nova
+- **Purpose:** Parse MCQ questions from `knowledge-base/curriculum/questions/mcq/[slug].md`; return `(display_text, correct_answer)` tuple; zero agent state or LLM dependencies
+- **Location:** `src/agents/mcq_utils.py`
+- **Contract:** `load_mcq_question(slug: str, question_index: int) -> tuple[str, str]` — modulo-wraps `question_index` against available questions; raises `FileNotFoundError` for unknown slug, `ValueError` for malformed block
+- **Consumed by:** `agents.nodes.assess` (MCQ phase-gate tests), `app.api.routes.onboarding` (diagnostic + completion endpoints)
+- **Introduced in:** Commit 36 (extracted from `assess.py`)
+
 ### ChatResponse
 - **Type:** typed wire schema (Pydantic model)
 - **Owner:** Nova
@@ -400,4 +421,4 @@ Introduced in Commit 21. `docker-compose.prod.yml` is a standalone file (not a c
 
 ---
 
-*Last updated: 2026-05-17 — Commit 26 complete (ui-foundation: Inter font, palette tokens, auth page redesign)*
+*Last updated: 2026-05-20 — Commit 36 complete (onboarding-level-check: onboarding API + MCQ utils shared module)*

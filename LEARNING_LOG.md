@@ -1907,3 +1907,44 @@ if state.get("is_mcq"):
 **Handoff:** Aria (Commit 37) consumes `is_mcq` from `ChatResponse` to decide whether to render A–D buttons or plain text input. The flag flows: `AgentState.is_mcq` → `build_chat_response()` → `ChatResponse.is_mcq` → SSE `done` event payload. Aria reads `done_data["is_mcq"]` to set the render branch.
 
 ---
+
+### Commit 36 — `onboarding-level-check` · 2026-05-20
+
+**What changed:** Added three REST endpoints at `/api/onboarding/` (status check, MCQ diagnostic, placement completion) that determine a new user's starting curriculum phase before their first chat. Extracted the MCQ file loader into a shared `mcq_utils.py` module to prevent a circular import between the route layer and the agent layer.
+
+**Why it matters:** Without onboarding placement every new user starts at novice regardless of prior knowledge. The diagnostic asks 3 questions from a topic appropriate to the self-reported level; scoring (2/3+ confirms, 1/3 drops one level, 0/3 drops two levels) gives a calibrated starting point rather than an arbitrary default.
+
+**Key design decisions:**
+1. **MCQ loader extracted to `mcq_utils.py`** — `onboarding.py` needs MCQ file access. Importing from `agents/nodes/assess.py` would create a route→agent circular import. The extracted module is pure file I/O with zero agent dependencies.
+2. **Correct answers re-verified from source files on every `/complete` call** — no server-side session is stored between `/diagnostic` and `/complete`. Re-reading the files at scoring time prevents a client that modifies its request from receiving credit for answers it never fetched.
+3. **`_drop_level()` floor via `max(0, idx - n)`** — scoring can never produce a level below novice regardless of how many levels a user drops.
+4. **`asyncio.to_thread()` for all profile DB calls** — the profile DB uses synchronous SQLite; all calls inside async FastAPI handlers are wrapped to prevent event loop blocking.
+
+**Code reference:**
+```python
+# src/app/api/routes/onboarding.py — placement scoring
+correct_count = sum(
+    1 for i, ans in enumerate(body.answers[:3])
+    if ans.strip().upper() == load_mcq_question(slug, i)[1]
+)
+if correct_count >= 2:
+    confirmed_level = body.level           # confirmed self-report
+elif correct_count == 1:
+    confirmed_level = _drop_level(body.level, 1)
+else:
+    confirmed_level = _drop_level(body.level, 2)
+```
+
+**Gotcha:** The test bootstrap `users` table was missing `is_admin INTEGER NOT NULL DEFAULT 0`. The real schema selects this column explicitly in `get_user_by_id`. The mismatch caused 500 errors (not 401) on all authenticated routes because the failure occurred inside the auth dependency after JWT decode — not before it.
+
+**Files touched:**
+- `src/agents/mcq_utils.py` — new: shared MCQ file loader extracted from `assess.py`
+- `src/agents/nodes/assess.py` — removed inline loader; added import alias to `mcq_utils`
+- `src/app/api/routes/onboarding.py` — new: three onboarding endpoints with JWT auth
+- `src/app/main.py` — registered onboarding router
+- `tests/test_onboarding.py` — new: 16 tests (status, diagnostic, complete)
+- `tests/test_assess_node.py` — updated patch target to `agents.mcq_utils._MCQ_DIR`
+
+**Handoff:** Aria (Commit 38) consumes the full API contract: `GET /api/onboarding/status → {needed: bool}`, `POST /api/onboarding/diagnostic → {questions: [{index, text}], slug}`, `POST /api/onboarding/complete → {confirmed_level, correct_count, message}`.
+
+---
