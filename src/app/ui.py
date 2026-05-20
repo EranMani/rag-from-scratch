@@ -37,12 +37,40 @@ def rag_icon(name: str, size: int = 18, color: str = "currentColor") -> str:
 
 # Canonical module display names for topic_scores keys
 _MODULE_LABELS: dict[str, str] = {
-    "rag_fundamentals": "RAG Fundamentals",
-    "vector_databases": "Vector Databases",
-    "retrieval_methods": "Retrieval Methods",
-    "chunking_strategies": "Chunking Strategies",
-    "langchain": "LangChain",
-    "production_patterns": "Production Patterns",
+    "rag_fundamentals":          "RAG Fundamentals",
+    "vector_databases":          "Vector Databases",
+    "retrieval_methods":         "Retrieval Methods",
+    "chunking_strategies":       "Chunking Strategies",
+    "langchain":                 "LangChain",
+    "production_patterns":       "Production Patterns",
+    "embeddings_and_similarity": "Embeddings & Similarity",
+    "rag_pipeline_architecture": "RAG Pipeline Architecture",
+    "context_and_prompting":     "Context & Prompting",
+    "evaluation_and_metrics":    "Evaluation & Metrics",
+}
+
+_PHASE_LABELS: dict[str, tuple[str, str]] = {
+    "novice":        ("Phase 1", "Foundation"),
+    "beginner":      ("Phase 1", "Foundation"),
+    "intermediate":  ("Phase 2", "Core RAG"),
+    "advanced":      ("Phase 3", "Advanced"),
+    "expert":        ("Complete", "All phases"),
+}
+
+_PHASE_TOPICS: dict[str, list[str]] = {
+    "novice":        ["embeddings_and_similarity", "rag_pipeline_architecture"],
+    "beginner":      ["embeddings_and_similarity", "rag_pipeline_architecture"],
+    "intermediate":  ["chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting"],
+    "advanced":      ["evaluation_and_metrics", "production_patterns"],
+    "expert":        [],
+}
+
+_ADVANCE_MSG: dict[str, str] = {
+    "novice":        "Each Phase 1 topic ≥ 0.70 to reach Phase 2",
+    "beginner":      "Each Phase 1 topic ≥ 0.70 to reach Phase 2",
+    "intermediate":  "Each Phase 2 topic ≥ 0.70 and average ≥ 0.75 to reach Phase 3",
+    "advanced":      "Each Phase 3 topic ≥ 0.75 to become an expert",
+    "expert":        "All phases complete — keep sharpening your skills",
 }
 
 
@@ -1467,6 +1495,9 @@ html, body {
 .rag-mcq-row { transition: border-color 0.15s; }
 .rag-mcq-row:hover { border-color: rgba(236,72,153,0.4) !important; }
 
+/* Onboarding level row hover */
+.rag-ob-level-row:hover { background: #2a1d56 !important; border-color: rgba(139,92,246,0.4) !important; transition: background 0.15s, border-color 0.15s; }
+
 /* Chat bubble — strip p margins so label sits tight against text */
 .rag-bubble-card .nicegui-markdown p:first-child { margin-top: 0 !important; }
 .rag-bubble-card .nicegui-markdown p:last-child { margin-bottom: 0 !important; }
@@ -1506,6 +1537,206 @@ html, body {
                 _r = await http().get("/api/profile/me", headers=auth_headers())
                 if _r.status_code == 200:
                     _welcome_profile = _r.json()
+            except Exception:
+                pass
+
+        # ---- Onboarding wizard ----
+        _ob_step = [1]            # 1=self-report, 2=mcq, 3=result
+        _ob_self_level = ["beginner"]
+        _ob_answers: list = [[]]  # accumulates answers
+        _ob_questions: list = [[]]
+        _ob_placement: list = [{}]
+
+        onboarding_dialog = ui.dialog().props("persistent")
+
+        async def _ob_skip():
+            try:
+                await http().post(
+                    "/api/onboarding/complete",
+                    json={"level": _ob_self_level[0], "answers": [], "skipped": True},
+                    headers=auth_headers(),
+                )
+            except Exception:
+                pass
+            onboarding_dialog.close()
+
+        async def _ob_select_level(level: str):
+            _ob_self_level[0] = level
+            _ob_answers[0] = []
+            try:
+                r = await http().post(
+                    "/api/onboarding/diagnostic",
+                    json={"level": level},
+                    headers=auth_headers(),
+                )
+                data = r.json() if r.status_code == 200 else {}
+            except Exception:
+                data = {}
+            _ob_questions[0] = data.get("questions", [])
+            _ob_step[0] = 2
+            ob_step_content.refresh()
+
+        async def _ob_select_answer(letter: str):
+            _ob_answers[0].append(letter)
+            n_questions = len(_ob_questions[0])
+            if len(_ob_answers[0]) >= n_questions or len(_ob_answers[0]) >= 3:
+                try:
+                    r = await http().post(
+                        "/api/onboarding/complete",
+                        json={
+                            "level": _ob_self_level[0],
+                            "answers": _ob_answers[0],
+                            "skipped": False,
+                        },
+                        headers=auth_headers(),
+                    )
+                    _ob_placement[0] = r.json() if r.status_code == 200 else {}
+                except Exception:
+                    _ob_placement[0] = {}
+                _ob_step[0] = 3
+            ob_step_content.refresh()
+
+        def _ob_finish():
+            onboarding_dialog.close()
+            profile_panel.refresh()
+
+        with onboarding_dialog:
+            with ui.card().style(
+                "background:linear-gradient(160deg,#1e163c,#16103a); "
+                "border:1px solid rgba(139,92,246,0.3); border-top:3px solid #f97316; "
+                "border-radius:16px; padding:28px 28px 24px; width:480px; max-width:94vw; "
+                "box-shadow:0 8px 48px rgba(139,92,246,0.25); gap:0"
+            ):
+                @ui.refreshable
+                def ob_step_content():
+                    if _ob_step[0] == 1:
+                        # Step 1: self-report
+                        ui.label("Welcome to RAG Tutor!").style(
+                            "font-size:1.2rem; font-weight:700; color:#f97316; margin-bottom:6px"
+                        )
+                        ui.label("How familiar are you with RAG systems?").style(
+                            "font-size:0.9rem; color:#94a3b8; margin-bottom:20px"
+                        )
+                        _levels = [
+                            ("beginner",     "Beginner",     "Just starting out"),
+                            ("intermediate", "Intermediate", "Some experience"),
+                            ("expert",       "Expert",       "I've built RAG systems"),
+                        ]
+                        for _lv, _lv_label, _lv_sub in _levels:
+                            with ui.row().style(
+                                "align-items:center; gap:12px; width:100%; "
+                                "background:#231848; border:1px solid rgba(139,92,246,0.2); "
+                                "border-radius:10px; padding:12px 14px; cursor:pointer; margin-bottom:8px"
+                            ).classes("rag-ob-level-row").on(
+                                "click",
+                                lambda _e, _l=_lv: asyncio.ensure_future(_ob_select_level(_l))
+                            ):
+                                with ui.column().style("gap:2px; flex:1"):
+                                    ui.label(_lv_label).style("font-size:0.9rem; font-weight:600; color:#f8fafc")
+                                    ui.label(_lv_sub).style("font-size:0.78rem; color:#64748b")
+                        ui.label("Skip for now").style(
+                            "font-size:0.82rem; color:#64748b; text-align:right; "
+                            "cursor:pointer; margin-top:8px; width:100%"
+                        ).on("click", lambda: asyncio.ensure_future(_ob_skip()))
+
+                    elif _ob_step[0] == 2:
+                        # Step 2: diagnostic MCQ
+                        questions = _ob_questions[0]
+                        qi = len(_ob_answers[0])
+                        total = min(len(questions), 3)
+
+                        ui.label(f"Question {qi + 1} of {total}").style(
+                            "font-size:0.72rem; font-weight:600; text-transform:uppercase; "
+                            "letter-spacing:0.1em; color:#94a3b8; margin-bottom:12px"
+                        )
+
+                        if qi < len(questions):
+                            raw_q = questions[qi]
+                            lines = raw_q.strip().splitlines()
+                            q_text = lines[0] if lines else ""
+                            opt_lines = [l for l in lines[1:] if len(l) >= 3 and l[0] in "ABCD" and l[1] == "."]
+
+                            ui.label(q_text).style(
+                                "font-size:0.9rem; color:#e2e8f0; line-height:1.5; margin-bottom:16px"
+                            )
+
+                            _letters = ["A", "B", "C", "D"]
+                            for _li, _letter in enumerate(_letters):
+                                _opt_text = opt_lines[_li][3:].strip() if _li < len(opt_lines) else ""
+                                with ui.row().style(
+                                    "align-items:center; gap:0; width:100%; margin-bottom:6px; "
+                                    "background:#1a1238; border:1px solid rgba(139,92,246,0.2); "
+                                    "border-radius:10px; overflow:hidden; cursor:pointer"
+                                ).classes("rag-mcq-row").on(
+                                    "click",
+                                    lambda _e, _l=_letter: asyncio.ensure_future(_ob_select_answer(_l))
+                                ):
+                                    ui.label(_letter).style(
+                                        "width:36px; min-width:36px; height:100%; min-height:42px; "
+                                        "display:flex; align-items:center; justify-content:center; "
+                                        "font-family:ui-monospace,monospace; font-size:11px; font-weight:700; "
+                                        "color:#fff; flex-shrink:0; "
+                                        "background:linear-gradient(135deg,#f97316,#ec4899,#8b5cf6)"
+                                    )
+                                    ui.label(_opt_text).style(
+                                        "flex:1; padding:10px 14px; font-size:0.875rem; "
+                                        "color:#e2e8f0; line-height:1.45"
+                                    )
+
+                        ui.label("Skip for now").style(
+                            "font-size:0.82rem; color:#64748b; text-align:right; "
+                            "cursor:pointer; margin-top:8px; width:100%"
+                        ).on("click", lambda: asyncio.ensure_future(_ob_skip()))
+
+                    else:
+                        # Step 3: result
+                        placement = _ob_placement[0]
+                        confirmed = placement.get("confirmed_level", _ob_self_level[0])
+                        correct = placement.get("correct_count", 0)
+                        msg = placement.get("message", "")
+                        phase_num, phase_name = _PHASE_LABELS.get(confirmed, ("Phase 1", "Foundation"))
+                        phase_topics = _PHASE_TOPICS.get(confirmed, [])
+
+                        with ui.row().style("align-items:center; gap:8px; margin-bottom:14px"):
+                            ui.html(rag_icon("check-circuit", 20, "#22c55e"))
+                            ui.label(f"You're placed at: {confirmed.capitalize()}").style(
+                                "font-size:1.05rem; font-weight:700; color:#22c55e"
+                            )
+
+                        ui.label(f"You got {correct} out of 3 questions right.").style(
+                            "font-size:0.875rem; color:#94a3b8; margin-bottom:4px"
+                        )
+                        if msg:
+                            ui.label(msg).style("font-size:0.875rem; color:#94a3b8; margin-bottom:14px")
+
+                        if phase_topics:
+                            ui.label(f"You'll start with {phase_num} topics:").style(
+                                "font-size:0.82rem; font-weight:600; color:#e2e8f0; margin-bottom:6px"
+                            )
+                            for _slug in phase_topics:
+                                ui.label(f"· {_MODULE_LABELS.get(_slug, _slug.replace('_', ' ').title())}").style(
+                                    "font-size:0.82rem; color:#94a3b8; margin-left:6px"
+                                )
+                        else:
+                            ui.label("All phases complete — keep sharpening your skills.").style(
+                                "font-size:0.82rem; color:#94a3b8; margin-bottom:6px"
+                            )
+
+                        ui.button("Start learning", on_click=_ob_finish).props("unelevated no-caps").style(
+                            "background:linear-gradient(135deg,#f97316,#ec4899,#8b5cf6) !important; "
+                            "color:white !important; width:100%; border-radius:999px; font-weight:600; "
+                            "min-height:44px; font-size:0.95rem; box-shadow:0 4px 24px rgba(236,72,153,0.4); "
+                            "margin-top:20px"
+                        )
+
+                ob_step_content()
+
+        # Check onboarding status and open dialog if needed
+        if bearer_ok:
+            try:
+                _ob_status = await http().get("/api/onboarding/status", headers=auth_headers())
+                if _ob_status.status_code == 200 and _ob_status.json().get("needed"):
+                    onboarding_dialog.open()
             except Exception:
                 pass
 
@@ -1625,31 +1856,68 @@ html, body {
                             )
 
                             topic_scores: dict = profile.get("topic_scores") or {}
+                            phase_num, phase_name = _PHASE_LABELS.get(mastery, ("Phase 1", "Foundation"))
+                            phase_topics = _PHASE_TOPICS.get(mastery, [])
 
-                            _MODULE_NUMS = {
-                                "rag_fundamentals": "01",
-                                "vector_databases": "02",
-                                "retrieval_methods": "03",
-                                "chunking_strategies": "04",
-                                "langchain": "05",
-                                "production_patterns": "06",
-                            }
+                            # Phase header
+                            ui.label("Your Progress").style(
+                                "font-size:11px; font-weight:600; text-transform:uppercase; "
+                                "letter-spacing:0.12em; color:#94a3b8; margin:0 0 4px"
+                            )
+                            ui.separator().style("border-color:rgba(255,255,255,0.06); margin:0 0 8px")
+                            ui.label(f"{phase_num} · {phase_name}").style(
+                                "font-size:0.95rem; font-weight:700; color:#f8fafc; margin-bottom:12px"
+                            )
 
-                            if not topic_scores:
-                                ui.label("Start chatting to build your profile.").style("font-size:0.8rem; color:#64748b; font-style:italic")
-                            else:
-                                ui.label("Module Progress").style(
-                                    "font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.12em; color:#94a3b8; margin:0 0 8px"
+                            if phase_topics:
+                                ui.label("Topics to complete:").style(
+                                    "font-size:11px; font-weight:600; text-transform:uppercase; "
+                                    "letter-spacing:0.1em; color:#64748b; margin-bottom:8px"
                                 )
-                                for slug, label in _MODULE_LABELS.items():
-                                    score: float = topic_scores.get(slug, 0.0)
-                                    num = _MODULE_NUMS.get(slug, "")
-                                    display_label = f"{num} · {label}" if num else label
-                                    with ui.column().style("gap:3px; width:100%; margin-bottom:8px"):
-                                        with ui.row().style("justify-content:space-between; align-items:center; width:100%"):
-                                            ui.label(display_label).style("font-size:0.8rem; color:#f8fafc; font-weight:500")
-                                            ui.label(f"{round(score * 100)}%").style("font-size:0.75rem; color:var(--c-muted,#94a3b8); font-family:ui-monospace,monospace")
-                                        ui.linear_progress(value=score, show_value=False).style("width:100%").props("color=deep-orange-400 track-color=blue-grey-900")
+                                for _slug in phase_topics:
+                                    _topic_label = _MODULE_LABELS.get(_slug, _slug.replace("_", " ").title())
+                                    _score = topic_scores.get(_slug)  # None if unscored
+                                    if _score is None:
+                                        _score_text = "—"
+                                        _score_color = "#64748b"
+                                    elif _score >= 0.70:
+                                        _score_text = f"{_score:.2f}"
+                                        _score_color = "#22c55e"
+                                    elif _score >= 0.40:
+                                        _score_text = f"{_score:.2f}"
+                                        _score_color = "#f59e0b"
+                                    else:
+                                        _score_text = f"{_score:.2f}"
+                                        _score_color = "#ef4444"
+                                    with ui.row().style(
+                                        "justify-content:space-between; align-items:center; "
+                                        "width:100%; margin-bottom:6px"
+                                    ):
+                                        ui.label(f"· {_topic_label}").style(
+                                            "font-size:0.82rem; color:#e2e8f0; font-weight:500; flex:1"
+                                        )
+                                        ui.label(_score_text).style(
+                                            f"font-family:ui-monospace,monospace; font-size:0.78rem; "
+                                            f"color:{_score_color}; font-weight:600"
+                                        )
+                            else:
+                                ui.label("All phases complete — keep sharpening your skills.").style(
+                                    "font-size:0.82rem; color:#94a3b8; font-style:italic; margin-bottom:8px"
+                                )
+
+                            _adv_msg = _ADVANCE_MSG.get(mastery, "")
+                            if _adv_msg:
+                                ui.separator().style("border-color:rgba(255,255,255,0.06); margin:8px 0")
+                                ui.label("Advance when:").style(
+                                    "font-size:11px; font-weight:600; text-transform:uppercase; "
+                                    "letter-spacing:0.1em; color:#64748b; margin-bottom:4px"
+                                )
+                                ui.label(_adv_msg).style("font-size:0.8rem; color:#94a3b8; line-height:1.5")
+
+                            ui.separator().style("border-color:rgba(255,255,255,0.06); margin:8px 0")
+                            ui.label(f"Mastery level: {mastery.capitalize()}").style(
+                                "font-size:0.8rem; color:#64748b; font-style:italic"
+                            )
 
                             interaction_count = profile.get("interaction_count", 0)
                             last_activity = profile.get("last_activity_at")

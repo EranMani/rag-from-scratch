@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Session 19 — Commit 37 MCQ option buttons · 2026-05-20*
+*Last updated: Session 20 — Commit 38 progression-ui · 2026-05-20*
 
-**Last completed:** Session 19 — Commit 37 MCQ chat UI: added MCQ option panel (4 buttons A/B/C/D with gradient letter badge + `ui.label()` option text) to composer area; refactored `send()` into `send_message(question: str)` called by both `send()` and `submit_mcq_option(letter: str)`; SSE done handler reads `is_mcq` flag, parses option lines, updates labels, toggles `composer_row` / `mcq_panel` visibility; CSS hover rule added for `.rag-mcq-row`; all option texts use `ui.label()`, no `ui.html(f-string)` ✅
+**Last completed:** Session 20 — Commit 38 progression-ui: (1) added 4 new slugs to `_MODULE_LABELS` + 3 new module-level dicts (`_PHASE_LABELS`, `_PHASE_TOPICS`, `_ADVANCE_MSG`); (2) onboarding wizard dialog in `index()` — 3-step flow (self-report level → diagnostic MCQs → placement result), async handler functions, `@ui.refreshable ob_step_content`, onboarding status check that opens dialog if `needed`; (3) phase progress panel replaces old `_MODULE_NUMS` + `for slug, label` loop in `profile_panel()` — phase label, per-topic score with color coding, advancement threshold message, mastery footer line; (4) CSS hover rule `.rag-ob-level-row:hover`; all user data via `ui.label()`, no `ui.html(f-string)` with variables ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -37,6 +37,7 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 20 | 38 | ✅ Done | Onboarding wizard: 3-step dialog with @ui.refreshable ob_step_content, mutable list closures for state, asyncio.ensure_future() for click handlers; phase panel replaces old MODULE_NUMS loop; mastery already read above phase block — removed duplicate assignment |
 | 19 | 37 | ✅ Done | send() factored into send_message(text); MCQ panel: 4 ui.row elements with gradient letter badge + ui.label for option text; visibility toggled via is_mcq in SSE done event; click handlers wired with default-arg capture lambda |
 | 18 | 32 TL review | ✅ Done | Composer absolute-positioned inside chat column; bubbles restructured; send button circle; input transparent; progress bar radius |
 | 17 | 32 TL review | ✅ Done | Header: one-row layout, CSS brand-mark "R", pill tabs, avatar gradient #8b5cf6→#38bdf8, border #241d4a; progress bars 5px + 4-stop gradient; sidebar 320px; mastery chip kit.css classes; stats separator |
@@ -62,6 +63,38 @@
 | 7 | feature | ✅ Done | Tab bar Chat/Admin; admin router; footer visibility callback; closure capture for delete buttons |
 | 8 | bug+redesign | ✅ Done | White panel bg fix; admin tab as SaaS dashboard: header strip, stat cards, ui.table slot injection, health + monitoring sidebar |
 | 9 | bug fix | ✅ Done | thinking label: set_visibility(False) instead of delete() to avoid client-context error after await |
+
+---
+
+## Session 20 — Commit 38: Onboarding wizard + phase progress panel
+
+**Date:** 2026-05-20
+**Status:** ✅ Done
+
+### Approach
+
+The spec called for two distinct additions in one commit: an onboarding dialog and a profile panel overhaul. The first question was scoping — the dialog must live inside `index()` because it needs access to `http()`, `auth_headers()`, and `profile_panel.refresh()`. Defining it outside `index()` would require threading those as parameters, which is a pattern the codebase explicitly avoids (see profile_panel decision in Decisions). The `ui.dialog()` is constructed before `ui.header()` for the same reason the MCQ panel in Commit 37 is constructed before the scroll area: NiceGUI renders children in definition order, and a dialog defined after the layout it overlays can produce z-index issues in some Quasar versions.
+
+For wizard state, the mutable-list closure pattern established in Commit 37 (`[value]` instead of `nonlocal`) is used throughout: `_ob_step = [1]`, `_ob_self_level = ["beginner"]`, `_ob_answers = [[]]`, `_ob_questions = [[]]`, `_ob_placement = [{}]`. The `_ob_answers` and `_ob_questions` nesting (`[[]]`) is intentional — the outer list is the closure container; the inner list is the mutable accumulator. This is slightly more verbose than `_ob_answers: list = []` but is consistent and avoids the subtle bug where `_ob_answers[0].append(x)` would fail if the outer list were the actual accumulator.
+
+The `ob_step_content` function is `def` (not `async def`) because NiceGUI `@ui.refreshable` functions are synchronous element builders — they must execute synchronously during the render cycle. Async operations (the API calls to `/api/onboarding/diagnostic` and `/api/onboarding/complete`) live in separate `async def` handlers (`_ob_select_level`, `_ob_select_answer`, `_ob_skip`), scheduled via `asyncio.ensure_future()`. The alternative — making `ob_step_content` async and using `await` inside it — would require the caller to `await ob_step_content()`, which conflicts with how NiceGUI's refreshable mechanism invokes it internally.
+
+For the phase progress panel, the old `_MODULE_NUMS` dict and the `for slug, label in _MODULE_LABELS.items()` loop were deleted. The new panel iterates `_PHASE_TOPICS.get(mastery, [])` instead — meaning it only shows topics relevant to the user's current phase, not all 6 modules. This is a deliberate scope reduction: showing a novice all 10 modules creates cognitive load. The color coding (green ≥ 0.70, amber ≥ 0.40, red < 0.40, gray for no score) reuses the same threshold pattern as the advancement message text in `_ADVANCE_MSG`, keeping the two in sync.
+
+One structural issue caught during implementation: the spec's phase panel code block started with `mastery = profile.get("mastery_level") or "novice"` — but `profile_panel()` already reads `mastery` at line 1845 (the mastery chip). A second assignment would shadow the first but produce no error, just redundant code. Removed the duplicate before writing.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `src/app/ui.py` module level | `_MODULE_LABELS` extended with 4 new slugs; `_PHASE_LABELS`, `_PHASE_TOPICS`, `_ADVANCE_MSG` dicts added |
+| `src/app/ui.py` CSS | `.rag-ob-level-row:hover` hover rule added after `.rag-mcq-row` rules |
+| `src/app/ui.py` `index()` | Onboarding dialog: state lists, async handlers (`_ob_skip`, `_ob_select_level`, `_ob_select_answer`, `_ob_finish`), `@ui.refreshable ob_step_content`, status check to open dialog |
+| `src/app/ui.py` `profile_panel()` | Old `_MODULE_NUMS` + `if not topic_scores` + `for slug, label` loop removed; new phase header, topics list with color-coded scores, advancement threshold message, mastery footer line added |
+
+### Outbound Handoff
+
+None — self-contained UI commit.
 
 ---
 
