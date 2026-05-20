@@ -157,7 +157,9 @@
       "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content ARCHITECTURE_SUMMARY.md\\).Count; \\(Get-Content DECISIONS_INDEX.md\\).Count)",
       "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content TOKEN_RECORDS.md\\).Count; \\(Get-Content LEARNING_LOG_SUMMARY.md\\).Count)",
       "Skill(update-config)",
-      "Bash(Select-Object Name, LastWriteTime)"
+      "Bash(Select-Object Name, LastWriteTime)",
+      "Bash(cat hooks/reviewer_read_block.py)",
+      "Bash(cat .claude/hooks/reviewer_read_block.py)"
     ]
   }
 }
