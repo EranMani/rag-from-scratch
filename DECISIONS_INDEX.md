@@ -138,3 +138,6 @@
 75. **Phase 1 remediation scoped to `intermediate` only** — beginner/novice already get Phase 1; advanced/expert Phase 1 gaps are likely LLM false positives at high score levels; routing back would be incorrect
 76. **`session_question_counts` as AgentState field** — MemorySaver checkpoints it cross-turn; no Redis/API coupling needed; `.get() or {}` guard handles first-turn absence
 77. **Proximity hint reads DB in `generate_node`** — `topic_scores_delta` is a per-turn sparse delta, not absolute scores; targeted async DB read is minimal-coupling; silently skipped on lookup failure
+
+## RAG Specialist Persona (C42)
+78. **RAG Specialist — writer role with single-owner format** — Lara owns slug schema + format definition; Specialist writes question depth within it; prevents format drift when two agents author to the same question bank

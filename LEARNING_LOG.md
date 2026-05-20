@@ -989,3 +989,25 @@ return decay_factor * best_prior + (1 - decay_factor) * signal
 - `src/agents/nodes/generate.py` — `asyncio.to_thread` DB read; proximity hint appended to context
 
 ---
+
+## Commit 42 — `rag-specialist-persona` · 2026-05-20 · Claude
+
+**What was built:** Created `.claude/agents/rag-specialist.md` — the identity file for the RAG Specialist agent, a practitioner-depth content author whose domain is `knowledge-base/curriculum/questions/` only. Updated `AGENTS.md` to add a "CONTENT SPECIALISTS" section alongside the existing team structure diagram, and a worklog reading map entry covering the Specialist's collaboration protocols with Lara and Nova.
+
+**Why this matters for learning:** Curriculum depth has two separable concerns: _structure_ (what topics exist, what phases they belong to, what format questions use — owned by Lara) and _depth_ (what failure modes practitioners actually encounter in production — owned by the Specialist). Conflating both into one agent produces either surface-level questions or format inconsistency. The interface contract — Lara owns the slug schema and format definition; the Specialist writes within it — is the minimal-coupling design that prevents format drift when two agents author to the same question bank.
+
+**The practitioner depth criterion ("the litmus test"):** Would a senior engineer who has never touched LangChain answer this correctly from solid RAG fundamentals? If yes → the question is too abstract. Would someone who read the LangChain docs this morning answer it correctly? If yes → it tests recall, not understanding. The RAG Specialist targets the gap between those two: questions that require operational knowledge of failure modes, not framework recall.
+
+**Design pattern:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Writer role with single-owner format | Specialist writes question content; Lara owns slug schema + format definition | Prevents format drift when two agents author to the same question bank |
+| Nova → Specialist signal path | Nova surfaces low-scoring topics from `session_history`; Specialist adds harder questions or better distractors there | Makes content quality feedback loop data-driven, not intuition-driven |
+| Explicit domain boundary in identity file | Specialist file lists every Lara-owned file it may never touch | Removes ambiguity — curriculum structure gaps are Lara handoffs, not Specialist self-assignments |
+
+**Files touched:**
+- `.claude/agents/rag-specialist.md` — new: agent identity, domain boundaries, expertise framing, Lara + Nova collaboration contracts
+- `AGENTS.md` — update: CONTENT SPECIALISTS section in team diagram; worklog reading map entry for RAG Specialist
+
+---

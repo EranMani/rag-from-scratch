@@ -727,6 +727,7 @@ No token data recorded. Tracking began at Commit 10.
 | 39 | scoring-correctness | 80,397 | Viktor+Ryan (Haiku); no impl agent | **over** | Viktor 38,913 (3 uses, PASS); Ryan 41,484 (7 uses); Sage/Quinn/Mira skipped (gate triage: pure logic fix, no auth/UI/routes); edits made directly by Claude (no Rex/Nova subagent) |
 | 40 | langchain-curriculum | 95,726 | Ryan only (Haiku) | **over** ≤75k | Lara ✅ (59,294 · 25 uses); Ryan 36,432 (8 uses, hit 5-cap before LEARNING_LOG_SUMMARY edit — Claude applied direct Edit); zero gate wave (docs-only commit) |
 | 41 | gate-remediation | pending | Viktor+Quinn (Haiku) | pending | No impl agent (Claude direct Edits, ~0 tokens); Viktor 35,532 (3 uses, PASS); Quinn 58,355 (40 uses, NEEDS ADDITIONS); Ryan pending |
+| 42 | rag-specialist-persona | ~0 | zero gates (doc-only) | ✅ ~0 | Orchestrator direct Write+Edit calls; no subagent spawn (exact content known) |
 
 ---
 

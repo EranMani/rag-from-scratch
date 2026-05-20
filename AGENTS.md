@@ -34,6 +34,16 @@ DOCUMENTATION (triggered on API, config, concept changes):
    │    Ryan     │
    │ Tech Writer │
    └─────────────┘
+
+CONTENT SPECIALISTS (knowledge-base/ only — never src/ or Lara's structure files):
+   ┌─────────────┐  ┌──────────────────┐
+   │    Lara     │  │  RAG Specialist  │
+   │  Curriculum │  │  Practitioner-   │
+   │ Specialist  │  │  depth content   │
+   └─────────────┘  └──────────────────┘
+   Lara owns structure (topic map, gates, slugs).
+   RAG Specialist owns depth (questions/, "why wrong" explanations).
+   Interface contract: Lara's slug file format. Specialist writes to it; Lara owns it.
 ```
 
 ---
@@ -110,6 +120,11 @@ If you are Quinn (QA):
 If you are Mira (Product):
   └── Read Claude's summary of what was built — you review from the user's perspective
   └── You do not read raw code unless you explicitly request it for a specific reason
+
+If you are the RAG Specialist authoring questions:
+  └── Read Lara's Current State Header (what topic structure exists, any new slugs?)
+  └── Read Nova's handoff notes addressed to you (which topics score poorly in user sessions?)
+  └── Do NOT read any src/ files — your domain is knowledge-base/curriculum/questions/ only
 
 If you are Claude preparing a step handoff:
   └── Read the owning agent's Current State Header

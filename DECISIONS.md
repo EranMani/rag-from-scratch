@@ -853,4 +853,17 @@
 - **Reason:** `topic_scores_delta` in `AgentState` is the per-turn delta (sparse float dict), not the absolute stored scores. The proximity hint requires absolute stored scores (e.g., "current score is 0.65") to compute which topics are in the [0.60, 0.70) window. Adding absolute scores to `AgentState` would duplicate the DB state and require a separate DB read node before `generate_node`. A targeted read inside `generate_node` is the minimal-coupling approach — one additional sync call wrapped in `asyncio.to_thread`, consistent with the project-wide blocking I/O pattern.
 - **Consequences:** `generate_node` now has a DB dependency (was previously pure agent-state). No new AgentState fields required. If the DB lookup fails or returns `None`, the hint is silently skipped — generation proceeds normally.
 
-*Last updated: 2026-05-20 — Commit 41 complete (gate-remediation: intermediate Phase 1 remediation, session_question_counts wiring, proximity hint)*
+---
+
+## Agent Team Design (C42)
+
+### RAG Specialist — Lara interface contract (Commit 42)
+- **Date:** 2026-05-20
+- **Commit:** 42
+- **Decided by:** Claude
+- **Decision:** The RAG Specialist owns question depth (`knowledge-base/curriculum/questions/`) within Lara's structure; Lara owns the format definition. The Specialist writes to Lara's slug file format but never modifies the format itself or any Lara-owned structure files.
+- **Alternatives considered:** Merging the Specialist's role into Lara's domain; giving the Specialist full ownership of all of `knowledge-base/curriculum/`.
+- **Reason:** Lara's ceiling is pedagogically sound but surface-level — she can write "explain cosine similarity" but not "your production system shows faithfulness=0.6, diagnose the three most likely failure modes." The Specialist fills that gap without fragmenting the curriculum structure. Splitting ownership of the slug schema would create format drift: two agents with diverging format assumptions. Single-owner format (Lara) with a writer role (Specialist) is the minimal coupling design.
+- **Consequences:** The Specialist may never add topics, move topics between phases, or modify curriculum-map.md, gates.md, or topic-slugs.json. Format changes must go through Lara. If the Specialist identifies a curriculum gap, it is a handoff to Lara — not a self-assigned task.
+
+*Last updated: 2026-05-20 — Commit 42 complete (rag-specialist-persona: agent identity file + AGENTS.md registration)*
