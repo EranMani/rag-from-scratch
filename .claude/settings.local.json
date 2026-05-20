@@ -155,7 +155,9 @@
       "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content LEARNING_LOG.md\\).Count)",
       "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content DECISIONS.md\\).Count; \\(Get-Content ARCHITECTURE.md\\).Count)",
       "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content ARCHITECTURE_SUMMARY.md\\).Count; \\(Get-Content DECISIONS_INDEX.md\\).Count)",
-      "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content TOKEN_RECORDS.md\\).Count; \\(Get-Content LEARNING_LOG_SUMMARY.md\\).Count)"
+      "PowerShell(Set-Location \"D:\\\\AI\\\\_My_Projects\\\\rag-from-scratch\"; \\(Get-Content TOKEN_RECORDS.md\\).Count; \\(Get-Content LEARNING_LOG_SUMMARY.md\\).Count)",
+      "Skill(update-config)",
+      "Bash(Select-Object Name, LastWriteTime)"
     ]
   }
 }

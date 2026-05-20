@@ -153,16 +153,17 @@ def check_not_already_done(msg: str) -> list[str]:
     if not commits_done:
         return []
 
-    first_line = msg.splitlines()[0] if msg else ""
-    for done in commits_done:
-        done_name = done.get("name", "") if isinstance(done, dict) else ""
-        if done_name and done_name in first_line:
-            agent = done.get("agent", "?") if isinstance(done, dict) else "?"
-            date = done.get("date", "?") if isinstance(done, dict) else "?"
-            return [
-                f"This commit ('{done_name}') is already recorded as done "
-                f"on {date} by {agent}. Did you mean to start the next step?"
-            ]
+    # Extract commit number from message marker "Commit #NN"
+    m = re.search(r"(?:^|\n)\s*[Cc]ommit\s+#0*(\d{1,2})\b", msg)
+    if not m:
+        return []
+
+    commit_num = m.group(1).zfill(2)
+    if commit_num in commits_done:
+        return [
+            f"Commit #{commit_num} is already recorded as done in project-state.json. "
+            f"Did you mean to start the next step?"
+        ]
     return []
 
 
