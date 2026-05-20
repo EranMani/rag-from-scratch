@@ -9,6 +9,9 @@ inline in their invocation prompt. They have no legitimate reason to make
 file-system reads. Allowing reads lets them silently bypass the context
 package discipline and run up token costs by reading the entire codebase.
 
+Exception: ryan may Read LEARNING_LOG.md only. The Edit tool requires a prior
+Read of the target file; Ryan's sole job is to append entries to LEARNING_LOG.md.
+
 Agent identity is read from hooks/tool_cap.json (set by tool_cap_start.py).
 If no agent session is active (active=false), allow through — the orchestrator
 reads files freely.
@@ -24,6 +27,9 @@ from pathlib import Path
 # Agents whose Read/Glob/Grep calls are blocked.
 # All context must arrive via the orchestrator's invocation prompt.
 _BLOCKED_AGENTS = {"viktor", "sage", "quinn", "mira", "ryan"}
+
+# Ryan may read this one file (needed to satisfy Edit tool's prior-Read requirement).
+_RYAN_ALLOWED_FILE = "LEARNING_LOG.md"
 
 
 def git_root() -> Path:
@@ -65,6 +71,13 @@ def main() -> int:
 
     stdin_data = read_stdin()
     tool_name = stdin_data.get("tool_name", "")
+
+    # Ryan exception: allow Read of LEARNING_LOG.md only.
+    # Edit requires a prior Read; Ryan's only job is appending to LEARNING_LOG.md.
+    if agent == "ryan" and tool_name == "Read":
+        file_path = stdin_data.get("tool_input", {}).get("file_path", "")
+        if Path(file_path).name == _RYAN_ALLOWED_FILE:
+            return 0
 
     sys.stderr.write(
         f"\n\033[31m\U0001f6ab READ BLOCKED\033[0m\n"

@@ -193,16 +193,14 @@ complexity (full entry vs. one-liner), but Ryan always writes it — never Claud
   involved a non-obvious design decision, or introduced a new pattern
 - One-liner: routine test addition, config tweak, minor refactor, doc-only commit
 
-**How to invoke Ryan — token-efficient, no file reads:**
+**How to invoke Ryan — token-efficient:**
 
-Step 1 — Claude reads `LEARNING_LOG.md` lines 1–99 only (template section).
-
-Step 2 — Claude reads the **last 15 lines** of `LEARNING_LOG.md` (Read with
+Step 1 — Claude reads the **last 15 lines** of `LEARNING_LOG.md` (Read with
          `offset = file_line_count - 15`). These are the Edit anchor.
 
-Step 3 — Claude builds Ryan's prompt containing:
+Step 2 — Claude builds Ryan's prompt containing:
          a) Full Entry format block only (~38 lines, template lines 51–88) — NOT lines 1–99
-         b) The last 15 lines verbatim — so Ryan can Edit without reading the file
+         b) The last 15 lines verbatim — so Ryan has the anchor without reading speculatively
          c) A commit brief (150 words max, written by Claude):
             - Commit number, name, date, assignee
             - What changed (2–3 sentences)
@@ -211,12 +209,12 @@ Step 3 — Claude builds Ryan's prompt containing:
             - Files touched
             - Entry type: "full" or "one-liner"
 
-Step 4 — Ryan composes the entry and appends via Edit ONLY:
+Step 3 — Ryan composes the entry and appends via Edit:
          old_string = [exact last 15 lines Claude provided]
          new_string = [those same 15 lines] + [new entry]
-         Ryan NEVER reads LEARNING_LOG.md himself. All context comes from Claude's prompt.
+         Ryan may Read LEARNING_LOG.md if needed (hook exemption: one targeted read of
+         LEARNING_LOG.md is allowed). Ryan never reads the raw diff — Claude summarizes it.
 
-Ryan never reads the raw diff. Claude summarizes it.
 Target: Ryan under 8k tokens per full entry, under 3k tokens per one-liner.
 
 ---
