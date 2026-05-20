@@ -1463,6 +1463,10 @@ html, body {
 }
 .rag-send-btn.disabled { opacity: 0.45 !important; box-shadow: none !important; cursor: not-allowed; }
 
+/* MCQ option row hover */
+.rag-mcq-row { transition: border-color 0.15s; }
+.rag-mcq-row:hover { border-color: rgba(236,72,153,0.4) !important; }
+
 /* Chat bubble — strip p margins so label sits tight against text */
 .rag-bubble-card .nicegui-markdown p:first-child { margin-top: 0 !important; }
 .rag-bubble-card .nicegui-markdown p:last-child { margin-bottom: 0 !important; }
@@ -1692,17 +1696,21 @@ html, body {
                                         f'</span>'
                                     )
 
+                        # MCQ state — mutable via single-element lists for closure mutation
+                        _mcq_active = [False]
+                        _mcq_opts: list[str] = ["", "", "", ""]
+
                         # Composer — pinned to bottom, height ~108px
                         with ui.column().style(
                             "position:absolute; bottom:0; left:0; right:0; "
                             "padding:12px 24px 16px; "
                             "background:linear-gradient(0deg, #120e28 60%, transparent)"
-                        ):
+                        ) as composer_wrap:
                             with ui.row().style(
                                 "background:#231848; border:1px solid #241d4a; border-radius:16px; "
                                 "padding:8px 8px 8px 16px; gap:10px; align-items:center; "
                                 "max-width:760px; margin:0 auto; width:100%"
-                            ):
+                            ) as composer_row:
                                 question_input = ui.input(
                                     placeholder="Ask anything about RAG, embeddings, retrieval, LangChain…"
                                 ).classes("rag-chat-input").props("outlined dense auto-grow").style("flex:1")
@@ -1712,6 +1720,32 @@ html, body {
                                     "display:inline-flex; align-items:center; justify-content:center; padding:0"
                                 ) as send_btn:
                                     ui.html(rag_icon("send", 16, "#fff"))
+
+                            # MCQ option panel — hidden until is_mcq:true in done event
+                            _letters = ["A", "B", "C", "D"]
+                            with ui.column().style(
+                                "max-width:760px; margin:0 auto; width:100%; gap:6px"
+                            ) as mcq_panel:
+                                mcq_btns: list = []
+                                for _li, _letter in enumerate(_letters):
+                                    with ui.row().style(
+                                        "align-items:center; gap:0; width:100%; "
+                                        "background:#1a1238; border:1px solid rgba(139,92,246,0.2); "
+                                        "border-radius:10px; overflow:hidden; cursor:pointer"
+                                    ).classes("rag-mcq-row") as _row:
+                                        ui.label(_letter).style(
+                                            "width:36px; min-width:36px; height:100%; min-height:42px; "
+                                            "display:flex; align-items:center; justify-content:center; "
+                                            "font-family:ui-monospace,monospace; font-size:11px; font-weight:700; "
+                                            "color:#fff; flex-shrink:0; "
+                                            "background:linear-gradient(135deg,#f97316,#ec4899,#8b5cf6)"
+                                        )
+                                        _opt_label = ui.label(_mcq_opts[_li]).style(
+                                            "flex:1; padding:10px 14px; font-size:0.875rem; "
+                                            "color:#e2e8f0; line-height:1.45"
+                                        )
+                                        mcq_btns.append((_row, _opt_label))
+                            mcq_panel.set_visibility(False)
 
             # ------------------------------------------------------------------ Admin tab
             with ui.tab_panel(admin_tab).style(
@@ -1915,12 +1949,10 @@ html, body {
                     await admin_panel()
 
 
-        async def send():
-            question = question_input.value.strip()
+        async def send_message(question: str):
             if not question:
                 return
 
-            question_input.value = ""
             send_btn.disable()
 
             with chat_area:
@@ -2091,6 +2123,8 @@ html, body {
                                 )
 
                 test_q = done_data.get("test_question")
+                is_mcq = done_data.get("is_mcq", False)
+
                 if test_q:
                     with ui.card().style(
                         "background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.35); "
@@ -2098,10 +2132,28 @@ html, body {
                         "border-radius:12px; padding:0.75rem 1rem; margin-top:0.75rem; "
                         "word-break:break-word; overflow-wrap:break-word; overflow:hidden"
                     ):
-                        ui.label("✦ Knowledge Check").style(
+                        ui.label("Knowledge Check").style(
                             "font-size:0.7rem; font-weight:600; color:#a78bfa; margin-bottom:0.35rem"
                         )
-                        ui.label(test_q).style("font-size:0.875rem; color:#e2e8f0")
+                        # Show question line only (strip the A/B/C/D lines for MCQ)
+                        _q_line = test_q.split("\n")[0] if is_mcq else test_q
+                        ui.label(_q_line).style("font-size:0.875rem; color:#e2e8f0")
+
+                # Toggle MCQ panel in composer based on is_mcq flag
+                if is_mcq and test_q:
+                    _opt_lines = [l for l in test_q.splitlines() if len(l) >= 3 and l[0] in "ABCD" and l[1] == "."]
+                    for _i, _btn_pair in enumerate(mcq_btns):
+                        _row_el, _lbl_el = _btn_pair
+                        _text = _opt_lines[_i][3:].strip() if _i < len(_opt_lines) else ""
+                        _mcq_opts[_i] = _text
+                        _lbl_el.set_text(_text)
+                    _mcq_active[0] = True
+                    composer_row.set_visibility(False)
+                    mcq_panel.set_visibility(True)
+                else:
+                    _mcq_active[0] = False
+                    composer_row.set_visibility(True)
+                    mcq_panel.set_visibility(False)
 
             profile_panel.refresh()
             send_btn.enable()
@@ -2109,6 +2161,23 @@ html, body {
             ui.run_javascript(
                 "var s=document.querySelector('.rag-scroll-area'); if(s) s.scrollTop=s.scrollHeight;"
             )
+
+        async def send():
+            question = question_input.value.strip()
+            question_input.value = ""
+            await send_message(question)
+
+        async def submit_mcq_option(letter: str):
+            _mcq_active[0] = False
+            mcq_panel.set_visibility(False)
+            composer_row.set_visibility(True)
+            await send_message(letter)
+
+        # Wire MCQ row click handlers after send_message is defined
+        _letter_map = ["A", "B", "C", "D"]
+        for _idx, (_row_el, _lbl_el) in enumerate(mcq_btns):
+            _captured = _letter_map[_idx]
+            _row_el.on("click", lambda _e, _l=_captured: asyncio.ensure_future(submit_mcq_option(_l)))
 
         send_btn.on_click(send)
         question_input.on("keydown.enter", send)

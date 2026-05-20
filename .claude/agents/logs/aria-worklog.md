@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Session 18 — layout restructure (composer inside chat col), bubbles match reference, send button circle, input transparent, progress bar radius · 2026-05-19*
+*Last updated: Session 19 — Commit 37 MCQ option buttons · 2026-05-20*
 
-**Last completed:** Session 18 — 6-issue revision pass on chat page: composer moved inside chat column via absolute positioning (no longer a sibling footer), scroll area padded 90px at bottom; progress bar border-radius 999px→3px, height 5px→4px; module row gap 0.4rem→3px+margin-bottom:10px, sidebar column gap 24px→20px; input background transparent/border cleared, min-height 52→36px; send button 52px square→40px circle, gradient updated; chat bubbles restructured — user bubble row+avatar (violet-blue rounded square, "YOU" monospace label), thinking indicator avatar orange-pink rounded square, assistant bubble orange-pink avatar + "RAG TUTOR" monospace label + pink border card; zero logic changes ✅
+**Last completed:** Session 19 — Commit 37 MCQ chat UI: added MCQ option panel (4 buttons A/B/C/D with gradient letter badge + `ui.label()` option text) to composer area; refactored `send()` into `send_message(question: str)` called by both `send()` and `submit_mcq_option(letter: str)`; SSE done handler reads `is_mcq` flag, parses option lines, updates labels, toggles `composer_row` / `mcq_panel` visibility; CSS hover rule added for `.rag-mcq-row`; all option texts use `ui.label()`, no `ui.html(f-string)` ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -37,6 +37,8 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 19 | 37 | ✅ Done | send() factored into send_message(text); MCQ panel: 4 ui.row elements with gradient letter badge + ui.label for option text; visibility toggled via is_mcq in SSE done event; click handlers wired with default-arg capture lambda |
+| 18 | 32 TL review | ✅ Done | Composer absolute-positioned inside chat column; bubbles restructured; send button circle; input transparent; progress bar radius |
 | 17 | 32 TL review | ✅ Done | Header: one-row layout, CSS brand-mark "R", pill tabs, avatar gradient #8b5cf6→#38bdf8, border #241d4a; progress bars 5px + 4-stop gradient; sidebar 320px; mastery chip kit.css classes; stats separator |
 | 16 | 32 | ✅ Done | Chat shell: tabs Learn/System, sign out, RT avatar bubbles, mastery tagline, Module Progress, composer hint text, "RAG Tutor" label; no logic touched |
 | 15 | 31 | ✅ Done | Auth pages: auth-brand block (centered, 48px SVG), auth-sub/auth-tag/auth-field-wrap/auth-submit/auth-swap CSS classes; field order display_name→email→password on register; all Python handlers untouched |
@@ -60,6 +62,45 @@
 | 7 | feature | ✅ Done | Tab bar Chat/Admin; admin router; footer visibility callback; closure capture for delete buttons |
 | 8 | bug+redesign | ✅ Done | White panel bg fix; admin tab as SaaS dashboard: header strip, stat cards, ui.table slot injection, health + monitoring sidebar |
 | 9 | bug fix | ✅ Done | thinking label: set_visibility(False) instead of delete() to avoid client-context error after await |
+
+---
+
+## Session 19 — Commit 37: MCQ option buttons in chat UI
+
+**Date:** 2026-05-20
+**Status:** ✅ Done
+
+### Approach
+
+The initial read of the spec made `send()` the central challenge. The existing function read `question_input.value` directly — a self-contained closure over the input element. Introducing MCQ submission meant either (a) duplicating 120 lines of send logic, (b) passing the text as a parameter so both paths share one implementation, or (c) setting the input value from the MCQ handler and re-triggering send. Option (c) would cause a user-visible flash of text in the input field and break the "input is hidden while MCQ is pending" invariant. Option (a) was ruled out immediately — any divergence in logic between paths would be a maintenance bug. Option (b) required renaming `send()` to `send_message(question: str)` and wrapping it with a thin `send()` that reads the input. This is the standard extraction pattern; the NiceGUI closure structure supports it cleanly because `send_btn`, `question_input`, `chat_area`, and the MCQ state variables are all in the same enclosing scope.
+
+For the MCQ panel DOM structure: the spec required four full-width buttons with a letter badge on the left. NiceGUI has no `Button` subcomponent compositing, so I used `ui.row()` as the clickable container with `on("click", ...)` — this gives full-width hit area and allows compositing a `ui.label()` for the letter and a `ui.label()` for the option text as siblings. The alternative (four `ui.button()` elements with complex slot content) would require Quasar slot injection and produce inconsistent sizing. The `ui.row()` approach matches the existing pattern used for stat rows in the admin panel and avoids button-reset CSS fights.
+
+State mutability in closures: Python closures can read but not rebind names from enclosing scope without `nonlocal`. Rather than `nonlocal` declarations (which require the enclosing `async def` to also declare the names, creating coupling at distance), I used the established project pattern of single-element lists: `_mcq_active = [False]`, `_mcq_opts = ["", "", "", ""]`. The `_mcq_opts` list serves double duty — it initializes the labels with empty strings at DOM creation time, and its values are updated in-place when the done event arrives. `_lbl_el.set_text(_text)` then syncs the DOM without recreating elements.
+
+The click handler closure capture used a default-argument lambda (`lambda _e, _l=_captured: ...`) — the same pattern documented in the existing admin panel delete buttons decision. Without this, all four buttons would submit "D" (the last iteration value).
+
+### Changes
+
+| File | Change |
+|---|---|
+| `src/app/ui.py` CSS | Added `.rag-mcq-row` hover rule (border-color transition, rgba(236,72,153,0.4) on hover) |
+| `src/app/ui.py` composer | Added `_mcq_active`, `_mcq_opts` mutable state; wrapped composer row as `composer_row`; added `mcq_panel` with 4 rows (letter badge + option label); `mcq_panel` hidden by default |
+| `src/app/ui.py` send | Renamed `send()` → `send_message(question: str)`; thin `send()` wrapper reads input; added `submit_mcq_option(letter)` |
+| `src/app/ui.py` done handler | Reads `is_mcq` from done event; parses option lines; updates `_lbl_el.set_text()`; toggles `composer_row` / `mcq_panel` visibility |
+| `src/app/ui.py` click wiring | MCQ row `on("click", ...)` with default-arg lambda capture; placed after `send_message` is defined |
+
+### Outbound Handoff — Session 20 / Commit 38 (`progression-ui`)
+
+**To:** Aria Session 20
+
+The MCQ panel establishes a visibility-toggle pattern that can be reused for onboarding modal logic in Commit 38:
+
+- **DOM structure:** `mcq_panel` is a `ui.column()` as a sibling of `composer_row` inside `composer_wrap` (the absolute-positioned bottom bar). Both are captured as variables and toggled via `.set_visibility(bool)`.
+- **State pattern:** `_mcq_active = [False]` (single-element list for mutable closure state without `nonlocal`). Copy this pattern for any modal/overlay state in Commit 38.
+- **Option labels:** Built as `mcq_btns: list[tuple[ui.row, ui.label]]` — a list of (container, text-label) pairs. The container holds the click handler; the label is updated in-place via `.set_text()`. If Commit 38 needs a similar list of selectable items (e.g., level chips in onboarding), use the same structure.
+- **Click handler capture:** Always use `lambda _e, _l=_captured: asyncio.ensure_future(handler(_l))` inside a for-loop — the default-arg capture prevents late-binding. This is now a documented pattern in the worklog (admin delete buttons, MCQ buttons).
+- **Visibility handoff rule:** When hiding the MCQ panel on submit, the panel is hidden *before* `send_message()` is called. This prevents a flash of the panel while the SSE stream is running. Apply the same ordering for any modal dismiss → action sequence.
 
 ---
 
