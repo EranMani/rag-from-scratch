@@ -54,7 +54,7 @@
 | 39 | scoring-correctness | backend + ai-engineer | ✅ done · 2026-05-20 |
 | 40 | langchain-curriculum | curriculum-specialist | ✅ done · 2026-05-20 |
 | 41 | gate-remediation | ai-engineer | ✅ done · 2026-05-20 |
-| 42 | rag-specialist-persona | claude | pending |
+| 42 | rag-specialist-persona | claude | ✅ done · 2026-05-20 |
 | 43 | phase-unlock-agent | ai-engineer | pending |
 | 44 | phase-unlock-ui | frontend | pending |
 | 45 | rag-specialist-content | rag-specialist | pending |
