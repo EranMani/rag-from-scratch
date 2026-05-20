@@ -1024,4 +1024,26 @@ The commit plan has been updated. Here is what changed for you:
 - Commit 38 depends on Commit 37
 - Old Commit 33 `nginx-config` → now Commit 39 (Adam); old Commit 34 → 40
 
+---
+
+## 📋 Replan Notice — 2026-05-20
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** nothing
+
+**What was added:**
+- Commit 38.5 `knowledge-profile-ui` — replace `profile_panel()` with the two-tab sidebar design from `UI_Design/app/KnowledgeProfile.jsx`. Current tab: active module name, progress bar with fraction, topic checklist (gradient checkmark for done, outline dot for pending). Overview tab: overall progress bar, one row per module with name, progress bar, fraction, locked modules dimmed. Mastery chip and footer stats stay outside the tab panel.
+
+**What changed in your sequence:**
+- Commit 38.5 is new and comes immediately after Commit 38 (done)
+- Commit 38.5 depends on nothing new — uses existing `/api/profile/me` data unchanged
+- Adam's Commit 39 `nginx-config` is unaffected and still follows after 38.5
+
+**Your next commit is now: Commit 38.5 `knowledge-profile-ui`**
+
+**File path correction:** Reference files are in `UI_Design/app/` (not `UI_Design/ui_kits/app/`).
+The `ui_kits/` version of `KnowledgeProfile.jsx` is the old single-list design.
+Read: `UI_Design/app/KnowledgeProfile.jsx`, `UI_Design/app/kit.css`, `UI_Design/reference/design-spec.md`.
+
 **Your next commit is now: Commit 37 `mcq-chat-ui`** (after Nova's Commits 35 and 36 are complete)

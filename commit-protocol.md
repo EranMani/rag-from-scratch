@@ -50,6 +50,7 @@
 | 36 | onboarding-level-check | ai-engineer | ✅ done · 2026-05-20 |
 | 37 | mcq-chat-ui | frontend | ✅ done · 2026-05-20 |
 | 38 | progression-ui | frontend | ✅ done · 2026-05-20 |
+| 38.5 | knowledge-profile-ui | frontend | pending |
 | 39 | nginx-config | devops | pending |
 | 40 | aws-ec2-deployment | devops | pending |
 | 41 | integration-tests | backend + ai-engineer | pending |

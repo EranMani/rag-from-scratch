@@ -3,10 +3,10 @@
   "last_updated": "2026-05-20 (Commit 38 progression-ui done)",
   "status": "active",
   "current_commit": {
-    "number": "39",
-    "name": "nginx-config",
+    "number": "38.5",
+    "name": "knowledge-profile-ui",
     "status": "pending",
-    "assignee": "devops"
+    "assignee": "frontend"
   },
   "commits_done": [
     "01",
@@ -51,12 +51,13 @@
     "38"
   ],
   "commits_pending": [
+    "38.5",
     "39",
     "40",
     "41",
     "42"
   ],
-  "next_commit": "39",
+  "next_commit": "38.5",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
@@ -201,6 +202,19 @@
       "key_decisions": "soft gate (redirect not refuse); advancement questions are MCQ only until open-question scorer validated; onboarding is self-report + 2–3 diagnostic questions, skippable; phase gate math already exists in scoring.py — commit 34 wires it into assess_node._select_test_slug()",
       "consulted": "Mira (two rounds — progression gating + assessment format). Approved.",
       "approved_by": "Team Lead · 2026-05-19"
+    },
+    {
+      "date": "2026-05-20",
+      "trigger": "Requirement changed — Team Lead wants the Knowledge Profile sidebar redesigned to match the updated two-tab UI kit. New design adds 'Current' tab (active module + topic checklist with gradient checkmarks) and 'Overview' tab (all modules with progress bars and locked-state dimming).",
+      "commits_added": ["38.5 knowledge-profile-ui"],
+      "commits_reordered": [],
+      "commits_removed": [],
+      "new_agent": "none — Aria already active",
+      "scope_rule": "Visual-only change to profile_panel() in src/app/ui.py. Hard rule: no other functions touched, no API calls changed, no data structure changed.",
+      "file_path_correction": "Reference files are in UI_Design/app/ not UI_Design/ui_kits/app/ — spec uses correct paths",
+      "nova_assessment": "Nova not needed — tab state is pure NiceGUI Python state (mutable list); data transformation is dict reshaping in the UI layer only",
+      "gate_wave": "Viktor (new Python logic) + Sage (user data rendered) + Mira (explicitly requested by Team Lead)",
+      "approved_by": "Team Lead · 2026-05-20"
     }
   ],
   "claude_decisions": [
