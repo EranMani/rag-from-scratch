@@ -828,4 +828,29 @@
 - **Alternatives considered:** Appending with a lower weight — rejected as complex. A separate `passive_history` dict — rejected as premature abstraction.
 - **Consequences:** `session_history` contains only MCQ session scores. Passive signals update `topic_score` directly but leave no trace in history. The spaced-rep formula for future MCQ sessions uses only formal assessment scores as `best_prior`.
 
-*Last updated: 2026-05-20 — Commit 39 complete (scoring-correctness: session_question_count sentinel, passive signal isolation)*
+### Phase 1 gap remediation scoped to `intermediate` users only (Commit 41)
+- **Date:** 2026-05-20
+- **Commit:** 41
+- **Decided by:** Claude
+- **Decision:** `_select_test_slug` in `assess_node` grants Phase 1 gap remediation only when `user_level == "intermediate"`. No other mastery level gets the remediation bypass.
+- **Reason:** `intermediate` users have passed Phase 1 once (gate state), but the LLM evaluator may have identified residual Phase 1 gaps in their answers. These users are in Phase 2 territory by score but may have conceptual holes from Phase 1 — the right fix is a targeted Phase 1 question. `beginner` and `novice` users already have Phase 1 as their eligible phase and receive Phase 1 questions normally. `advanced` and `expert` users have passed Phase 1 with high scores; a Phase 1 gap identified by the LLM evaluator at this level is likely a false positive from phrasing, not a genuine knowledge gap — routing them back to Phase 1 would be patronizing and incorrect.
+- **Consequences:** Advanced/expert users with apparent Phase 1 gaps are not routed back — they receive questions in their eligible phase (Phase 2/3). If future data shows genuine Phase 1 regression at advanced levels, the guard can be extended.
+
+### `session_question_counts` as an AgentState field (not passed in graph config) (Commit 41)
+- **Date:** 2026-05-20
+- **Commit:** 41
+- **Decided by:** Claude
+- **Decision:** The per-topic MCQ answer count is tracked in `AgentState.session_question_counts: dict[str, int]` — emitted by `assess_node` on each evaluation turn and checkpointed by `MemorySaver` across turns within a session.
+- **Alternatives considered:** Tracking question count in the graph config; using a separate Redis counter keyed by session_id + slug; passing the count via a separate API field in the chat request body.
+- **Reason:** `AgentState` is the single source of truth for per-turn agent data. LangGraph's `MemorySaver` checkpointer automatically persists the field across turns for the same `thread_id`. A Redis counter or API field would require additional infrastructure and coupling. The graph config (`{"configurable": {...}}`) is for router/checkpointer metadata, not mutable agent state.
+- **Consequences:** `session_question_counts` is not initialized in `chat.py`'s `initial_state` — the first turn starts with no key, and `assess_node` reads it with `.get("session_question_counts") or {}`. The field accumulates in the MemorySaver checkpoint and resets when a new session (new `thread_id`) begins.
+
+### Proximity hint reads DB in `generate_node`, not carried through `AgentState` (Commit 41)
+- **Date:** 2026-05-20
+- **Commit:** 41
+- **Decided by:** Claude
+- **Decision:** `generate_node` reads the user's profile from the DB via `asyncio.to_thread(get_profile_by_user_id, user_id)` to build the proximity hint, rather than adding `topic_scores` to `AgentState` and propagating it through the graph.
+- **Reason:** `topic_scores_delta` in `AgentState` is the per-turn delta (sparse float dict), not the absolute stored scores. The proximity hint requires absolute stored scores (e.g., "current score is 0.65") to compute which topics are in the [0.60, 0.70) window. Adding absolute scores to `AgentState` would duplicate the DB state and require a separate DB read node before `generate_node`. A targeted read inside `generate_node` is the minimal-coupling approach — one additional sync call wrapped in `asyncio.to_thread`, consistent with the project-wide blocking I/O pattern.
+- **Consequences:** `generate_node` now has a DB dependency (was previously pure agent-state). No new AgentState fields required. If the DB lookup fails or returns `None`, the hint is silently skipped — generation proceeds normally.
+
+*Last updated: 2026-05-20 — Commit 41 complete (gate-remediation: intermediate Phase 1 remediation, session_question_counts wiring, proximity hint)*

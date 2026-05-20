@@ -4,7 +4,7 @@
 > Quality signal: tests pass · no Viktor hard blocks · learning log entry written.
 >
 > Companion file: TOKEN_OPTIMIZATION.md — the methods behind the numbers.
-> Last updated: 2026-05-20 (Commit 38.5 gate wave — pending TL decision on blockers)
+> Last updated: 2026-05-20 (Commit 41 gate wave)
 
 ---
 
@@ -662,6 +662,31 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 41 — `gate-remediation` · 2026-05-20 · Nova (Claude direct edits)
+
+> Gate wave: Viktor + Quinn (Haiku). Sage + Mira skipped (gate triage: no auth/secrets/UI; pure AI-agent logic).
+> No implementation agent invoked — all 4 fixes applied with direct Edit calls per no-agent-for-known-edits rule.
+> Viktor: PASS. Quinn: NEEDS ADDITIONS (2 gaps — LLM eval path session_question_counts, advanced/expert remediation exclusion).
+> Per HARD RULE (no-gate-fix-passes), Quinn gaps go into follow-up commit — not re-reviewed in this loop.
+> Ryan: pending.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Nova (implementation) | — | ~0 | ~0 | ✅ | Claude direct Edits; no agent spawn per no-agent-for-known-edits rule |
+| Viktor | Haiku | 35,532 | 3 | **+21k** over ≤15k | PASS; all 4 fixes correct; no KeyError/None-deref risks |
+| Quinn | Haiku | 58,355 | 40 ⚠️ | **+43k** over ≤15k | NEEDS ADDITIONS: LLM eval path counts not tested; advanced/expert exclusion not tested |
+| Ryan | Haiku | TBD | TBD | TBD | pending |
+| **Total (excl. Ryan)** | | **~93,887** | **43** | over ≤75k | no impl agent cost; Quinn 40 tool uses is abnormally high |
+
+**Notes:**
+- No implementation agent: Claude applied all 4 fixes with direct Edit calls (~0 tokens vs ~25–30k agent overhead). First commit to reach ~0 implementation cost.
+- Viktor 3 tool uses: received diff inline; zero file reads required. Correct reviewer pattern — under tool cap.
+- Quinn 40 tool uses: excessively high for a coverage review. Reviewer prompt should include targeted context (existing test classes) to prevent broad file exploration. Pattern to address.
+- Quinn findings classified as non-blocking per HARD RULE: gaps are test coverage additions, not code correctness failures. Code is correct; two test cases are missing. Go into next commit.
+- Pre-existing failures: 10 (8 test_profile_api + 2 test_update_profile_node) — confirmed pre-existing, unrelated to C41.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -701,6 +726,7 @@ No token data recorded. Tracking began at Commit 10.
 | 38.5 | knowledge-profile-ui | 221,259 | Viktor+Sage+Mira+Ryan (Haiku) | **over** | Aria 80,780 (26 uses, hit cap); Viktor 35,836 (3 uses); Sage 33,766 (1 use); Mira 31,177 (1 use); Ryan 39,700 (7 uses); Quinn skipped (no logic coverage gap) |
 | 39 | scoring-correctness | 80,397 | Viktor+Ryan (Haiku); no impl agent | **over** | Viktor 38,913 (3 uses, PASS); Ryan 41,484 (7 uses); Sage/Quinn/Mira skipped (gate triage: pure logic fix, no auth/UI/routes); edits made directly by Claude (no Rex/Nova subagent) |
 | 40 | langchain-curriculum | 95,726 | Ryan only (Haiku) | **over** ≤75k | Lara ✅ (59,294 · 25 uses); Ryan 36,432 (8 uses, hit 5-cap before LEARNING_LOG_SUMMARY edit — Claude applied direct Edit); zero gate wave (docs-only commit) |
+| 41 | gate-remediation | pending | Viktor+Quinn (Haiku) | pending | No impl agent (Claude direct Edits, ~0 tokens); Viktor 35,532 (3 uses, PASS); Quinn 58,355 (40 uses, NEEDS ADDITIONS); Ryan pending |
 
 ---
 

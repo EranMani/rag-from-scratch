@@ -133,3 +133,8 @@
 ## Scoring Correctness (C39)
 73. **`session_question_count: int | None = None` sentinel default** — `None` skips the session guard; existing callers bypass it until Commit 41 wires the real counter from AgentState; default of `1` would have broken all pre-41 callers by triggering early return
 74. **Passive signals excluded from session_history** — passive deltas update topic_score directly but never append to history; prevents weak inference from contaminating `best_prior` used in the MCQ spaced-rep formula
+
+## Gate Remediation (C41)
+75. **Phase 1 remediation scoped to `intermediate` only** — beginner/novice already get Phase 1; advanced/expert Phase 1 gaps are likely LLM false positives at high score levels; routing back would be incorrect
+76. **`session_question_counts` as AgentState field** — MemorySaver checkpoints it cross-turn; no Redis/API coupling needed; `.get() or {}` guard handles first-turn absence
+77. **Proximity hint reads DB in `generate_node`** — `topic_scores_delta` is a per-turn sparse delta, not absolute scores; targeted async DB read is minimal-coupling; silently skipped on lookup failure

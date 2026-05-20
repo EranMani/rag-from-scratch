@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-19 (Commit 33 — question-bank-mcq)
+> Last updated: 2026-05-20 (Commit 41 — gate-remediation)
 
 ---
 
@@ -99,6 +99,7 @@ responsive to who they are, not a static Q&A tool.
 - **Owner:** Nova
 - **Purpose:** Stateful graph that retrieves, generates, assesses, and updates user profiles adaptively
 - **Depends on:** ChromaDB, OpenAI/Ollama, SQLite (user_profiles), Redis
+- **Key data flows added (C41):** `session_question_counts: dict[str, int]` field tracks per-topic MCQ answer count within a session; `generate_node` reads profile via `asyncio.to_thread(get_profile_by_user_id, user_id)` and appends proximity hint to context when a Phase 1/2 topic score is in [0.60, 0.70); intermediate users with identified Phase 1 gaps receive Phase 1 remediation questions via `_select_test_slug`
 - **Introduced in:** Commits 07–17
 
 ### User Profile Service
@@ -112,8 +113,9 @@ responsive to who they are, not a static Q&A tool.
 - **Type:** pure-function service
 - **Owner:** Rex
 - **Purpose:** Applies spaced-repetition scoring formula to session performance data; computes mastery level from phase gate state; no DB access
-- **Contract:** `compute_topic_scores(current_profile: dict, topic_scores_delta: dict[str, float]) → TopicScoreUpdate`
+- **Contract:** `compute_topic_scores(current_profile: dict, topic_scores_delta: dict[str, float], *, session_question_count: int | None = None) → TopicScoreUpdate`
   - `topic_scores_delta` values are session scores (0.0–1.0 absolute), not deltas to add
+  - `session_question_count`: when provided and `< 3`, score update is skipped (minimum-3-questions guard); `None` (default) bypasses the guard for backward compatibility
   - Formula: `topic_score = 0.7 × session_score + 0.3 × best_prior_session_score` (first session: `= session_score`)
   - `TopicScoreUpdate`: `{topic_scores, session_history, strengths, gaps, mastery_level}`
 - **Mastery level mapping:** phase gate state (not score average); evaluated expert → novice; `None` topic score fails gate checks; `None ≠ 0.0`
@@ -125,7 +127,7 @@ responsive to who they are, not a static Q&A tool.
 - **Type:** LangGraph node (synchronous)
 - **Owner:** Nova
 - **Purpose:** Persists topic score deltas to the user profile after each assessed turn
-- **Contract:** reads `user_id`, `assessment_error`, `topic_scores_delta` from `AgentState`; returns `{}`
+- **Contract:** reads `user_id`, `assessment_error`, `topic_scores_delta`, `session_question_counts` from `AgentState`; passes per-topic session count to `compute_topic_scores` for single-topic deltas; returns `{}`
 - **Depends on:** Topic Scoring Service (`compute_topic_scores`), User Profile Service (`get_profile_by_user_id`, `update_profile`)
 - **Introduced in:** Commit 15 (stub from Commit 12 replaced)
 

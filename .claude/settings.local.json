@@ -164,7 +164,8 @@
       "Bash(.venv/Scripts/python -m pytest tests/test_profile_api.py::TestGetProfileAuthenticated::test_valid_token_returns_200 -v)",
       "Bash(.venv/Scripts/python -m pytest tests/test_scoring.py tests/test_assess_node.py -v)",
       "Bash(.venv/Scripts/python -m pytest tests/ -q --ignore=tests/test_profile_api.py)",
-      "Bash(.venv/Scripts/python -m pytest tests/test_scoring.py tests/test_assess_node.py -v -q)"
+      "Bash(.venv/Scripts/python -m pytest tests/test_scoring.py tests/test_assess_node.py -v -q)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/ -x -q --tb=short)"
     ]
   }
 }

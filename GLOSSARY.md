@@ -74,18 +74,19 @@
 **Introduced in:** Commit 18
 
 ### Module Slug
-**Meaning on this project:** A snake_case identifier for a knowledge base topic, used as keys in `topic_scores`. The canonical 8-slug set (defined in `knowledge-base/curriculum/topic-slugs.json`, introduced with the replan on 2026-05-11):
+**Meaning on this project:** A snake_case identifier for a knowledge base topic, used as keys in `topic_scores`. The canonical 9-slug set (8 slugs from the 2026-05-11 replan; `langchain_fundamentals` added in Commit 40):
 - `embeddings_and_similarity` — Phase 1: Vector embeddings, cosine similarity, semantic search
 - `rag_pipeline_architecture` — Phase 1: Indexing + query phases, context injection, generation loop
 - `chunking_strategies` — Phase 2: Fixed vs. semantic chunking, overlap, token budgets
 - `vector_databases` — Phase 2: HNSW/IVF index types, ANN tradeoffs, metadata filtering
 - `retrieval_methods` — Phase 2: Sparse (BM25), dense, hybrid, reranking, MMR, HyDE
 - `context_and_prompting` — Phase 2: Context window management, prompt templates, hallucination mitigation
+- `langchain_fundamentals` — Phase 2: LangChain chains, LCEL, agents, tools, LangGraph basics
 - `evaluation_and_metrics` — Phase 3: RAGAS, faithfulness, answer relevancy, context precision/recall
 - `production_patterns` — Phase 3: Caching, async pipelines, observability, cost control, failure modes
-**Note:** The prior 6-slug set (`rag_fundamentals`, `langchain`, etc.) is deprecated as of the 2026-05-11 replan. Commits 24–25 migrate the application to use this 8-slug set.
-**Used in:** `knowledge-base/curriculum/topic-slugs.json` (canonical source); `src/app/profile/scoring.py`, `src/agents/state.py` (updated in Commits 24–25)
-**Introduced in:** Commit 07 (original 6-slug set); Commit 22 (canonical 8-slug set)
+**Note:** The prior 6-slug set (`rag_fundamentals`, `langchain`, etc.) is deprecated as of the 2026-05-11 replan. Commits 24–25 migrate the application to use the 8-slug set; Commit 40 adds the 9th slug.
+**Used in:** `knowledge-base/curriculum/topic-slugs.json` (canonical source); `src/app/profile/scoring.py`, `src/agents/state.py` (updated in Commits 24–25, 40–41)
+**Introduced in:** Commit 07 (original 6-slug set); Commit 22 (canonical 8-slug set); Commit 40 (9th slug `langchain_fundamentals`)
 
 ### asyncio.to_thread
 **Meaning on this project:** A Python stdlib function (`asyncio.to_thread(fn, *args)`) that runs a synchronous callable in a thread pool executor and returns an awaitable. Used throughout this project to prevent blocking I/O (ChromaDB, SQLite, LLM calls) from stalling the async event loop. Called as `await asyncio.to_thread(fn, arg1, arg2)` — not wrapped in a lambda.
@@ -269,4 +270,16 @@
 **Used in:** `src/agents/nodes/assess.py` (`_validated_passive_delta`, `_PASSIVE_LEVEL_SCORE`), `src/app/profile/scoring.py` (`is_passive` parameter)
 **Introduced in:** Commit 35 (passive assessment path); Commit 39 (passive protection logic in `compute_topic_scores`)
 
-*Last updated: 2026-05-20 — Commit 39 complete (passive delta term added)*
+### session_question_counts
+**Meaning on this project:** An `AgentState` field (`session_question_counts: dict[str, int]`) that tracks how many MCQ answers have been evaluated for each topic slug within the current session thread. Emitted by `assess_node` on each MCQ or LLM evaluation turn; accumulated via `MemorySaver` checkpointer across turns. Read by `update_profile_node` to pass the per-topic count to `compute_topic_scores` as `session_question_count` — activating the minimum-3-questions guard when the count is < 3.
+**Distinct from:** `session_history` (the per-topic list of prior completed session scores stored in the DB); `topic_scores_delta` (the per-turn score delta, also in AgentState). `session_question_counts` tracks how many questions were answered this session; `session_history` tracks scores from all prior sessions.
+**Used in:** `src/agents/state.py`, `src/agents/nodes/assess.py` (emitted), `src/agents/nodes/update_profile.py` (read)
+**Introduced in:** Commit 41
+
+### Proximity Hint
+**Meaning on this project:** An optional instructional clause appended to the `context` string in `generate_node` when one or more Phase 1 or Phase 2 topic scores are in the [0.60, 0.70) range (near the 0.70 gate threshold). The hint tells the LLM to reinforce that specific topic "where natural." Produced by reading the user's profile from the DB inside `generate_node` via `asyncio.to_thread`.
+**Distinct from:** adaptive prompt template selection (which is based on mastery level, not proximity); topic score thresholds (0.70 is the gate, 0.60 is the readiness trigger for assessment).
+**Used in:** `src/agents/nodes/generate.py`
+**Introduced in:** Commit 41
+
+*Last updated: 2026-05-20 — Commit 41 complete (session_question_counts, proximity hint, langchain_fundamentals slug)*
