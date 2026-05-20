@@ -1568,6 +1568,19 @@ html, body {
 </style>
 """)
 
+        ui.add_head_html("""
+<style>
+@keyframes rag-phase-unlock {
+  0%   { box-shadow: 0 0 0 rgba(134,239,172,0); }
+  40%  { box-shadow: 0 0 20px rgba(134,239,172,0.45); }
+  100% { box-shadow: 0 0 0 rgba(134,239,172,0); }
+}
+.rag-phase-unlocked {
+  animation: rag-phase-unlock 2.5s ease-out forwards;
+}
+</style>
+""")
+
         bearer_ok = await verify_stored_bearer()
         can_use_chat = settings.allow_anonymous_chat or bearer_ok
 
@@ -1858,6 +1871,7 @@ html, body {
                 with ui.row().style("width: 100%; flex: 1; min-height: 0; gap: 0; overflow: hidden; align-items: stretch;"):
                     # --- Profile sidebar ---
                     _tab_state = ["Current"]
+                    _prev_mastery: list = [None]
 
                     def _switch_tab(name: str) -> None:
                         _tab_state[0] = name
@@ -1887,6 +1901,8 @@ html, body {
 
                             mastery_raw = profile.get("mastery_level") or "novice"
                             mastery = mastery_raw if mastery_raw in {"novice", "beginner", "intermediate", "advanced", "expert"} else "novice"
+                            _gate_crossed = _prev_mastery[0] is not None and mastery != _prev_mastery[0]
+                            _prev_mastery[0] = mastery
                             topic_scores: dict = profile.get("topic_scores") or {}
                             interaction_count = profile.get("interaction_count", 0)
                             last_activity = profile.get("last_activity_at")
@@ -2003,6 +2019,28 @@ html, body {
                                                     )
                                                 ui.label(t["name"]).style(f"color:{name_color}")
 
+                                    # Phase progression context
+                                    _phase_num = active_idx + 1
+                                    _total_in_phase = len(active_module["topics"])
+                                    _done_in_phase = active_module["done_count"]
+                                    _remaining = _total_in_phase - _done_in_phase
+                                    if mastery in ("advanced", "expert") and active_idx == 2 and _remaining == 0:
+                                        _phase_ctx = "All phases complete"
+                                    elif _phase_num < 3:
+                                        _phase_ctx = (
+                                            f"Phase {_phase_num} of 3 — {_done_in_phase} topic{'s' if _done_in_phase != 1 else ''} complete"
+                                            + (f", {_remaining} to go before Phase {_phase_num + 1} unlocks" if _remaining > 0 else "")
+                                        )
+                                    else:
+                                        _phase_ctx = (
+                                            f"Phase {_phase_num} of 3 — {_done_in_phase} topic{'s' if _done_in_phase != 1 else ''} complete"
+                                        )
+                                    ui.label(_phase_ctx).style(
+                                        "font-family:'Inter',system-ui; font-size:11px; color:#64748b; "
+                                        "margin-top:14px; padding-top:10px; "
+                                        "border-top:1px solid rgba(255,255,255,0.05)"
+                                    )
+
                             else:
                                 # Overview tab — all modules summary
                                 completed_mods = sum(
@@ -2037,38 +2075,64 @@ html, body {
                                                 "border-radius:inherit"
                                             )
 
-                                    # Module rows
+                                    # Phase lock labels keyed by module index
+                                    _phase_labels: list[str] = ["Phase 1 — Foundations", "Phase 2 — Core Components", "Phase 3 — Production"]
+                                    _phase_unlock_hints: list[str] = ["", "Pass Phase 1 to unlock", "Pass Phase 2 to unlock"]
+
+                                    # Phase rows — locked/unlocked state
                                     with ui.element("div").style("display:flex; flex-direction:column; gap:14px; width:100%"):
-                                        for m in modules:
+                                        for phase_idx, m in enumerate(modules):
+                                            is_locked = m["locked"]
                                             d = m["done_count"]
                                             total = len(m["topics"])
                                             pct = (d / total * 100) if total else 0
-                                            row_opacity = "opacity:0.6;" if m["locked"] else ""
-                                            text_color = "#475569" if m["locked"] else "#e2e8f0"
-                                            muted_color = "#475569" if m["locked"] else "#94a3b8"
 
-                                            with ui.element("div").style(f"display:flex; flex-direction:column; gap:6px; width:100%; {row_opacity}"):
+                                            # detect newly unlocked phase for celebration
+                                            newly_unlocked = _gate_crossed and not is_locked and phase_idx == active_idx
+                                            phase_extra_class = "rag-phase-unlocked" if newly_unlocked else ""
+
+                                            block_opacity = "opacity:0.4;" if is_locked else ""
+                                            block_style = (
+                                                f"display:flex; flex-direction:column; gap:6px; width:100%; "
+                                                f"border-radius:6px; padding:8px 10px; box-sizing:border-box; "
+                                                f"background:rgba(20,14,50,0.35); {block_opacity}"
+                                            )
+
+                                            with ui.element("div").classes(phase_extra_class).style(block_style):
+                                                # Phase header row
                                                 with ui.element("div").style(
-                                                    "display:grid; grid-template-columns:auto 1fr auto; "
-                                                    "align-items:baseline; gap:8px; width:100%"
+                                                    "display:flex; align-items:center; gap:8px; width:100%"
                                                 ):
-                                                    ui.label(m["num"]).style(
-                                                        f"font-family:ui-monospace,monospace; font-size:10.5px; "
-                                                        f"color:{muted_color}; letter-spacing:0.06em"
-                                                    )
-                                                    ui.label(m["name"]).style(
-                                                        f"font-family:'Inter',system-ui; font-size:12.5px; color:{text_color}; "
-                                                        "overflow:hidden; text-overflow:ellipsis; white-space:nowrap"
-                                                    )
-                                                    if m["locked"]:
-                                                        ui.label("—").style(
-                                                            f"font-family:ui-monospace,monospace; font-size:11px; color:{muted_color}"
+                                                    if is_locked:
+                                                        ui.html(
+                                                            '<svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true" style="flex:0 0 12px">'
+                                                            '<rect x="2" y="6" width="8" height="7" rx="1.5" fill="#475569"/>'
+                                                            '<path d="M3.5 6V4.5a2.5 2.5 0 0 1 5 0V6" fill="none" stroke="#475569" stroke-width="1.4" stroke-linecap="round"/>'
+                                                            '</svg>'
                                                         )
-                                                    else:
+                                                    ui.label(_phase_labels[phase_idx]).style(
+                                                        "font-family:'Inter',system-ui; font-size:12px; font-weight:600; "
+                                                        "color:" + ("#475569" if is_locked else "#e2e8f0") + "; flex:1"
+                                                    )
+                                                    if not is_locked:
                                                         ui.label(f"{d}/{total}").style(
                                                             "font-family:ui-monospace,monospace; font-size:11px; color:#94a3b8"
                                                         )
-                                                if not m["locked"]:
+
+                                                # Unlock hint or progress bar
+                                                if is_locked:
+                                                    ui.label(_phase_unlock_hints[phase_idx]).style(
+                                                        "font-family:'Inter',system-ui; font-size:11px; color:#475569; "
+                                                        "font-style:italic; padding-left:20px"
+                                                    )
+                                                    # Topic names dimmed, no scores
+                                                    with ui.element("div").style("display:flex; flex-direction:column; gap:4px; padding-left:20px; padding-top:2px"):
+                                                        for t in m["topics"]:
+                                                            ui.label(t["name"]).style(
+                                                                "font-family:'Inter',system-ui; font-size:11.5px; color:#334155"
+                                                            )
+                                                else:
+                                                    # Progress bar
                                                     with ui.element("div").style(
                                                         "height:3px; background:rgba(36,29,74,0.6); "
                                                         "border-radius:999px; overflow:hidden; width:100%"
@@ -2078,6 +2142,21 @@ html, body {
                                                             "background:linear-gradient(90deg,#f97316,#ec4899,#8b5cf6); "
                                                             "border-radius:inherit"
                                                         )
+                                                    # Topic list with scores
+                                                    with ui.element("div").style("display:flex; flex-direction:column; gap:4px; padding-top:2px"):
+                                                        for t in m["topics"]:
+                                                            score = topic_scores.get(t["slug"])
+                                                            score_text = f"{score:.0%}" if score is not None else "Not yet started"
+                                                            score_color = "#86efac" if (score is not None and score >= 0.70) else "#94a3b8"
+                                                            with ui.element("div").style(
+                                                                "display:flex; justify-content:space-between; align-items:baseline"
+                                                            ):
+                                                                ui.label(t["name"]).style(
+                                                                    "font-family:'Inter',system-ui; font-size:11.5px; color:#94a3b8"
+                                                                )
+                                                                ui.label(score_text).style(
+                                                                    f"font-family:ui-monospace,monospace; font-size:11px; color:{score_color}"
+                                                                )
 
                             # --- Stats footer (always shown) ---
                             with ui.column().style(

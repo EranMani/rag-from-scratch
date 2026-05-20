@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Session 21 — Commit 38.5 knowledge-profile-ui · 2026-05-20*
+*Last updated: Session 22 — Commit 44 phase-unlock-ui · 2026-05-21*
 
-**Last completed:** Session 21 — Commit 38.5 knowledge-profile-ui: Replaced `profile_panel()` contents with two-tab sidebar design. Added `_ALL_MODULES` and `_ACTIVE_MODULE_IDX` at module level. Added SVG gradient defs (`<linearGradient id="tg">`) via `ui.add_head_html()` in `index()` — injected once, referenced by CheckIcon SVGs inside the panel. Tab state managed via `_tab_state = ["Current"]` closure list + `_switch_tab()` helper that calls `profile_panel.refresh()`. Current tab: active module eyebrow/title, progress bar (done/total), per-topic check/pending SVG icons. Overview tab: overall progress summary card, per-module rows with progress bars, locked rows at 0.6 opacity. Stats footer always shown. All user data (mastery, counts, names) through `ui.label()` — two `ui.html()` calls are static SVG strings only.
+**Last completed:** Session 22 — Commit 44 phase-unlock-ui: Three UI changes to `profile_panel()`. (1) Overview tab: replaced flat module rows with explicit phase-grouped blocks (Phase 1–3 always shown). Locked phases rendered at `opacity:0.4` with an SVG padlock icon (`ui.html()` static string), a "Pass Phase X to unlock" subtitle via `ui.label()`, and dimmed topic names without scores. Unlocked phases show a progress bar and per-topic score or "Not yet started" via `ui.label()`. (2) Current tab: phase progression context line below topic list — "Phase X of 3 — N topics complete, M to go before Phase X+1 unlocks" via `ui.label()`. All values derived from `active_idx` and `active_module` — fully static text, no user data interpolated into `ui.html()`. (3) Unlock celebration: `_prev_mastery: list = [None]` closure variable alongside `_tab_state`; `_gate_crossed` bool computed at top of `profile_panel()` by comparing current mastery to `_prev_mastery[0]`; `rag-phase-unlocked` CSS class applied to newly-unlocked phase block when `_gate_crossed` is True; `@keyframes rag-phase-unlock` green glow animation (2.5s fade-out) injected once via `ui.add_head_html()` in `index()`.
 **Currently active:** none
 **Blocked by:** none
 
@@ -37,7 +37,12 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 22 | 44 | ✅ Done | Phase-grouped Overview (locked/unlocked); _prev_mastery mutable list closure for gate detection; unlock animation CSS injected once via add_head_html; all user-sourced values through ui.label() |
 | 21 | 38.5 | ✅ Done | Tab state via mutable list closure; SVG gradient defs injected once in index() via add_head_html, referenced as url(#tg) in static ui.html() SVG strings; all user data through ui.label() |
+
+### Session 22 — Commit 44 `phase-unlock-ui` · 2026-05-21
+
+**Approach:** The spec called for three orthogonal changes to `profile_panel()` — phase grouping in Overview, a context line in Current, and a mastery-change animation. The flat module row loop in Overview had to be replaced entirely; I considered keeping the loop and adding conditionals inside it, but phase-level semantics (the "Pass Phase X to unlock" subtitle, the phase label, the padlock) are phase-level concepts that don't map cleanly onto the existing per-module row structure. A fresh phase loop reading from `_ALL_MODULES` directly — rather than the pre-built `modules` list — was cleaner but would duplicate the topic label resolution; using the pre-built `modules` list (indexed by `phase_idx`) kept the derivation in one place. The `_gate_crossed` detection needs to fire on every `profile_panel.refresh()` call, which means it must live inside `profile_panel()` reading from the closure variable — not in `_switch_tab()` or any other outer scope, since tab switches trigger refresh without a mastery change. For the animation, the `rag-phase-unlocked` class applies only to `phase_idx == active_idx` (the newly accessible phase) rather than to all unlocked phases, which would animate all of them on every tab switch. The CSS is injected once in `index()` in a second `ui.add_head_html()` call immediately after the existing `.sb-tab` style block — same pattern as the SVG gradient defs.
 
 ### Session 21 — Commit 38.5 `knowledge-profile-ui` · 2026-05-20
 
