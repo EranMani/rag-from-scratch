@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Knowledge Profile — Sidebar Redesign</title>
+  <link rel="stylesheet" href="app/../colors_and_type.css" />
+  <link rel="stylesheet" href="app/kit.css" />
+  <link rel="icon" type="image/png" href="assets/rag-tutor-icon.png" />
+  <style>
+    /* Local — comparison view chrome */
+    body { margin: 0; background: var(--c-canvas); background-image: var(--g-glow-bg); min-height: 100vh; font-family: var(--f-sans); color: var(--c-fg); }
+
+    .page {
+      max-width: 1240px; margin: 0 auto;
+      padding: 56px 32px 80px;
+    }
+
+    .page-head { margin-bottom: 32px; display: flex; align-items: baseline; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+    .page-head h1 {
+      font-family: var(--f-sans); font-size: clamp(1.6rem, 2.4vw, 2.1rem);
+      font-weight: 700; letter-spacing: -0.02em; margin: 0;
+      background: var(--g-sunset);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .page-eyebrow {
+      font-family: var(--f-sans); font-size: 12px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.16em; color: var(--c-muted);
+      margin-bottom: 10px;
+    }
+    .page-head p { color: var(--c-muted); font-size: 14px; max-width: 560px; line-height: 1.6; margin: 8px 0 0; }
+    .page-head .open-shell {
+      font-family: var(--f-mono); font-size: 11.5px;
+      color: var(--c-fg); text-decoration: none;
+      padding: 9px 14px; border-radius: var(--r-pill);
+      border: 1px solid var(--c-border);
+      background: var(--c-card);
+      transition: box-shadow var(--t-base) var(--ease-out), border-color var(--t-base);
+    }
+    .page-head .open-shell:hover { border-color: rgba(236,72,153,0.4); box-shadow: 0 0 0 3px rgba(236,72,153,0.18); }
+    .page-head .open-shell span { color: var(--c-muted); }
+
+    /* Side-by-side artboards */
+    .grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 22px;
+      align-items: start;
+    }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+    .artboard {
+      background: var(--c-frame);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.35), 0 0 60px rgba(139,92,246,0.10);
+    }
+    .ab-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--c-hairline);
+      background: rgba(12,10,30,0.55);
+    }
+    .ab-title {
+      font-family: var(--f-mono); font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.12em; color: var(--c-muted);
+    }
+    .ab-tag {
+      font-family: var(--f-mono); font-size: 10.5px;
+      padding: 3px 9px; border-radius: var(--r-xs);
+      color: #fb923c; background: rgba(249,115,22,0.10);
+      border: 1px solid rgba(249,115,22,0.22);
+      letter-spacing: 0.06em;
+    }
+
+    /* Sidebar styles already exist as .sidebar; wrap so it sizes nicely in the artboard */
+    .sb-wrap {
+      width: 320px; height: 720px;
+      display: flex; flex-direction: column;
+      background: var(--c-sidebar);
+    }
+    .sb-wrap > .sidebar {
+      border-right: 0;
+      width: 100%; height: 100%;
+      padding: 22px 22px 18px;
+    }
+
+    /* Notes panel */
+    .notes {
+      margin-top: 36px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    }
+    @media (max-width: 900px) { .notes { grid-template-columns: 1fr 1fr; } }
+    .note {
+      background: var(--g-card); border: 1px solid var(--c-border);
+      border-radius: var(--r-md); padding: 16px;
+      box-shadow: 0 4px 22px rgba(139,92,246,0.08);
+    }
+    .note h4 {
+      font-family: var(--f-sans); font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.1em; color: var(--c-muted);
+      margin: 0 0 8px;
+    }
+    .note p { font-family: var(--f-sans); font-size: 12.5px; color: var(--c-fg); line-height: 1.55; margin: 0; }
+    .note code { font-family: var(--f-mono); font-size: 11.5px; color: #f9a8d4; background: var(--c-frame); padding: 1px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-head">
+      <div>
+        <div class="page-eyebrow">Component · Sidebar</div>
+        <h1>Knowledge Profile — redesign</h1>
+        <p>Tabbed sidebar: <strong style="color:var(--c-fg)">Current</strong> focuses the active module with topic checklist; <strong style="color:var(--c-fg)">Overview</strong> shows the full curriculum at a glance with locked modules dimmed.</p>
+      </div>
+      <a class="open-shell" href="app/index.html#chat">open in chat shell <span>→</span></a>
+    </div>
+
+    <div class="grid">
+      <div class="artboard">
+        <div class="ab-head">
+          <span class="ab-title">Current tab — active module</span>
+          <span class="ab-tag">DEFAULT</span>
+        </div>
+        <div class="sb-wrap"><div id="sb-current"></div></div>
+      </div>
+
+      <div class="artboard">
+        <div class="ab-head">
+          <span class="ab-title">Overview tab — all modules</span>
+        </div>
+        <div class="sb-wrap"><div id="sb-overview"></div></div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note">
+        <h4>Mastery badge</h4>
+        <p>Stays at the top. The standalone "Mastery level" label and tagline-only copy is preserved — the badge alone communicates tier.</p>
+      </div>
+      <div class="note">
+        <h4>Tab bar</h4>
+        <p>Underline indicator on the sunset gradient. Active label tinted <code>#fb923c</code> to match the orange stop; inactive uses <code>--c-muted</code>.</p>
+      </div>
+      <div class="note">
+        <h4>Topic icons</h4>
+        <p>Filled gradient check for complete topics; muted ring + dot for pending. Names brighten when done. No decimal scores anywhere.</p>
+      </div>
+      <div class="note">
+        <h4>Locked modules</h4>
+        <p>Future modules dim to <code>--c-subtle</code> at 0.7 opacity and drop the progress track entirely — they read as "not yet" without screaming.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="app/KnowledgeProfile.jsx"></script>
+
+  <script type="text/babel">
+    const MODULES = [
+      {
+        num: "01", name: "RAG Fundamentals",
+        topics: [
+          { name: "What RAG is and isn't", done: true },
+          { name: "Retrieval vs. fine-tuning", done: true },
+          { name: "End-to-end pipeline shape", done: true },
+          { name: "When RAG fails", done: true },
+        ],
+      },
+      {
+        num: "02", name: "Vector Databases",
+        topics: [
+          { name: "Embedding spaces", done: true },
+          { name: "ANN indexes (HNSW, IVF)", done: true },
+          { name: "Quantization tradeoffs", done: false },
+          { name: "Hybrid search filters", done: false },
+          { name: "Picking a vector store", done: false },
+        ],
+      },
+      {
+        num: "03", name: "Retrieval Methods",
+        topics: [
+          { name: "Dense retrieval", done: false },
+          { name: "Sparse retrieval (BM25)", done: false },
+          { name: "Reranking with cross-encoders", done: false },
+          { name: "Query expansion", done: false },
+        ],
+      },
+      {
+        num: "04", name: "Chunking Strategies", locked: true,
+        topics: [
+          { name: "Fixed vs. semantic chunks", done: false },
+          { name: "Overlap and context windows", done: false },
+          { name: "Structured document parsing", done: false },
+        ],
+      },
+      {
+        num: "05", name: "LangChain", locked: true,
+        topics: [
+          { name: "Runnable interface", done: false },
+          { name: "Retrievers and chains", done: false },
+          { name: "Streaming and tracing", done: false },
+        ],
+      },
+      {
+        num: "06", name: "Production Patterns", locked: true,
+        topics: [
+          { name: "Eval harnesses", done: false },
+          { name: "Latency budgets", done: false },
+          { name: "Caching and cost control", done: false },
+          { name: "Monitoring drift", done: false },
+        ],
+      },
+    ];
+
+    // Mount each tab in its own root, force initial tab via a small wrapper that sets state.
+    const PinnedTab = ({ tab }) => {
+      // re-implement minimal logic — clone KnowledgeProfile but force tab
+      const [_, force] = React.useState(0);
+      const ref = React.useRef(null);
+      React.useEffect(() => {
+        if (!ref.current) return;
+        // After mount, click the desired tab once.
+        const btn = ref.current.querySelector(`.sb-tab[role="tab"]:nth-child(${tab === "Current" ? 1 : 2})`);
+        if (btn && !btn.classList.contains("active")) btn.click();
+      });
+      return (
+        <div ref={ref}>
+          <KnowledgeProfile
+            level="advanced"
+            modules={MODULES}
+            activeModuleNum="02"
+            queries={47}
+            lastActive="2h ago"
+          />
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById("sb-current")).render(<PinnedTab tab="Current" />);
+    ReactDOM.createRoot(document.getElementById("sb-overview")).render(<PinnedTab tab="Overview" />);
+  </script>
+</body>
+</html>
