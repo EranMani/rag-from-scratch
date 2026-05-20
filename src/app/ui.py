@@ -73,6 +73,16 @@ _ADVANCE_MSG: dict[str, str] = {
     "expert":        "All phases complete — keep sharpening your skills",
 }
 
+_ALL_MODULES: list[dict] = [
+    {"num": "01", "name": "Foundation", "topics": ["embeddings_and_similarity", "rag_pipeline_architecture"]},
+    {"num": "02", "name": "Core RAG",   "topics": ["chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting"]},
+    {"num": "03", "name": "Advanced",   "topics": ["evaluation_and_metrics", "production_patterns"]},
+]
+
+_ACTIVE_MODULE_IDX: dict[str, int] = {
+    "novice": 0, "beginner": 0, "intermediate": 1, "advanced": 2, "expert": 2,
+}
+
 
 def _build_welcome_message(display_name: str | None, profile: dict | None) -> str:
     name = display_name or "there"
@@ -1336,7 +1346,7 @@ document.addEventListener("click", function(e) {
 .rag-pill-tabs { background: transparent !important; border-bottom: none !important; min-height: auto !important; }
 .rag-pill-tabs .q-tabs__content { background: var(--c-card,#1e163c); border-radius: 999px; padding: 4px; gap: 0; min-height: auto !important; }
 .rag-pill-tabs .q-tab { padding: 7px 16px !important; border-radius: 999px !important; font-size: 12.5px !important; font-weight: 600 !important; color: var(--c-muted,#94a3b8) !important; min-height: auto !important; text-transform: none !important; }
-.rag-pill-tabs .q-tab--active { color: #fff !important; background: var(--c-frame,#0c0a1e) !important; box-shadow: 0 4px 18px rgba(236,72,153,0.20) !important; border: 1px solid transparent !important; }
+.rag-pill-tabs .q-tab--active { color: #fff !important; background-image: linear-gradient(#0c0a1e,#0c0a1e),linear-gradient(90deg,#f97316,#ec4899,#8b5cf6) !important; background-origin: border-box !important; background-clip: padding-box,border-box !important; border: 1px solid transparent !important; box-shadow: 0 4px 18px rgba(236,72,153,0.20) !important; }
 .rag-pill-tabs .q-tab__indicator { display: none !important; }
 .rag-pill-tabs .q-tab__label { font-size: 12.5px; font-weight: 600; }
 .q-table { background: #120e28 !important; color: #e2e8f0 !important; }
@@ -1524,6 +1534,28 @@ html, body {
 ::-webkit-scrollbar-thumb:hover { background: rgba(236,72,153,0.75); }
 * { scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.6) #120e28; }
 
+</style>
+""")
+
+        ui.add_head_html("""
+<svg width="0" height="0" style="position:absolute;overflow:hidden">
+  <defs>
+    <linearGradient id="tg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f97316"/>
+      <stop offset="0.5" stop-color="#ec4899"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+</svg>
+""")
+
+        ui.add_head_html("""
+<style>
+.sb-tabs{display:flex;gap:22px;border-bottom:1px solid rgba(255,255,255,0.07);margin-top:-4px;}
+.sb-tab{position:relative;font-family:'Inter',system-ui,sans-serif;font-size:12.5px;font-weight:600;letter-spacing:0.02em;padding:8px 0 12px;background:transparent;border:0;cursor:pointer;color:#94a3b8;transition:color 160ms ease-out;user-select:none;outline:none;margin:0;}
+.sb-tab:hover{color:#f8fafc;}
+.sb-tab.active{color:#fb923c;}
+.sb-tab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:linear-gradient(90deg,#f97316,#ec4899,#8b5cf6);box-shadow:0 0 12px rgba(236,72,153,0.45);}
 </style>
 """)
 
@@ -1815,19 +1847,20 @@ html, body {
                 # flex:1 forces it to consume every available layout pixel without ever bleeding over
                 with ui.row().style("width: 100%; flex: 1; min-height: 0; gap: 0; overflow: hidden; align-items: stretch;"):
                     # --- Profile sidebar ---
+                    _tab_state = ["Current"]
+
+                    def _switch_tab(name: str) -> None:
+                        _tab_state[0] = name
+                        profile_panel.refresh()
+
                     @ui.refreshable
                     async def profile_panel():
                         with ui.column().classes("rag-profile-sidebar").style(
                             "width:320px; min-width:320px; flex:0 0 320px; height:100%; box-sizing:border-box; "
                             "background:#16103a; border-right:1px solid #241d4a; "
                             "box-shadow:inset 0 0 60px rgba(139,92,246,0.04); "
-                            "padding:24px 22px; gap:6px; overflow-y:auto"
+                            "padding:24px 22px; gap:0; overflow-y:auto; display:flex; flex-direction:column"
                         ):
-                            ui.label("Your Profile").style(
-                                "font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.12em; "
-                                "color:#94a3b8; margin:0 0 8px"
-                            )
-
                             headers = auth_headers()
                             if not headers:
                                 ui.label("Sign in to track your progress.").style("font-size:0.8rem; color:#64748b")
@@ -1842,96 +1875,221 @@ html, body {
                                 ui.label("Profile unavailable.").style("font-size:0.8rem; color:#94a3b8")
                                 return
 
-                            mastery = profile.get("mastery_level") or "novice"
-                            ui.label(mastery.capitalize()).classes(f"mastery-chip mc-{mastery}")
-
-                            _mastery_copy = {
-                                "novice": "Just getting started — great time to build foundations.",
-                                "intermediate": "You've got the core. Time to go deeper.",
-                                "advanced": "Strong foundations. Let's tackle production complexity.",
-                                "expert": "You're in the top tier. Ask me anything.",
-                            }
-                            ui.label(_mastery_copy.get(mastery, _mastery_copy["novice"])).style(
-                                "font-family:'Inter',system-ui; font-size:12.5px; color:#94a3b8; line-height:1.5; margin-top:6px; margin-bottom:16px"
-                            )
-
+                            mastery_raw = profile.get("mastery_level") or "novice"
+                            mastery = mastery_raw if mastery_raw in {"novice", "beginner", "intermediate", "advanced", "expert"} else "novice"
                             topic_scores: dict = profile.get("topic_scores") or {}
-                            phase_num, phase_name = _PHASE_LABELS.get(mastery, ("Phase 1", "Foundation"))
-                            phase_topics = _PHASE_TOPICS.get(mastery, [])
-
-                            # Phase header
-                            ui.label("Your Progress").style(
-                                "font-size:11px; font-weight:600; text-transform:uppercase; "
-                                "letter-spacing:0.12em; color:#94a3b8; margin:0 0 4px"
-                            )
-                            ui.separator().style("border-color:rgba(255,255,255,0.06); margin:0 0 8px")
-                            ui.label(f"{phase_num} · {phase_name}").style(
-                                "font-size:0.95rem; font-weight:700; color:#f8fafc; margin-bottom:12px"
-                            )
-
-                            if phase_topics:
-                                ui.label("Topics to complete:").style(
-                                    "font-size:11px; font-weight:600; text-transform:uppercase; "
-                                    "letter-spacing:0.1em; color:#64748b; margin-bottom:8px"
-                                )
-                                for _slug in phase_topics:
-                                    _topic_label = _MODULE_LABELS.get(_slug, _slug.replace("_", " ").title())
-                                    _score = topic_scores.get(_slug)  # None if unscored
-                                    if _score is None:
-                                        _score_text = "—"
-                                        _score_color = "#64748b"
-                                    elif _score >= 0.70:
-                                        _score_text = f"{_score:.2f}"
-                                        _score_color = "#22c55e"
-                                    elif _score >= 0.40:
-                                        _score_text = f"{_score:.2f}"
-                                        _score_color = "#f59e0b"
-                                    else:
-                                        _score_text = f"{_score:.2f}"
-                                        _score_color = "#ef4444"
-                                    with ui.row().style(
-                                        "justify-content:space-between; align-items:center; "
-                                        "width:100%; margin-bottom:6px"
-                                    ):
-                                        ui.label(f"· {_topic_label}").style(
-                                            "font-size:0.82rem; color:#e2e8f0; font-weight:500; flex:1"
-                                        )
-                                        ui.label(_score_text).style(
-                                            f"font-family:ui-monospace,monospace; font-size:0.78rem; "
-                                            f"color:{_score_color}; font-weight:600"
-                                        )
-                            else:
-                                ui.label("All phases complete — keep sharpening your skills.").style(
-                                    "font-size:0.82rem; color:#94a3b8; font-style:italic; margin-bottom:8px"
-                                )
-
-                            _adv_msg = _ADVANCE_MSG.get(mastery, "")
-                            if _adv_msg:
-                                ui.separator().style("border-color:rgba(255,255,255,0.06); margin:8px 0")
-                                ui.label("Advance when:").style(
-                                    "font-size:11px; font-weight:600; text-transform:uppercase; "
-                                    "letter-spacing:0.1em; color:#64748b; margin-bottom:4px"
-                                )
-                                ui.label(_adv_msg).style("font-size:0.8rem; color:#94a3b8; line-height:1.5")
-
-                            ui.separator().style("border-color:rgba(255,255,255,0.06); margin:8px 0")
-                            ui.label(f"Mastery level: {mastery.capitalize()}").style(
-                                "font-size:0.8rem; color:#64748b; font-style:italic"
-                            )
-
                             interaction_count = profile.get("interaction_count", 0)
                             last_activity = profile.get("last_activity_at")
+
+                            # Build modules list from _ALL_MODULES
+                            active_idx = _ACTIVE_MODULE_IDX.get(mastery, 0)
+                            modules = []
+                            for i, m in enumerate(_ALL_MODULES):
+                                is_locked = i > active_idx
+                                topic_items = []
+                                for slug in m["topics"]:
+                                    score = topic_scores.get(slug)
+                                    done = score is not None and score >= 0.70
+                                    topic_items.append({
+                                        "slug": slug,
+                                        "name": _MODULE_LABELS.get(slug, slug.replace("_", " ").title()),
+                                        "done": done,
+                                    })
+                                done_count = sum(1 for t in topic_items if t["done"])
+                                modules.append({
+                                    "num": m["num"],
+                                    "name": m["name"],
+                                    "topics": topic_items,
+                                    "done_count": done_count,
+                                    "locked": is_locked,
+                                })
+                            active_module = modules[active_idx]
+
+                            # --- Mastery section (always shown) ---
+                            with ui.column().style("gap:10px; margin-bottom:16px"):
+                                ui.html(f'<span class="mastery-chip mc-{mastery}"><span class="dot"></span>{mastery.capitalize()}</span>')
+                                _mastery_copy = {
+                                    "novice":       "Just getting started — great time to build foundations.",
+                                    "beginner":     "Just getting started — great time to build foundations.",
+                                    "intermediate": "You've got the core. Time to go deeper.",
+                                    "advanced":     "Strong foundations. Let's tackle production complexity.",
+                                    "expert":       "You're in the top tier. Ask me anything.",
+                                }
+                                ui.label(_mastery_copy.get(mastery, _mastery_copy["novice"])).style(
+                                    "font-family:'Inter',system-ui; font-size:12.5px; color:#94a3b8; line-height:1.5"
+                                )
+
+                            # --- Tab bar ---
+                            active_tab = _tab_state[0]
+                            with ui.element("div").classes("sb-tabs").style("margin-bottom:16px; flex-shrink:0"):
+                                for tab_name in ("Current", "Overview"):
+                                    tab_cls = "sb-tab active" if active_tab == tab_name else "sb-tab"
+                                    ui.label(tab_name).classes(tab_cls).on(
+                                        "click", lambda n=tab_name: _switch_tab(n)
+                                    )
+
+                            # --- Tab content ---
+                            if active_tab == "Current":
+                                # Current tab — active module + topics
+                                done_count = active_module["done_count"]
+                                total_count = len(active_module["topics"])
+                                pct = (done_count / total_count * 100) if total_count else 0
+
+                                with ui.element("div").style("display:flex; flex-direction:column; gap:0; flex:1; width:100%"):
+                                    # cur-head
+                                    with ui.element("div").style("display:flex; flex-direction:column; gap:4px; margin-bottom:14px; width:100%"):
+                                        with ui.element("div").style("display:flex; gap:4px; align-items:baseline"):
+                                            ui.label("Active module").style(
+                                                "font-family:ui-monospace,monospace; font-size:10.5px; "
+                                                "text-transform:uppercase; letter-spacing:0.1em; color:#94a3b8"
+                                            )
+                                            ui.label("·").style("color:#94a3b8; font-size:10.5px")
+                                            ui.label(active_module["num"]).style(
+                                                "font-family:ui-monospace,monospace; font-size:10.5px; "
+                                                "text-transform:uppercase; letter-spacing:0.1em; color:#94a3b8"
+                                            )
+                                        ui.label(active_module["name"]).style(
+                                            "font-family:'Inter',system-ui; font-size:15px; font-weight:700; "
+                                            "color:#f8fafc; letter-spacing:-0.01em; line-height:1.3; margin:0"
+                                        )
+
+                                    # cur-progress
+                                    with ui.element("div").style("display:flex; align-items:center; gap:10px; margin-bottom:16px; width:100%"):
+                                        with ui.element("div").style(
+                                            "flex:1; height:6px; background:rgba(36,29,74,0.6); "
+                                            "border-radius:999px; overflow:hidden"
+                                        ):
+                                            ui.element("div").style(
+                                                f"height:100%; width:{pct:.1f}%; "
+                                                "background:linear-gradient(90deg,#f97316,#ec4899,#8b5cf6); "
+                                                "box-shadow:0 0 10px rgba(236,72,153,0.35); border-radius:inherit"
+                                            )
+                                        ui.label(f"{done_count} / {total_count}").style(
+                                            "font-family:ui-monospace,monospace; font-size:11.5px; color:#e2e8f0; "
+                                            "letter-spacing:0.02em; min-width:38px; text-align:right"
+                                        )
+
+                                    # topic-list
+                                    with ui.element("div").style("display:flex; flex-direction:column; gap:9px; width:100%"):
+                                        for t in active_module["topics"]:
+                                            name_color = "#e2e8f0" if t["done"] else "#94a3b8"
+                                            with ui.row().style(
+                                                "display:flex; align-items:center; gap:10px; "
+                                                "font-family:'Inter',system-ui; font-size:12.5px; line-height:1.4"
+                                            ):
+                                                if t["done"]:
+                                                    ui.html(
+                                                        '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="flex:0 0 14px">'
+                                                        '<circle cx="8" cy="8" r="7" fill="url(#tg)"/>'
+                                                        '<path d="M4.5 8.2 L7 10.6 L11.5 5.8" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
+                                                        '</svg>'
+                                                    )
+                                                else:
+                                                    ui.html(
+                                                        '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="flex:0 0 14px;color:#475569">'
+                                                        '<circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.2"/>'
+                                                        '<circle cx="8" cy="8" r="2" fill="currentColor"/>'
+                                                        '</svg>'
+                                                    )
+                                                ui.label(t["name"]).style(f"color:{name_color}")
+
+                            else:
+                                # Overview tab — all modules summary
+                                completed_mods = sum(
+                                    1 for m in modules
+                                    if not m["locked"] and all(t["done"] for t in m["topics"])
+                                )
+                                total_mods = len(modules)
+                                overall_pct = (completed_mods / total_mods * 100) if total_mods else 0
+
+                                with ui.element("div").style("display:flex; flex-direction:column; gap:0; flex:1; width:100%"):
+                                    # Overall progress summary card
+                                    with ui.element("div").style(
+                                        "padding:12px 14px; background:rgba(20,14,50,0.5); "
+                                        "border:1px solid rgba(255,255,255,0.07); border-radius:8px; "
+                                        "margin-bottom:18px; display:flex; flex-direction:column; gap:8px; width:100%"
+                                    ):
+                                        with ui.element("div").style("display:flex; justify-content:space-between; align-items:baseline; width:100%"):
+                                            ui.label("Overall progress").style(
+                                                "font-family:'Inter',system-ui; font-size:11px; font-weight:600; "
+                                                "text-transform:uppercase; letter-spacing:0.1em; color:#94a3b8"
+                                            )
+                                            ui.label(f"{completed_mods} / {total_mods} modules").style(
+                                                "font-family:ui-monospace,monospace; font-size:11px; color:#f8fafc"
+                                            )
+                                        with ui.element("div").style(
+                                            "height:4px; background:rgba(36,29,74,0.6); "
+                                            "border-radius:999px; overflow:hidden; width:100%"
+                                        ):
+                                            ui.element("div").style(
+                                                f"height:100%; width:{overall_pct:.1f}%; "
+                                                "background:linear-gradient(90deg,#f97316,#ec4899,#8b5cf6); "
+                                                "border-radius:inherit"
+                                            )
+
+                                    # Module rows
+                                    with ui.element("div").style("display:flex; flex-direction:column; gap:14px; width:100%"):
+                                        for m in modules:
+                                            d = m["done_count"]
+                                            total = len(m["topics"])
+                                            pct = (d / total * 100) if total else 0
+                                            row_opacity = "opacity:0.6;" if m["locked"] else ""
+                                            text_color = "#475569" if m["locked"] else "#e2e8f0"
+                                            muted_color = "#475569" if m["locked"] else "#94a3b8"
+
+                                            with ui.element("div").style(f"display:flex; flex-direction:column; gap:6px; width:100%; {row_opacity}"):
+                                                with ui.element("div").style(
+                                                    "display:grid; grid-template-columns:auto 1fr auto; "
+                                                    "align-items:baseline; gap:8px; width:100%"
+                                                ):
+                                                    ui.label(m["num"]).style(
+                                                        f"font-family:ui-monospace,monospace; font-size:10.5px; "
+                                                        f"color:{muted_color}; letter-spacing:0.06em"
+                                                    )
+                                                    ui.label(m["name"]).style(
+                                                        f"font-family:'Inter',system-ui; font-size:12.5px; color:{text_color}; "
+                                                        "overflow:hidden; text-overflow:ellipsis; white-space:nowrap"
+                                                    )
+                                                    if m["locked"]:
+                                                        ui.label("—").style(
+                                                            f"font-family:ui-monospace,monospace; font-size:11px; color:{muted_color}"
+                                                        )
+                                                    else:
+                                                        ui.label(f"{d}/{total}").style(
+                                                            "font-family:ui-monospace,monospace; font-size:11px; color:#94a3b8"
+                                                        )
+                                                if not m["locked"]:
+                                                    with ui.element("div").style(
+                                                        "height:3px; background:rgba(36,29,74,0.6); "
+                                                        "border-radius:999px; overflow:hidden; width:100%"
+                                                    ):
+                                                        ui.element("div").style(
+                                                            f"height:100%; width:{pct:.1f}%; "
+                                                            "background:linear-gradient(90deg,#f97316,#ec4899,#8b5cf6); "
+                                                            "border-radius:inherit"
+                                                        )
+
+                            # --- Stats footer (always shown) ---
                             with ui.column().style(
-                                "gap:6px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.04); width:100%"
+                                "gap:6px; padding-top:16px; margin-top:auto; "
+                                "border-top:1px solid rgba(255,255,255,0.07); width:100%"
                             ):
                                 with ui.row().style("justify-content:space-between; width:100%"):
-                                    ui.label("questions asked").style("font-family:ui-monospace,monospace; font-size:11px; color:#94a3b8")
-                                    ui.label(str(interaction_count)).style("font-family:ui-monospace,monospace; font-size:11px; color:#e2e8f0; font-weight:500")
+                                    ui.label("questions asked").style(
+                                        "font-family:ui-monospace,monospace; font-size:11px; color:#94a3b8"
+                                    )
+                                    ui.label(str(interaction_count)).style(
+                                        "font-family:ui-monospace,monospace; font-size:11px; color:#e2e8f0; font-weight:500"
+                                    )
                                 if last_activity:
                                     last_str = (last_activity[:16].replace("T", " ") if len(last_activity) >= 16 else last_activity)
                                     with ui.row().style("justify-content:space-between; width:100%"):
-                                        ui.label("last session").style("font-family:ui-monospace,monospace; font-size:11px; color:#94a3b8")
-                                        ui.label(last_str).style("font-family:ui-monospace,monospace; font-size:11px; color:#e2e8f0; font-weight:500")
+                                        ui.label("last session").style(
+                                            "font-family:ui-monospace,monospace; font-size:11px; color:#94a3b8"
+                                        )
+                                        ui.label(last_str).style(
+                                            "font-family:ui-monospace,monospace; font-size:11px; color:#e2e8f0; font-weight:500"
+                                        )
 
                     await profile_panel()
 

@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Session 20 — Commit 38 progression-ui · 2026-05-20*
+*Last updated: Session 21 — Commit 38.5 knowledge-profile-ui · 2026-05-20*
 
-**Last completed:** Session 20 — Commit 38 progression-ui: (1) added 4 new slugs to `_MODULE_LABELS` + 3 new module-level dicts (`_PHASE_LABELS`, `_PHASE_TOPICS`, `_ADVANCE_MSG`); (2) onboarding wizard dialog in `index()` — 3-step flow (self-report level → diagnostic MCQs → placement result), async handler functions, `@ui.refreshable ob_step_content`, onboarding status check that opens dialog if `needed`; (3) phase progress panel replaces old `_MODULE_NUMS` + `for slug, label` loop in `profile_panel()` — phase label, per-topic score with color coding, advancement threshold message, mastery footer line; (4) CSS hover rule `.rag-ob-level-row:hover`; all user data via `ui.label()`, no `ui.html(f-string)` with variables ✅
+**Last completed:** Session 21 — Commit 38.5 knowledge-profile-ui: Replaced `profile_panel()` contents with two-tab sidebar design. Added `_ALL_MODULES` and `_ACTIVE_MODULE_IDX` at module level. Added SVG gradient defs (`<linearGradient id="tg">`) via `ui.add_head_html()` in `index()` — injected once, referenced by CheckIcon SVGs inside the panel. Tab state managed via `_tab_state = ["Current"]` closure list + `_switch_tab()` helper that calls `profile_panel.refresh()`. Current tab: active module eyebrow/title, progress bar (done/total), per-topic check/pending SVG icons. Overview tab: overall progress summary card, per-module rows with progress bars, locked rows at 0.6 opacity. Stats footer always shown. All user data (mastery, counts, names) through `ui.label()` — two `ui.html()` calls are static SVG strings only.
 **Currently active:** none
 **Blocked by:** none
 
@@ -37,6 +37,11 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 21 | 38.5 | ✅ Done | Tab state via mutable list closure; SVG gradient defs injected once in index() via add_head_html, referenced as url(#tg) in static ui.html() SVG strings; all user data through ui.label() |
+
+### Session 21 — Commit 38.5 `knowledge-profile-ui` · 2026-05-20
+
+**Approach:** The existing `profile_panel()` showed a flat list of topics keyed to the current mastery phase, with a footer for interaction stats. The new design required two views (Current / Overview) plus persistent tab selection across `profile_panel.refresh()` calls. I considered `ui.state` (too heavyweight for a single boolean toggle) and a class with `__init__` (unnecessary indirection for one function). The mutable-list closure pattern (`_tab_state = ["Current"]`) is already used in three other places in `index()` for onboarding step state, MCQ active state, and self-level state — using the same idiom keeps the codebase internally consistent and avoids a new pattern. For the SVG gradient, placing the `<defs>` inside `profile_panel()` would inject duplicate `<linearGradient id="tg">` blocks on every refresh call; injecting once in `index()` via `ui.add_head_html()` and referencing `url(#tg)` from static SVG strings in the panel is the correct pattern. All user-controlled data (mastery string, topic names, counts, timestamps) goes through `ui.label()` — the two `ui.html()` calls are static SVG/div strings with no variable interpolation.
 | 20 | 38 | ✅ Done | Onboarding wizard: 3-step dialog with @ui.refreshable ob_step_content, mutable list closures for state, asyncio.ensure_future() for click handlers; phase panel replaces old MODULE_NUMS loop; mastery already read above phase block — removed duplicate assignment |
 | 19 | 37 | ✅ Done | send() factored into send_message(text); MCQ panel: 4 ui.row elements with gradient letter badge + ui.label for option text; visibility toggled via is_mcq in SSE done event; click handlers wired with default-arg capture lambda |
 | 18 | 32 TL review | ✅ Done | Composer absolute-positioned inside chat column; bubbles restructured; send button circle; input transparent; progress bar radius |

@@ -4,7 +4,7 @@
 > Quality signal: tests pass · no Viktor hard blocks · learning log entry written.
 >
 > Companion file: TOKEN_OPTIMIZATION.md — the methods behind the numbers.
-> Last updated: 2026-05-20 (Commit 36)
+> Last updated: 2026-05-20 (Commit 38.5 gate wave — pending TL decision on blockers)
 
 ---
 
@@ -698,6 +698,7 @@ No token data recorded. Tracking began at Commit 10.
 | 36 | onboarding-level-check | 204,726 | Viktor+Sage+Ryan (Haiku) | **over** | Nova cap; orchestrator 2 direct fixes; Viktor false positive; Sage 2 MEDIUM (bundled) |
 | 37 | mcq-chat-ui | 146,632 | Sage+Mira+Ryan (Haiku) | **over** | Aria ✅ (49,932 · 24 uses); Sage 32k (0 uses, input-heavy prompt); Mira 30k (0 uses); Ryan failed hook—Claude wrote Edit (35k); Viktor/Quinn skipped |
 | 38 | progression-ui | 180,671 | Sage+Mira+Ryan (Haiku) | **over** | Aria 58,048 (21 uses); Sage 34,272 (2 uses); Mira 30,335 (0 uses) + 20,547 failed agent overhead; Ryan 37,469 (6 uses, hook re-blocked LEARNING_LOG_SUMMARY.md—Claude wrote both edits); Viktor/Quinn skipped |
+| 38.5 | knowledge-profile-ui | 181,559 (gate pending) | Viktor+Sage+Mira (Haiku) | **over** | Aria 80,780 (26 uses, hit cap); Viktor 35,836 (3 uses); Sage 33,766 (1 use); Mira 31,177 (1 use); Quinn/Ryan pending TL decision on blockers |
 
 ---
 
