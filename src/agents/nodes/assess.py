@@ -134,6 +134,7 @@ _ORDERED_SLUGS: list[str] = [
     "vector_databases",
     "retrieval_methods",
     "context_and_prompting",
+    "langchain_fundamentals",
     "evaluation_and_metrics",
     "production_patterns",
 ]
@@ -143,7 +144,7 @@ You analyze a learner's question to infer their RAG knowledge level.
 
 Valid topic slugs: embeddings_and_similarity, rag_pipeline_architecture,
 chunking_strategies, vector_databases, retrieval_methods, context_and_prompting,
-evaluation_and_metrics, production_patterns.
+langchain_fundamentals, evaluation_and_metrics, production_patterns.
 
 Return relevant_slug (the single most relevant slug, or null if unclear),
 inferred_level (novice/beginner/intermediate/advanced/expert), and
@@ -316,8 +317,9 @@ def _select_test_slug(state: AgentState) -> str | None:
     """Determine the next topic slug for testing, gated to the user's current phase.
 
     Priority:
-      1. First slug in identified_gaps that is eligible for the user's phase.
-      2. Fall back to canonical ordering within the eligible phase.
+      1. Phase 1 slugs in identified_gaps when user_level is "intermediate" (remediation).
+      2. First gap slug eligible for the user's current phase.
+      3. Canonical ordering within the eligible phase (fallback).
 
     Returns None only if VALID_MODULE_SLUGS is empty.
     """
@@ -325,6 +327,13 @@ def _select_test_slug(state: AgentState) -> str | None:
     eligible: frozenset[str] = _LEVEL_TO_PHASE.get(user_level, PHASE_1_TOPICS)
 
     gaps: list[str] = state.get("identified_gaps") or []
+
+    # Remediation: intermediate users can be served Phase 1 questions for identified gaps
+    if user_level == "intermediate":
+        for slug in gaps:
+            if slug in PHASE_1_TOPICS and slug in VALID_MODULE_SLUGS:
+                return slug
+
     for slug in gaps:
         if slug in eligible and slug in VALID_MODULE_SLUGS:
             return slug
@@ -459,12 +468,16 @@ async def _evaluate_answer(state: AgentState) -> dict[str, Any]:
         user_msg = (state.get("messages") or [])[-1].content or ""
         score = _evaluate_mcq_answer(user_msg, correct)
         delta: dict[str, float] = {pending_slug: score} if score > 0.0 else {}
-        return _build_eval_result(
+        eval_result = _build_eval_result(
             topic_scores_delta=delta,
             identified_gaps=[],
             assessment_error=False,
             test_answer_score=score,
         )
+        counts = dict(state.get("session_question_counts") or {})
+        counts[pending_slug] = counts.get(pending_slug, 0) + 1
+        eval_result["session_question_counts"] = counts
+        return eval_result
 
     try:
         q_idx = _select_question_index(state)
@@ -475,22 +488,26 @@ async def _evaluate_answer(state: AgentState) -> dict[str, Any]:
         # Chain: assessment prompt | LLM | EvaluationOutput (verdict + identified_gaps)
         chain = assessment_prompt | llm.with_structured_output(EvaluationOutput)
 
-        result: EvaluationOutput = await chain.ainvoke({
+        eval_output: EvaluationOutput = await chain.ainvoke({
             "question": state.get("pending_test_question") or "",
             "rubric": rubric,
             "user_answer": state.get("question") or "",
         })
 
-        score = _verdict_to_score(result.verdict)
+        score = _verdict_to_score(eval_output.verdict)
         # Sparse delta: only updates the tested topic, only if the user scored > 0
         llm_delta: dict[str, float] = {pending_slug: score} if score > 0.0 else {}
 
-        return _build_eval_result(
+        eval_result = _build_eval_result(
             topic_scores_delta=llm_delta,
-            identified_gaps=result.identified_gaps,
+            identified_gaps=eval_output.identified_gaps,
             assessment_error=False,
             test_answer_score=score,
         )
+        counts = dict(state.get("session_question_counts") or {})
+        counts[pending_slug] = counts.get(pending_slug, 0) + 1
+        eval_result["session_question_counts"] = counts
+        return eval_result
 
     except Exception:
         logger.warning(

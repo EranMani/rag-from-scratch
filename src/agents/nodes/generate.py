@@ -24,12 +24,15 @@ Design notes:
   replace the existing message list.
 """
 
+import asyncio
 import logging
 
 from langchain_core.messages import AIMessage, BaseMessage
 
 from agents.prompts import DEFAULT_PROMPT, PROMPT_TEMPLATES
 from agents.state import AgentState
+from app.profile.db import get_profile_by_user_id
+from app.profile.scoring import PHASE_1_TOPICS, PHASE_2_TOPICS
 from rag.providers import get_provider
 
 logger = logging.getLogger(__name__)
@@ -50,6 +53,24 @@ async def generate_node(state: AgentState) -> dict:
     # Combine documents with new-lines
     context: str = "\n\n".join(doc.page_content for doc in state["docs"])
     user_level: str = state.get("user_level", "novice")  # type: ignore[call-overload]
+
+    # Proximity hint: surface near-passing topics (0.60–0.69) to guide generation
+    user_id: str | None = state.get("user_id")
+    if user_id:
+        profile = await asyncio.to_thread(get_profile_by_user_id, user_id)
+        if profile:
+            near_threshold = PHASE_1_TOPICS | PHASE_2_TOPICS
+            near_passing = [
+                f"{slug} (score: {score:.2f}, threshold: 0.70)"
+                for slug, score in (profile.get("topic_scores") or {}).items()
+                if slug in near_threshold and isinstance(score, (int, float)) and 0.60 <= score < 0.70
+            ]
+            if near_passing:
+                context += (
+                    "\n\nNote: user is close to passing "
+                    + ", ".join(near_passing)
+                    + ". Reinforce this topic where natural."
+                )
 
     # Fetch the correct prompt using the current level of the user
     template = PROMPT_TEMPLATES.get(user_level, DEFAULT_PROMPT)

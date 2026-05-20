@@ -70,6 +70,7 @@ def _base_state(**overrides: Any) -> dict[str, Any]:
         "test_answer_score": None,
         "is_mcq": False,
         "pending_mcq_correct_answer": None,
+        "session_question_counts": {},
         "trace_id": "test-trace-24",
         "latency_ms": 0,
         "cache_hit": "miss",
@@ -153,6 +154,7 @@ def _make_full_initial_state(question: str = "What is RAG?") -> dict[str, Any]:
         "test_answer_score": None,
         "is_mcq": False,
         "pending_mcq_correct_answer": None,
+        "session_question_counts": {},
         "trace_id": "test-trace-24-e2e",
         "latency_ms": 0,
         "cache_hit": "miss",
@@ -688,8 +690,8 @@ class TestGate5AgentStateNewFields:
 class TestGate6SlugValidation:
     """pending_test_slug in eval mode must be in VALID_MODULE_SLUGS."""
 
-    def test_valid_module_slugs_contains_8_canonical_slugs(self) -> None:
-        """VALID_MODULE_SLUGS has exactly the 8 canonical topic slugs."""
+    def test_valid_module_slugs_contains_9_canonical_slugs(self) -> None:
+        """VALID_MODULE_SLUGS has exactly the 9 canonical topic slugs."""
         expected = {
             "embeddings_and_similarity",
             "rag_pipeline_architecture",
@@ -697,6 +699,7 @@ class TestGate6SlugValidation:
             "vector_databases",
             "retrieval_methods",
             "context_and_prompting",
+            "langchain_fundamentals",
             "evaluation_and_metrics",
             "production_patterns",
         }
@@ -786,7 +789,7 @@ class TestGate7OutputKeyBoundary:
 
     @pytest.mark.asyncio
     async def test_output_has_exactly_declared_keys_eval_mode(self) -> None:
-        """Eval mode output contains exactly the 7 declared keys."""
+        """Eval mode output contains exactly the 9 declared keys plus session_question_counts."""
         eval_out = _make_eval_output("partial")
         mock_provider = _make_provider_mock()
         mock_prompt, _ = _make_prompt_mock(eval_out)
@@ -797,8 +800,9 @@ class TestGate7OutputKeyBoundary:
             patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
         ):
             result = await assess_node(_eval_mode_state())  # type: ignore[arg-type]
-        assert set(result.keys()) == self._DECLARED_OUTPUT_KEYS, (
-            f"Eval mode output keys mismatch: {set(result.keys())} != {self._DECLARED_OUTPUT_KEYS}"
+        expected = self._DECLARED_OUTPUT_KEYS | {"session_question_counts"}
+        assert set(result.keys()) == expected, (
+            f"Eval mode output keys mismatch: {set(result.keys())} != {expected}"
         )
 
     @pytest.mark.asyncio
@@ -912,7 +916,7 @@ class TestPhaseGateSlugSelection:
     """_select_test_slug returns only slugs eligible for the user's current phase."""
 
     _PHASE_1_SLUGS: frozenset[str] = frozenset({"embeddings_and_similarity", "rag_pipeline_architecture"})
-    _PHASE_2_SLUGS: frozenset[str] = frozenset({"chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting"})
+    _PHASE_2_SLUGS: frozenset[str] = frozenset({"chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting", "langchain_fundamentals"})
     _PHASE_3_SLUGS: frozenset[str] = frozenset({"evaluation_and_metrics", "production_patterns"})
 
     def test_novice_returns_only_phase_1_slug(self) -> None:
@@ -1279,3 +1283,112 @@ class TestQuestionIndexCycling:
             assert 0 <= idx <= 4, (
                 f"n_messages={n} produced index={idx}, which is out of [0, 4]"
             )
+
+
+# ---------------------------------------------------------------------------
+# TestGateRemediation — intermediate users receive Phase 1 gap questions (Commit 41)
+# ---------------------------------------------------------------------------
+
+class TestGateRemediation:
+    """_select_test_slug grants intermediate users access to Phase 1 gap remediation."""
+
+    def test_intermediate_with_phase1_gap_returns_phase1_slug(self) -> None:
+        """Intermediate user with a Phase 1 identified gap receives that Phase 1 slug."""
+        state = _base_state(
+            user_level="intermediate",
+            identified_gaps=["embeddings_and_similarity"],
+        )
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result == "embeddings_and_similarity", (
+            f"Intermediate user with Phase 1 gap must receive that slug, got {result!r}"
+        )
+
+    def test_intermediate_with_no_gaps_returns_phase2_slug(self) -> None:
+        """Intermediate user with no gaps falls through to canonical Phase 2 ordering."""
+        state = _base_state(user_level="intermediate", identified_gaps=[])
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        from app.profile.scoring import PHASE_2_TOPICS
+        assert result in PHASE_2_TOPICS, (
+            f"Intermediate with no gaps must get a Phase 2 slug, got {result!r}"
+        )
+
+    def test_intermediate_phase1_gap_takes_priority_over_phase2_gap(self) -> None:
+        """Phase 1 gap remediation takes priority over a Phase 2 gap for intermediate users."""
+        state = _base_state(
+            user_level="intermediate",
+            identified_gaps=["retrieval_methods", "rag_pipeline_architecture"],
+        )
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result == "rag_pipeline_architecture", (
+            f"Phase 1 gap must beat Phase 2 gap for intermediate; got {result!r}"
+        )
+
+    def test_novice_with_phase1_gap_still_returns_phase1_slug(self) -> None:
+        """Novice users also get Phase 1 gap slugs via the normal gap-first path (unchanged)."""
+        state = _base_state(
+            user_level="novice",
+            identified_gaps=["rag_pipeline_architecture"],
+        )
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result == "rag_pipeline_architecture", (
+            f"Novice with Phase 1 gap must still receive that slug, got {result!r}"
+        )
+
+    def test_langchain_fundamentals_slug_is_valid(self) -> None:
+        """langchain_fundamentals must be in VALID_MODULE_SLUGS after Commit 41 wiring."""
+        assert "langchain_fundamentals" in VALID_MODULE_SLUGS, (
+            "langchain_fundamentals must be a valid slug"
+        )
+
+    def test_langchain_fundamentals_served_to_intermediate_user(self) -> None:
+        """Intermediate user with no gaps can receive langchain_fundamentals (Phase 2)."""
+        state = _base_state(
+            user_level="intermediate",
+            identified_gaps=["langchain_fundamentals"],
+        )
+        result = _select_test_slug(state)  # type: ignore[arg-type]
+        assert result == "langchain_fundamentals", (
+            f"langchain_fundamentals gap must be served to intermediate user, got {result!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestSessionQuestionCounts — session_question_counts incremented in eval mode (Commit 41)
+# ---------------------------------------------------------------------------
+
+class TestSessionQuestionCounts:
+    """assess_node emits session_question_counts increments in evaluation mode."""
+
+    @pytest.mark.asyncio
+    async def test_mcq_eval_emits_session_question_counts(self) -> None:
+        """MCQ evaluation mode emits session_question_counts with pending_slug incremented."""
+        with patch("agents.nodes.assess.get_provider"):
+            result = await assess_node(_mcq_eval_state())  # type: ignore[arg-type]
+        assert "session_question_counts" in result, (
+            "MCQ eval must emit session_question_counts"
+        )
+        counts = result["session_question_counts"]
+        assert counts.get("chunking_strategies") == 1, (
+            f"chunking_strategies must be 1 after first eval, got {counts!r}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_session_counts_accumulate_across_evals(self) -> None:
+        """Prior session_question_counts are incremented, not reset."""
+        state = _mcq_eval_state(session_question_counts={"chunking_strategies": 2})
+        with patch("agents.nodes.assess.get_provider"):
+            result = await assess_node(state)  # type: ignore[arg-type]
+        counts = result["session_question_counts"]
+        assert counts.get("chunking_strategies") == 3, (
+            f"chunking_strategies must be 3 (2+1), got {counts!r}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_test_mode_does_not_emit_session_question_counts(self) -> None:
+        """Test mode (question selection) must NOT emit session_question_counts."""
+        with patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")):
+            with patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD):
+                result = await assess_node(_base_state())  # type: ignore[arg-type]
+        assert "session_question_counts" not in result, (
+            "Test mode must not emit session_question_counts"
+        )

@@ -112,10 +112,16 @@ def update_profile_node(state: AgentState) -> dict[str, Any]:
 
     # Happy path: merge delta into existing scores and compute derived fields
     topic_scores_delta: dict[str, float] = state.get("topic_scores_delta", {})
+    session_question_counts: dict[str, int] = state.get("session_question_counts") or {}
+    session_count: int | None = None
+    if len(topic_scores_delta) == 1:
+        active_slug = next(iter(topic_scores_delta))
+        session_count = session_question_counts.get(active_slug)
 
     score_update: TopicScoreUpdate = compute_topic_scores(
         current_profile,
         topic_scores_delta,
+        session_question_count=session_count,
     )
 
     update_profile(

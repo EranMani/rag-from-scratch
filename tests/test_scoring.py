@@ -37,11 +37,11 @@ from agents.state import VALID_MODULE_SLUGS, TopicScoresDelta
 # ---------------------------------------------------------------------------
 
 class TestSchemaGates:
-    """VALID_MODULE_SLUGS and TopicScoresDelta match the 8-slug canonical set."""
+    """VALID_MODULE_SLUGS and TopicScoresDelta match the 9-slug canonical set."""
 
-    def test_valid_module_slugs_has_exactly_8_entries(self) -> None:
-        assert len(VALID_MODULE_SLUGS) == 8, (
-            f"VALID_MODULE_SLUGS must have exactly 8 entries, got {len(VALID_MODULE_SLUGS)}: {VALID_MODULE_SLUGS}"
+    def test_valid_module_slugs_has_exactly_9_entries(self) -> None:
+        assert len(VALID_MODULE_SLUGS) == 9, (
+            f"VALID_MODULE_SLUGS must have exactly 9 entries, got {len(VALID_MODULE_SLUGS)}: {VALID_MODULE_SLUGS}"
         )
 
     def test_valid_module_slugs_canonical_set(self) -> None:
@@ -52,6 +52,7 @@ class TestSchemaGates:
             "vector_databases",
             "retrieval_methods",
             "context_and_prompting",
+            "langchain_fundamentals",
             "evaluation_and_metrics",
             "production_patterns",
         }
@@ -69,11 +70,11 @@ class TestSchemaGates:
             "langchain must not be in VALID_MODULE_SLUGS (dropped slug)"
         )
 
-    def test_topic_scores_delta_has_exactly_8_fields(self) -> None:
+    def test_topic_scores_delta_has_exactly_9_fields(self) -> None:
         delta = TopicScoresDelta()
         fields = set(delta.model_fields.keys())
-        assert len(fields) == 8, (
-            f"TopicScoresDelta must have exactly 8 fields, got {len(fields)}: {fields}"
+        assert len(fields) == 9, (
+            f"TopicScoresDelta must have exactly 9 fields, got {len(fields)}: {fields}"
         )
 
     def test_topic_scores_delta_excludes_rag_fundamentals(self) -> None:
@@ -288,7 +289,7 @@ class TestGetMasteryLevel:
     """get_mastery_level uses phase gate state, evaluated expert → novice."""
 
     def _all_passing(self) -> dict:
-        """All 8 topics at a score that passes all phase gates."""
+        """All 9 topics at a score that passes all phase gates."""
         return {
             "embeddings_and_similarity": 0.80,
             "rag_pipeline_architecture": 0.80,
@@ -296,6 +297,7 @@ class TestGetMasteryLevel:
             "vector_databases": 0.80,
             "retrieval_methods": 0.80,
             "context_and_prompting": 0.80,
+            "langchain_fundamentals": 0.80,
             "evaluation_and_metrics": 0.80,
             "production_patterns": 0.80,
         }
@@ -364,6 +366,7 @@ class TestGetMasteryLevel:
             "vector_databases": 0.80,
             "retrieval_methods": 0.80,
             "context_and_prompting": 0.80,
+            "langchain_fundamentals": 0.80,
             "evaluation_and_metrics": 0.60,  # below Phase 3 threshold
             "production_patterns": 0.80,
         }

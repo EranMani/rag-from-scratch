@@ -58,6 +58,7 @@ def _make_state(
         "topic_scores_delta": {},
         "identified_gaps": [],
         "assessment_error": False,
+        "session_question_counts": {},
         "trace_id": "test-trace-09",
         "latency_ms": 0,
         "cache_hit": "miss",
@@ -394,6 +395,112 @@ class TestGate5GetProviderUsed:
             "DEFAULT_PROMPT content must appear when user_level is unrecognised"
         )
         assert result["answer"] == "Fallback answer."
+
+    @pytest.mark.asyncio
+    async def test_proximity_hint_injected_into_context_when_topic_near_threshold(self) -> None:
+        """When a Phase 1/2 topic score is 0.60–0.69, a hint appears in the system message."""
+        from unittest.mock import patch as up
+        state = _make_state([HumanMessage("Tell me about embeddings.")], user_level="beginner")
+        state["user_id"] = "user-hint-test"
+
+        near_profile = {
+            "topic_scores": {"embeddings_and_similarity": 0.65},
+            "mastery_level": "beginner",
+        }
+
+        captured_messages: list = []
+
+        async def capture_ainvoke(messages: list) -> AIMessage:
+            captured_messages.extend(messages)
+            return AIMessage(content="Answer with hint.")
+
+        mock_llm = MagicMock()
+        mock_llm.ainvoke = capture_ainvoke
+        mock_provider = MagicMock()
+        mock_provider.get_llm.return_value = mock_llm
+
+        with (
+            patch("agents.nodes.generate.get_provider", return_value=mock_provider),
+            patch(
+                "agents.nodes.generate.get_profile_by_user_id",
+                return_value=near_profile,
+            ),
+        ):
+            from agents.nodes.generate import generate_node
+            await generate_node(state)
+
+        from langchain_core.messages import SystemMessage
+        assert captured_messages, "LLM must be called"
+        system_content = captured_messages[0].content
+        assert "embeddings_and_similarity" in system_content, (
+            "System message must contain the near-passing topic slug"
+        )
+        assert "0.65" in system_content, (
+            "System message must contain the topic's score"
+        )
+        assert "Reinforce" in system_content, (
+            "System message must contain the reinforcement instruction"
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_hint_when_topic_score_above_threshold(self) -> None:
+        """When a topic score is >= 0.70, no proximity hint is injected."""
+        state = _make_state([HumanMessage("What is RAG?")])
+        state["user_id"] = "user-no-hint"
+
+        above_profile = {
+            "topic_scores": {"embeddings_and_similarity": 0.75},
+            "mastery_level": "intermediate",
+        }
+
+        captured_messages: list = []
+
+        async def capture_ainvoke(messages: list) -> AIMessage:
+            captured_messages.extend(messages)
+            return AIMessage(content="Answer without hint.")
+
+        mock_llm = MagicMock()
+        mock_llm.ainvoke = capture_ainvoke
+        mock_provider = MagicMock()
+        mock_provider.get_llm.return_value = mock_llm
+
+        with (
+            patch("agents.nodes.generate.get_provider", return_value=mock_provider),
+            patch(
+                "agents.nodes.generate.get_profile_by_user_id",
+                return_value=above_profile,
+            ),
+        ):
+            from agents.nodes.generate import generate_node
+            await generate_node(state)
+
+        from langchain_core.messages import SystemMessage
+        assert "Reinforce" not in captured_messages[0].content, (
+            "No hint should appear when topic score is at or above 0.70"
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_hint_for_anonymous_user(self) -> None:
+        """No proximity hint is emitted when user_id is None (anonymous)."""
+        state = _make_state([HumanMessage("What is chunking?")])
+        state["user_id"] = None
+
+        captured_messages: list = []
+
+        async def capture_ainvoke(messages: list) -> AIMessage:
+            captured_messages.extend(messages)
+            return AIMessage(content="Answer.")
+
+        mock_llm = MagicMock()
+        mock_llm.ainvoke = capture_ainvoke
+        mock_provider = MagicMock()
+        mock_provider.get_llm.return_value = mock_llm
+
+        with patch("agents.nodes.generate.get_provider", return_value=mock_provider):
+            from agents.nodes.generate import generate_node
+            with patch("agents.nodes.generate.get_profile_by_user_id") as mock_db:
+                await generate_node(state)
+            mock_db.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_ainvoke_called_on_llm(self) -> None:

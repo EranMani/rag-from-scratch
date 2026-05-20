@@ -40,6 +40,7 @@ class TopicScoresDelta(BaseModel):
     vector_databases: float = 0.0
     retrieval_methods: float = 0.0
     context_and_prompting: float = 0.0
+    langchain_fundamentals: float = 0.0
     evaluation_and_metrics: float = 0.0
     production_patterns: float = 0.0
 
@@ -55,6 +56,7 @@ VALID_MODULE_SLUGS: frozenset[str] = frozenset({
     "vector_databases",
     "retrieval_methods",
     "context_and_prompting",
+    "langchain_fundamentals",
     "evaluation_and_metrics",
     "production_patterns",
 })
@@ -137,6 +139,10 @@ class AgentState(TypedDict):
     """The correct answer letter ('A', 'B', 'C', or 'D') for the current MCQ question.
     Set when assess_node delivers an MCQ question; cleared after evaluation.
     None when no MCQ question is pending."""
+
+    session_question_counts: dict[str, int]
+    """Per-topic count of MCQ answers evaluated this session (topic slug → count).
+    Used by update_profile_node to enforce the minimum-3-questions guard in compute_topic_scores."""
 
     # --- Observability ---
     trace_id: str

@@ -54,6 +54,7 @@ def _base_state(**overrides: Any) -> dict[str, Any]:
         "user_level": "intermediate",
         "question": "What is RAG?",
         "answer": "RAG = Retrieval-Augmented Generation.",
+        "session_question_counts": {},
         "trace_id": "test-trace-15",
         "latency_ms": 0,
         "cache_hit": "miss",
@@ -492,3 +493,129 @@ class TestMissingProfileRow:
             result = update_profile_node(_base_state())  # type: ignore[arg-type]
 
         assert result == {}, f"Missing profile must return {{}}, got {result!r}"
+
+
+# ---------------------------------------------------------------------------
+# TestSessionQuestionCountWiring — Commit 41: session_question_count passed to scoring
+# ---------------------------------------------------------------------------
+
+class TestSessionQuestionCountWiring:
+    """update_profile_node passes per-topic session count to compute_topic_scores."""
+
+    def test_session_count_passed_for_single_topic_delta(self) -> None:
+        """When topic_scores_delta has one key, its session count is passed to compute_topic_scores."""
+        initial_profile = _fake_profile(topic_scores={}, interaction_count=0)
+
+        with (
+            patch(
+                "agents.nodes.update_profile.get_profile_by_user_id",
+                return_value=initial_profile,
+            ),
+            patch("agents.nodes.update_profile.update_profile"),
+            patch(
+                "agents.nodes.update_profile.compute_topic_scores",
+                return_value={
+                    "topic_scores": {"vector_databases": 0.6},
+                    "session_history": {},
+                    "strengths": [],
+                    "gaps": [],
+                    "mastery_level": "beginner",
+                },
+            ) as mock_compute,
+        ):
+            update_profile_node(_base_state(  # type: ignore[arg-type]
+                topic_scores_delta={"vector_databases": 0.6},
+                session_question_counts={"vector_databases": 3},
+            ))
+
+        call_kwargs = mock_compute.call_args.kwargs
+        assert call_kwargs.get("session_question_count") == 3, (
+            f"session_question_count must be 3, got {call_kwargs.get('session_question_count')!r}"
+        )
+
+    def test_session_count_none_for_multi_topic_delta(self) -> None:
+        """When topic_scores_delta has multiple keys, session_question_count is None."""
+        initial_profile = _fake_profile(topic_scores={}, interaction_count=0)
+
+        with (
+            patch(
+                "agents.nodes.update_profile.get_profile_by_user_id",
+                return_value=initial_profile,
+            ),
+            patch("agents.nodes.update_profile.update_profile"),
+            patch(
+                "agents.nodes.update_profile.compute_topic_scores",
+                return_value={
+                    "topic_scores": {},
+                    "session_history": {},
+                    "strengths": [],
+                    "gaps": [],
+                    "mastery_level": "novice",
+                },
+            ) as mock_compute,
+        ):
+            update_profile_node(_base_state(  # type: ignore[arg-type]
+                topic_scores_delta={
+                    "vector_databases": 0.6,
+                    "retrieval_methods": 0.4,
+                },
+                session_question_counts={"vector_databases": 2, "retrieval_methods": 1},
+            ))
+
+        call_kwargs = mock_compute.call_args.kwargs
+        assert call_kwargs.get("session_question_count") is None, (
+            f"Multi-topic delta must pass session_question_count=None, "
+            f"got {call_kwargs.get('session_question_count')!r}"
+        )
+
+    def test_score_not_updated_when_count_below_3(self) -> None:
+        """topic_scores_delta with count=1 does not update the stored score (guard active)."""
+        initial_profile = _fake_profile(
+            topic_scores={"vector_databases": 0.5},
+            interaction_count=2,
+        )
+
+        with (
+            patch(
+                "agents.nodes.update_profile.get_profile_by_user_id",
+                return_value=initial_profile,
+            ),
+            patch("agents.nodes.update_profile.update_profile") as mock_update,
+        ):
+            update_profile_node(_base_state(  # type: ignore[arg-type]
+                topic_scores_delta={"vector_databases": 1.0},
+                session_question_counts={"vector_databases": 1},
+            ))
+
+        call_kwargs = mock_update.call_args.kwargs
+        # Guard fires: stored score stays at 0.5, not updated to blend with 1.0
+        assert call_kwargs["topic_scores"].get("vector_databases") == pytest.approx(0.5), (
+            f"Score must stay unchanged when session_question_count=1 < 3, "
+            f"got {call_kwargs['topic_scores'].get('vector_databases')!r}"
+        )
+
+    def test_score_updated_when_count_is_3(self) -> None:
+        """topic_scores_delta with count=3 updates the stored score (guard cleared)."""
+        initial_profile = _fake_profile(
+            topic_scores={},
+            interaction_count=5,
+        )
+
+        with (
+            patch(
+                "agents.nodes.update_profile.get_profile_by_user_id",
+                return_value=initial_profile,
+            ),
+            patch("agents.nodes.update_profile.update_profile") as mock_update,
+        ):
+            update_profile_node(_base_state(  # type: ignore[arg-type]
+                topic_scores_delta={"vector_databases": 1.0},
+                session_question_counts={"vector_databases": 3},
+            ))
+
+        call_kwargs = mock_update.call_args.kwargs
+        # Guard cleared: score is computed from 1.0 (no prior history → topic_score = 1.0)
+        assert call_kwargs["topic_scores"].get("vector_databases") == pytest.approx(1.0), (
+            f"Score must be updated when session_question_count=3, "
+            f"got {call_kwargs['topic_scores'].get('vector_databases')!r}"
+        )
