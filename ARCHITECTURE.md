@@ -429,4 +429,14 @@ Introduced in Commit 21. `docker-compose.prod.yml` is a standalone file (not a c
 
 ---
 
-*Last updated: 2026-05-20 — Commit 36 complete (onboarding-level-check: onboarding API + MCQ utils shared module)*
+## Onboarding Wizard Pattern (C38)
+
+**3-step placement dialog:** `ui.dialog().props("persistent")` wraps a `@ui.refreshable def ob_step_content()` that renders the current step from mutable-list state (`_ob_step = [1]`). Async work (API calls) lives in separate handler functions (`_ob_select_level`, `_ob_select_answer`, `_ob_skip`). Each handler mutates state then calls `ob_step_content.refresh()`. Mirrors the `profile_panel` pattern (C19): async fetching decoupled from sync NiceGUI rendering.
+
+**Onboarding data flow:** `GET /api/onboarding/status` at page load → `onboarding_dialog.open()` if `needed: true` → `POST /api/onboarding/diagnostic` (step 1 level selection) → `POST /api/onboarding/complete` (step 2 completion or skip) → `profile_panel.refresh()` on finish.
+
+## Phase Progress Panel (C38)
+
+**Phase-aware sidebar:** `profile_panel()` replaced its generic module list with a phase-aware display. Phase and topics are derived from `mastery_level` via module-level dicts (`_PHASE_LABELS`, `_PHASE_TOPICS`, `_ADVANCE_MSG`). Score color thresholds (≥0.70 green, 0.40–0.69 amber, <0.40 red, unscored gray) computed inline from `topic_scores`. Refreshes after every chat turn via SSE done event.
+
+*Last updated: 2026-05-20 — Commit 38 complete (progression-ui: onboarding wizard + phase progress panel)*

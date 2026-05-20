@@ -1993,3 +1993,33 @@ if is_mcq and test_q:
 - `src/app/ui.py` — MCQ state variables, panel construction, visibility toggle, `send_message()` refactor, click wiring
 
 ---
+
+**Commit 38 — `progression-ui`** · 2026-05-20 · Aria (frontend) · `new feature | architectural`
+
+**What changed:**
+Two NiceGUI UI additions to `src/app/ui.py`:
+
+1. **Onboarding wizard** — a 3-step `ui.dialog()` shown on first login (`GET /api/onboarding/status` returns `needed: true` when user has no topic scores). Step 1: self-report level (Beginner / Intermediate / Expert). Step 2: 3 diagnostic MCQs fetched from `/api/onboarding/diagnostic`, rendered using the same `.rag-mcq-row` button style from C37. Step 3: placement result with confirmed level, correct count, backend message, and phase topic list. Skippable at any step — skip calls `POST /api/onboarding/complete` with `skipped: true`, placing user at novice and closing the modal without showing Step 3.
+
+2. **Phase progress panel** — replaces the module-by-module progress bar list in `profile_panel()` with a phase-aware display. Shows current phase label (e.g. "Phase 2 · Core RAG"), per-topic scores color-coded at three thresholds (≥0.70 → `#22c55e` green, 0.40–0.69 → `#f59e0b` amber, <0.40 → `#ef4444` red, unscored → "—" `#64748b` gray), and a dynamic advancement message per phase from `_ADVANCE_MSG`. Refreshes after every chat turn via the SSE done event (already wired in C37).
+
+**Non-obvious patterns:**
+
+```python
+# ob_step_content is @ui.refreshable def (sync), not async.
+# Async work is separated into _ob_select_level, _ob_select_answer, _ob_skip.
+# Each handler mutates mutable-list state then calls ob_step_content.refresh().
+# Same pattern as profile_panel (C19/C20): separate async fetching from sync rendering.
+
+# _ob_finish references profile_panel, which is defined later in index().
+# Safe because _ob_finish is only called at runtime (user click),
+# not at definition time — profile_panel is in the same enclosing scope.
+
+# _PHASE_LABELS, _PHASE_TOPICS, _ADVANCE_MSG at module level (not inside profile_panel)
+# so sidebar refresh after each chat turn doesn't rebuild these dicts on every call.
+```
+
+**Files touched:**
+- `src/app/ui.py` — module-level phase dicts, onboarding wizard, phase progress panel
+
+---

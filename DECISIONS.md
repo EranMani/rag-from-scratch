@@ -766,4 +766,22 @@
 - **Alternatives considered:** `nonlocal _mcq_active` — fragile when callback handlers are defined after context managers close; `app.storage.user` dict — adds I/O overhead for ephemeral single-session state that doesn't need persistence.
 - **Consequences:** `_mcq_active[0]` is always accessed via index. Future code in this closure scope must continue using list indexing for consistency.
 
-*Last updated: 2026-05-20 — Commit 35 complete (mcq-assessment-engine: MCQ evaluation engine, is_mcq flag, regex answer extraction)*
+### `ob_step_content` is sync `@ui.refreshable`, not async (Commit 38)
+- **Date:** 2026-05-20
+- **Commit:** 38
+- **Decided by:** Aria
+- **Decision:** The onboarding wizard's step renderer (`ob_step_content`) is a synchronous `@ui.refreshable def`, not `async def`. Async API calls live in separate handler functions (`_ob_select_level`, `_ob_select_answer`, `_ob_skip`) that mutate mutable-list state then call `ob_step_content.refresh()`.
+- **Reason:** NiceGUI refreshable renders UI elements synchronously — `with` context blocks execute synchronously. Wrapping the step renderer as async conflates rendering and I/O without benefit. Separating concerns follows the established `profile_panel` pattern (C19).
+- **Alternatives considered:** Async `ob_step_content` — rejected; conflates rendering and I/O. The fetch-mutate-refresh pattern is already established project convention.
+- **Consequences:** All async work in the onboarding flow must go through handler functions. Any future step requiring data fetching must follow: fetch in handler → mutate state → call `.refresh()`.
+
+### Phase lookup dicts at module level (Commit 38)
+- **Date:** 2026-05-20
+- **Commit:** 38
+- **Decided by:** Aria + Claude
+- **Decision:** `_PHASE_LABELS`, `_PHASE_TOPICS`, and `_ADVANCE_MSG` are defined at module level, not inside `profile_panel()` or `index()`.
+- **Reason:** `profile_panel()` is `@ui.refreshable` and fires after every chat turn. Building static dicts on every refresh wastes cycles. Module-level placement is the correct scope for static lookup tables with no dependency on page state.
+- **Alternatives considered:** Defining inside `index()` as closures — rejected because they don't reference page-scoped state; module scope is correct and makes them importable and testable without page load.
+- **Consequences:** Changes to phase progression model (new phases, topics, thresholds) require updating three module-level dicts in `src/app/ui.py`.
+
+*Last updated: 2026-05-20 — Commit 38 complete (progression-ui: onboarding wizard patterns + phase dict placement)*

@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-20 (Commit 37 mcq-chat-ui done)",
+  "last_updated": "2026-05-20 (Commit 38 progression-ui done)",
   "status": "active",
   "current_commit": {
-    "number": "38",
-    "name": "progression-ui",
+    "number": "39",
+    "name": "nginx-config",
     "status": "pending",
-    "assignee": "frontend"
+    "assignee": "devops"
   },
   "commits_done": [
     "01",
@@ -47,16 +47,16 @@
     "35",
     "35.5",
     "36",
-    "37"
+    "37",
+    "38"
   ],
   "commits_pending": [
-    "38",
     "39",
     "40",
     "41",
     "42"
   ],
-  "next_commit": "38",
+  "next_commit": "39",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

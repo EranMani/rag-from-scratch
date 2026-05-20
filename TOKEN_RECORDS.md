@@ -697,6 +697,7 @@ No token data recorded. Tracking began at Commit 10.
 | 35+35.5 | mcq-assessment-engine + fix | 332,559 | Viktor+Quinn+Ryan (Haiku) | **well over** | 3 Nova passes (tool cap splits); Viktor Hard Block → 35.5 fix; Quinn 3 HIGH gaps |
 | 36 | onboarding-level-check | 204,726 | Viktor+Sage+Ryan (Haiku) | **over** | Nova cap; orchestrator 2 direct fixes; Viktor false positive; Sage 2 MEDIUM (bundled) |
 | 37 | mcq-chat-ui | 146,632 | Sage+Mira+Ryan (Haiku) | **over** | Aria ✅ (49,932 · 24 uses); Sage 32k (0 uses, input-heavy prompt); Mira 30k (0 uses); Ryan failed hook—Claude wrote Edit (35k); Viktor/Quinn skipped |
+| 38 | progression-ui | 180,671 | Sage+Mira+Ryan (Haiku) | **over** | Aria 58,048 (21 uses); Sage 34,272 (2 uses); Mira 30,335 (0 uses) + 20,547 failed agent overhead; Ryan 37,469 (6 uses, hook re-blocked LEARNING_LOG_SUMMARY.md—Claude wrote both edits); Viktor/Quinn skipped |
 
 ---
 

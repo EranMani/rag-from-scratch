@@ -511,20 +511,49 @@ Scope overflow policy:        log and stop — Team Lead decides whether to expa
 
 ---
 
-## Agent Names for This Project
+## Agent Names and subagent_type Identifiers
+
+**The `subagent_type` field in Agent tool calls must use the identifier column — not the role name.**
+Mira's role is "Product" but her subagent_type is `"mira"`. Getting this wrong silently fails the invocation.
+
+| Role | Name | subagent_type |
+|---|---|---|
+| Orchestrator | Claude | `claude` |
+| Backend | Rex | `rex` |
+| DevOps | Adam | `adam` |
+| Frontend | Aria | `aria` |
+| AI Engineer | Nova | `nova` |
+| Product | **Mira** | `mira` (NOT "product") |
+| Code Reviewer | Viktor | `viktor` |
+| Security | Sage | `sage` |
+| QA | Quinn | `quinn` |
+| Tech Writer | Ryan | `ryan` |
+| Curriculum | Lara | `lara` |
+
+---
+
+## Reviewer Prompt Format — Hard Limit
+
+**Sage, Mira, Quinn, and Viktor prompts must follow this template exactly. No exceptions.**
 
 ```
-Orchestrator:   Claude
-Backend:        Rex
-DevOps:         Adam
-Frontend:       Aria
-AI Engineer:    Nova
-Product:        Mira
-Code Reviewer:  Viktor
-Security:       Sage
-QA:             Quinn
-Tech Writer:    Ryan
+[1 sentence: what this commit does — no more]
+
+## Diff
+[git diff verbatim]
+
+## What to check
+- [specific risk 1 — one sentence]
+- [specific risk 2 — one sentence]
+- [specific risk 3 — one sentence, max]
+
+[Under 200 words total before the diff. No pre-analysis. No explanatory prose.
+No "here's what I think is safe." No background context beyond the diff itself.]
 ```
+
+**Why this limit exists:** C37 and C38 both had Sage/Mira at 30–34k tokens against a ≤15k target.
+The overage was almost entirely prompt tokens — verbose invocations, not reviewer tool use.
+A tight prompt + diff costs ~8–12k. A verbose prompt + diff costs 30–40k. The diff is the same size in both cases.
 
 ---
 
@@ -592,3 +621,5 @@ These rules apply to Claude (the orchestrator) directly — not to sub-agents.
 | 2026-05-17 | **CRITICAL callout added at top of file** — 3 rules violated in C27 at cost of ~300k extra tokens | (1) Gate-fix passes run 4× in C27 despite being explicitly banned — rule existed, Claude ignored it. (2) Reviewers ran on Sonnet not Haiku — model: "haiku" never specified in Agent calls. (3) Spec not validated before Aria invocation — pass 1 rejected (186k wasted), retry introduced CWE-79 XSS. |
 | 2026-05-17 | **Gate triage matrix added** — skip gates when commit has no applicable risk | Team Lead directive: running Viktor+Sage+Mira on a CSS-only commit is wasteful. Gates must serve a purpose, not be run by default. Matrix defines skip/run per reviewer per commit type. Pure CSS/style: zero gates. User data in UI: Sage only. New logic: Viktor only. |
 | 2026-05-17 | **No-agent-for-known-edits rule added** — CRITICAL rule #5, Claude Behaviour Rule #4, plus CLAUDE.md Non-Negotiable #10 and ORCHESTRATION.md STEP 4 and Claude thinking process | C29: Aria spawned to change 2 CSS lines, cost 28k tokens. Edit would have cost ~200. Rule now in every file Claude reads at boot. |
+| 2026-05-20 | **Reviewer prompt format section added + subagent_type reference table** | C37/C38: Sage/Mira at 30–34k (target ≤15k) — overage was verbose invocation prose, not reviewer tool use. C38: Mira invoked with subagent_type "product" (wrong) → wasted 20k on failed invocation + nonsensical recovery agent. |
+| 2026-05-20 | **Ryan hook expanded to also allow LEARNING_LOG_SUMMARY.md** | Hook granted LEARNING_LOG.md exemption after C37 but not its companion file — Ryan blocked on LEARNING_LOG_SUMMARY.md in C38, requiring Claude to write both entries. |

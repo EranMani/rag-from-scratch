@@ -120,3 +120,7 @@
 ## MCQ Chat UI (C37)
 67. **Mutable list `[False]` for closure mutation (not `nonlocal`)** — NiceGUI `with` context manager nesting makes `nonlocal` scope fragile; single-element mutable list lets click handlers and async callbacks mutate shared state without scope tracking
 67. **Idempotent migration: per-row sentinel key check** — `rag_pipeline_architecture` presence guards row; no global migration flag; supports partial crash-resume
+
+## Progression UI (C38)
+68. **`ob_step_content` is sync `@ui.refreshable`, async work in separate handlers** — NiceGUI refreshable renders UI elements synchronously; API calls happen in `_ob_select_level`/`_ob_select_answer`/`_ob_skip` which mutate state then call `.refresh()`
+69. **Phase lookup dicts at module level, not inside `profile_panel()`** — `profile_panel` refreshes after every chat turn; rebuilding `_PHASE_LABELS`/`_PHASE_TOPICS`/`_ADVANCE_MSG` on each call adds overhead for purely static data

@@ -251,4 +251,16 @@
 **Used in:** `knowledge-base/curriculum/questions/mcq/`, `knowledge-base/curriculum/mcq-format.md`, `knowledge-base/curriculum/gates.md`
 **Introduced in:** Commit 33
 
-*Last updated: 2026-05-19 — Commit 33 complete (MCQ term added; MCQ format and scoring rules introduced)*
+### Onboarding Wizard
+**Meaning on this project:** The 3-step `ui.dialog()` shown to first-time users on their first visit to the chat page. Step 1: self-report level. Step 2: 3 diagnostic MCQs. Step 3: placement confirmation. Fully skippable — skipping places the user at `novice` level without completing Step 3. Triggered when `GET /api/onboarding/status` returns `{"needed": true}` (i.e., the user has no topic scores yet).
+**Distinct from:** The regular chat assessment loop (ongoing per-session MCQ questions that update topic scores after placement).
+**Used in:** `src/app/ui.py` (dialog + handlers), `src/app/api/routes/onboarding.py`
+**Introduced in:** Commit 38
+
+### Phase Progress Panel
+**Meaning on this project:** The sidebar panel in the chat page that shows the user's current phase label, the topics in that phase with color-coded scores, and the advancement threshold message. Replaces the old module-by-module progress bar list. Refreshes after every chat turn. Derived from `mastery_level` and `topic_scores` in the user's profile.
+**Distinct from:** The mastery chip (single badge showing level) and the interaction count (session counter) — those remain above the phase panel.
+**Used in:** `src/app/ui.py` (`profile_panel()` refreshable), `_PHASE_LABELS`, `_PHASE_TOPICS`, `_ADVANCE_MSG` module-level dicts
+**Introduced in:** Commit 38
+
+*Last updated: 2026-05-20 — Commit 38 complete (onboarding wizard + phase progress panel terms added)*
