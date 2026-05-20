@@ -23,7 +23,12 @@ Design notes:
 
 import pytest
 
-from app.profile.scoring import TopicScoreUpdate, compute_topic_scores, get_mastery_level
+from app.profile.scoring import (
+    TopicScoreUpdate,
+    _phase_1_passed,
+    compute_topic_scores,
+    get_mastery_level,
+)
 from agents.state import VALID_MODULE_SLUGS, TopicScoresDelta
 
 
@@ -588,4 +593,122 @@ class TestSessionHistoryTracking:
         actual = result["topic_scores"]["vector_databases"]
         assert abs(actual - expected) < 1e-9, (
             f"best_prior=max([0.4,0.9,0.5])=0.9. Expected {expected:.4f}, got {actual!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Passive scoring (is_passive=True)  — Commit 39 bug fix
+# ---------------------------------------------------------------------------
+
+class TestPassiveScoringLogic:
+    """is_passive=True uses additive clamped logic — cap 0.3, never reduce existing score."""
+
+    def test_passive_delta_does_not_reduce_high_score(self) -> None:
+        """Passive delta of 0.3 on a topic scored 1.0 must NOT reduce the topic score."""
+        profile = {
+            "topic_scores": {"embeddings_and_similarity": 1.0},
+            "session_history": {"embeddings_and_similarity": [1.0]},
+        }
+        result = compute_topic_scores(
+            profile, {"embeddings_and_similarity": 0.3}, is_passive=True
+        )
+        score = result["topic_scores"]["embeddings_and_similarity"]
+        assert score == 1.0, (
+            f"Passive delta on topic scored 1.0 must not reduce score; got {score!r}"
+        )
+
+    def test_passive_delta_caps_at_0_3_for_unscored_topic(self) -> None:
+        """Passive scoring on an unscored topic must not exceed 0.3."""
+        profile = {"topic_scores": {}, "session_history": {}}
+        result = compute_topic_scores(
+            profile, {"embeddings_and_similarity": 0.3}, is_passive=True
+        )
+        score = result["topic_scores"]["embeddings_and_similarity"]
+        assert score <= 0.3, f"Passive score must cap at 0.3; got {score!r}"
+
+    def test_passive_delta_never_passes_phase_gate(self) -> None:
+        """Passive max of 0.3 is below the 0.70 Phase 1 threshold — never unlocks a phase."""
+        profile = {"topic_scores": {}, "session_history": {}}
+        result = compute_topic_scores(
+            profile,
+            {"embeddings_and_similarity": 0.3, "rag_pipeline_architecture": 0.3},
+            is_passive=True,
+        )
+        assert not _phase_1_passed(result["topic_scores"]), (
+            "Passive max of 0.3 must never pass the 0.70 Phase 1 gate"
+        )
+
+    def test_passive_does_not_update_session_history(self) -> None:
+        """Passive assessments must not pollute session_history used for best_prior."""
+        profile = {"topic_scores": {}, "session_history": {}}
+        result = compute_topic_scores(
+            profile, {"embeddings_and_similarity": 0.2}, is_passive=True
+        )
+        assert result["session_history"].get("embeddings_and_similarity") is None, (
+            "Passive scoring must not append to session_history"
+        )
+
+    def test_passive_additive_accumulation(self) -> None:
+        """Two passive 0.1 signals on same topic accumulate to 0.2."""
+        profile1 = {"topic_scores": {}, "session_history": {}}
+        r1 = compute_topic_scores(profile1, {"embeddings_and_similarity": 0.1}, is_passive=True)
+        profile2 = {"topic_scores": r1["topic_scores"], "session_history": r1["session_history"]}
+        r2 = compute_topic_scores(profile2, {"embeddings_and_similarity": 0.1}, is_passive=True)
+        score = r2["topic_scores"]["embeddings_and_similarity"]
+        assert abs(score - 0.2) < 1e-9, (
+            f"Two passive 0.1 signals should accumulate to 0.2; got {score!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Minimum-session guard (session_question_count)  — Commit 39 bug fix
+# ---------------------------------------------------------------------------
+
+class TestSessionMinimumGuard:
+    """Explicit session_question_count < 3 skips scoring; None default skips the guard."""
+
+    def test_explicit_count_1_returns_unchanged_scores(self) -> None:
+        """session_question_count=1 explicitly passed must return current scores unchanged."""
+        profile = {
+            "topic_scores": {"vector_databases": 0.6},
+            "session_history": {"vector_databases": [0.6]},
+        }
+        result = compute_topic_scores(
+            profile, {"vector_databases": 1.0}, session_question_count=1
+        )
+        score = result["topic_scores"]["vector_databases"]
+        assert abs(score - 0.6) < 1e-9, (
+            f"session_question_count=1 must return unchanged score 0.6; got {score!r}"
+        )
+
+    def test_explicit_count_2_returns_unchanged_scores(self) -> None:
+        """session_question_count=2 (< 3) also triggers the guard."""
+        profile = {"topic_scores": {"vector_databases": 0.5}, "session_history": {}}
+        result = compute_topic_scores(
+            profile, {"vector_databases": 1.0}, session_question_count=2
+        )
+        assert abs(result["topic_scores"]["vector_databases"] - 0.5) < 1e-9
+
+    def test_explicit_count_3_allows_scoring(self) -> None:
+        """session_question_count=3 (= minimum) allows normal scoring."""
+        profile = {"topic_scores": {}, "session_history": {}}
+        result = compute_topic_scores(
+            profile, {"vector_databases": 1.0}, session_question_count=3
+        )
+        assert abs(result["topic_scores"]["vector_databases"] - 1.0) < 1e-9
+
+    def test_none_count_default_allows_scoring(self) -> None:
+        """Default (None) skips the guard entirely — backward-compatible with all existing callers."""
+        profile = {"topic_scores": {}, "session_history": {}}
+        result = compute_topic_scores(profile, {"vector_databases": 0.8})
+        assert abs(result["topic_scores"]["vector_databases"] - 0.8) < 1e-9
+
+    def test_guard_bypassed_for_passive_with_count_1(self) -> None:
+        """is_passive=True bypasses the session count guard — passive signals always apply."""
+        profile = {"topic_scores": {}, "session_history": {}}
+        result = compute_topic_scores(
+            profile, {"vector_databases": 0.2}, is_passive=True, session_question_count=1
+        )
+        assert result["topic_scores"].get("vector_databases") is not None, (
+            "Passive scoring with session_question_count=1 must still apply"
         )

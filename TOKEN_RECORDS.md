@@ -699,6 +699,7 @@ No token data recorded. Tracking began at Commit 10.
 | 37 | mcq-chat-ui | 146,632 | Sage+Mira+Ryan (Haiku) | **over** | Aria ✅ (49,932 · 24 uses); Sage 32k (0 uses, input-heavy prompt); Mira 30k (0 uses); Ryan failed hook—Claude wrote Edit (35k); Viktor/Quinn skipped |
 | 38 | progression-ui | 180,671 | Sage+Mira+Ryan (Haiku) | **over** | Aria 58,048 (21 uses); Sage 34,272 (2 uses); Mira 30,335 (0 uses) + 20,547 failed agent overhead; Ryan 37,469 (6 uses, hook re-blocked LEARNING_LOG_SUMMARY.md—Claude wrote both edits); Viktor/Quinn skipped |
 | 38.5 | knowledge-profile-ui | 221,259 | Viktor+Sage+Mira+Ryan (Haiku) | **over** | Aria 80,780 (26 uses, hit cap); Viktor 35,836 (3 uses); Sage 33,766 (1 use); Mira 31,177 (1 use); Ryan 39,700 (7 uses); Quinn skipped (no logic coverage gap) |
+| 39 | scoring-correctness | 80,397 | Viktor+Ryan (Haiku); no impl agent | **over** | Viktor 38,913 (3 uses, PASS); Ryan 41,484 (7 uses); Sage/Quinn/Mira skipped (gate triage: pure logic fix, no auth/UI/routes); edits made directly by Claude (no Rex/Nova subagent) |
 
 ---
 

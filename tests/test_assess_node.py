@@ -40,6 +40,7 @@ from agents.nodes.assess import (
     _CURRICULUM_DIR,
     _evaluate_mcq_answer,
     _load_mcq_question,
+    _select_question_index,
     _select_test_slug,
     assess_node,
 )
@@ -1237,4 +1238,44 @@ class TestMcqEvaluationIntegration:
             answer = result.get("pending_mcq_correct_answer")
             assert answer in ("A", "B", "C", "D"), (
                 f"pending_mcq_correct_answer must be A/B/C/D, got {answer!r}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# TestQuestionIndexCycling — _select_question_index  — Commit 39 bug fix
+# ---------------------------------------------------------------------------
+
+class TestQuestionIndexCycling:
+    """_select_question_index returns len(messages) % 5, cycling within the 5-question bank."""
+
+    def test_zero_messages_returns_0(self) -> None:
+        state = _base_state(messages=[])
+        assert _select_question_index(state) == 0
+
+    def test_turn_4_returns_index_4(self) -> None:
+        state = _base_state(messages=[HumanMessage(content=f"q{i}") for i in range(4)])
+        assert _select_question_index(state) == 4
+
+    def test_turn_5_wraps_to_index_0(self) -> None:
+        """Turn 5 (5 % 5 = 0) must cycle back to question 0, not index 5 (out of range)."""
+        state = _base_state(messages=[HumanMessage(content=f"q{i}") for i in range(5)])
+        assert _select_question_index(state) == 0, (
+            "5 messages: 5 % 5 = 0 — must return 0 not 5"
+        )
+
+    def test_turn_6_wraps_to_index_1(self) -> None:
+        state = _base_state(messages=[HumanMessage(content=f"q{i}") for i in range(6)])
+        assert _select_question_index(state) == 1
+
+    def test_turn_7_wraps_to_index_2(self) -> None:
+        state = _base_state(messages=[HumanMessage(content=f"q{i}") for i in range(7)])
+        assert _select_question_index(state) == 2
+
+    def test_index_always_valid_for_5_question_bank(self) -> None:
+        """Any message count must produce an index in [0, 4] — never out of range for a 5-question file."""
+        for n in range(20):
+            state = _base_state(messages=[HumanMessage(content=f"q{i}") for i in range(n)])
+            idx = _select_question_index(state)
+            assert 0 <= idx <= 4, (
+                f"n_messages={n} produced index={idx}, which is out of [0, 4]"
             )

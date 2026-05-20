@@ -159,7 +159,12 @@
       "Skill(update-config)",
       "Bash(Select-Object Name, LastWriteTime)",
       "Bash(cat hooks/reviewer_read_block.py)",
-      "Bash(cat .claude/hooks/reviewer_read_block.py)"
+      "Bash(cat .claude/hooks/reviewer_read_block.py)",
+      "Bash(.venv/Scripts/python -m pytest tests/ -x -q)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_profile_api.py::TestGetProfileAuthenticated::test_valid_token_returns_200 -v)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_scoring.py tests/test_assess_node.py -v)",
+      "Bash(.venv/Scripts/python -m pytest tests/ -q --ignore=tests/test_profile_api.py)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_scoring.py tests/test_assess_node.py -v -q)"
     ]
   }
 }

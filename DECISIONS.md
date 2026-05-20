@@ -811,4 +811,21 @@
 - **Alternatives considered:** NiceGUI `.style()` with `::after` — not valid; inline styles don't support pseudo-selectors. Per-element JS injection — overly complex for a simple CSS rule.
 - **Consequences:** All pseudo-element styles for sidebar tab indicators must live in the injected `<style>` block inside `index()`. Changes to the tab underline require updating the `ui.add_head_html()` call, not individual element styles.
 
-*Last updated: 2026-05-20 — Commit 38.5 complete (knowledge-profile-ui: two-tab sidebar, NiceGUI flex/grid patterns, SVG gradient injection)*
+### `session_question_count: int | None = None` sentinel default in `compute_topic_scores` (Commit 39)
+- **Date:** 2026-05-20
+- **Commit:** 39
+- **Decided by:** Claude
+- **Decision:** The new `session_question_count` parameter defaults to `None` rather than `1`. The minimum-session guard (`< 3`) activates only when the caller explicitly passes a count. Existing callers that predate Commit 41 pass nothing and bypass the guard entirely.
+- **Alternatives considered:** Default of `1` — rejected. With default `1`, `1 < 3` triggers the early return for all existing callers that omit the parameter, causing zero score updates across the system until Commit 41 wires the real counter. A sentinel of `None` means "guard not yet wired" — Commit 41 will pass the real count.
+- **Consequences:** Until Commit 41 wires the session counter from `AgentState`, the minimum-session guard is latent. The default `None` acts as an explicit "not yet wired" marker visible in the signature.
+
+### Passive signals excluded from session_history (Commit 39)
+- **Date:** 2026-05-20
+- **Commit:** 39
+- **Decided by:** Claude
+- **Decision:** When `is_passive=True`, `compute_topic_scores` does NOT append `current_session` to `session_history`. Session history is updated only on the active MCQ path.
+- **Reason:** `session_history` feeds `best_prior_session_score` in the spaced-repetition formula for future MCQ sessions. A passive delta of 0.2 (from inferred query analysis) would lower the `best_prior` if included, causing a future MCQ score of 0.8 to produce `0.7 × 0.8 + 0.3 × 0.2 = 0.62` instead of the correct first-session result of `0.8`. Passive signals are a weak inference signal; contaminating history with them degrades MCQ scoring accuracy over time.
+- **Alternatives considered:** Appending with a lower weight — rejected as complex. A separate `passive_history` dict — rejected as premature abstraction.
+- **Consequences:** `session_history` contains only MCQ session scores. Passive signals update `topic_score` directly but leave no trace in history. The spaced-rep formula for future MCQ sessions uses only formal assessment scores as `best_prior`.
+
+*Last updated: 2026-05-20 — Commit 39 complete (scoring-correctness: session_question_count sentinel, passive signal isolation)*

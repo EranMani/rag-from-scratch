@@ -119,11 +119,21 @@ def get_mastery_level(
 def compute_topic_scores(
     current_profile: dict,
     topic_scores_delta: dict[str, float],
+    *,
+    is_passive: bool = False,
+    session_question_count: int | None = None,
 ) -> TopicScoreUpdate:
     """Apply session scores from topic_scores_delta to current_profile using spaced-repetition formula.
 
     topic_scores_delta: {slug: session_score} — the current session's score per topic.
     These are absolute session scores (0.0–1.0), NOT deltas to be added to existing scores.
+
+    is_passive: when True, use additive clamped logic (cap 0.3, never reduce an existing
+    score). Passive signals come from inferred query analysis, not direct MCQ answers.
+
+    session_question_count: when explicitly provided and < 3 (and is_passive=False), return
+    current scores unchanged. Pass None (default) to skip the guard — backward-compatible
+    for callers that predate Commit 41 wiring the real counter from AgentState.
 
     Formula (from gates.md):
       topic_score = 0.7 * current_session_score + 0.3 * best_prior_session_score
@@ -138,6 +148,22 @@ def compute_topic_scores(
         k: list(v) for k, v in current_profile.get("session_history", {}).items()
     }
 
+    # Minimum-session guard: caller must wire in the real count for this to activate
+    if session_question_count is not None and session_question_count < 3 and not is_passive:
+        logger.warning(
+            "compute_topic_scores: session_question_count=%d < 3 — skipping score update",
+            session_question_count,
+        )
+        strengths = [slug for slug, score in merged.items() if score is not None and score >= 0.7]
+        gaps = [slug for slug, score in merged.items() if score is not None and score <= 0.3]
+        return TopicScoreUpdate(
+            topic_scores=merged,
+            session_history=history,
+            strengths=strengths,
+            gaps=gaps,
+            mastery_level=get_mastery_level(merged),
+        )
+
     for slug, session_score in topic_scores_delta.items():
         if not isinstance(session_score, (int, float)):
             logger.warning(
@@ -147,17 +173,22 @@ def compute_topic_scores(
             continue
 
         current_session = float(max(0.0, min(1.0, session_score)))
-        prior_sessions = history.get(slug, [])
 
-        if prior_sessions:
-            best_prior = max(prior_sessions)
-            topic_score = 0.7 * current_session + 0.3 * best_prior
+        if is_passive:
+            # Additive up to a 0.3 ceiling — cannot reduce a score the user earned via MCQ
+            existing = merged.get(slug) or 0.0
+            topic_score = max(existing, min(existing + current_session, 0.3))
         else:
-            topic_score = current_session
+            prior_sessions = history.get(slug, [])
+            if prior_sessions:
+                best_prior = max(prior_sessions)
+                topic_score = 0.7 * current_session + 0.3 * best_prior
+            else:
+                topic_score = current_session
+            # Only MCQ sessions contribute to history used for best_prior lookups
+            history.setdefault(slug, []).append(current_session)
 
         merged[slug] = round(topic_score, 10)
-        # Append current session score to history for future best_prior lookups
-        history.setdefault(slug, []).append(current_session)
 
     strengths: list[str] = [
         slug for slug, score in merged.items()

@@ -263,4 +263,10 @@
 **Used in:** `src/app/ui.py` (`profile_panel()` refreshable), `_PHASE_LABELS`, `_PHASE_TOPICS`, `_ADVANCE_MSG` module-level dicts
 **Introduced in:** Commit 38
 
-*Last updated: 2026-05-20 — Commit 38 complete (onboarding wizard + phase progress panel terms added)*
+### Passive Delta
+**Meaning on this project:** A small score increment (max 0.3 total) inferred from a user's natural query via LLM structured output (`_run_passive_assessment` in `assess_node`), not from a formal MCQ answer. Applied to `compute_topic_scores` with `is_passive=True`. Logic: `max(existing, min(existing + delta, 0.3))` — additive up to a 0.3 ceiling, never reduces an MCQ-earned score above 0.3. Not appended to `session_history` (preserves the integrity of `best_prior` used in the spaced-repetition formula). Returns an empty dict when the LLM call fails.
+**Distinct from:** MCQ session score (binary 1.0/0.0 from answer-key evaluation, updates spaced-rep formula); topic score (stored mastery value after all scoring paths).
+**Used in:** `src/agents/nodes/assess.py` (`_validated_passive_delta`, `_PASSIVE_LEVEL_SCORE`), `src/app/profile/scoring.py` (`is_passive` parameter)
+**Introduced in:** Commit 35 (passive assessment path); Commit 39 (passive protection logic in `compute_topic_scores`)
+
+*Last updated: 2026-05-20 — Commit 39 complete (passive delta term added)*

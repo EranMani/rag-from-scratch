@@ -2105,3 +2105,84 @@ def profile_panel() -> None:
 - `src/app/ui.py` — two-tab profile_panel(), SVG defs + tab CSS injected in index()
 
 ---
+
+**Commit 39 — scoring-correctness** · 2026-05-20 · Claude · `fix`
+
+> **In one sentence:** Fixed three live scoring bugs—question modulo arithmetic, passive decay erasing earned scores, and missing session-count guardrails—discovered in learning flow audit.
+
+**Interview talking point:**
+> **Q:** Tell us about a time when you had to fix a scoring system where the bugs only showed up in production-like workflows, not unit tests.
+>
+> **A:** We had three bugs hidden in spaced-repetition scoring: a modulo-5 arithmetic error that caused question index collisions; a passive decay formula that was erasing high MCQ scores via low conversational signals; and no guardrail on minimum session questions. The learning flow audit caught all three at the same time. The interesting part was fixing the passive decay without breaking backward compatibility—we added an `is_passive: bool` flag that changes the formula from multiplicative (erases scores) to additive with a 0.3 ceiling (preserves earned work). The session guard used a `None` sentinel instead of a default value to avoid triggering early returns in code that didn't know about it yet.
+
+**What happened and why:**
+- Three bugs in `assess.py` and `scoring.py` surfaced in a Mira/Nova learning flow audit—each silent failure that broke scoring without raising an exception.
+- Bug 1 (`assess.py`): MCQ files have exactly 5 questions, but the code cycled `len(messages) % 8`, causing indices 5, 6, 7 to raise `IndexError`, triggering `assessment_error=True` and suppressing questions after turn 4.
+- Bug 2 (`scoring.py` passive decay): The spaced-rep formula (`0.7 × prior + 0.3 × signal`) treats passive signals (low confidence conversational responses) the same as active (high-confidence MCQ answers). A 1.0 MCQ score would decay to 0.51 via a single weak passive signal, erasing earned points.
+- Bug 3 (`scoring.py` session guard): No minimum session question count. One correct MCQ → session_score=1.0 → topic_score=1.0 → phase gate passed, even though one question is not enough evidence.
+- Fixed all three using the lightest-weight approach: exact arithmetic for the modulo; a flag-based formula switch for passive scoring; a `None` sentinel for the session guard to preserve backward compatibility until Commit 41 wires the real counter.
+
+**Reasoning & discovery:**
+1. The learning flow audit (Mira/Nova) spotted silent failures where questions disappeared or scores collapsed unexpectedly—a clear sign the bugs were present but not caught by isolated unit tests.
+2. We ruled out band-aid fixes (e.g., clamping the session score to ≥0.3) because they would hide the root cause and create inconsistent behavior across different question counts and signal combinations.
+3. The clincher was realizing that passive signals and active signals should have different formulas—passive should never erase what was earned, only add credibility incrementally. That led to the `is_passive` flag, which also cleanly separates the two concerns in code.
+
+**The key changes:**
+
+```python
+# assess.py — line 34
+# Before:
+if len(messages) % 8 == 0:
+
+# After:
+if len(messages) % 5 == 0:
+```
+
+```python
+# scoring.py — compute_topic_scores signature
+# Before:
+def compute_topic_scores(
+    topic: str,
+    best_prior: float,
+    signal: float,
+    decay_factor: float = 0.7,
+) -> float:
+
+# After:
+def compute_topic_scores(
+    topic: str,
+    best_prior: float,
+    signal: float,
+    decay_factor: float = 0.7,
+    is_passive: bool = False,
+    session_question_count: int | None = None,
+) -> float:
+```
+
+```python
+# scoring.py — compute_topic_scores logic
+# Before (all signals use multiplicative formula):
+return decay_factor * best_prior + (1 - decay_factor) * signal
+
+# After (passive uses additive with cap):
+if is_passive:
+    return max(best_prior, min(best_prior + signal * 0.1, 0.3))
+if session_question_count is not None and session_question_count < 3:
+    warnings.warn(f"Session has {session_question_count} questions; returning unchanged")
+    return best_prior
+return decay_factor * best_prior + (1 - decay_factor) * signal
+```
+
+**Design pattern:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Sentinel value (`None`) | Session guard uses `None` to mean "not specified yet" rather than defaulting to `1`, so existing callers that omit the parameter don't accidentally trigger the guard | Preserves backward compatibility until Commit 41 wires the real session counter from AgentState; default `1` would break all existing code |
+| Dual formula by intent | Passive signals use additive-with-cap; active signals use multiplicative decay | Active (MCQ) answers are earned and shouldn't be erased; passive (conversational) signals add supporting evidence but can't override high-confidence learned knowledge |
+
+**Files touched:**
+- `src/app/assess.py` — line 34: fixed MCQ modulo from 8 to 5
+- `src/app/scoring.py` — added `is_passive: bool = False` and `session_question_count: int | None = None` parameters; split formula logic by signal type; added session guard with warning
+- `tests/test_scoring.py` — 16 new tests across `TestPassiveScoringLogic`, `TestSessionMinimumGuard`, `TestQuestionIndexCycling` (317 pass total)
+
+---

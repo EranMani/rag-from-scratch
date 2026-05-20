@@ -129,3 +129,7 @@
 70. **`ui.element("div")` required for precise flex/grid control in NiceGUI** — `ui.row()`/`ui.column()` render as Quasar `q-row`/`q-col` and inject gap/padding that breaks inner `flex:1` and `width:100%`; plain div avoids all interference
 71. **SVG gradient defs injected once in `index()` head** — `profile_panel` is refreshable; inline `<defs>` per icon duplicates on every render; page-head injection via `ui.add_head_html()` defines the gradient once and reuses by `id`
 72. **CSS `::after` pseudo-element for tab underline via injected stylesheet** — NiceGUI `.style()` sets inline CSS which cannot define pseudo-elements; pseudo-element rules require a class-based stylesheet injected via `ui.add_head_html()`
+
+## Scoring Correctness (C39)
+73. **`session_question_count: int | None = None` sentinel default** — `None` skips the session guard; existing callers bypass it until Commit 41 wires the real counter from AgentState; default of `1` would have broken all pre-41 callers by triggering early return
+74. **Passive signals excluded from session_history** — passive deltas update topic_score directly but never append to history; prevents weak inference from contaminating `best_prior` used in the MCQ spaced-rep formula

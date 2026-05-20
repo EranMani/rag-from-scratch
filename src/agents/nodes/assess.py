@@ -309,7 +309,7 @@ def _evaluate_mcq_answer(user_message: str, correct_answer: str) -> float:
 def _select_question_index(state: AgentState) -> int:
     """Deterministically select a question index based on conversation depth."""
     messages = state.get("messages") or []
-    return len(messages) % 8  # 8 questions per topic file
+    return len(messages) % 5  # 5 MCQ questions per topic file
 
 
 def _select_test_slug(state: AgentState) -> str | None:
