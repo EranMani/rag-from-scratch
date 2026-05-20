@@ -757,4 +757,13 @@
 - **Alternatives considered:** Aria parses the `test_question` text for A/B/C/D options — rejected because parsing free text in the frontend is fragile; a dedicated boolean flag is the correct typed contract for a rendering decision.
 - **Consequences:** Aria (Commit 37) uses `done_data["is_mcq"]` as the branch condition. This field must remain in `ChatResponse` as long as MCQ is the assessment format.
 
+### Mutable single-element list for closure mutation in NiceGUI (Commit 37)
+- **Date:** 2026-05-20
+- **Commit:** 37
+- **Decided by:** Aria
+- **Decision:** MCQ state uses mutable single-element lists (`_mcq_active = [False]`, `_mcq_opts: list[str]`) rather than `nonlocal` declarations.
+- **Reason:** `nonlocal` requires the variable to be declared at the correct enclosing function scope, but NiceGUI's nested `with ui.column():` context manager structure makes scope boundaries ambiguous. Mutable lists allow mutation from nested closures (click handlers, `submit_mcq_option`) without needing to trace the exact enclosing scope.
+- **Alternatives considered:** `nonlocal _mcq_active` — fragile when callback handlers are defined after context managers close; `app.storage.user` dict — adds I/O overhead for ephemeral single-session state that doesn't need persistence.
+- **Consequences:** `_mcq_active[0]` is always accessed via index. Future code in this closure scope must continue using list indexing for consistency.
+
 *Last updated: 2026-05-20 — Commit 35 complete (mcq-assessment-engine: MCQ evaluation engine, is_mcq flag, regex answer extraction)*

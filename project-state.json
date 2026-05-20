@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-20 (Commits 35 + 35.5 mcq-assessment-engine done)",
+  "last_updated": "2026-05-20 (Commit 37 mcq-chat-ui done)",
   "status": "active",
   "current_commit": {
-    "number": "36",
-    "name": "onboarding-level-check",
+    "number": "38",
+    "name": "progression-ui",
     "status": "pending",
-    "assignee": "ai-engineer"
+    "assignee": "frontend"
   },
   "commits_done": [
     "01",
@@ -45,18 +45,18 @@
     "33",
     "34",
     "35",
-    "35.5"
+    "35.5",
+    "36",
+    "37"
   ],
   "commits_pending": [
-    "36",
-    "37",
     "38",
     "39",
     "40",
     "41",
     "42"
   ],
-  "next_commit": "36",
+  "next_commit": "38",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

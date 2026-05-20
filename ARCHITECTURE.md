@@ -411,6 +411,14 @@ Introduced in Commit 21. `docker-compose.prod.yml` is a standalone file (not a c
 - **Monitoring pipeline** — log flow from app → Logstash → Elasticsearch — after Commit 24
 - **Grafana dashboards** — pre-built dashboard exports for request latency / cache hit rate — Commit 26 or 27
 
+## MCQ Toggle UI Pattern (C37)
+
+**Signal-driven input toggle:** The chat composer has two mutually exclusive states driven by the `is_mcq` boolean in the SSE `done` event. When `is_mcq: true`: `composer_row.set_visibility(False)` + `mcq_panel.set_visibility(True)`. When `is_mcq: false`: reversed. Both elements are always in the DOM; only visibility toggles.
+
+**MCQ panel structure:** 4 `ui.row()` elements inside a `ui.column()`, each containing a gradient letter badge (`ui.label("A/B/C/D")`) and an option text label (`ui.label()`). Option texts are updated via `_lbl_el.set_text(_text)` — never `ui.html(f-string)`. Click handlers use default-arg capture (`lambda _e, _l=_captured`) to avoid the Python late-binding closure bug.
+
+**Mutable list closure pattern:** `_mcq_active = [False]` allows mutation from nested callbacks without `nonlocal`. This pattern is the standard closure-mutation idiom for NiceGUI's `with` block nesting depth.
+
 ## UI Layer — Font and Design System (C26)
 
 **Google Inter font:** Injected via `ui.add_head_html()` separately in each `@ui.page` function (`login_page`, `register_page`, `index`). NiceGUI creates a fresh HTML document per page route — a font link injected in `index()` does not propagate to `/login` or `/register`.

@@ -116,4 +116,7 @@
 ## Profile Scoring Rewrite (C25)
 65. **Phase gate checks are cumulative in `get_mastery_level`** — `expert` requires p1 AND p2 AND p3 (not just p3); avoids corrupt-DB false expert
 66. **`session_history` persisted in user_profiles table** — best_prior requires cross-session access; JSON array column in profile row, not a separate session events table
+
+## MCQ Chat UI (C37)
+67. **Mutable list `[False]` for closure mutation (not `nonlocal`)** — NiceGUI `with` context manager nesting makes `nonlocal` scope fragile; single-element mutable list lets click handlers and async callbacks mutate shared state without scope tracking
 67. **Idempotent migration: per-row sentinel key check** — `rag_pipeline_architecture` presence guards row; no global migration flag; supports partial crash-resume

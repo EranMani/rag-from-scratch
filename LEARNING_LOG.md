@@ -1948,3 +1948,48 @@ else:
 **Handoff:** Aria (Commit 38) consumes the full API contract: `GET /api/onboarding/status → {needed: bool}`, `POST /api/onboarding/diagnostic → {questions: [{index, text}], slug}`, `POST /api/onboarding/complete → {confirmed_level, correct_count, message}`.
 
 ---
+
+**Commit 37 — `mcq-chat-ui`** · 2026-05-20 · Aria (frontend) · `new feature`
+
+> **In one sentence:** The chat UI now renders MCQ assessment questions as interactive A/B/C/D option buttons, replacing the text input when the backend signals an active knowledge check via SSE.
+
+**Interview talking point:**
+> **Q:** How did you implement a dynamic input toggle in NiceGUI when the server signals a different UI mode via SSE?
+>
+> **A:** The SSE `done` event includes an `is_mcq` boolean. When `is_mcq: true` arrives, `composer_row.set_visibility(False)` hides the text input and `mcq_panel.set_visibility(True)` shows the option buttons — both elements stay in the DOM the whole time. Clicking an option submits the letter and reverses the toggle. The non-obvious part: NiceGUI's `with` block nesting makes `nonlocal` fragile, so mutable single-element lists (`_mcq_active = [False]`) are used for closure-safe state mutation instead.
+
+**What happened and why:**
+- Added `mcq_panel` — 4 `ui.row()` elements with gradient letter badges and `ui.label()` option texts; sits alongside `composer_row` in the DOM and toggles visibility on MCQ signal.
+- Refactored `send()` into `send_message(question: str)` + thin `send()` wrapper, so both text-input and MCQ button paths share one send function.
+- Click handlers use default-arg capture (`lambda _e, _l=_captured`) to prevent the Python late-binding closure bug when wiring 4 buttons in a for-loop.
+- All option texts use `ui.label()` and `set_text()` — never `ui.html(f-string)` — confirmed safe by Sage (PASS, no XSS vector).
+
+**Reasoning & discovery:**
+1. Option texts arrive in `test_question` as `A. text\nB. text...` lines; parsing requires extracting `^[A-D]\. ` prefix lines and stripping the 3-char prefix.
+2. `nonlocal` was ruled out because NiceGUI `with` context manager nesting makes the enclosing scope boundary ambiguous at declaration time — the mutable list pattern is explicit and closure-safe.
+3. Pre-built labels updated via `set_text()` (vs. clearing and re-adding elements) avoids NiceGUI DOM flicker when each MCQ question arrives.
+
+**The key change:**
+```python
+# src/app/ui.py — MCQ state toggle on SSE done event
+_mcq_active = [False]  # mutable list — closure-safe without nonlocal
+if is_mcq and test_q:
+    _opt_lines = [l for l in test_q.splitlines() if len(l) >= 3 and l[0] in "ABCD" and l[1] == "."]
+    for _i, (_row_el, _lbl_el) in enumerate(mcq_btns):
+        _lbl_el.set_text(_opt_lines[_i][3:].strip() if _i < len(_opt_lines) else "")
+    _mcq_active[0] = True
+    composer_row.set_visibility(False)
+    mcq_panel.set_visibility(True)
+```
+
+**Design pattern:**
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Signal-driven visibility toggle | `is_mcq` from SSE controls `composer_row` vs `mcq_panel` | Keeps rendering decision in the backend signal, not client-side text parsing |
+| Mutable list closure | `_mcq_active = [False]` for shared state across callbacks | `nonlocal` is fragile inside NiceGUI's deeply nested `with` context blocks |
+| Default-arg capture | `lambda _e, _l=_captured` in click handler loop | Prevents late-binding bug — each button captures its own letter at loop time |
+
+**Files touched:**
+- `src/app/ui.py` — MCQ state variables, panel construction, visibility toggle, `send_message()` refactor, click wiring
+
+---
