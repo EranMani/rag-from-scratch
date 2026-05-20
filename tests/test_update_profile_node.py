@@ -236,19 +236,22 @@ class TestGate2InteractionCountIncrements:
         )
 
     def test_interaction_count_not_incremented_on_error_path(self) -> None:
-        """When assessment_error=True, update_profile must not be called at all."""
+        """When assessment_error=True, update_profile is called only for count bump (no topic_scores)."""
         with (
             patch(
                 "agents.nodes.update_profile.get_profile_by_user_id",
-            ) as mock_get,
+                return_value=_fake_profile(interaction_count=5),
+            ),
             patch(
                 "agents.nodes.update_profile.update_profile",
             ) as mock_update,
         ):
             update_profile_node(_base_state(assessment_error=True))  # type: ignore[arg-type]
 
-        mock_get.assert_not_called()
-        mock_update.assert_not_called()
+        call_kwargs = mock_update.call_args.kwargs
+        assert "topic_scores" not in call_kwargs, (
+            f"Error path must not write topic_scores, got {call_kwargs!r}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -273,11 +276,12 @@ class TestGate3FallbackPathSkipsDB:
         mock_update.assert_not_called()
         assert result == {}, "Fallback path must return {}"
 
-    def test_get_profile_not_called_on_error(self) -> None:
-        """assessment_error=True: get_profile_by_user_id() must NOT be called."""
+    def test_get_profile_called_on_error_path_for_count(self) -> None:
+        """assessment_error=True: get_profile_by_user_id() IS called to retrieve interaction_count."""
         with (
             patch(
                 "agents.nodes.update_profile.get_profile_by_user_id",
+                return_value=_fake_profile(interaction_count=3),
             ) as mock_get,
             patch("agents.nodes.update_profile.update_profile"),
         ):
@@ -286,7 +290,7 @@ class TestGate3FallbackPathSkipsDB:
                 assessment_error=True,
             ))
 
-        mock_get.assert_not_called()
+        mock_get.assert_called_once()
 
     def test_returns_empty_dict_on_error_path(self) -> None:
         """assessment_error=True path must still return {}."""
@@ -619,3 +623,149 @@ class TestSessionQuestionCountWiring:
             f"Score must be updated when session_question_count=3, "
             f"got {call_kwargs['topic_scores'].get('vector_databases')!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# TestGateDetection — Commit 43: phase gate crossing detection
+# ---------------------------------------------------------------------------
+
+def _fake_profile_with_level(mastery_level: str, interaction_count: int = 3) -> dict:
+    """Profile dict with an explicit mastery_level."""
+    return {
+        "id": "profile-id-gate",
+        "user_id": "user-gate",
+        "mastery_level": mastery_level,
+        "interaction_count": interaction_count,
+        "topic_scores": {},
+        "strengths": [],
+        "gaps": [],
+        "last_activity_at": None,
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "updated_at": "2026-01-01T00:00:00+00:00",
+    }
+
+
+def _compute_stub(new_level: str):
+    """Return a compute_topic_scores mock result with the given mastery_level."""
+    return {
+        "topic_scores": {},
+        "session_history": {},
+        "strengths": [],
+        "gaps": [],
+        "mastery_level": new_level,
+    }
+
+
+class TestGateDetection:
+    """Gate crossing detection — update_profile_node emits gate_just_passed on level advance."""
+
+    def test_beginner_to_intermediate_emits_phase_1(self) -> None:
+        """beginner → intermediate crosses phase_1 gate."""
+        profile = _fake_profile_with_level("beginner")
+
+        with (
+            patch("agents.nodes.update_profile.get_profile_by_user_id", return_value=profile),
+            patch("agents.nodes.update_profile.update_profile"),
+            patch(
+                "agents.nodes.update_profile.compute_topic_scores",
+                return_value=_compute_stub("intermediate"),
+            ),
+        ):
+            result = update_profile_node(_base_state(user_id="user-gate"))  # type: ignore[arg-type]
+
+        assert result == {"gate_just_passed": "phase_1"}, (
+            f"beginner→intermediate must emit phase_1, got {result!r}"
+        )
+
+    def test_novice_to_intermediate_emits_phase_1(self) -> None:
+        """novice → intermediate also crosses phase_1 gate."""
+        profile = _fake_profile_with_level("novice")
+
+        with (
+            patch("agents.nodes.update_profile.get_profile_by_user_id", return_value=profile),
+            patch("agents.nodes.update_profile.update_profile"),
+            patch(
+                "agents.nodes.update_profile.compute_topic_scores",
+                return_value=_compute_stub("intermediate"),
+            ),
+        ):
+            result = update_profile_node(_base_state(user_id="user-gate"))  # type: ignore[arg-type]
+
+        assert result == {"gate_just_passed": "phase_1"}
+
+    def test_intermediate_stays_no_gate(self) -> None:
+        """intermediate → intermediate does not emit a gate."""
+        profile = _fake_profile_with_level("intermediate")
+
+        with (
+            patch("agents.nodes.update_profile.get_profile_by_user_id", return_value=profile),
+            patch("agents.nodes.update_profile.update_profile"),
+            patch(
+                "agents.nodes.update_profile.compute_topic_scores",
+                return_value=_compute_stub("intermediate"),
+            ),
+        ):
+            result = update_profile_node(_base_state(user_id="user-gate"))  # type: ignore[arg-type]
+
+        assert result == {}, f"No gate on same-level, got {result!r}"
+
+    def test_intermediate_to_advanced_emits_phase_2(self) -> None:
+        """intermediate → advanced crosses phase_2 gate."""
+        profile = _fake_profile_with_level("intermediate")
+
+        with (
+            patch("agents.nodes.update_profile.get_profile_by_user_id", return_value=profile),
+            patch("agents.nodes.update_profile.update_profile"),
+            patch(
+                "agents.nodes.update_profile.compute_topic_scores",
+                return_value=_compute_stub("advanced"),
+            ),
+        ):
+            result = update_profile_node(_base_state(user_id="user-gate"))  # type: ignore[arg-type]
+
+        assert result == {"gate_just_passed": "phase_2"}
+
+    def test_advanced_to_expert_emits_phase_3(self) -> None:
+        """advanced → expert crosses phase_3 gate."""
+        profile = _fake_profile_with_level("advanced")
+
+        with (
+            patch("agents.nodes.update_profile.get_profile_by_user_id", return_value=profile),
+            patch("agents.nodes.update_profile.update_profile"),
+            patch(
+                "agents.nodes.update_profile.compute_topic_scores",
+                return_value=_compute_stub("expert"),
+            ),
+        ):
+            result = update_profile_node(_base_state(user_id="user-gate"))  # type: ignore[arg-type]
+
+        assert result == {"gate_just_passed": "phase_3"}
+
+    def test_no_gate_on_assessment_error_path(self) -> None:
+        """assessment_error=True: no gate detection, returns {}."""
+        result = update_profile_node(_base_state(  # type: ignore[arg-type]
+            user_id="user-gate",
+            assessment_error=True,
+        ))
+        assert result == {}
+
+    def test_no_gate_on_anonymous_user(self) -> None:
+        """user_id=None: no gate detection, returns {}."""
+        result = update_profile_node(_base_state(user_id=None))  # type: ignore[arg-type]
+        assert result == {}
+
+    def test_no_gate_when_level_unchanged(self) -> None:
+        """beginner → beginner: no gate emitted."""
+        profile = _fake_profile_with_level("beginner")
+
+        with (
+            patch("agents.nodes.update_profile.get_profile_by_user_id", return_value=profile),
+            patch("agents.nodes.update_profile.update_profile"),
+            patch(
+                "agents.nodes.update_profile.compute_topic_scores",
+                return_value=_compute_stub("beginner"),
+            ),
+        ):
+            result = update_profile_node(_base_state(user_id="user-gate"))  # type: ignore[arg-type]
+
+        assert result == {}

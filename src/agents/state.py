@@ -103,6 +103,9 @@ class AgentState(TypedDict):
     """Complete generated answer.  Written by generate_node; read by assess_node
     and included in the SSE 'done' event (Commit 10)."""
 
+    gate_just_passed: str | None
+    """Phase name just crossed ("phase_1", "phase_2", "phase_3") or None."""
+
     # --- User context ---
     user_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
     """Learner mastery level loaded from the user profile before graph entry."""

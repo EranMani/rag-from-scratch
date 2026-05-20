@@ -47,7 +47,8 @@ Node contract:
             AgentState.assessment_error    (bool)          — True skips score write
             AgentState.topic_scores_delta  (dict[str, float]) — sparse per-turn delta
             AgentState.identified_gaps     (list[str])     — low-understanding slugs
-    Output: {}   — node does not modify AgentState
+    Output: {}   — node does not modify AgentState on most paths.
+            {"gate_just_passed": str} — emitted when mastery_level crosses a phase gate boundary.
 
 Design notes:
 - Synchronous node. Called from asyncio.to_thread() at the graph invocation level in
@@ -71,6 +72,9 @@ from app.profile.db import get_profile_by_user_id, update_profile
 from app.profile.scoring import TopicScoreUpdate, compute_topic_scores
 
 logger = logging.getLogger(__name__)
+
+_LEVEL_ORDER: dict[str, int] = {"novice": 0, "beginner": 1, "intermediate": 2, "advanced": 3, "expert": 4}
+_GATE_THRESHOLDS: dict[str, int] = {"phase_1": 2, "phase_2": 3, "phase_3": 4}
 
 
 def update_profile_node(state: AgentState) -> dict[str, Any]:
@@ -118,6 +122,8 @@ def update_profile_node(state: AgentState) -> dict[str, Any]:
         active_slug = next(iter(topic_scores_delta))
         session_count = session_question_counts.get(active_slug)
 
+    previous_level: str | None = current_profile.get("mastery_level")
+
     score_update: TopicScoreUpdate = compute_topic_scores(
         current_profile,
         topic_scores_delta,
@@ -143,4 +149,13 @@ def update_profile_node(state: AgentState) -> dict[str, Any]:
         score_update["mastery_level"],
     )
 
-    return {}
+    old_rank = _LEVEL_ORDER.get(previous_level or "novice", 0)
+    new_rank = _LEVEL_ORDER.get(score_update["mastery_level"], 0)
+
+    gate_just_passed: str | None = None
+    for gate_name, threshold in _GATE_THRESHOLDS.items():
+        if old_rank < threshold <= new_rank:
+            gate_just_passed = gate_name
+            break  # only the highest crossed gate
+
+    return {"gate_just_passed": gate_just_passed} if gate_just_passed else {}

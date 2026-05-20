@@ -113,8 +113,8 @@ class TestGate1ReturnShape:
         assert len(ai_messages) >= 1
 
     @pytest.mark.asyncio
-    async def test_return_dict_contains_exactly_messages_and_answer(self) -> None:
-        """Return dict contains exactly 'messages' and 'answer' — no extra keys."""
+    async def test_return_dict_contains_required_keys(self) -> None:
+        """Return dict contains 'messages', 'answer', and 'gate_just_passed'."""
         state = _make_state([HumanMessage("What is a vector store?")])
         mock_provider = _make_mock_provider("A vector store holds embeddings.")
 
@@ -122,7 +122,7 @@ class TestGate1ReturnShape:
             from agents.nodes.generate import generate_node
             result = await generate_node(state)
 
-        assert set(result.keys()) == {"messages", "answer"}
+        assert set(result.keys()) == {"messages", "answer", "gate_just_passed"}
 
     @pytest.mark.asyncio
     async def test_answer_matches_ai_message_content(self) -> None:
@@ -543,6 +543,73 @@ class TestGate5GetProviderUsed:
         from langchain_core.messages import SystemMessage
         assert isinstance(captured_messages[0], SystemMessage)
         assert "expert" in captured_messages[0].content
+
+    @pytest.mark.asyncio
+    async def test_gate_just_passed_none_when_not_set(self) -> None:
+        """gate_just_passed is None in return dict when state has no gate_just_passed."""
+        state = _make_state([HumanMessage("What is RAG?")])
+        mock_provider = _make_mock_provider("Answer.")
+
+        with patch("agents.nodes.generate.get_provider", return_value=mock_provider):
+            from agents.nodes.generate import generate_node
+            result = await generate_node(state)
+
+        assert result["gate_just_passed"] is None
+
+    @pytest.mark.asyncio
+    async def test_gate_announcement_prepended_to_response(self) -> None:
+        """When gate_just_passed is set, announcement is prepended to the LLM response."""
+        state = _make_state([HumanMessage("What is chunking?")])
+        state["gate_just_passed"] = "phase_1"
+        mock_provider = _make_mock_provider("Here is the answer.")
+
+        with patch("agents.nodes.generate.get_provider", return_value=mock_provider):
+            from agents.nodes.generate import generate_node
+            result = await generate_node(state)
+
+        assert result["answer"].startswith("Congratulations — you've passed Phase 1")
+        assert "Here is the answer." in result["answer"]
+
+    @pytest.mark.asyncio
+    async def test_gate_announcement_clears_field(self) -> None:
+        """After announce, gate_just_passed is None in the return dict."""
+        state = _make_state([HumanMessage("What is chunking?")])
+        state["gate_just_passed"] = "phase_2"
+        mock_provider = _make_mock_provider("Answer.")
+
+        with patch("agents.nodes.generate.get_provider", return_value=mock_provider):
+            from agents.nodes.generate import generate_node
+            result = await generate_node(state)
+
+        assert result["gate_just_passed"] is None
+
+    @pytest.mark.asyncio
+    async def test_gate_announcement_phase_2_content(self) -> None:
+        """Phase 2 announcement contains Phase 3 unlock language."""
+        state = _make_state([HumanMessage("Tell me about retrieval.")])
+        state["gate_just_passed"] = "phase_2"
+        mock_provider = _make_mock_provider("Retrieval answer.")
+
+        with patch("agents.nodes.generate.get_provider", return_value=mock_provider):
+            from agents.nodes.generate import generate_node
+            result = await generate_node(state)
+
+        assert "Phase 3" in result["answer"]
+        assert "Production Patterns" in result["answer"]
+
+    @pytest.mark.asyncio
+    async def test_no_announcement_when_gate_not_set(self) -> None:
+        """When gate_just_passed is None, no announcement is prepended."""
+        state = _make_state([HumanMessage("What is RAG?")])
+        state["gate_just_passed"] = None
+        mock_provider = _make_mock_provider("Plain answer.")
+
+        with patch("agents.nodes.generate.get_provider", return_value=mock_provider):
+            from agents.nodes.generate import generate_node
+            result = await generate_node(state)
+
+        assert result["answer"] == "Plain answer."
+        assert "Congratulations" not in result["answer"]
 
     @pytest.mark.asyncio
     async def test_default_user_level_novice_when_missing(self) -> None:
