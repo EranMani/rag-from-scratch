@@ -53,7 +53,7 @@
 | 38.5 | knowledge-profile-ui | frontend | ✅ done · 2026-05-20 |
 | 39 | scoring-correctness | backend + ai-engineer | ✅ done · 2026-05-20 |
 | 40 | langchain-curriculum | curriculum-specialist | ✅ done · 2026-05-20 |
-| 41 | gate-remediation | ai-engineer | pending |
+| 41 | gate-remediation | ai-engineer | ✅ done · 2026-05-20 |
 | 42 | rag-specialist-persona | claude | pending |
 | 43 | phase-unlock-agent | ai-engineer | pending |
 | 44 | phase-unlock-ui | frontend | pending |

@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-20 (Commit 40 langchain-curriculum done)",
+  "last_updated": "2026-05-20 (Commit 41 gate-remediation done)",
   "status": "active",
   "current_commit": {
-    "number": "41",
-    "name": "gate-remediation",
+    "number": "42",
+    "name": "rag-specialist-persona",
     "status": "pending",
-    "assignee": "ai-engineer"
+    "assignee": "claude"
   },
   "commits_done": [
     "01",
@@ -51,11 +51,10 @@
     "38",
     "38.5",
     "39",
-    "40"
+    "40",
+    "41"
   ],
   "commits_pending": [
-    "41",
-    "41",
     "42",
     "43",
     "44",
@@ -65,7 +64,7 @@
     "48",
     "49"
   ],
-  "next_commit": "41",
+  "next_commit": "42",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
