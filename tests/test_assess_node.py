@@ -1084,8 +1084,8 @@ class TestMcqLoader:
             "**Correct answer:** A\n",
             encoding="utf-8",
         )
-        from agents.nodes.assess import _MCQ_DIR
-        with patch("agents.nodes.assess._MCQ_DIR", new=tmp_path):
+        from agents.mcq_utils import _MCQ_DIR  # noqa: F401 — imported for patch target validation
+        with patch("agents.mcq_utils._MCQ_DIR", new=tmp_path):
             with pytest.raises(ValueError):
                 _load_mcq_question("bad_topic", 0)
 

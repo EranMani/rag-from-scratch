@@ -81,6 +81,7 @@ from langchain_core.messages import AIMessage
 from agents.prompts.assessment import assessment_prompt
 from langchain_core.prompts import ChatPromptTemplate
 
+from agents.mcq_utils import load_mcq_question as _load_mcq_question  # shared utility
 from agents.state import (
     VALID_MODULE_SLUGS,
     AgentState,
@@ -95,7 +96,6 @@ logger = logging.getLogger(__name__)
 _CURRICULUM_DIR = (
     pathlib.Path(__file__).resolve().parents[3] / "knowledge-base" / "curriculum" / "questions"
 )
-_MCQ_DIR = _CURRICULUM_DIR / "mcq"
 
 # Maps LLM evaluation verdicts to numeric scores for active testing
 _VERDICT_SCORE: dict[str, float] = {
@@ -293,47 +293,6 @@ def _load_rubric_text(slug: str, question_index: int = 0) -> str:
 # ---------------------------------------------------------------------------
 # MCQ loaders and evaluator
 # ---------------------------------------------------------------------------
-
-def _load_mcq_question(slug: str, question_index: int) -> tuple[str, str]:
-    """Load an MCQ question from knowledge-base/curriculum/questions/mcq/[slug].md.
-
-    Returns (display_text, correct_answer) where display_text is ready to send as AI message.
-
-    Raises:
-        FileNotFoundError: If the mcq file for slug does not exist.
-        ValueError: If the question block is malformed (missing required fields).
-    """
-    path = _MCQ_DIR / f"{slug}.md"
-    content = path.read_text(encoding="utf-8")
-
-    # Split into blocks by ## MCQ- headers
-    blocks = re.split(r"(?=^## MCQ-)", content, flags=re.MULTILINE)
-    question_blocks = [b for b in blocks if b.strip().startswith("## MCQ-")]
-
-    if not question_blocks:
-        raise ValueError(f"No MCQ question blocks found in file for slug '{slug}'")
-
-    idx = question_index % len(question_blocks)
-    block = question_blocks[idx]
-
-    q_match = re.search(r"\*\*Question:\*\*\s*\n(.*?)(?=\n\n\*\*|\Z)", block, re.DOTALL)
-    if not q_match:
-        raise ValueError(f"MCQ block {idx} for slug '{slug}' missing **Question:** field")
-    question_text = q_match.group(1).strip()
-
-    opts_match = re.search(r"\*\*Options:\*\*\s*\n(.*?)(?=\n\n\*\*|\Z)", block, re.DOTALL)
-    if not opts_match:
-        raise ValueError(f"MCQ block {idx} for slug '{slug}' missing **Options:** field")
-    options_text = opts_match.group(1).strip()
-
-    ans_match = re.search(r"\*\*Correct answer:\*\*\s*([A-Da-d])", block)
-    if not ans_match:
-        raise ValueError(f"MCQ block {idx} for slug '{slug}' missing **Correct answer:** field")
-    correct_answer = ans_match.group(1).strip().upper()
-
-    display_text = f"Knowledge check: {question_text}\n\n{options_text}"
-    return display_text, correct_answer
-
 
 def _evaluate_mcq_answer(user_message: str, correct_answer: str) -> float:
     """Deterministic binary MCQ evaluator — no LLM call."""

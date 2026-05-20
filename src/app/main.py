@@ -11,7 +11,7 @@ from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from app.core.config import settings
 from app.core.logging_config import logger
 from app.core.metrics import REGISTRY, REQUEST_COUNT, REQUEST_LATENCY
-from app.api.routes import chat, documents, health, auth, profile, admin
+from app.api.routes import chat, documents, health, auth, profile, admin, onboarding
 from app.api.routes.health_probe import build_snapshot
 from app.auth.db import init_user_db, seed_admin_user
 from app.profile.db import init_profile_db, migrate_topic_slugs
@@ -125,6 +125,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(admin.router)
+app.include_router(onboarding.router)
 
 
 # Mount NICEGUI
