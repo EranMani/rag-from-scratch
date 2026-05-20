@@ -228,10 +228,12 @@ is acceptable. "We didn't know the concurrent-access case wasn't tested" is not.
 
 ```
 EXECUTION CONSTRAINTS:
-- Max tool uses: 25. If you hit 25 and aren't done, stop and report findings so far.
-- Work from the diff provided. Do NOT read files speculatively.
-- Only Read a file if a specific line in the diff is ambiguous — max 15 lines per targeted read.
-- Do not read files to understand context you can infer from the diff.
+- Max tool uses: 15. Runtime hard cap — the hook blocks call #16. Stop and report at 15.
+- Read/Glob/Grep calls are RUNTIME-BLOCKED. The hook rejects them. Do not attempt.
+- All context is in your prompt: diff + key file contents + commit spec.
+- If you need information not present in your prompt, note the gap in your findings.
+  Do not call any tool. Note it and continue.
+- Your entire review is produced from what is in this prompt. Zero file reads.
 ```
 
 ---

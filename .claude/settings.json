@@ -27,6 +27,33 @@
             "command": "python hooks/tool_cap_start.py"
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/reviewer_read_block.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/reviewer_read_block.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/reviewer_read_block.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [

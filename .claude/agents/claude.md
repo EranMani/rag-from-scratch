@@ -212,3 +212,13 @@ Why it matters: C27 was a CSS/SVG commit. It ran Viktor + Sage + Mira across 8 r
 Trigger: About to invoke any implementation agent (Aria, Rex, Nova, Adam).
 Pattern: Before writing the brief, verify: (1) the spec visually achieves the stated goal — if goal is "wow" but spec only tweaks font sizes, rewrite the spec; (2) no `ui.html(f-string)` with user data — always use `ui.label()` for user-controlled values in NiceGUI.
 Why it matters: C27 pass 1 was rejected (186k tokens wasted producing nothing). The retry spec introduced CWE-79 XSS via `ui.html(f-string)`, adding two more gate cycles. Both were preventable at spec-write time.
+
+**rag-from-scratch · 2026-05-20 — Reviewer inline context (C36 post-mortem: 100k wasted)**
+Trigger: About to invoke Viktor, Sage, Quinn, Mira, or Ryan.
+Pattern: The reviewer prompt MUST include: (1) the git diff, (2) full content of every NEW file in the diff, (3) ±20 lines surrounding each changed region in every EXISTING file touched. Do NOT pass diff-only and let them read files themselves — the hook now blocks those reads, so the review will be incomplete if context is missing.
+Why it matters: C36 Viktor used 14 Read calls (45k tokens), Sage used 8 (45k tokens), Ryan used 8 (38k tokens). 84k of 100k overage came from reviewers reading files instead of receiving them inline. Prompt-engineering alone failed 17 commits in a row. The runtime hook now enforces it — but if you pass an empty context package, the hook just produces an uninformed review.
+
+**rag-from-scratch · 2026-05-20 — Ryan exact-anchor protocol**
+Trigger: About to invoke Ryan to write a LEARNING_LOG entry.
+Pattern: Compose the FULL entry yourself before invoking Ryan. Pass (1) old_string = verbatim last 10 lines of LEARNING_LOG.md (read it yourself first), (2) new_string = old_string + the complete new entry, fully written. Ryan's only job is to execute the Edit call. If you give Ryan a brief and ask him to "write the entry," he will read the file — which the hook now blocks — and his Edit will fail. Claude writes the entry content. Ryan executes 1 Edit call.
+Why it matters: C28 Ryan burned 44k on a one-liner by reading LEARNING_LOG.md. C36 Ryan used 8 tool calls despite explicit "do not read" instruction. Prompt engineering failed. The hook now blocks reads — but you must provide complete old_string + new_string or the hook-enforced constraint produces a failed Edit rather than a useful entry.

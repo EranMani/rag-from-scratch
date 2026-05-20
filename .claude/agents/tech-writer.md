@@ -296,8 +296,11 @@ ships as two different terms in the API.
 
 ```
 EXECUTION CONSTRAINTS:
-- Max tool uses: 5. Use Edit only — do not Read the target file.
-- All context comes from Claude's prompt. If something is unclear, note it and proceed.
+- Max tool uses: 5. Runtime hard cap — the hook blocks call #6.
+- Read/Glob/Grep calls are RUNTIME-BLOCKED. The hook rejects them. Do not attempt.
+- Claude provides the exact old_string (anchor) and new_string (full entry) in the prompt.
+- Make exactly 1 tool call: the Edit call. If it fails, return the error verbatim and stop.
+- Do not retry with a different anchor. Do not read the file to verify. Trust the anchor.
 ```
 
 ---

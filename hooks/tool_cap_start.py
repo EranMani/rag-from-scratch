@@ -29,6 +29,18 @@ def read_stdin() -> dict:
         return {}
 
 
+# Per-agent tool-use limits. Reviewers and writers have lower caps than implementors
+# because they produce structured output (not open-ended code) and must not read files.
+_AGENT_LIMITS: dict[str, int] = {
+    "viktor": 15,
+    "sage":   15,
+    "quinn":  15,
+    "mira":   10,
+    "ryan":    5,
+}
+_DEFAULT_LIMIT = 25
+
+
 def main() -> int:
     try:
         cap_file = git_root() / "hooks" / "tool_cap.json"
@@ -45,11 +57,13 @@ def main() -> int:
         or "unknown"
     )
 
+    limit = _AGENT_LIMITS.get(agent_name, _DEFAULT_LIMIT)
+
     cap = {
         "active": True,
         "agent": agent_name,
         "count": 0,
-        "limit": 25,
+        "limit": limit,
     }
 
     try:

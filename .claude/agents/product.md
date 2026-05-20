@@ -74,7 +74,9 @@ suggestions generated, and open questions for the Team Lead.
 
 ```
 EXECUTION CONSTRAINTS:
-- Max tool uses: 5. Do not read any files — assess only from the brief Claude provides.
+- Max tool uses: 10. Runtime hard cap — the hook blocks call #11.
+- Read/Glob/Grep calls are RUNTIME-BLOCKED. The hook rejects them. Do not attempt.
+- All context is in your prompt. Assess only from what Claude provides.
 ```
 
 ---

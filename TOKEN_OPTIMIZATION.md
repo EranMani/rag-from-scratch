@@ -371,6 +371,60 @@ Orchestrator calls Agent(subagent_type="nova")
 
 ---
 
+### 17. Reviewer Read Elimination — Inline Context + Runtime Hard Block
+
+**Why / When:** Apply to every reviewer and writer invocation (Viktor, Sage, Quinn, Mira, Ryan). Reviewers consistently landed at 35–60k tokens (target ≤15k) across 17 commits, with no improvement from prompt-engineering. Root cause: they receive the diff, then make Read calls to understand the surrounding code. Each file read costs 1,500–5,000 tokens before any finding is produced. Viktor made 14 Read calls in C36 (45k total), Sage made 8 (45k total), Ryan made 8 (38k total). 84k of the 100k C36 overage came from these reads. Prompt-level instructions ("do NOT read files") were ignored 100% of the time across 17 commits.
+
+**What changed (2026-05-20 — C36 post-mortem):** Three-part fix:
+
+**Part 1 — Inline context in every reviewer prompt:**
+Every Viktor/Sage/Quinn/Mira invocation includes: (1) the git diff, (2) full content of every NEW file in the diff, (3) ±20 lines surrounding each changed region in every EXISTING file touched. Reviewers have no reason to make Read calls — everything they need is already in the prompt.
+
+**Part 2 — Runtime hard block (`hooks/reviewer_read_block.py`):**
+New `PreToolUse` hook registered for Read, Glob, and Grep. Reads `tool_cap.json` to get the current agent name. If the agent is in `{"viktor", "sage", "quinn", "mira", "ryan"}`, the hook exits with code 2 (block) — the tool call never executes. The reviewer receives an error message: "All context is provided in your invocation prompt. Note the gap and continue without reading." Fail-open: any I/O error → allow.
+
+**Part 3 — Per-agent tool-use caps (`hooks/tool_cap_start.py` updated):**
+The cap is no longer a single 25-use limit for all agents. `tool_cap_start.py` now reads the agent name and sets a per-type limit: Viktor/Sage/Quinn = 15, Mira = 10, Ryan = 5, implementors = 25. This prevents a reviewer from burning their entire 25-use budget on non-review actions even if they found a way around the read block.
+
+**Why prompt engineering alone failed:** LLMs are probabilistic. A context window with 10,000 tokens of diff and a 20-word "do not read" instruction at the top has an increasing probability of violating that instruction as the context grows. The hook is deterministic — it does not forget, does not drift, and does not respond to persuasion. The agent can attempt a Read call; the hook cancels it unconditionally.
+
+**Estimated saving:**
+- Viktor: 45k → ~12k (save 33k per commit with gate wave)
+- Sage: 45k → ~12k (save 33k per relevant commit)
+- Ryan: 38k → ~5k (save 33k per commit — 1 Edit call, no reads)
+- Over 10 remaining commits with gate waves: ~660k tokens saved
+
+**Status:** Active — implemented 2026-05-20, post-mortem C36
+
+**What this trades away:** Reviewers can no longer look up context they weren't given. If Claude passes a thin context package (diff only), the review will be incomplete — the hook blocks the reads that would have filled the gap. Claude must build complete context packages. The discipline moves from the reviewer (who must resist temptation) to the orchestrator (who must provide everything upfront). This is the correct place for that discipline.
+
+**Example:** C36 Viktor: received diff + commit spec. Made 14 Read calls to understand `mcq_utils.py`, `assess.py`, `main.py`, `auth/db.py`, and the test file — then produced a false positive Hard Block based on a misread of how Python import aliases work. With Method 17: Viktor receives the diff + full contents of `mcq_utils.py` + full `onboarding.py` + the changed lines in `assess.py` and `main.py`. His 14 Read calls are blocked at the hook level. He produces his review from what's in the prompt. Estimated cost: 10–14k instead of 45k.
+
+---
+
+### 18. Pre-Load Implementation Files Before Agent Invocation
+
+**Why / When:** Apply before every Nova/Rex/Aria/Adam invocation. Implementation agents start by reading all the files they'll modify — spending 6–10 tool uses on discovery before writing a single line. With a 26-tool cap, that leaves only 16–20 uses for productive work. Nova hit the tool cap in C34, C35, and C36 — all three times, tests were failing or incomplete at cap.
+
+**What changed (2026-05-20 — C36 post-mortem):**
+Before invoking any implementation agent, Claude reads all files the agent will need to modify and includes their full content in the context package. The agent's prompt contains the current file contents. Their first tool call is a Write, not a Read.
+
+This is a discipline rule for Claude, not a hook — the orchestrator reads the files, the agent receives them. The agent's 25 tool uses are spent on writes, test runs, and iteration — not discovery.
+
+**How to apply:**
+1. Read the commit spec. Identify every file the agent will create or modify.
+2. Read each existing file (or note "new file — no current content").
+3. Include the content verbatim in the agent's invocation prompt under "Current file contents:".
+4. In the agent prompt, include: "All files you need are below. Do NOT re-read them. Go directly to Phase 2 (writes)."
+
+**Estimated saving:** 6–10 tool uses freed per implementation agent. At ~2k tokens per tool call (including context echo at late-session call depth), that's 12–20k tokens saved per commit. More importantly, it prevents the tool cap from being hit before implementation is complete — which eliminates the cost of orchestrator fixes or second passes.
+
+**Status:** Active — rule established 2026-05-20, C36 post-mortem
+
+**Example:** C36 Nova: read `assess.py`, `mcq_utils.py` (new), `onboarding.py` (new), `main.py`, `tests/test_onboarding.py` (new), `tests/test_assess_node.py` before writing anything. With pre-loading: those 6 reads are done by Claude before the Agent() call, included inline in the prompt. Nova starts writing immediately. 6 tool uses freed from a 26-use cap = 23% more capacity for productive work.
+
+---
+
 ## Planned / Not Yet Applied
 
 ### `/compact` Mid-Session
