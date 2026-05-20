@@ -51,10 +51,17 @@
 | 37 | mcq-chat-ui | frontend | ✅ done · 2026-05-20 |
 | 38 | progression-ui | frontend | ✅ done · 2026-05-20 |
 | 38.5 | knowledge-profile-ui | frontend | ✅ done · 2026-05-20 |
-| 39 | nginx-config | devops | pending |
-| 40 | aws-ec2-deployment | devops | pending |
-| 41 | integration-tests | backend + ai-engineer | pending |
-| 42 | documentation | tech-writer | pending |
+| 39 | scoring-correctness | backend + ai-engineer | pending |
+| 40 | langchain-curriculum | curriculum-specialist | pending |
+| 41 | gate-remediation | ai-engineer | pending |
+| 42 | rag-specialist-persona | claude | pending |
+| 43 | phase-unlock-agent | ai-engineer | pending |
+| 44 | phase-unlock-ui | frontend | pending |
+| 45 | rag-specialist-content | rag-specialist | pending |
+| 46 | nginx-config | devops | pending |
+| 47 | aws-ec2-deployment | devops | pending |
+| 48 | integration-tests | backend + ai-engineer | pending |
+| 49 | documentation | tech-writer | pending |
 
 ---
 
@@ -66,6 +73,8 @@ Wave B (Phase 3):    08 ∥ 09       — retrieve_node and generate_node are ind
 Wave C (Phase 8):    28 (integration tests — single owner pair, no further split)
 Wave D (Progression): 33 ∥ 34      — knowledge-base only (Lara) vs AI layer (Nova), no shared files
 Wave E (Progression): 35 ∥ 36      — both depend on 34; 35 also needs 33
+Wave F (Scoring):     39 ∥ 40      — scoring fixes (Rex+Nova) vs LangChain curriculum (Lara), no shared files
+Wave G (Content):     44 ∥ 45      — phase unlock UI (Aria) vs RAG Specialist content (Lara+Specialist), no shared files
 ```
 
 ---

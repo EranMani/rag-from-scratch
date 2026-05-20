@@ -125,3 +125,16 @@ The commit plan has been updated. Here is what changed for you:
 
 **Your next commit is now: Commit 39 `nginx-config`** (after Commit 38 progression-ui is complete)
 Specs: rename commit-specs/commit-39.md and commit-specs/commit-40.md — already renamed — content is unchanged.
+
+## 📋 Replan Notice — 2026-05-20
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was removed:** nothing — your work is entirely unchanged in scope.
+**What was reordered:** 7 learning flow commits inserted before your deployment work.
+- nginx-config moves from Commit 39 → **Commit 46** (spec: `commit-specs/commit-46.md` — content identical, only number changed)
+- aws-ec2-deployment moves from Commit 40 → **Commit 47** (spec: `commit-specs/commit-47.md` — dependency updated to Commit 46)
+
+**What changed in your sequence:** you now follow after 7 new learning flow commits complete.
+
+**Your next commit is now: Commit 46 `nginx-config`** (after Commit 45 `rag-specialist-content` is complete)

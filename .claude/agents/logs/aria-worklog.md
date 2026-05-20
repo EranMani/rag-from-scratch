@@ -1052,3 +1052,19 @@ The `ui_kits/` version of `KnowledgeProfile.jsx` is the old single-list design.
 Read: `UI_Design/app/KnowledgeProfile.jsx`, `UI_Design/app/kit.css`, `UI_Design/reference/design-spec.md`.
 
 **Your next commit is now: Commit 37 `mcq-chat-ui`** (after Nova's Commits 35 and 36 are complete)
+
+## 📋 Replan Notice — 2026-05-20
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was added:** Commit 44 `phase-unlock-ui` — assigned to you (Aria)
+
+**What it requires from you (`src/app/ui.py` — `profile_panel()` and helpers only):**
+1. Overview tab: always show all three phases. Phase 2 and Phase 3 show as locked/dimmed (padlock icon, CSS opacity or "locked" class, tooltip "Pass Phase X to unlock") until gate passes. Locked topics visible but grayed. Unlocked phases show full-color progress bars and individual topic scores.
+2. Current tab: add progress context below topic checklist — "Phase X of 3 — N topics complete, M to go"
+3. Unlock celebration: when incoming profile.mastery_level advances (compare to stored previous level), animate the newly unlocked phase from locked → unlocked (CSS fade-in + padlock → checkmark swap, 2–3s highlight on new topics). No modals.
+  Hard limit: changes confined to `profile_panel()` and helpers. No streaming logic, no auth, no new API calls.
+
+**What changed in your sequence:** all prior Aria commits (37, 38, 38.5) are done. Commit 44 runs in parallel with Commit 45 (RAG Specialist content — different domain, no conflict). Depends on Nova's Commit 43.
+
+**Your next commit is now: Commit 44 `phase-unlock-ui`** (after Nova's Commit 43 `phase-unlock-agent` is complete)

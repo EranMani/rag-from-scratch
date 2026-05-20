@@ -859,3 +859,18 @@ The commit plan has been updated. Here is what changed for you:
 - Commit 41 integration-tests will now also need to cover the progression system flows: phase gate enforcement, MCQ scoring, onboarding level-check, soft gate redirects
 
 **Your next commit is now: Commit 41 `integration-tests`** (co-owned with Nova; after Commits 38 and 40 are complete)
+
+## 📋 Replan Notice — 2026-05-20
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was added:** Commit 39 `scoring-correctness` — co-assigned to you (Rex) + Nova
+
+**What it requires from you (`src/app/profile/scoring.py`):**
+- Add `is_passive: bool = False` parameter to `compute_topic_scores`. When `is_passive=True`, use additive clamped logic (`min(current + delta, 0.3)`) instead of the spaced-rep formula. Passive deltas cannot reduce an existing score.
+- Add `session_question_count: int = 1` parameter to `compute_topic_scores`. When `session_question_count < 3` and `is_passive=False`, log a warning and return current scores unchanged. Nova wires the actual count in Commit 41.
+  Nova handles the `% 8` → `% 5` fix in `src/agents/nodes/assess.py`.
+
+**What changed in your sequence:** integration-tests moves from Commit 41 → **Commit 48**
+
+**Your next commit is now: Commit 39 `scoring-correctness`** (co-owned with Nova)

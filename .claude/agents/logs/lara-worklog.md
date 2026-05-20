@@ -297,3 +297,24 @@ The commit plan has been updated. Here is what changed for you:
 - All existing open questions keep their existing format — just add the tier tag
 
 **Your next commit is now: Commit 33 `question-bank-mcq`**
+
+## 📋 Replan Notice — 2026-05-20
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was added:** Commit 40 `langchain-curriculum` — assigned to you (Lara)
+
+**What it requires from you:** Add `langchain_fundamentals` as a Phase 2 bridging topic (knowledge-base only — no src/ files):
+- `knowledge-base/curriculum/curriculum-map.md` — add topic definition (phase 2, bridging, all Phase 2 topics recommended first)
+- `knowledge-base/curriculum/topic-slugs.json` — add `"langchain_fundamentals"`
+- `knowledge-base/curriculum/gates.md` — update Phase 2 required topics list to include langchain_fundamentals
+- `knowledge-base/curriculum/questions/langchain_fundamentals.md` — new open-ended bank (5 questions + rubrics)
+- `knowledge-base/curriculum/questions/mcq/langchain_fundamentals.md` — new MCQ bank (5 questions, difficulty stratified)
+  Team Lead rationale: LangChain was dropped in the 2026-05-11 replan but is being restored as "the framework that combines everything together" — the bridge from theory to implementation.
+  Handoff to Nova (Commit 41): after your commit, Nova adds `langchain_fundamentals` to VALID_MODULE_SLUGS, PHASE_2_TOPICS, and _ORDERED_SLUGS.
+
+**What was also added:** Commit 45 `rag-specialist-content` — assigned to new RAG Specialist agent. The Specialist expands your question banks to 10–15 questions per topic with expert-tier content. Your structure files (curriculum-map.md, gates.md, topic-slugs.json) remain yours — Specialist only adds depth within question files.
+
+**What changed in your sequence:** no existing Lara commits were renumbered.
+
+**Your next commit is now: Commit 40 `langchain-curriculum`**

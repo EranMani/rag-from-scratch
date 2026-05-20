@@ -4,9 +4,9 @@
   "status": "active",
   "current_commit": {
     "number": "39",
-    "name": "nginx-config",
+    "name": "scoring-correctness",
     "status": "pending",
-    "assignee": "devops"
+    "assignee": "backend + ai-engineer"
   },
   "commits_done": [
     "01",
@@ -55,7 +55,14 @@
     "39",
     "40",
     "41",
-    "42"
+    "42",
+    "43",
+    "44",
+    "45",
+    "46",
+    "47",
+    "48",
+    "49"
   ],
   "next_commit": "39",
   "open_handoffs": [],
@@ -202,6 +209,16 @@
       "key_decisions": "soft gate (redirect not refuse); advancement questions are MCQ only until open-question scorer validated; onboarding is self-report + 2–3 diagnostic questions, skippable; phase gate math already exists in scoring.py — commit 34 wires it into assess_node._select_test_slug()",
       "consulted": "Mira (two rounds — progression gating + assessment format). Approved.",
       "approved_by": "Team Lead · 2026-05-19"
+    },
+    {
+      "date": "2026-05-20",
+      "trigger": "Requirement changed + bugs discovered — Mira/Nova learning flow review identified 5 scoring/gate bugs (% 8 question index, passive delta decay, min-session guard, intermediate Phase 1 lockout, silent phase unlock) and 3 new requirements: LangChain topic re-added to curriculum, phase unlock UX with celebration moment, RAG Specialist agent for practitioner-depth content.",
+      "commits_added": ["39 scoring-correctness", "40 langchain-curriculum", "41 gate-remediation", "42 rag-specialist-persona", "43 phase-unlock-agent", "44 phase-unlock-ui", "45 rag-specialist-content"],
+      "commits_reordered": ["39 nginx-config → 46", "40 aws-ec2-deployment → 47", "41 integration-tests → 48", "42 documentation → 49"],
+      "commits_removed": [],
+      "new_agent": "RAG Specialist — practitioner-depth content author; owns knowledge-base/curriculum/questions/ depth; never touches src/ or Lara's structure files",
+      "parallel_waves_added": "Wave F: 39 ∥ 40 (scoring fixes ∥ LangChain curriculum); Wave G: 44 ∥ 45 (phase unlock UI ∥ RAG Specialist content)",
+      "approved_by": "Team Lead · 2026-05-20"
     },
     {
       "date": "2026-05-20",

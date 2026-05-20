@@ -40,3 +40,20 @@ The commit plan has been updated. Here is what changed for you:
 - Documentation scope will expand: the progression system (phase gates, MCQ format, onboarding flow) introduces new concepts, decisions, and API behavior that will need documenting
 
 **Your next commit is now: Commit 42 `documentation`** (after Commit 41 integration-tests is complete)
+
+## 📋 Replan Notice — 2026-05-20
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was reordered:** documentation moves from Commit 42 → **Commit 49** (spec: `commit-specs/commit-49.md`)
+
+**What expanded in scope:** 7 new commits add new concepts that need documenting:
+- 9-topic curriculum (langchain_fundamentals added as Phase 2 bridge topic)
+- Phase gate progression with visible unlock moments (in-chat announcement + UI celebration in sidebar)
+- Scoring correctness model (session minimum of 3 questions, passive vs MCQ separate paths)
+- RAG Specialist agent (new practitioner persona in the system)
+  The GETTING_STARTED.md section on curriculum phases needs to explain what a novice sees, how phases unlock, and what the unlock experience looks like.
+
+**What changed in your sequence:** documentation now depends on Commit 48 (integration-tests), not Commit 41.
+
+**Your next commit is now: Commit 49 `documentation`** (after Commit 48 `integration-tests` is complete)

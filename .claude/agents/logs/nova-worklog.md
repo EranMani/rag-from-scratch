@@ -1830,3 +1830,27 @@ bootstrap schema fix and the assess_node patch target update after Nova hit the 
 - `src/app/main.py` — updated: register onboarding router (2 lines)
 - `tests/test_onboarding.py` — new: 16 tests
 - `tests/test_assess_node.py` — updated: patch target for _MCQ_DIR (1 test, 2 lines)
+
+## 📋 Replan Notice — 2026-05-20
+
+The commit plan has been updated. Here is what changed for you (3 new Nova commits):
+
+**Commit 39 `scoring-correctness`** (co-owned with Rex) — your piece:
+- Fix `% 8` → `% 5` in `_select_question_index` in `src/agents/nodes/assess.py` (one-line fix — live breakage)
+- Rex handles `src/app/profile/scoring.py` changes
+
+**Commit 41 `gate-remediation`** (Nova solo) — depends on 39 and 40:
+- Wire `langchain_fundamentals` into VALID_MODULE_SLUGS (state.py), PHASE_2_TOPICS (scoring.py), _ORDERED_SLUGS (assess.py) — handoff from Lara's Commit 40
+- Fix `_select_test_slug`: allow Phase 1 gap remediation for intermediate users (if identified_gaps contains Phase 1 slug + user_level == "intermediate", it's eligible)
+- Add `session_question_counts: dict[str, int]` to AgentState; emit increments in assess.py evaluation mode; pass to compute_topic_scores via update_profile.py
+- Add score-proximity hint to generate.py adaptive context (topic score 0.60–0.69 → coaching nudge)
+
+**Commit 43 `phase-unlock-agent`** (Nova solo) — depends on 41:
+- Add `gate_just_passed: str | None` field to AgentState
+- Detect mastery_level crossing in update_profile_node; emit gate_just_passed ("phase_1", "phase_2", "phase_3")
+- Add in-chat unlock announcement to generate_node (warm, specific, named topics in unlocked phase)
+- Clear gate_just_passed after generate_node reads it (return `{"gate_just_passed": None}`)
+
+**What changed in your sequence:** integration-tests moves from Commit 41 → **Commit 48**
+
+**Your next commit is now: Commit 39 `scoring-correctness`** (co-owned with Rex; your piece is one line in assess.py)

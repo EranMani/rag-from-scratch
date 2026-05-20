@@ -1,49 +1,57 @@
-﻿# Commit 42 Spec — `documentation`
-> **Project:** rag-from-scratch · **Assignee:** Ryan · **Load only for the active commit.**
-> **Note:** This was formerly Commit 33, renumbered to 36 (replan 2026-05-19), then to 42 (replan 2026-05-19 — progression system added commits 33–38).
+# Commit 42 Spec — `rag-specialist-persona`
+> **Project:** rag-from-scratch · **Assignee:** claude · **Load only for the active commit.**
+> **Note:** Added in replan 2026-05-20 — new RAG Specialist agent persona to produce practitioner-depth curriculum content.
 
 ---
 
-### Commit 42 — `documentation`
+### Commit 42 — `rag-specialist-persona`
 
-**Commit message:** `docs: README, architecture overview, getting started guide`
+**Commit message:** `feat: add RAG Specialist agent persona and interface contract with Lara`
 
 **Body:**
-Complete documentation pass for the portfolio project. Covers the full system including
-the curriculum-driven adaptive assessment model introduced in Commits 22–25 and the
-full UI redesign introduced in Commits 30–32.
+Creates the RAG Specialist agent — a build-time practitioner persona whose job is to
+deepen the knowledge-base content that the existing graph nodes consume. This agent
+is NOT a runtime graph node. It authors files. The graph is unchanged.
 
-`README.md`:
-- Project description and north star
-- Tech stack overview with reasoning
-- Architecture diagram (ASCII or Mermaid)
-- How to run locally (`docker compose up`)
-- How to run with monitoring stack (`docker compose --profile monitoring up`)
-- Environment variables (reference `.env.example`)
-- Overview of the adaptive learning model (curriculum phases, test-based scoring)
+**Why this agent is needed:**
+Lara (curriculum specialist) owns curriculum structure — topic definitions, phase gates,
+learning objectives, and question format. Her ceiling is pedagogically sound but
+surface-level content. She can write "explain what cosine similarity is" but not
+"your production RAG system shows faithfulness=0.6 and context precision=0.9 — diagnose
+the three most likely failure modes." The second question requires someone who has
+debugged this failure mode in a live system.
 
-`GETTING_STARTED.md` (update existing file):
-- Step-by-step local setup
-- How to create an account and test the adaptive agent
-- How to inspect your profile progression
-- How the curriculum phases work (what to expect as a new user)
+The RAG Specialist fills that gap. Its primary output is additional MCQ questions and
+open-ended questions written from operational experience, plus practitioner-depth
+"why wrong" explanations in each MCQ answer field. Secondary output: knowledge-base
+documents with "this is what actually breaks in production" depth.
 
-`docs/API_REFERENCE.md`:
-- All endpoints: `/api/auth/register`, `/api/auth/login`, `/api/auth/me`,
-  `/api/profile/me`, `/api/chat`, `/api/ingest`, `/api/health`, `/metrics`
-- Request/response schemas
+**Agent domain:**
+- Owns: `knowledge-base/curriculum/questions/` (question depth within Lara's structure)
+- Never touches: `src/`, any Lara-owned structure files (curriculum-map.md, gates.md,
+  topic-slugs.json — those remain Lara's)
+- Interface contract: the slug file format (established by Lara) is the contract.
+  The Specialist writes to that format; Lara owns the format definition.
 
-**Assignee:** Ryan (`ryan.tech.writer.agent@gmail.com`)
+**Agent identity file contents (`.claude/agents/rag-specialist.md`):**
+The file must define:
+- Role: practitioner-depth RAG content author
+- Domain: `knowledge-base/curriculum/questions/` only
+- Expertise framing: operational RAG systems, production failure modes, LangChain
+  pipeline debugging, embedding model version management, retrieval quality at scale
+- Content standards: every question must reflect a real failure mode or a
+  distinction that only matters in production; no exam-prep recall questions
+- Collaboration with Lara: Lara provides topic structure; Specialist fills depth
+- Collaboration with Nova: Nova flags which topics score poorly in user sessions
+  (session_history in user profiles) — that data informs where to add harder questions
 
 **Files touched:**
-- `README.md`
-- `GETTING_STARTED.md`
-- `docs/API_REFERENCE.md` (new)
+- `.claude/agents/rag-specialist.md` (new)
+- `AGENTS.md` (add RAG Specialist entry)
 
-**Depends on:** 34
+**Depends on:** 40 (LangChain topic must exist — Specialist needs to fill it)
 
 **Testing — done when:**
-- [ ] `README.md` has a working quickstart (someone with Docker can run it from scratch following the README)
-- [ ] All API endpoints are documented with example request/response
-- [ ] Architecture diagram reflects the actual system (LangGraph graph, curriculum assessment, profile flow, caching)
-- [ ] Adaptive learning model section accurately describes the 3-phase curriculum and scoring model
+- [ ] `.claude/agents/rag-specialist.md` exists and follows the established agent identity format
+- [ ] `AGENTS.md` contains a RAG Specialist entry with domain and interface described
+- [ ] Agent file clearly states it never touches src/ or Lara's structure files

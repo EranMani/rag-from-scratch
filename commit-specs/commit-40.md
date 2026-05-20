@@ -1,62 +1,74 @@
-﻿# Commit 40 Spec — `aws-ec2-deployment`
-> **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
-> **Note:** This was formerly Commit 31, renumbered to 34 (replan 2026-05-19), then to 40 (replan 2026-05-19 — progression system added commits 33–38).
+# Commit 40 Spec — `langchain-curriculum`
+> **Project:** rag-from-scratch · **Assignee:** curriculum-specialist (Lara) · **Load only for the active commit.**
+> **Note:** Added in replan 2026-05-20 — LangChain topic re-added as Phase 2 bridging topic (dropped in 2026-05-11 replan, restored per Team Lead: "it's the framework that combines everything together").
 
 ---
 
-### Commit 40 — `aws-ec2-deployment`
+### Commit 40 — `langchain-curriculum`
 
-**Commit message:** `feat: EC2 deployment scripts — systemd, SSL, swapfile, backup`
+**Commit message:** `feat: add langchain_fundamentals as Phase 2 bridging topic`
 
 **Body:**
-All scripts and config needed for a clean first deploy on a fresh EC2 instance.
+Re-adds LangChain to the curriculum — not as a tool tutorial, but as the practical
+bridge from conceptual RAG knowledge to implementation. Positioned at the end of Phase 2
+as the "put it all together" topic: learners who have studied chunking, vector databases,
+retrieval methods, and context/prompting are now shown how those concepts connect in
+a real LangChain pipeline.
 
-`scripts/deploy.sh`:
-- Install Docker + Docker Compose plugin (not v1)
-- Clone repository to `/opt/rag-from-scratch`
-- `.env.prod` validation guard: `grep JWT_SECRET .env.prod || (echo "FATAL: JWT_SECRET missing" && exit 1)`
-- `docker compose -f docker-compose.prod.yml build`
-- `docker compose -f docker-compose.prod.yml up -d`
-- Ollama model pre-pull: `docker exec rag-ollama ollama pull gemma3:4b`
-- Run Certbot initial cert acquisition
+This is a knowledge-base-only commit. No src/ files are touched.
+Nova wires the new slug into `VALID_MODULE_SLUGS` and `PHASE_2_TOPICS` in Commit 41.
 
-`systemd/rag-app.service`:
-- `After=docker.service`, `Requires=docker.service`
-- `ExecStart` runs `docker compose -f docker-compose.prod.yml up -d`
-- `ExecStop` runs `docker compose -f docker-compose.prod.yml down`
-- Ensures stack restarts after EC2 reboot
+**Topic definition for `langchain_fundamentals`:**
 
-`scripts/setup-swap.sh`:
-- Creates 4 GB swapfile at `/swapfile`
-- Cheap insurance against OOM kills during Ollama model loading spikes
+Phase: 2 (bridging topic — after all other Phase 2 topics)
+Description: Understand how LangChain connects the RAG components from Phase 2 into
+an operational pipeline. Covers the chain abstraction, LCEL, retriever interfaces,
+memory management, and composing a production RAG pipeline from components the learner
+already understands conceptually.
 
-`scripts/backup.sh`:
-- Tarballs `data/app_users.db` (SQLite) and `chroma_data` Docker volume to S3
-- Intended to run via daily cron: `0 3 * * * /opt/rag-from-scratch/scripts/backup.sh`
-- S3 bucket and IAM role documented in script header
+Prerequisites: Phase 1 gate passed; all other Phase 2 topics recommended first.
 
-`scripts/health-check.sh`:
-- Hits `https://{domain}/api/health`
-- Returns 0 on success, 1 on failure
+Learning Objectives:
+1. Describe the LangChain chain abstraction and LCEL pipe syntax — what `|` composes
+   and what types are compatible in a chain.
+2. Explain how LangChain's retriever interface wraps a vector store — what `.as_retriever()`
+   returns, what parameters it accepts, and how it connects to a chain.
+3. Trace a `create_retrieval_chain` call from query to response: which components are
+   called in which order and what each passes to the next.
+4. Explain ConversationBufferMemory and ConversationSummaryMemory — what each stores,
+   when each is appropriate, and what happens when the buffer exceeds the context limit.
+5. Identify at least three places where a LangChain pipeline can fail silently
+   (e.g., retriever returning empty results, chain swallowing exceptions, prompt
+   template variable mismatch) and describe how to surface those failures.
 
-Target EC2 instance: **t3.xlarge** (4 vCPU, 16 GB RAM) with 32 GB gp3 EBS volume.
-Rationale: Ollama (gemma3:4b) needs ~3.5 GB RAM, ELK stack needs ~2 GB, app + ChromaDB
-+ Redis need ~1 GB. t3.large (8 GB) is insufficient with monitoring running.
+Typical Misconceptions:
+- "LangChain is a RAG framework." (LangChain is a general LLM orchestration library.
+  Understanding the concepts independently of LangChain makes you a stronger practitioner.)
+- "LCEL is just Python pipes." (LCEL is a lazy evaluation graph — chains are not
+  executed when composed, only when invoked. This has implications for streaming,
+  async, and error handling.)
+- "LangChain handles memory automatically." (Memory components must be explicitly wired —
+  without it, each query has no conversation history.)
 
-**Assignee:** Adam (`adam.stockagent@gmail.com`)
+**Handoff to Nova (Commit 41):**
+After this commit, Nova must add `langchain_fundamentals` to:
+- `VALID_MODULE_SLUGS` in `src/agents/state.py`
+- `PHASE_2_TOPICS` in `src/app/profile/scoring.py`
+- `_ORDERED_SLUGS` in `src/agents/nodes/assess.py` (at end of Phase 2 block)
 
 **Files touched:**
-- `scripts/deploy.sh` (new)
-- `scripts/health-check.sh` (new)
-- `scripts/backup.sh` (new)
-- `scripts/setup-swap.sh` (new)
-- `systemd/rag-app.service` (new)
+- `knowledge-base/curriculum/curriculum-map.md` — add langchain_fundamentals topic entry
+- `knowledge-base/curriculum/topic-slugs.json` — add `"langchain_fundamentals"` to array
+- `knowledge-base/curriculum/gates.md` — update Phase 2 required topics list to include langchain_fundamentals
+- `knowledge-base/curriculum/questions/langchain_fundamentals.md` — new open-ended question bank (5 questions with rubrics)
+- `knowledge-base/curriculum/questions/mcq/langchain_fundamentals.md` — new MCQ question bank (5 questions, difficulty stratified)
 
-**Depends on:** 33
+**Depends on:** 38.5
+**Parallel with:** 39 (no shared files — knowledge-base only, no src/ overlap)
 
 **Testing — done when:**
-- [ ] `scripts/deploy.sh` runs on a fresh Ubuntu EC2 instance without errors
-- [ ] `systemctl status rag-app` shows active after reboot
-- [ ] `scripts/health-check.sh` returns 0 on a running stack
-- [ ] Ollama responds with `gemma3:4b` after deploy (not on-demand pull)
-- [ ] `.env.prod` missing → deploy.sh exits with FATAL message, not silently continues
+- [ ] `topic-slugs.json` is valid JSON and contains `"langchain_fundamentals"`
+- [ ] `curriculum-map.md` Phase 2 section includes the new topic with full spec
+- [ ] Both question bank files exist and follow the established format
+- [ ] `gates.md` Phase 2 gate rule lists langchain_fundamentals as required
+- [ ] Handoff note for Nova is explicit in Lara's worklog
