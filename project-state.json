@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-20 (Commit 38 progression-ui done)",
+  "last_updated": "2026-05-20 (Commit 38.5 knowledge-profile-ui done)",
   "status": "active",
   "current_commit": {
-    "number": "38.5",
-    "name": "knowledge-profile-ui",
+    "number": "39",
+    "name": "nginx-config",
     "status": "pending",
-    "assignee": "frontend"
+    "assignee": "devops"
   },
   "commits_done": [
     "01",
@@ -48,16 +48,16 @@
     "35.5",
     "36",
     "37",
-    "38"
+    "38",
+    "38.5"
   ],
   "commits_pending": [
-    "38.5",
     "39",
     "40",
     "41",
     "42"
   ],
-  "next_commit": "38.5",
+  "next_commit": "39",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

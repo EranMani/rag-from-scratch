@@ -124,3 +124,8 @@
 ## Progression UI (C38)
 68. **`ob_step_content` is sync `@ui.refreshable`, async work in separate handlers** — NiceGUI refreshable renders UI elements synchronously; API calls happen in `_ob_select_level`/`_ob_select_answer`/`_ob_skip` which mutate state then call `.refresh()`
 69. **Phase lookup dicts at module level, not inside `profile_panel()`** — `profile_panel` refreshes after every chat turn; rebuilding `_PHASE_LABELS`/`_PHASE_TOPICS`/`_ADVANCE_MSG` on each call adds overhead for purely static data
+
+## Knowledge Profile UI (C38.5)
+70. **`ui.element("div")` required for precise flex/grid control in NiceGUI** — `ui.row()`/`ui.column()` render as Quasar `q-row`/`q-col` and inject gap/padding that breaks inner `flex:1` and `width:100%`; plain div avoids all interference
+71. **SVG gradient defs injected once in `index()` head** — `profile_panel` is refreshable; inline `<defs>` per icon duplicates on every render; page-head injection via `ui.add_head_html()` defines the gradient once and reuses by `id`
+72. **CSS `::after` pseudo-element for tab underline via injected stylesheet** — NiceGUI `.style()` sets inline CSS which cannot define pseudo-elements; pseudo-element rules require a class-based stylesheet injected via `ui.add_head_html()`

@@ -2023,3 +2023,85 @@ Two NiceGUI UI additions to `src/app/ui.py`:
 - `src/app/ui.py` — module-level phase dicts, onboarding wizard, phase progress panel
 
 ---
+
+### Commit 38.5 — knowledge-profile-ui
+
+**What changed:** Replaced the flat topic-score list in `profile_panel()` with a two-tab sidebar (Current / Overview) matching `UI_Design/app/KnowledgeProfile.jsx`. Current tab shows active module, topic checklist with gradient checkmarks, and module progress bar. Overview tab shows all three modules with per-module progress bars and locked-state dimming.
+
+**Key discoveries:**
+
+**1. `ui.element("div")` required for precise CSS flex/grid control**
+
+`ui.row()` and `ui.column()` render as Quasar `q-row`/`q-col` which inject gap and padding classes. These override inner `flex:1` and `width:100%` — progress bars and labels cannot stretch to full container width. Solution: replace all layout-critical wrappers with `ui.element("div")` and explicit inline `display:flex` styles.
+
+```python
+# Correct — plain div, no Quasar interference
+with ui.element("div").style("display:flex; flex-direction:row; align-items:center; width:100%; gap:8px"):
+    ui.label(topic_name).style("flex:1; ...")
+    ui.element("div").style("flex:1; height:4px; ...")  # progress bar
+
+# Wrong — q-row injects gap/padding that breaks flex:1
+with ui.row().style("width:100%"):
+    ui.label(topic_name).style("flex:1; ...")  # flex:1 doesn't stretch
+```
+
+**2. CSS `::after` pseudo-elements require injected stylesheet**
+
+NiceGUI's `.style()` method sets inline CSS. Inline styles cannot define pseudo-elements. The gradient underline on the active tab (`.sb-tab.active::after`) must be in a CSS class rule injected via `ui.add_head_html()` in `index()`:
+
+```python
+ui.add_head_html("""<style>
+.sb-tab { cursor:pointer; padding:6px 0; font-size:13px; color:#8b92a8; position:relative; }
+.sb-tab.active { color:#fff; font-weight:600; }
+.sb-tab.active::after { content:""; position:absolute; bottom:-2px; left:0; width:100%;
+  height:2px; background:linear-gradient(90deg,#f97316,#ec4899,#8b5cf6); border-radius:1px; }
+</style>""")
+```
+
+**3. SVG gradient defs injected once per page load**
+
+`profile_panel()` is `@ui.refreshable` and fires after every chat turn. Defining `<linearGradient>` inline in each checkmark SVG would duplicate the `<defs>` block on every render. Define once in `index()` head; all icons reference by `id`:
+
+```python
+# In index() — once per page load
+ui.add_head_html("""<svg style="display:none"><defs>
+  <linearGradient id="tg" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#f97316"/>
+    <stop offset="50%" stop-color="#ec4899"/>
+    <stop offset="100%" stop-color="#8b5cf6"/>
+  </linearGradient>
+</defs></svg>""")
+
+# In profile_panel() — referenced cheaply
+ui.html('<svg width="14" height="14"><path d="M2 7l4 4 6-6" stroke="url(#tg)" .../></svg>')
+```
+
+**4. Mastery whitelist before CSS class injection**
+
+`mastery_level` comes from the API response. It is used in a CSS class name (`mc-{mastery}`) and in `ui.html()`. Whitelisted before use to prevent CSS class injection:
+
+```python
+mastery_raw = profile.get("mastery_level") or "novice"
+mastery = mastery_raw if mastery_raw in {"novice", "beginner", "intermediate", "advanced", "expert"} else "novice"
+ui.html(f'<span class="mastery-chip mc-{mastery}"><span class="dot"></span>{mastery.capitalize()}</span>')
+```
+
+**5. Mutable list for tab state in `@ui.refreshable`**
+
+Same pattern as C37/C38: single-element mutable list allows the click handler to mutate tab state across the closure boundary:
+
+```python
+_tab_state = ["Current"]
+
+@ui.refreshable
+def profile_panel() -> None:
+    active_tab = _tab_state[0]
+    def _switch_tab(name: str) -> None:
+        _tab_state[0] = name
+        profile_panel.refresh()
+```
+
+**Files touched:**
+- `src/app/ui.py` — two-tab profile_panel(), SVG defs + tab CSS injected in index()
+
+---

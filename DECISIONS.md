@@ -784,4 +784,31 @@
 - **Alternatives considered:** Defining inside `index()` as closures — rejected because they don't reference page-scoped state; module scope is correct and makes them importable and testable without page load.
 - **Consequences:** Changes to phase progression model (new phases, topics, thresholds) require updating three module-level dicts in `src/app/ui.py`.
 
-*Last updated: 2026-05-20 — Commit 38 complete (progression-ui: onboarding wizard patterns + phase dict placement)*
+### `ui.element("div")` required for precise flex/grid control in NiceGUI (Commit 38.5)
+- **Date:** 2026-05-20
+- **Commit:** 38.5
+- **Decided by:** Aria + Claude (discovered during implementation)
+- **Decision:** All layout-critical wrappers in `profile_panel()` use `ui.element("div")` with inline `display:flex` styles rather than `ui.row()` or `ui.column()`.
+- **Reason:** `ui.row()` and `ui.column()` render as Quasar `q-row`/`q-col` components which inject gap and padding classes. These override inner element `flex:1` and `width:100%` styles, preventing progress bars and labels from stretching to full width. `ui.element("div")` renders a plain `<div>` with no Quasar interference.
+- **Alternatives considered:** Overriding Quasar gap/padding via `!important` — rejected because it requires per-element overrides and doesn't address `flex:1` breakage; using `ui.row().classes("no-wrap q-pa-none q-ma-none")` — rejected; still adds Quasar `display:flex` with flex-specific defaults that differ from a clean div.
+- **Consequences:** Any future layout-sensitive section in `profile_panel()` or equivalent refreshable panels must use `ui.element("div")` as the wrapper. `ui.row()` and `ui.column()` remain appropriate for non-layout-critical groupings only.
+
+### SVG gradient defs injected once in `index()` head (Commit 38.5)
+- **Date:** 2026-05-20
+- **Commit:** 38.5
+- **Decided by:** Aria + Claude
+- **Decision:** A hidden SVG block with `<linearGradient id="tg">` is injected into the page `<head>` once via `ui.add_head_html()` in `index()`. Topic row checkmark icons reference it as `fill="url(#tg)"`.
+- **Reason:** `profile_panel()` is `@ui.refreshable` and fires after each chat turn, potentially creating hundreds of SVG icon elements. Defining the gradient inline in each icon would duplicate the `<defs>` block on every render. Injecting once in `index()` ensures a single definition reused by all icon instances.
+- **Alternatives considered:** Inline `<defs>` per SVG icon — rejected; duplicates gradient on every refresh. CSS `background: linear-gradient` on the icon container — rejected; SVG `fill` cannot reference a CSS gradient; only an SVG `<linearGradient>` referenced by `id` works for SVG path fills.
+- **Consequences:** The gradient `id="tg"` is a page-scoped constant. Any future SVG element needing the same gradient can reference `fill="url(#tg)"` without defining a new defs block.
+
+### CSS `::after` pseudo-element for tab underline via injected stylesheet (Commit 38.5)
+- **Date:** 2026-05-20
+- **Commit:** 38.5
+- **Decided by:** Aria + Claude
+- **Decision:** The `.sb-tab.active::after` gradient underline is defined in a `<style>` block injected via `ui.add_head_html()` in `index()`, not via NiceGUI's `.style()` method.
+- **Reason:** NiceGUI's `.style()` method sets inline CSS on the element itself (`style="..."`). Inline styles cannot define pseudo-elements (`::after`, `::before`). CSS pseudo-elements require class-based rules in a stylesheet context.
+- **Alternatives considered:** NiceGUI `.style()` with `::after` — not valid; inline styles don't support pseudo-selectors. Per-element JS injection — overly complex for a simple CSS rule.
+- **Consequences:** All pseudo-element styles for sidebar tab indicators must live in the injected `<style>` block inside `index()`. Changes to the tab underline require updating the `ui.add_head_html()` call, not individual element styles.
+
+*Last updated: 2026-05-20 — Commit 38.5 complete (knowledge-profile-ui: two-tab sidebar, NiceGUI flex/grid patterns, SVG gradient injection)*
