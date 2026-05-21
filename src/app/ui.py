@@ -83,6 +83,33 @@ _ACTIVE_MODULE_IDX: dict[str, int] = {
     "novice": 0, "beginner": 0, "intermediate": 1, "advanced": 2, "expert": 2,
 }
 
+_CURRICULUM_SEQUENCE: list[str] = [
+    "embeddings_and_similarity",
+    "rag_pipeline_architecture",
+    "chunking_strategies",
+    "vector_databases",
+    "retrieval_methods",
+    "context_and_prompting",
+    "evaluation_and_metrics",
+    "production_patterns",
+]
+
+_TOPIC_STARTER: dict[str, str] = {
+    "embeddings_and_similarity": "How do embedding models turn text into vectors?",
+    "rag_pipeline_architecture": "Walk me through a complete RAG pipeline.",
+    "chunking_strategies":       "What chunking strategy works best for long documents?",
+    "vector_databases":          "How does HNSW indexing make vector search fast?",
+    "retrieval_methods":         "What's the difference between dense and sparse retrieval?",
+    "context_and_prompting":     "How do I structure a RAG prompt to minimize hallucinations?",
+    "evaluation_and_metrics":    "How do I measure retrieval quality in a RAG system?",
+    "production_patterns":       "What are the biggest failure modes in production RAG?",
+}
+
+_NEXT_UNLOCK: dict[str, str] = {
+    topic: _CURRICULUM_SEQUENCE[i + 1]
+    for i, topic in enumerate(_CURRICULUM_SEQUENCE[:-1])
+}
+
 # Maps navigation chip display names → their parent module label.
 # Used to render grouped module headers above the chips.
 _CHIP_MODULE_GROUPS: list[tuple[str, tuple[str, ...]]] = [
@@ -98,7 +125,7 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
     if not profile:
         return (
             f"Welcome, **{name}**! I'm your RAG learning assistant.\n\n"
-            "Ask me anything about RAG architecture — or try: **How does chunking work?**"
+            "Ask me anything — or start here: **What is retrieval-augmented generation?**"
         )
 
     interaction_count: int = profile.get("interaction_count") or 0
@@ -109,43 +136,54 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
     def _label(slug: str) -> str:
         return _MODULE_LABELS.get(slug, slug.replace("_", " ").title())
 
-    if interaction_count == 0:
+    def _starter(slug: str) -> str:
+        return _TOPIC_STARTER.get(slug, "What would you like to explore today?")
+
+    if interaction_count == 0 and mastery_level in ("novice", "beginner"):
         return (
-            f"Welcome to your RAG learning journey, **{name}**! "
-            "I'll adapt to your level as we go.\n\n"
-            "Start by asking anything — or try: **What is retrieval-augmented generation?**"
+            f"Ready to start, **{name}**? I'll build a picture of where you are as we go.\n\n"
+            "Best first move: **What is retrieval-augmented generation?**"
         )
 
     if gaps:
-        gap_labels = [_label(g) for g in gaps[:2]]
-        gap_str = " and ".join(f"**{l}**" for l in gap_labels)
-        suffix = "more" if len(gaps) > 2 else ""
+        top_gap = gaps[0]
         return (
-            f"Hey **{name}**! I see you have gaps in {gap_str}"
-            + (f" and {len(gaps) - 2} more topic{'s' if len(gaps) - 2 > 1 else ''}" if suffix else "")
-            + f". Want to work on those today?\n\n"
-            f"You've had **{interaction_count}** {'session' if interaction_count == 1 else 'sessions'} so far — keep it up!"
+            f"Welcome back, **{name}**. **{_label(top_gap)}** came up as a weak spot last time — "
+            f"today's a good time to close it.\n\n"
+            f"Try: **{_starter(top_gap)}**"
         )
 
     if strengths:
-        strength_labels = [_label(s) for s in strengths[:2]]
-        strength_str = " and ".join(f"**{l}**" for l in strength_labels)
-        if mastery_level in ("advanced", "expert"):
+        top_strength = strengths[0]
+        next_slug = _NEXT_UNLOCK.get(top_strength)
+        if next_slug:
             return (
-                f"Welcome back, **{name}**! You've mastered {strength_str}. "
-                "Ready to dive into advanced patterns?\n\n"
-                f"**{interaction_count}** {'session' if interaction_count == 1 else 'sessions'} completed — impressive!"
+                f"You have **{_label(top_strength)}** down solid, **{name}** — that's a real foundation. "
+                f"**{_label(next_slug)}** is the natural next unlock.\n\n"
+                f"Try: **{_starter(next_slug)}**"
             )
         return (
-            f"Welcome back, **{name}**! You're strong in {strength_str}. "
-            "Want to go deeper or explore a new topic?\n\n"
-            f"**{interaction_count}** {'session' if interaction_count == 1 else 'sessions'} and counting!"
+            f"You've worked through the full curriculum, **{name}**. "
+            "At this point, sharpening the edges matters more than covering new ground.\n\n"
+            f"Try: **{_starter(top_strength)}**"
+        )
+
+    # Fallback: mastery is known but gaps/strengths not yet populated —
+    # recommend the first topic of their current phase.
+    phase_topics = _PHASE_TOPICS.get(mastery_level, [])
+    if phase_topics:
+        rec_slug = phase_topics[0]
+        phase_name = _PHASE_LABELS.get(mastery_level, ("", "your current phase"))[1]
+        return (
+            f"Welcome back, **{name}**. You're in **{phase_name}** — "
+            f"that's where the real leverage is.\n\n"
+            f"Try: **{_starter(rec_slug)}**"
         )
 
     return (
-        f"Welcome back, **{name}**! You've had **{interaction_count}** "
-        f"{'session' if interaction_count == 1 else 'sessions'} — your profile is building up.\n\n"
-        "What would you like to explore today?"
+        f"Good to have you back, **{name}**. Your profile is still forming — "
+        "the fastest way to build it is to start a conversation.\n\n"
+        "Try: **What is retrieval-augmented generation?**"
     )
 
 
@@ -2194,17 +2232,10 @@ html, body {
                                     "border-radius:12px; box-shadow:0 4px 28px rgba(139,92,246,0.12); "
                                     "backdrop-filter:blur(6px); padding:22px 24px"
                                 ):
-                                    _sessions = (_welcome_profile or {}).get("interaction_count", 0)
-                                    _session_word = "session" if _sessions == 1 else "sessions"
-                                    ui.label("Welcome back.").style(
-                                        "font-size:1.15rem; font-weight:700; color:#f97316; "
-                                        "letter-spacing:-0.01em; line-height:1.2"
-                                    )
-                                    ui.html(
-                                        f'<span style="font-size:0.875rem; color:#64748b; line-height:1.55; display:block; margin-top:6px">'
-                                        f'your profile has <strong style="color:#e2e8f0; font-weight:700">{_sessions}</strong> '
-                                        f'{_session_word} so far. What would you like to explore today?'
-                                        f'</span>'
+                                    _dn = app.storage.user.get("display_name") or None
+                                    _welcome_msg = _build_welcome_message(_dn, _welcome_profile)
+                                    ui.markdown(_welcome_msg).style(
+                                        "font-size:0.9rem; color:#cbd5e1; line-height:1.6"
                                     )
 
                         # Composer — pinned to bottom, height ~108px
