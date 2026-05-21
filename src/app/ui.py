@@ -1885,6 +1885,10 @@ html, body {
                         _tab_state[0] = name
                         profile_panel.refresh()
 
+                    _sidebar_shell = ui.element("div").style(
+                        "width:320px; min-width:320px; flex:0 0 320px; height:100%; "
+                        "background:#16103a; border-right:1px solid #241d4a; overflow:hidden"
+                    )
                     @ui.refreshable
                     async def profile_panel():
                         with ui.column().classes("rag-profile-sidebar").style(
@@ -2004,10 +2008,14 @@ html, body {
                                         )
 
                                     # topic-list
+                                    _any_score = any(topic_scores.get(t["slug"]) is not None for t in active_module["topics"])
                                     with ui.element("div").style("display:flex; flex-direction:column; gap:9px; width:100%"):
                                         for t in active_module["topics"]:
+                                            score = topic_scores.get(t["slug"])
+                                            score_text = f"{score:.0%}" if score is not None else "—"
+                                            score_color = "#86efac" if t["done"] else ("#94a3b8" if score is not None else "#475569")
                                             name_color = "#e2e8f0" if t["done"] else "#94a3b8"
-                                            with ui.row().style(
+                                            with ui.element("div").style(
                                                 "display:flex; align-items:center; gap:10px; "
                                                 "font-family:'Inter',system-ui; font-size:12.5px; line-height:1.4"
                                             ):
@@ -2025,29 +2033,16 @@ html, body {
                                                         '<circle cx="8" cy="8" r="2" fill="currentColor"/>'
                                                         '</svg>'
                                                     )
-                                                ui.label(t["name"]).style(f"color:{name_color}")
+                                                ui.label(t["name"]).style(f"color:{name_color}; flex:1")
+                                                ui.label(score_text).style(
+                                                    f"font-family:ui-monospace,monospace; font-size:11px; color:{score_color}"
+                                                )
+                                    if not _any_score:
+                                        ui.label("Ask a question to start tracking your progress on this module.").style(
+                                            "font-family:'Inter',system-ui; font-size:11px; color:#64748b; "
+                                            "font-style:italic; margin-top:10px; line-height:1.5"
+                                        )
 
-                                    # Phase progression context
-                                    _phase_num = active_idx + 1
-                                    _total_in_phase = len(active_module["topics"])
-                                    _done_in_phase = active_module["done_count"]
-                                    _remaining = _total_in_phase - _done_in_phase
-                                    if mastery in ("advanced", "expert") and active_idx == 2 and _remaining == 0:
-                                        _phase_ctx = "All phases complete"
-                                    elif _phase_num < 3:
-                                        _phase_ctx = (
-                                            f"Phase {_phase_num} of 3 — {_done_in_phase} topic{'s' if _done_in_phase != 1 else ''} complete"
-                                            + (f", {_remaining} to go before Phase {_phase_num + 1} unlocks" if _remaining > 0 else "")
-                                        )
-                                    else:
-                                        _phase_ctx = (
-                                            f"Phase {_phase_num} of 3 — {_done_in_phase} topic{'s' if _done_in_phase != 1 else ''} complete"
-                                        )
-                                    ui.label(_phase_ctx).style(
-                                        "font-family:'Inter',system-ui; font-size:11px; color:#64748b; "
-                                        "margin-top:14px; padding-top:10px; "
-                                        "border-top:1px solid rgba(255,255,255,0.05)"
-                                    )
 
                             else:
                                 # Overview tab — all modules summary
@@ -2150,21 +2145,13 @@ html, body {
                                                             "background:linear-gradient(90deg,#f97316,#ec4899,#8b5cf6); "
                                                             "border-radius:inherit"
                                                         )
-                                                    # Topic list with scores
+                                                    # Topic list — structural map, no scores
                                                     with ui.element("div").style("display:flex; flex-direction:column; gap:4px; padding-top:2px"):
                                                         for t in m["topics"]:
-                                                            score = topic_scores.get(t["slug"])
-                                                            score_text = f"{score:.0%}" if score is not None else "Not yet started"
-                                                            score_color = "#86efac" if (score is not None and score >= 0.70) else "#94a3b8"
-                                                            with ui.element("div").style(
-                                                                "display:flex; justify-content:space-between; align-items:baseline"
-                                                            ):
-                                                                ui.label(t["name"]).style(
-                                                                    "font-family:'Inter',system-ui; font-size:11.5px; color:#94a3b8"
-                                                                )
-                                                                ui.label(score_text).style(
-                                                                    f"font-family:ui-monospace,monospace; font-size:11px; color:{score_color}"
-                                                                )
+                                                            ui.label(t["name"]).style(
+                                                                "font-family:'Inter',system-ui; font-size:11.5px; "
+                                                                "color:" + ("#86efac" if t["done"] else "#94a3b8")
+                                                            )
 
                             # --- Stats footer (always shown) ---
                             with ui.column().style(
@@ -2188,7 +2175,8 @@ html, body {
                                             "font-family:ui-monospace,monospace; font-size:11px; color:#e2e8f0; font-weight:500"
                                         )
 
-                    await profile_panel()
+                    with _sidebar_shell:
+                        await profile_panel()
 
                     # --- Chat column (scroll area + composer inside) ---
                     with ui.column().style("flex:1; min-height:0; overflow:hidden; position:relative; background:#120e28"):
