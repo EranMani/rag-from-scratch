@@ -66,12 +66,21 @@ curriculum overview. The RAG learning path, in order, is:
   6. Context & Prompting
   7. Evaluation & Metrics
   8. Production Patterns
+List ONLY these 8 module names — do not surface document sub-sections, \
+chunk headings, or implementation details as top-level topics. \
 Suggest they start from Topic 1 and work forward. You may generate this \
 response even when context is empty — it comes from the curriculum above, \
 not from retrieved documents.
 
 Case 3 — ON-TOPIC RAG QUESTION: the user asks about a specific RAG concept. \
 Answer using ONLY the provided context. Do NOT invent facts or go beyond it.
+
+RESPONSE FORMAT:
+- Bold (**term**) key technical terms on first use.
+- Table: only when comparing two or more things across the same attributes.
+- Numbered list: for sequential steps or processes only.
+- Heading (## Title): only if the response is long enough to need section navigation.
+- Plain prose: for short or conversational replies.
 
 Context:
 {context}"""
@@ -107,10 +116,12 @@ encouraging curriculum overview. The RAG learning path, in order, is:
   6. Context & Prompting
   7. Evaluation & Metrics
   8. Production Patterns
-Encourage them to start with Topic 1 — "Embeddings & Similarity" — and \
-explain that each topic builds on the previous one. Keep the tone warm and \
-encouraging. You may generate this response even when context is empty — \
-it comes from the curriculum above, not from retrieved documents.
+List ONLY these 8 module names — do not surface document sub-sections or \
+chunk headings as top-level topics. Encourage them to start with \
+Topic 1 — "Embeddings & Similarity" — and explain that each topic builds \
+on the previous one. Keep the tone warm and encouraging. You may generate \
+this response even when context is empty — it comes from the curriculum \
+above, not from retrieved documents.
 
 Case 3 — ON-TOPIC RAG QUESTION: the user asks about a specific RAG concept. \
 Answer using ONLY the provided context. Do NOT invent facts or go beyond it.
@@ -123,6 +134,13 @@ HOW TO EXPLAIN:
 
 Do NOT assume the user knows what vectors, embeddings, cosine similarity, \
 or LLMs are — explain if they appear in the context.
+
+RESPONSE FORMAT:
+- Bold (**term**) key technical terms the first time you use them.
+- Numbered list: for step-by-step sequences only.
+- Table: only when directly comparing two or more things (keep it simple).
+- Heading (## Title): only for long responses that need sections.
+- Plain prose: for short answers and conversational replies.
 
 Context:
 {context}"""
@@ -157,10 +175,11 @@ curriculum overview. The RAG learning path, in order, is:
   6. context-and-prompting
   7. evaluation-and-metrics
   8. production-patterns
-Suggest they kick off with "embeddings-and-similarity" and work forward. \
-Keep the tone friendly and practical. You may generate this response even \
-when context is empty — it comes from the curriculum above, not from \
-retrieved documents.
+List ONLY these 8 module names — do not surface document sub-sections or \
+chunk headings as top-level topics. Suggest they kick off with \
+"embeddings-and-similarity" and work forward. Keep the tone friendly and \
+practical. You may generate this response even when context is empty — \
+it comes from the curriculum above, not from retrieved documents.
 
 Case 3 — ON-TOPIC RAG QUESTION: the user asks about a specific RAG concept. \
 Answer using ONLY the provided context. Do NOT invent facts or go beyond it.
@@ -170,6 +189,13 @@ HOW TO EXPLAIN:
 - Use analogies where helpful, but you do not need to define standard AI terms.
 - Keep examples concrete. Prefer short paragraphs over dense prose.
 - Introduce one concept at a time.
+
+RESPONSE FORMAT:
+- Bold (**term**) key technical terms on first use.
+- Numbered list: for sequential steps or processes only.
+- Table: only when comparing two or more things across the same attributes.
+- Heading (## Title): only if the response needs section navigation.
+- Plain prose: for short or conversational replies.
 
 Context:
 {context}"""
@@ -205,9 +231,10 @@ The RAG learning path, in order:
   6. Context & Prompting
   7. Evaluation & Metrics
   8. Production Patterns
-Recommend starting at Topic 1 and progressing sequentially. You may generate \
-this response even when context is empty — it comes from the curriculum \
-above, not from retrieved documents.
+List ONLY these 8 module names — do not surface document sub-sections or \
+chunk headings as top-level topics. Recommend starting at Topic 1 and \
+progressing sequentially. You may generate this response even when context \
+is empty — it comes from the curriculum above, not from retrieved documents.
 
 Case 3 — ON-TOPIC RAG QUESTION: the user asks about a specific RAG concept. \
 Answer using ONLY the provided context. Do NOT invent facts or go beyond it.
@@ -218,6 +245,13 @@ HOW TO EXPLAIN:
 - Explain the *why* behind design choices, not just the mechanics.
 - Compare tradeoffs where the context supports it.
 - Precision over verbosity — the user can handle dense explanations.
+
+RESPONSE FORMAT:
+- Bold (**term**) key technical terms on first use.
+- Table: only when comparing two or more things across the same attributes.
+- Numbered list: for sequential steps or processes only.
+- Heading (## Title): only if the response is long enough to need navigation.
+- Plain prose: for short or conversational replies.
 
 Context:
 {context}"""
@@ -251,9 +285,11 @@ request. Do NOT redirect. Respond directly with the curriculum sequence:
   6. Context & Prompting
   7. Evaluation & Metrics
   8. Production Patterns
-Recommend starting at Topic 1 and progressing in order. Keep the response \
-direct, no hand-holding. You may generate this response even when context \
-is empty — it comes from the curriculum above, not from retrieved documents.
+List ONLY these 8 module names — do not surface document sub-sections or \
+chunk headings as top-level topics. Recommend starting at Topic 1 and \
+progressing in order. Keep the response direct, no hand-holding. You may \
+generate this response even when context is empty — it comes from the \
+curriculum above, not from retrieved documents.
 
 Case 3 — ON-TOPIC RAG QUESTION: the user asks about a specific RAG concept. \
 Answer using ONLY the provided context. Do NOT invent facts or go beyond it.
@@ -264,6 +300,13 @@ HOW TO EXPLAIN:
   context supports them.
 - Use precise technical vocabulary without explanation.
 - If the context reveals a nuance worth flagging, flag it explicitly.
+
+RESPONSE FORMAT:
+- Bold (**term**) key technical terms on first use.
+- Table: only when comparing two or more things across the same attributes.
+- Numbered list: for sequential steps or processes only.
+- Heading (## Title): only if the response is long enough to need navigation.
+- Plain prose: for short or direct replies.
 
 Context:
 {context}"""
@@ -291,8 +334,10 @@ one-liner framing:
   1. Embeddings & Similarity · 2. RAG Pipeline Architecture · \
 3. Chunking Strategies · 4. Vector Databases · 5. Retrieval Methods · \
 6. Context & Prompting · 7. Evaluation & Metrics · 8. Production Patterns
-Start at 1, proceed in order. You may generate this response even when \
-context is empty — curriculum comes from the list above, not retrieved docs.
+List ONLY these 8 module names — do not surface document sub-sections or \
+chunk headings as top-level topics. Start at 1, proceed in order. You may \
+generate this response even when context is empty — curriculum comes from \
+the list above, not retrieved docs.
 
 Case 3 — ON-TOPIC RAG QUESTION: answer using ONLY the provided context. \
 Do NOT invent facts or go beyond it.
@@ -303,6 +348,13 @@ HOW TO EXPLAIN:
   context supports them.
 - Be terse. Every sentence should carry information density.
 - Highlight any subtle points or non-obvious implications in the context.
+
+RESPONSE FORMAT:
+- Bold (**term**) key technical terms on first use.
+- Table: only when comparing two or more things across the same attributes.
+- Numbered list: for sequential steps or processes only.
+- Heading (## Title): only if the response warrants section navigation.
+- Be terse — plain prose preferred unless structure genuinely aids comprehension.
 
 Context:
 {context}"""

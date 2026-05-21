@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Every non-obvious design choice made during this project
 > is logged here with the reason it was made.
-> Last updated: 2026-05-08
+> Last updated: 2026-05-21
 
 ---
 
@@ -905,3 +905,35 @@
 - **Decided by:** Aria
 - **Decision:** Gate the `_gate_crossed` check on `_prev_mastery[0] is not None` so the animation does not fire on the first panel load.
 - **Reason:** On first invocation, `_prev_mastery[0]` is `None`. Without the guard, `mastery != None` would always be `True` on first load, triggering the unlock animation for every user on every page load. The `is not None` check ensures at least one baseline mastery value has been recorded before a "change" can be detected.
+
+## Interactive UX — Navigation Chips & Formatting (2026-05-21)
+
+### Semantic similarity for navigation-intent detection
+- **Date:** 2026-05-21
+- **Decided by:** Team Lead + Claude
+- **Decision:** Reuse the existing `all-MiniLM-L6-v2` embedder (originally used only for document retrieval) to classify whether an incoming user question is a navigation-intent question ("where do I start?", "I'm not sure where to begin", etc.). Pre-embed 14 representative anchor phrases once at first call (`lru_cache`), then compute max cosine similarity against them for each question. Threshold: 0.52.
+- **Alternatives considered:** Keyword matching against a hardcoded phrase list.
+- **Why not keywords:** Keyword matching only catches exact or near-exact phrases. "I'm not sure where to begin" shares zero keywords with "what should I learn?" but is semantically identical. A user would have to phrase their question in a way we predicted at write-time to get chips.
+- **Why this embedder:** `normalize_embeddings=True` means cosine similarity equals dot product — no division, no extra dependencies. The model is already loaded and warm from document retrieval. Zero marginal startup cost.
+- **Consequences:** Any semantically equivalent navigation question triggers chips regardless of phrasing. Threshold is tunable. Anchor phrase set is extensible. First call computes 14 embeddings (one-time ~50ms); all subsequent calls hit the cache.
+
+### Navigation chips scoped to known navigation responses only
+- **Date:** 2026-05-21
+- **Decided by:** Team Lead (confirmed with Mira)
+- **Decision:** Chips are only shown for navigation-intent queries. All other responses (topic explanations, knowledge checks, comparisons) remain as plain markdown text.
+- **Reason:** Different list types carry different semantics. A numbered list explaining "3 reasons RAG beats fine-tuning" should not be converted to chips — the items form an argument, not a menu. Generalizing chip rendering to all lists would fragment meaning. The nav query is the one case where a list is genuinely a navigation target.
+
+### Level-filtered chips by mastery_level
+- **Date:** 2026-05-21
+- **Decided by:** Team Lead (confirmed with Mira)
+- **Decision:** Chip list is sliced by phase: novice/beginner see 2 chips (Foundation), intermediate sees 6 (Foundation + Core RAG), advanced/expert sees all 8. Slice happens server-side in the chat route where `user_level` is already in scope.
+- **Reason:** Showing a novice all 8 topics including Production Patterns lets them skip the curriculum sequence, which defeats the adaptive learning design. Chips are a navigation accelerator, not a full topic browser — the Knowledge Profile sidebar already shows the full curriculum structure.
+- **Consequences:** Users can still ask any question at any level. Only the suggested navigation chips are filtered. A "You'll unlock more topics as you progress." line is shown when fewer than 8 chips are displayed.
+
+### MCQ options moved inline into the chat bubble
+- **Date:** 2026-05-21
+- **Decided by:** Team Lead
+- **Decision:** Remove the pre-built MCQ option panel from the fixed bottom composer area. Create MCQ option rows dynamically inside `response_inner_col` immediately after the knowledge check card, using the same visual style.
+- **Alternatives considered:** Keep options at the bottom (original design).
+- **Why changed:** Bottom-panel MCQ created a spatial disconnect — the question was in the chat bubble, the answers were floating 400px lower at the screen edge. Users were confused about which question the options belonged to. Inline placement makes the Q+A unit visually coherent.
+- **Consequences:** The pre-built `mcq_panel`, `mcq_btns`, `_mcq_active`, and `_mcq_opts` constructs are removed. Options are created on-demand when a MCQ done event arrives. Full option text (not just the letter) is sent as the user message so the conversation history is readable. NiceGUI slot-context is preserved by using direct `async def` handlers instead of `asyncio.ensure_future`.

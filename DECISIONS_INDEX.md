@@ -145,3 +145,9 @@
 ## Phase Unlock UI (C44)
 79. **UI-layer gate crossing detection via `_prev_mastery` mutable list** — `gate_just_passed` consumed+cleared by `generate_node` before `profile_panel.refresh()` runs; UI detects advance by comparing current mastery to prior-call value in closure
 80. **`_prev_mastery[0] is not None` guard** — prevents animation from firing on first panel load when no baseline mastery has been recorded yet
+
+## Interactive UX — Navigation Chips & Formatting (2026-05-21)
+81. **Semantic similarity for nav-intent detection** — `all-MiniLM-L6-v2` embedder (already used for retrieval) reused to classify navigation questions via cosine similarity against 14 anchor phrases; keyword matching rejected because paraphrases like "I'm not sure where to begin" share zero keywords with "what should I learn?"
+82. **Navigation chips scoped to nav-intent responses only** — generalizing chips to all lists rejected; explanatory lists form arguments not menus; chips only make sense when the list is a navigation target
+83. **Level-filtered chips by mastery_level** — novice/beginner: 2 chips (Foundation); intermediate: 6; advanced/expert: 8; sliced server-side where `user_level` is already in scope; prevents curriculum-skipping
+84. **MCQ options moved inline into chat bubble** — removed pre-built bottom-panel MCQ construct; options created on-demand inside `response_inner_col`; full option text sent as user message (not just letter); `async def` handlers preserve NiceGUI slot context

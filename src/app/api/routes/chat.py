@@ -32,7 +32,10 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from functools import lru_cache
 from typing import Literal
+
+import numpy as np
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -45,8 +48,74 @@ from app.core.logging_config import logger
 from app.core.config import settings
 from app.profile.db import get_profile_by_user_id
 from rag.chain import ChatResponse, build_chat_response
+from rag.embeddings.local_embedder import get_local_embeddings
 
 router = APIRouter(prefix="/api", tags=["chat"])
+
+# ---------------------------------------------------------------------------
+# Navigation-intent detection — semantic similarity via the same embedder
+# used for document retrieval (all-MiniLM-L6-v2, normalized embeddings).
+# Anchors are computed once at first call and cached for the process lifetime.
+# ---------------------------------------------------------------------------
+
+_NAV_INTENT_THRESHOLD = 0.52
+
+_NAV_ANCHOR_PHRASES = [
+    "what should I learn?",
+    "where do I start?",
+    "I'm not sure where to begin",
+    "can you guide me through the curriculum?",
+    "what topics are covered here?",
+    "help me navigate the learning path",
+    "what's available to study?",
+    "teach me from the beginning",
+    "I don't know where to start",
+    "show me what I can learn",
+    "what's the course structure?",
+    "how do I start learning RAG?",
+    "give me an overview of the topics",
+    "what's the learning roadmap?",
+]
+
+_NAV_CHIPS = [
+    {"name": "Embeddings & Similarity",   "description": "How vectors represent meaning and measure similarity"},
+    {"name": "RAG Pipeline Architecture", "description": "The overall structure: retrieve → augment → generate"},
+    {"name": "Chunking Strategies",       "description": "How documents are split to improve retrieval precision"},
+    {"name": "Vector Databases",          "description": "Storing and querying embeddings at scale"},
+    {"name": "Retrieval Methods",         "description": "Semantic, keyword, hybrid search, and re-ranking"},
+    {"name": "Context & Prompting",       "description": "Feeding the right context to the LLM for accurate answers"},
+    {"name": "Evaluation & Metrics",      "description": "Measuring retrieval quality and answer correctness"},
+    {"name": "Production Patterns",       "description": "Caching, observability, latency tuning, and deployment"},
+]
+
+
+@lru_cache(maxsize=1)
+def _nav_anchor_embeddings() -> "np.ndarray":
+    """Embed anchor phrases once; shape (N, 384). Called in a thread."""
+    vecs = get_local_embeddings().embed_documents(_NAV_ANCHOR_PHRASES)
+    return np.array(vecs, dtype=np.float32)
+
+
+def _chips_for_level(level: str) -> list[dict]:
+    """Return the subset of chips the user has unlocked based on their mastery level."""
+    if level in ("novice", "beginner"):
+        return _NAV_CHIPS[:2]   # Phase 1: Embeddings & Similarity, RAG Pipeline Architecture
+    if level == "intermediate":
+        return _NAV_CHIPS[:6]   # Phase 1 + Phase 2
+    return _NAV_CHIPS           # advanced / expert: all 8
+
+
+def _is_nav_question(question: str) -> bool:
+    """Return True if question is semantically close to any navigation-intent anchor.
+
+    Runs synchronously — call via asyncio.to_thread from async context.
+    Embeddings are unit-normalized so dot product == cosine similarity.
+    """
+    q_vec = np.array(
+        get_local_embeddings().embed_query(question), dtype=np.float32
+    )
+    sims = _nav_anchor_embeddings() @ q_vec
+    return bool(sims.max() > _NAV_INTENT_THRESHOLD)
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +249,9 @@ async def chat(
     # LangGraph checkpointer uses thread_id to merge with all prior chat history (STM).
     config: dict = {"configurable": {"thread_id": user_id or session_id}}
 
+    # Run nav-intent check in a thread — embedding is CPU-bound.
+    is_nav = await asyncio.to_thread(_is_nav_question, req.question)
+
     async def generate_stream():
         """Async generator: yield SSE lines from LangGraph event stream.
 
@@ -213,9 +285,10 @@ async def chat(
 
         # Called after the graph run completes — packs the full answer + updated profile fields
         chat_response: ChatResponse = build_chat_response(final_state)
-        yield (
-            f"data: {json.dumps({'type': 'done', **chat_response.model_dump()})}\n\n"
-        )
+        done_payload: dict = {"type": "done", **chat_response.model_dump()}
+        if is_nav:
+            done_payload["chips"] = _chips_for_level(user_level)
+        yield f"data: {json.dumps(done_payload)}\n\n"
 
     # StreamingResponse handles responses that are too large or built incrementally (token by token)
     return StreamingResponse(generate_stream(), media_type="text/event-stream")
