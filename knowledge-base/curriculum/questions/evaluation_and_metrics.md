@@ -300,3 +300,142 @@ what metrics would you compute, and how would you alert the team?
 - Describes continuous evaluation as running RAGAS once before deployment and never again
 - Cannot identify what events should trigger re-evaluation beyond scheduled sampling
 - Cannot define what constitutes a degradation worth alerting on
+
+---
+
+## Q9 — Evaluation pipeline without ground truth
+
+**Difficulty:** advanced
+
+**Question:**
+You are deploying a RAG system over an internal knowledge base that has never been
+formally evaluated. There are no labeled query-answer pairs, no existing test set, and
+no budget for manual annotation. Describe how you would build an evaluation pipeline
+using synthetic ground truth generation. What specific risks must you avoid in generating
+synthetic ground truth, and how would you validate that your synthetic eval actually
+correlates with user satisfaction?
+
+**Correct answer criteria:**
+- Synthetic ground truth generation: for each document chunk, prompt an LLM to generate
+  a question that the chunk answers, along with the expected answer. The (question, chunk,
+  answer) triple forms a synthetic RAGAS test example. RAGAS's `TestsetGenerator` automates
+  this pattern
+- Risk 1: circular evaluation. If you use the same LLM to generate synthetic questions
+  and to evaluate answers, the evaluator is testing whether the RAG system can satisfy
+  the question-generating LLM's style — not whether it produces correct answers. The
+  evaluator may reward any fluent answer regardless of correctness, inflating faithfulness
+  and answer relevancy scores. Mitigation: use a different, stronger LLM as the evaluator
+  than the one that generated the synthetic questions
+- Risk 2: distribution mismatch. Synthetic questions generated from document chunks are
+  bottom-up (starting from the answer document). Real user queries are top-down (starting
+  from a user's need). The synthetic distribution will over-represent easy, document-
+  aligned questions and under-represent ambiguous, navigational, or comparative queries.
+  Mitigation: supplement with real user query logs as soon as any production traffic exists
+- Risk 3: synthetic questions that only one chunk can answer. If the test set is
+  constructed chunk-by-chunk with one ground truth chunk per question, context_recall will
+  artificially score well (the single relevant chunk is almost always retrieved), masking
+  real recall problems for queries requiring multi-chunk synthesis
+- Validation against user satisfaction: run a shadow evaluation where you manually review
+  20–30 system responses and ask the corresponding users (via feedback widget or survey)
+  to rate them. Compute correlation between RAGAS scores and user ratings for that sample.
+  A correlation below 0.5 is a signal that your synthetic eval is not predictive of actual
+  user satisfaction and needs redesign
+
+**Partial credit criteria:**
+- Correctly describes the generation procedure but identifies only one of the three risks
+- Identifies all three risks but cannot describe a concrete validation method to check
+  correlation with user satisfaction
+
+**Incorrect / no-credit criteria:**
+- Proposes using the same LLM for generation and evaluation without identifying the
+  circular evaluation risk
+- Claims synthetic ground truth is equivalent in quality to human-labeled ground truth
+  with no caveats
+- Cannot describe any method for validating that synthetic eval scores are meaningful
+
+---
+
+## Q10 — Diagnosing retrieval quality problems vs. generation quality problems with RAGAS
+
+**Difficulty:** advanced
+
+**Question:**
+A RAGAS evaluation returns the following scores for your RAG system: faithfulness = 0.58,
+answer_relevancy = 0.72, context_precision = 0.81, context_recall = 0.79. Diagnose
+whether the primary failure is a retrieval quality problem or a generation quality problem.
+Describe the metric pattern that leads you to this diagnosis and what you would investigate
+first.
+
+**Correct answer criteria:**
+- Diagnosis: generation quality problem, not a retrieval quality problem
+- The diagnostic pattern: context_precision (0.81) and context_recall (0.79) are both
+  healthy — the retrieval stage is returning relevant chunks that cover the answer.
+  Faithfulness (0.58) is significantly low while context quality is high. This combination
+  — good retrieval, low faithfulness — means the LLM is generating claims that are not
+  supported by the retrieved context even though the correct information is present in
+  the context. The answer_relevancy (0.72) is moderate, suggesting the answers are on
+  topic but not well-grounded
+- What retrieval failure would look like instead: low context_recall (relevant information
+  not present in retrieved chunks) combined with low faithfulness would indicate the LLM
+  is hallucinating to fill in missing context. Low context_precision combined with low
+  faithfulness would indicate the LLM is confused by retrieved noise
+- What to investigate first: the prompt template — specifically whether the "answer only
+  from context" instruction is present, whether the context is clearly delimited, and
+  whether the LLM is being given a graceful fallback path when unsure. Also check context
+  ordering (lost-in-the-middle effect) and whether the answer requires multi-chunk
+  synthesis that the prompt is not explicitly handling
+
+**Partial credit criteria:**
+- Correctly diagnoses a generation problem but cannot articulate what the retrieval failure
+  pattern would look like as a contrast
+- Identifies the correct investigation area (prompt template) without fully explaining
+  why the metric pattern points there
+
+**Incorrect / no-credit criteria:**
+- Diagnoses a retrieval problem based on low faithfulness without reading context_precision
+  and context_recall
+- Recommends switching the embedding model based on these scores
+- Cannot describe what metric values would distinguish a retrieval failure from a
+  generation failure
+
+---
+
+## Q11 — When a high faithfulness score is misleading
+
+**Difficulty:** advanced
+
+**Question:**
+Your RAGAS evaluation shows faithfulness = 0.9. A colleague says "the system is working
+well — almost everything it says is grounded in the retrieved context." Describe two
+concrete scenarios where a faithfulness score of 0.9 masks a real failure that users
+would notice. For each scenario, explain why faithfulness does not capture the problem.
+
+**Correct answer criteria:**
+- Scenario 1: the retrieved context is wrong, and the LLM faithfully reports the wrong
+  information. Faithfulness measures whether the generated answer is consistent with the
+  retrieved context — not whether the retrieved context is correct. If the index contains
+  outdated documentation (e.g., a deprecated API endpoint), the LLM will faithfully state
+  the wrong answer with faithfulness = 1.0. Users receive confidently wrong information.
+  The metric that would capture this is context_recall against a ground truth that reflects
+  current documentation — but faithfulness alone cannot detect index staleness
+- Scenario 2: the retrieved context covers only one side of a controversial or multi-
+  answer topic, and the LLM faithfully reports that one-sided view. The user asked "What
+  are the tradeoffs of using synchronous replication?" The retrieved chunks only contain
+  arguments in favor of synchronous replication. Faithfulness = 1.0 (every claim is in
+  the context), but the answer is incomplete and misleading. Users believe the system
+  has given them a complete analysis. The failure is in retrieval coverage (low
+  context_recall relative to the full answer space), not in generation grounding
+- Both scenarios require the evaluator to understand that faithfulness = consistency with
+  retrieved context, not = correctness or completeness relative to the real world
+
+**Partial credit criteria:**
+- Describes one valid scenario clearly but the second scenario conflates faithfulness
+  with factual accuracy (e.g., "the LLM said something wrong" without explaining the
+  role of the retrieved context)
+- Correctly identifies both scenarios but cannot articulate the precise mechanism that
+  causes faithfulness to be blind to each problem
+
+**Incorrect / no-credit criteria:**
+- Claims a faithfulness score of 0.9 always indicates high system quality
+- Cannot describe any scenario where high faithfulness coexists with a user-visible failure
+- Confuses faithfulness with answer_relevancy or context_recall

@@ -293,3 +293,170 @@ consistency.
 - Cannot identify that multiple replicas create a consistency problem
 - Recommends serializing all writes to prevent any inconsistency (does not recognize
   the availability cost)
+
+---
+
+## Q9 — Pre-filter vs. post-filter in a multi-tenant system at scale
+
+**Difficulty:** advanced
+
+**Question:**
+You are operating a multi-tenant RAG system where each query must be isolated to the
+requesting tenant's documents using a `tenant_id` metadata filter. Your system has 5,000
+tenants, each with an average of 10,000 document chunks. You are evaluating whether to
+use pre-filtering or post-filtering for tenant isolation. Describe the tradeoffs of each
+approach at this tenant count, and identify the specific condition under which each
+approach breaks down.
+
+**Correct answer criteria:**
+- Pre-filtering: the ANN search operates only on the subset of vectors belonging to the
+  tenant (10,000 chunks out of 50 million total). This guarantees isolation without
+  post-hoc filtering. However, HNSW graphs are built on the full index — the graph
+  structure is optimized for navigating the full 50M-vector space, not individual
+  10K-chunk subsets. When pre-filtering restricts the search to a small subset, the graph
+  traversal becomes inefficient: the greedy navigation was designed for a dense space and
+  becomes sparse within the tenant's subset, degrading recall. Many vector databases
+  fall back to brute-force search when the pre-filtered subset is small, losing the
+  ANN index advantage entirely
+- Pre-filter breaks down when: the per-tenant chunk count is small relative to the total
+  index size (high ratio of total-to-tenant vectors). At 10K/50M, pre-filtering is likely
+  to trigger brute-force fallback. The threshold varies by database but is typically when
+  the filtered subset is below 5–10% of the total index
+- Post-filtering: ANN search runs over the full 50M-vector space with full index coverage,
+  then filters to the tenant's documents. This preserves ANN recall quality but may return
+  fewer than top-K results after filtering if many top candidates belong to other tenants.
+  At 5,000 tenants (average 10K chunks each), roughly 1 in 5,000 random vectors belongs
+  to the querying tenant — post-filtering after retrieving top-20 ANN results would often
+  return zero matches, requiring an impractically large initial retrieval count
+- Post-filter breaks down when: tenant data is a small fraction of the total index and
+  most top-K ANN results belong to other tenants, requiring retrieving hundreds of
+  candidates to guarantee even a handful survive the filter
+- Recommended approach for this scenario: separate collection per tenant (hard isolation),
+  which sidesteps the pre/post-filter dilemma entirely by ensuring the ANN index only
+  contains one tenant's vectors. The overhead of 5,000 collections must be evaluated
+  against the database's collection limit and management complexity
+
+**Partial credit criteria:**
+- Correctly describes the pre-filter recall degradation problem but does not identify the
+  specific condition (small subset / total ratio) that causes brute-force fallback
+- Correctly describes both tradeoffs but does not identify the recommended alternative
+  (separate collections) for the specific scenario parameters given
+
+**Incorrect / no-credit criteria:**
+- Claims pre-filtering and post-filtering produce the same recall quality at all scales
+- Cannot identify any condition under which either approach breaks down
+- Recommends post-filtering without acknowledging that at 1/5000 density it would require
+  retrieving hundreds of candidates
+
+---
+
+## Q10 — Diagnosing HNSW recall degradation without ground truth
+
+**Difficulty:** advanced
+
+**Question:**
+Your production HNSW index is showing signs of recall degradation — users are reporting
+that relevant documents are not appearing in results, but you have no labeled ground truth
+for the affected queries. Describe what operational proxy metrics would reveal the recall
+problem, and what the corrective actions are.
+
+**Correct answer criteria:**
+- Proxy metric 1: top-1 similarity score distribution. Track the distribution of the
+  maximum cosine similarity score returned per query over time. If the median top-1
+  similarity is drifting downward (i.e., even the best-matching document is scoring
+  lower), one of three things is happening: the queries are drifting from the indexed
+  content (corpus staleness), the embedding model is misaligned with the corpus (drift),
+  or the HNSW graph is returning increasingly suboptimal nearest neighbors (recall
+  degradation). To distinguish HNSW recall from the other two: run exact brute-force
+  search on a small random sample of queries and compare the top-1 score to what HNSW
+  returns. A persistent gap between exact and HNSW results confirms recall degradation
+  in the index itself
+- Proxy metric 2: query result diversity drop. If all queries are returning overlapping
+  documents (the same chunks appearing in results for many different queries), the HNSW
+  graph traversal is converging on a small, well-connected subgraph rather than exploring
+  diverse neighborhoods. This is a symptom of low ef (search beam width) relative to
+  corpus size
+- Proxy metric 3: fallback rate trend. If your system generates "I don't know" responses
+  (or low-confidence answers) more frequently without a corresponding increase in query
+  volume or corpus change, retrieval quality is degrading
+- Corrective actions:
+  1. Increase query-time ef parameter: expands the search beam, exploring more candidate
+     nodes before returning results. This is a live configuration change requiring no
+     re-indexing but increases query latency
+  2. Rebuild the index with higher ef_construction and M: improves graph connectivity
+     at build time. Requires a full re-index — use the shadow index pattern to avoid
+     downtime
+  3. If the corpus has grown significantly since the last build: the original ef_construction
+     was calibrated for a smaller dataset. Rebuild with parameters appropriate to current scale
+
+**Partial credit criteria:**
+- Identifies the exact vs. ANN comparison as a diagnostic method but cannot describe the
+  operational proxy metrics that would flag the problem without running exact search on
+  every query
+- Correctly describes the corrective actions but cannot describe any proxy metric that
+  would alert you to the problem in the first place
+
+**Incorrect / no-credit criteria:**
+- Recommends switching from HNSW to IVF as the primary corrective action without
+  explaining why HNSW recall degraded or how IVF addresses it
+- Cannot identify any operational signal that indicates HNSW recall degradation
+  without labeled ground truth
+- Confuses HNSW recall degradation with embedding model drift (different root causes
+  and different corrective actions)
+
+---
+
+## Q11 — Zero-downtime migration between vector databases
+
+**Difficulty:** advanced
+
+**Question:**
+You need to migrate your production RAG system from vector database A to vector database
+B. The system serves 200 queries per minute continuously — you cannot take retrieval
+offline. Your corpus has 8 million document chunks. Describe the dual-write migration
+strategy: what the dual-write period looks like, how you maintain consistency during it,
+and what the cutover condition is.
+
+**Correct answer criteria:**
+- Dual-write period:
+  1. Before migrating any traffic, build the full index in database B from the existing
+     corpus (offline bulk load). This is the initial sync — database B now contains all
+     8M vectors as of the start of the migration
+  2. Begin dual-write: every new document ingestion event writes to both database A
+     (production) and database B (shadow). Deletes and updates are also applied to both.
+     This ensures database B stays current with new content while traffic continues to
+     be served from database A
+  3. Do not route any query traffic to database B yet. Database B is receiving writes
+     but not reads
+- Consistency check approach:
+  1. After the initial bulk load completes and dual-write is active, verify that vector
+     counts in both databases match within a small delta (expected difference: documents
+     ingested during the bulk load window that dual-write may have missed). Replay any
+     missed events from the ingestion queue
+  2. Run shadow query evaluation: sample 500 queries from production traffic and run them
+     against both databases. Compare the top-5 retrieved chunks from each. A high
+     agreement rate (>90% overlap in top-3) confirms database B's index is functionally
+     equivalent. A low agreement rate indicates an index configuration issue in database B
+     that must be resolved before cutover
+- Cutover condition: shadow query evaluation shows >90% result agreement, vector counts
+  are within acceptable delta, and database B query latency is within acceptable bounds
+  (p99 < production SLA). When all three conditions are met, perform atomic traffic
+  cutover: update the retriever configuration to point to database B. Database A remains
+  in read-only mode for 48–72 hours as a rollback target, then is decommissioned
+- Throughout the dual-write period, monitor both databases for write lag — if database B's
+  write queue backs up, the consistency guarantee degrades
+
+**Partial credit criteria:**
+- Correctly describes the dual-write mechanism but does not include the shadow query
+  evaluation step (cutting over without validating result equivalence is a blind migration)
+- Correctly describes the shadow query evaluation and cutover condition but does not
+  specify keeping database A in read-only mode as a rollback target post-cutover
+
+**Incorrect / no-credit criteria:**
+- Proposes a scheduled maintenance window to take retrieval offline during migration
+  (the question specifies zero downtime)
+- Describes building the new index and switching traffic immediately without a dual-write
+  period (results in serving stale data from database B for all documents ingested
+  during the build window)
+- Cannot identify what the cutover condition should be — proposes switching based on
+  time elapsed rather than validated query equivalence

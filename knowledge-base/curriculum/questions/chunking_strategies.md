@@ -278,3 +278,139 @@ chunking does not, and what are the implementation requirements for using it?
 - Describes parent-child as simply having two different chunk sizes in the same index
 - Cannot explain why the parent chunk needs to be fetched separately (not retrieved)
 - Believes the LLM uses both child and parent chunks simultaneously
+
+---
+
+## Q9 — Mixed-content corpus chunking strategy
+
+**Difficulty:** advanced
+
+**Question:**
+You are indexing a developer documentation corpus that contains three content types in
+the same files: API reference sections (structured, terse, parameter-by-parameter),
+narrative explanation sections (prose paragraphs describing concepts), and embedded code
+examples (Python and bash snippets). Describe a chunking strategy that handles the
+different semantic boundaries of each content type, and explain the operational tradeoff
+you accept at index time.
+
+**Correct answer criteria:**
+- API reference sections: chunk at the parameter or endpoint boundary — each parameter
+  definition or endpoint description is a self-contained retrieval unit. Splitting mid-
+  parameter table or across two parameters produces orphaned chunks that lack context.
+  Header-based splitting (e.g., at `####` level) approximates this if the docs are well-
+  structured; otherwise a custom parser that identifies parameter blocks is required
+- Narrative sections: sentence-aware or paragraph-based chunking with overlap. Prose
+  meaning flows across sentence boundaries, so hard splits without overlap produce
+  context-free chunks. Chunk size of 200–400 tokens with 50-token overlap handles most
+  explanatory paragraphs
+- Code examples: treat each code block as an atomic unit — never split a code snippet
+  across two chunks. Include the prose sentence immediately before the code block in the
+  same chunk as context (the sentence typically describes what the code does). AST-based
+  splitting is ideal but regex-based code fence detection (```` ``` ````) is a practical
+  approximation
+- Operational tradeoff at index time: content-type-aware chunking requires a pre-processing
+  pass to classify each section by type before applying the appropriate splitter. This
+  adds pipeline complexity (a classifier or rule-based parser) and increases index build
+  time. The tradeoff is index build latency and maintenance overhead in exchange for
+  substantially better chunk coherence
+
+**Partial credit criteria:**
+- Correctly describes the chunking approach for two of three content types but does not
+  address the operational cost of type-aware chunking
+- Identifies the operational tradeoff correctly but proposes the same chunking strategy
+  for all three content types
+
+**Incorrect / no-credit criteria:**
+- Recommends fixed-size chunking for all content types with no content-type adaptation
+- Cannot identify that code blocks must never be split across chunk boundaries
+- Describes the operational tradeoff as purely a storage cost rather than a pipeline
+  complexity cost
+
+---
+
+## Q10 — Parent-document retrieval: when is the overhead justified?
+
+**Difficulty:** advanced
+
+**Question:**
+You are considering switching from standard fixed-size chunking (400-token chunks indexed
+and retrieved directly) to parent-document retrieval (100-token child chunks for retrieval,
+500-token parent chunks returned to the LLM). Describe the problem parent-document
+retrieval solves, when the overhead is justified, and what the failure mode is when the
+parent document is too large.
+
+**Correct answer criteria:**
+- Problem it solves: standard chunking forces a single chunk size to serve two different
+  goals simultaneously — small enough for precise retrieval (the embedding captures a
+  focused semantic unit) and large enough to provide the LLM with complete, contextually
+  rich text for generation. These goals are in tension: at 400 tokens, chunks are often
+  too large for precise retrieval but too small for complete answers. Parent-document
+  retrieval decouples retrieval precision from generation context by using different
+  chunk sizes for each purpose
+- When justified: when you observe that retrieval precision is high (top-1 chunk is
+  usually the right chunk) but generation quality is poor because individual chunks lack
+  sufficient context to produce a complete answer. Also justified when documents have
+  natural hierarchical structure (e.g., a paragraph is the retrieval unit, the section
+  is the generation unit)
+- Failure mode when parent is too large: if the parent chunk is 2,000+ tokens, the LLM's
+  context window fills quickly (5 parents × 2,000 tokens = 10,000 tokens consumed by
+  context alone), forcing a reduction in the number of results returned. Worse, a very
+  large parent likely contains content unrelated to the child that triggered its retrieval —
+  the parent-child precision advantage evaporates when the parent is so large it is
+  effectively a full document
+
+**Partial credit criteria:**
+- Correctly describes the precision-context tension that parent-document retrieval solves
+  but does not address when the overhead is justified
+- Identifies the large-parent failure mode but describes it only as a storage problem,
+  not a context window and relevance dilution problem
+
+**Incorrect / no-credit criteria:**
+- Describes parent-document retrieval as simply indexing two chunk sizes and letting the
+  retriever choose between them
+- Claims the approach is always better than standard chunking with no conditions
+- Cannot identify any failure mode
+
+---
+
+## Q11 — Evaluating chunk size optimality without full re-indexing
+
+**Difficulty:** advanced
+
+**Question:**
+Your production RAG system was indexed with 300-token chunks six months ago. You suspect
+the chunk size may no longer be optimal but re-indexing 2 million documents is expensive.
+What offline signals can you use to evaluate whether your current chunk size is causing
+retrieval or generation quality problems, and what are the limitations of each signal?
+
+**Correct answer criteria:**
+- Signal 1: context_precision from RAGAS evaluation on a query sample. Low precision
+  (many retrieved chunks are partially off-topic) suggests chunks are too large — the
+  embedding represents an average of multiple topics, diluting the relevance signal.
+  Limitation: RAGAS requires a ground truth test set, which may be stale or insufficient
+  to cover all query types
+- Signal 2: faithfulness score on queries that should have a single-source answer. If
+  faithfulness is low despite context_recall being high, individual chunks may be too
+  small — the answer is spread across multiple chunks, and the LLM is struggling to
+  synthesize across them. Limitation: faithfulness is affected by prompt quality and LLM
+  behavior, not just chunking, so a low faithfulness score is not a definitive chunking
+  signal
+- Signal 3: manual inspection of retrieved chunks for a sample of failing queries.
+  Count how often the correct answer is split across two adjacent chunks (orphaned
+  boundary problem) vs. how often a single chunk contains excess irrelevant material.
+  Limitation: this is labor-intensive and subject to selection bias in which queries you
+  inspect; it does not scale beyond a few hundred examples
+- Signal 4: chunk utilization in generation. Use an LLM to judge which retrieved chunks
+  were actually used in generating the answer. If fewer than 50% of retrieved chunks are
+  utilized, chunks may be too large (noise) or top-K is too high. Limitation: this adds
+  inference cost and requires a reliable utilization evaluator
+
+**Partial credit criteria:**
+- Identifies two valid signals but does not articulate the limitation of either
+- Correctly describes limitations for three signals but proposes only one concrete signal
+
+**Incorrect / no-credit criteria:**
+- Recommends re-indexing with a different chunk size as the only evaluation method
+  (the question specifically asks for signals that avoid full re-indexing)
+- Cannot identify any metric that would indicate chunk size is suboptimal
+- Describes all signals as definitive rather than acknowledging their limitations

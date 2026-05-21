@@ -1,7 +1,7 @@
 # Question Bank: `retrieval_methods`
 # Phase: 2 — Core Components
 # Maintained by: Lara (RAG Curriculum Specialist)
-# Last updated: 2026-05-11 (Commit 22)
+# Last updated: 2026-05-21 (Commit 45)
 
 ---
 
@@ -283,3 +283,139 @@ Design a retrieval strategy that addresses all three query types. Justify each d
 - Recommends only dense retrieval for all query types
 - Cannot explain why a single retrieval method is insufficient for all three query types
 - Does not address the multi-part query challenge
+
+---
+
+## Q9 — Sparse-dense index synchronization during rolling upgrades
+
+**Difficulty:** advanced
+
+**Question:**
+Your hybrid retrieval system maintains a BM25 index and a dense HNSW index in parallel.
+A rolling corpus update adds 50,000 new documents over six hours. You notice that hybrid
+retrieval quality degrades during the update window even though each index is individually
+healthy. Diagnose the failure mode and describe how to prevent it.
+
+**Correct answer criteria:**
+- The failure mode is index synchronization lag: during the update window, the BM25 index
+  and the dense index are out of sync — some documents are in one index but not yet in
+  the other. RRF fusion then combines a ranked list from the full BM25 index with a ranked
+  list from the partially updated dense index, producing fusion scores for documents that
+  exist in only one index. A document in BM25 but not yet in HNSW receives no score
+  contribution from the dense side, understating its fusion rank; a document in HNSW but
+  not yet in BM25 is similarly penalized
+- Correct answer must identify: the asymmetry in index update state causes fusion scores
+  to be incomparable — RRF rank contributions are missing for documents present in only
+  one index
+- Prevention: transactional batch updates — commit documents to both indexes atomically
+  before they become queryable. Alternatively, use a document-level "indexed" flag that
+  is set only after both indexes confirm the document is present, and exclude un-flagged
+  documents from retrieval
+- Monitoring signal: track the delta between BM25 document count and HNSW document count
+  in real time; alert when they diverge beyond a threshold
+
+**Partial credit criteria:**
+- Identifies that the two indexes are out of sync but describes it only as a latency
+  issue rather than a fusion scoring problem
+- Correctly diagnoses the fusion scoring asymmetry but proposes only post-hoc monitoring
+  with no structural prevention
+
+**Incorrect / no-credit criteria:**
+- Attributes the quality degradation to RRF's k constant needing tuning
+- Believes the problem is solved by increasing the BM25 update frequency without
+  addressing the dense index lag
+- Cannot identify that documents present in only one index receive incomplete fusion scores
+
+---
+
+## Q10 — HyDE under heterogeneous query distributions
+
+**Difficulty:** advanced
+
+**Question:**
+You are evaluating whether to enable HyDE in your production retrieval pipeline. Your
+system receives queries with highly heterogeneous intent — factual lookups ("What is the
+exact retention policy for EU users?"), exploratory questions ("What are the general
+tradeoffs of synchronous replication?"), and navigational queries ("Show me the API
+endpoint for user deletion"). Under what condition does HyDE reliably improve retrieval
+quality, and under what condition does it degrade it? Be specific about the mechanism
+in each case.
+
+**Correct answer criteria:**
+- HyDE improves retrieval when the query phrasing is systematically different from
+  document phrasing — specifically, when questions and their answers occupy different
+  regions of the embedding space due to vocabulary or structural mismatch. A factual
+  lookup phrased as a question ("What is X?") retrieves poorly against documents phrased
+  as statements ("X is defined as..."); HyDE bridges this gap by generating a hypothetical
+  answer-shaped document to use as the query embedding
+- HyDE degrades retrieval when the query distribution is heterogeneous across intent types.
+  For a navigational query ("Show me the API endpoint for..."), the LLM's hypothetical
+  document will speculate about the endpoint's behavior rather than producing an answer
+  that lives near the actual API reference chunk. For exploratory queries, HyDE may
+  generate a confident hypothetical answer to a question with no single correct answer,
+  steering retrieval toward one perspective and missing alternative views
+- Core mechanism of degradation: the LLM's hypothetical document introduces more variance
+  than the original query when query intent is ambiguous or diverse. A wrong hypothetical
+  sent to a dense retriever is worse than no transformation at all — it sends the query
+  embedding into the wrong neighborhood of the vector space
+- When to deploy HyDE: only when your query distribution is dominated by a single
+  intent type where you have confirmed a terminology mismatch between queries and documents.
+  Not suitable as a universal enhancement across heterogeneous distributions
+
+**Partial credit criteria:**
+- Correctly identifies the terminology mismatch scenario where HyDE helps but describes
+  the degradation only as "hallucination" without explaining the embedding space mechanism
+- Correctly describes the mechanism in both directions but does not connect it to the
+  practical deployment decision (when to enable vs. disable)
+
+**Incorrect / no-credit criteria:**
+- Claims HyDE always improves retrieval by reducing the query-document vocabulary gap
+- Attributes HyDE's failure only to LLM quality rather than to the structural mismatch
+  between heterogeneous query intent and the single-intent design assumption of HyDE
+- Cannot explain why a wrong hypothetical document is worse than the original query
+
+---
+
+## Q11 — Diagnosing when MMR diversity is actively harming answer quality
+
+**Difficulty:** advanced
+
+**Question:**
+Your RAG system uses MMR (Maximal Marginal Relevance) with lambda=0.5 for all queries.
+A RAGAS evaluation after a recent deployment shows faithfulness has dropped from 0.84
+to 0.71, while context_precision has risen from 0.62 to 0.78. What does this metric
+pattern tell you, and what is the most likely cause? Describe the corrective action.
+
+**Correct answer criteria:**
+- The metric pattern: rising context_precision with falling faithfulness is the signature
+  of over-diversification. Context precision measures the fraction of retrieved chunks that
+  are relevant — it rises when diverse chunks replace near-duplicates, because diverse
+  chunks by definition cover different topics and appear more "relevant" to different parts
+  of the question. But faithfulness drops because the LLM is generating answers from chunks
+  that, while diverse, are less directly relevant to the query than the near-duplicates
+  they replaced
+- The most likely cause: MMR at lambda=0.5 is penalizing highly relevant documents at
+  position 11+ that are similar to already-selected documents. A highly relevant chunk
+  that is topically similar to chunk 1 scores below a less-relevant but "different" chunk
+  because MMR's diversity penalty outweighs its relevance score. The LLM then generates
+  from a context set that is broad but shallow on the most relevant topic
+- This pattern is most harmful in single-document factual QA tasks where diversity adds
+  no value — the correct answer lives in documents that are intentionally similar (all
+  covering the same narrow topic), and MMR actively discards them
+- Corrective action: increase lambda toward 1.0 (pure relevance) for factual QA queries,
+  or disable MMR for query types where diversity is not the goal. Use lambda=0.5 only
+  for breadth-seeking queries (e.g., "What are all the risks?"). The right diagnostic is:
+  if your task requires a precise factual answer, MMR is the wrong retrieval mode
+
+**Partial credit criteria:**
+- Correctly identifies that the metric pattern suggests over-diversification but cannot
+  explain the lambda mechanism that causes it
+- Correctly identifies the fix (increase lambda) but describes the faithfulness drop as
+  a generation problem rather than a retrieval composition problem
+
+**Incorrect / no-credit criteria:**
+- Interprets rising context_precision as a retrieval improvement with no connection to
+  falling faithfulness
+- Recommends fixing the LLM prompt rather than adjusting the retrieval diversity parameter
+- Describes the problem as "MMR is broken" rather than "MMR is misconfigured for this
+  query type"

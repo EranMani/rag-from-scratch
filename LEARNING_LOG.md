@@ -1130,3 +1130,9 @@ return {
 - `src/app/ui.py` — `profile_panel()` function: `_prev_mastery = [None]` closure variable, `_gate_crossed` boolean detection, phase-grouped Overview tab layout (locked phases with padlock SVG + hints vs. unlocked phases with progress bars), phase progression context line in Current tab ("Phase X of 3 — N topics complete, M to go"), unlock animation CSS (`@keyframes rag-phase-unlock`, 2.5s green glow) injected via `ui.add_head_html()`
 
 ---
+
+## Commit 45 — `rag-specialist-content` · 2026-05-21 · RAG Specialist
+
+**One-liner:** First RAG Specialist content pass — expanded all 9 MCQ question banks from 5 questions to 10–12 each, added expert-tier questions and practitioner-depth "why wrong" distractor explanations for every incorrect option, and appended 3 open-ended questions per topic (27 total). Zero gate wave (knowledge-base content only, no code paths). Curriculum gap flagged: LangSmith tracing may warrant a standalone Phase 3 topic (handoff to Lara).
+
+---

@@ -1,7 +1,7 @@
 # Question Bank: `production_patterns`
 # Phase: 3 — Production
 # Maintained by: Lara (RAG Curriculum Specialist)
-# Last updated: 2026-05-11 (Commit 22)
+# Last updated: 2026-05-21 (Commit 45)
 
 ---
 
@@ -323,3 +323,152 @@ The learner should demonstrate a systematic, stage-by-stage diagnostic approach:
 - Cannot name more than one hypothesis
 - Recommends restarting the service without any diagnostic step
 - Conflates all three hypotheses as the same root cause (e.g., "the LLM is broken")
+
+---
+
+## Q9 — Faithfulness regression with stable retrieval metrics
+
+**Difficulty:** advanced
+
+**Question:**
+Your production RAG system shows a faithfulness regression: the rolling 7-day faithfulness
+average dropped from 0.84 to 0.67 over 5 days. Context precision and context recall are
+stable (within 2% of baseline). You have not changed the embedding model, the vector
+database, or the retrieval configuration. What are the three most likely root causes, and
+how would you isolate which one is responsible?
+
+**Correct answer criteria:**
+The learner must demonstrate understanding that faithfulness is a generation-stage metric —
+retrieval stability rules out the retrieval layer and focuses the investigation on what
+changed between retrieved context and generated answer.
+
+- Root cause 1 — LLM API behavior change: the LLM provider silently updated the model
+  (version rollover within the same API endpoint), changed sampling behavior, or
+  experienced a capability regression. Isolation: pull a fixed set of 20–30 prompt +
+  context pairs from before and after the regression and run them against the current LLM
+  endpoint. If outputs are systematically less grounded, compare with the prior LLM version
+  or a pinned snapshot if available.
+
+- Root cause 2 — Prompt template change: a deployment changed the system prompt, context
+  delimiter format, or grounding instruction (e.g., the "answer only from context" rule
+  was removed or weakened). Isolation: diff the live prompt template against the last known-
+  good version. Run the same query with both templates against the same retrieved context
+  and compare faithfulness scores.
+
+- Root cause 3 — Query distribution shift: the query population changed (new user segment,
+  new query types) such that the LLM is now generating answers for queries that require
+  synthesis from multiple sparse chunks, or for queries where the retrieved context is
+  technically present but doesn't directly state the answer. Faithfulness drops when the
+  LLM must infer or synthesize rather than quote. Isolation: segment faithfulness by query
+  type or query length. If newer queries cluster at lower faithfulness, the issue is
+  distribution shift, not a system change.
+
+**Partial credit criteria:**
+- Identifies two root causes but only one isolation method
+- Correctly identifies the distinction (generation vs. retrieval failure) but cannot
+  propose concrete diagnostic steps for each hypothesis
+
+**Incorrect / no-credit criteria:**
+- Recommends changing the embedding model or retrieval top_k (stable retrieval metrics
+  already rule out the retrieval layer)
+- Cannot identify any generation-stage failure mode
+- Describes "run more tests" without specifying what to test or what signal to look for
+
+---
+
+## Q10 — Graceful degradation when the vector database is unavailable
+
+**Difficulty:** advanced
+
+**Question:**
+Your vector database becomes unavailable (network partition, database outage). Your RAG
+system is still receiving user queries. Design a graceful degradation strategy that
+maintains some useful service rather than returning hard errors, and identify what you
+must pre-position to make each degradation tier possible.
+
+**Correct answer criteria:**
+- Tier 1 — In-memory fallback: maintain a small in-memory index of the N most-queried
+  chunks (e.g., the top-200 chunks by historical query frequency). Serve these for queries
+  that match, returning a degraded-quality answer with a "limited context" notice. What
+  to pre-position: a cache warm-up process that populates the in-memory index on startup
+  from a pre-built snapshot; a query frequency counter to determine which chunks to cache.
+
+- Tier 2 — Cache-only serving: return semantically cached responses for queries that
+  match an existing cache entry (from the semantic cache layer). No retrieval required.
+  What to pre-position: a semantic cache must already be warmed before the outage. For new
+  queries that miss the cache, escalate to Tier 3.
+
+- Tier 3 — LLM without context: for queries with no cached response and no in-memory
+  match, invoke the LLM without retrieved context. Return the answer with an explicit
+  notice: "Our knowledge base is currently unavailable. This answer is based on general
+  knowledge and may not reflect your specific documentation." What to pre-position:
+  a fallback prompt template that removes the context block and adds the caveat notice.
+
+- Circuit breaker pattern: the degradation tiers should be managed by a circuit breaker
+  that detects vector DB unavailability and routes traffic to the fallback path without
+  each request timing out individually. What to pre-position: health check endpoint for
+  the vector DB; circuit breaker threshold configuration.
+
+**Partial credit criteria:**
+- Describes one or two degradation tiers but cannot explain what must be pre-positioned
+  to make each tier operational at the time of the outage
+- Describes the pre-positioning requirements correctly for one tier but does not address
+  multiple tiers
+
+**Incorrect / no-credit criteria:**
+- Recommends only returning a hard error message ("service unavailable")
+- Cannot identify any fallback tier that preserves some useful service
+- Does not address the circuit breaker pattern or the need to detect the outage quickly
+
+---
+
+## Q11 — LLM output drift without model changes
+
+**Difficulty:** advanced
+
+**Question:**
+Over three months, user satisfaction scores on your RAG system decline steadily. RAGAS
+faithfulness and answer relevancy scores are stable. No model changes were deployed.
+What are the mechanisms by which LLM output quality can drift over time without any
+model update, and how would you detect each in production?
+
+**Correct answer criteria:**
+- Mechanism 1 — Corpus drift: the knowledge base content has changed (new documents added,
+  old documents updated or deleted). The retrieval stage still returns chunks at the same
+  precision/recall level, but the chunks now contain different information than users expect.
+  If user expectations are based on the old content, answers may be technically faithful
+  to new context but wrong relative to user intent. Detection: track user negative feedback
+  rate segmented by document recency. Monitor knowledge base content change velocity and
+  correlate with quality drops.
+
+- Mechanism 2 — Query distribution shift: the user population shifted. New users ask
+  different questions — questions that the knowledge base was not designed to answer, or
+  questions that require reasoning patterns the prompt does not support. The LLM faithfully
+  generates from poor context; faithfulness is stable but the answers are less useful.
+  Detection: analyze query embedding distribution over time. A shift in the query centroid
+  or an increase in query-context cosine distance signals distribution shift.
+
+- Mechanism 3 — Implicit LLM provider change: the LLM API provider rolled the underlying
+  model version (common with "gpt-4" endpoints that serve updated model weights without
+  changing the API name). Output style, verbosity, or instruction-following behavior may
+  have changed. Detection: pin a test suite of 50 fixed prompts with expected outputs.
+  Run this suite weekly. Deviations in output format, length distribution, or refusal rate
+  signal an implicit model change.
+
+- Mechanism 4 — Seasonal or topical context shift: documents or queries reference time-
+  sensitive content (regulatory changes, product launches, market conditions). The LLM
+  faithfully reports what the retrieved documents say, but the documents are now outdated
+  relative to reality. RAGAS scores stay high (faithful to stale context) but user
+  satisfaction drops. Detection: include freshness metadata in monitoring; alert when
+  median document age in retrieved contexts exceeds a threshold.
+
+**Partial credit criteria:**
+- Identifies two mechanisms with correct detection strategies
+- Identifies three or four mechanisms but cannot propose a detection approach for each
+
+**Incorrect / no-credit criteria:**
+- Describes only model changes as causes of drift (misses corpus, query distribution,
+  and provider-side changes)
+- Cannot distinguish faithfulness-stable drift (the system works as designed but the
+  design is no longer correct for the environment) from faithfulness-unstable drift
+  (the system is generating ungrounded content)

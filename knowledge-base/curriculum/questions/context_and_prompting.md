@@ -292,3 +292,153 @@ identify when the choice may affect model behavior in a measurable way.
 - Recommends system prompt for all cases without identifying the stale context risk in
   multi-turn scenarios
 - Cannot explain what a "system prompt" is distinct from the user message
+
+---
+
+## Q9 — Constraining synthesis without over-constraining fluency
+
+**Difficulty:** advanced
+
+**Question:**
+You are designing a system prompt for a RAG system that must not synthesize beyond the
+retrieved context — every claim in the answer must be traceable to a retrieved chunk.
+Describe a constraint formulation that works, what over-constraining looks like and why
+it is also a failure mode, and how you would test whether your constraint is effective.
+
+**Correct answer criteria:**
+- Effective constraint formulation: the instruction must be specific about what constitutes
+  a grounded claim and what the fallback behavior is when the context is insufficient.
+  A working formulation: "Answer only using information explicitly stated in the provided
+  context. For each claim you make, identify which context passage supports it. If the
+  context does not contain sufficient information to answer the question, respond: 'The
+  provided context does not contain enough information to answer this question.'" The key
+  elements are: explicit attribution requirement (forces the model to anchor claims),
+  explicit fallback phrasing (prevents the model from soft-hallucinating with hedged
+  language), and a positive definition of what "grounding" means (not just "don't
+  hallucinate")
+- Over-constraining failure mode: if the instruction demands verbatim quotation or
+  prohibits paraphrasing, the model produces mechanical, unreadable responses — it
+  copy-pastes chunks rather than synthesizing them into a coherent answer. Users abandon
+  the system because responses are unhelpful even when technically grounded. Over-
+  constraining also causes the model to refuse valid inference (e.g., if context says
+  "the process runs every 6 hours" and the user asks "does it run daily?", a maximally
+  constrained model says "I cannot confirm this" instead of answering "yes, it runs 4
+  times daily based on the retrieved context")
+- Testing effectiveness: evaluate faithfulness (RAGAS) to confirm grounded claims are
+  high; simultaneously test answer_relevancy to confirm the answers are still useful.
+  A successful constraint formulation produces high faithfulness without degrading
+  answer_relevancy. Also sample 20–30 responses and manually check for: refused valid
+  inferences (over-constraint), ungrounded claims (under-constraint), and awkward
+  verbatim copy-paste (over-constraint signal)
+
+**Partial credit criteria:**
+- Correctly describes an effective constraint formulation but does not identify over-
+  constraining as a distinct failure mode with its own quality cost
+- Identifies over-constraining as a problem but cannot describe a testing procedure that
+  distinguishes it from under-constraining
+
+**Incorrect / no-credit criteria:**
+- Proposes only "answer from context" as the complete constraint without including an
+  explicit fallback or attribution mechanism
+- Claims over-constraining is not possible — that any level of constraint is better than
+  no constraint
+- Cannot describe any method for testing whether the constraint is working
+
+---
+
+## Q10 — Diagnosing lost-in-the-middle in production
+
+**Difficulty:** advanced
+
+**Question:**
+You suspect that the "lost in the middle" phenomenon is actively degrading your production
+RAG system. Your pipeline injects 8 retrieved chunks, ordered by relevance score (most
+relevant first). Describe the metric pattern that would confirm lost-in-the-middle is
+occurring, how you would distinguish it from a retrieval quality problem, and what
+mitigation you would apply.
+
+**Correct answer criteria:**
+- Metric pattern that confirms lost-in-the-middle: run a controlled experiment on a fixed
+  test set. For each query, record the position of the ground truth chunk among the 8
+  injected chunks. Compute faithfulness separately for queries where the ground truth chunk
+  is in positions 1–2 vs. positions 4–6 vs. positions 7–8. If faithfulness is significantly
+  higher when the ground truth is at the beginning or end of the context block (and
+  significantly lower in the middle), lost-in-the-middle is occurring. A faithfulness drop
+  of 0.15 or more between "beginning/end" vs. "middle" positions is a strong signal
+- How to distinguish from retrieval quality problem: a retrieval problem would manifest as
+  low context_recall (the ground truth chunk is simply not retrieved) or low context_
+  precision (too many irrelevant chunks). Lost-in-the-middle is a generation attention
+  problem that occurs after retrieval — the correct chunk IS in the context, but the LLM
+  fails to use it. The distinguishing check: confirm the ground truth chunk is present
+  in the retrieved set (retrieval is working) while faithfulness is still low for middle-
+  position queries
+- Mitigation: reorder chunks so the most relevant chunk is always at position 1 (or
+  position 8 if you use recency bias as a secondary position). Do not use pure relevance-
+  descending order with a large chunk count — the second and third most relevant chunks
+  should be placed at the end, not in the middle. Reduce the number of injected chunks
+  (from 8 to 4–5) to shrink the "middle zone" that LLM attention avoids
+
+**Partial credit criteria:**
+- Correctly describes the position-based faithfulness experiment but does not describe how
+  to distinguish it from a retrieval problem
+- Correctly identifies the mitigation (reorder, reduce chunk count) but cannot describe
+  the metric experiment that confirms the phenomenon is occurring
+
+**Incorrect / no-credit criteria:**
+- Diagnoses lost-in-the-middle based only on low faithfulness without the position
+  correlation analysis (low faithfulness has many causes; the position correlation is
+  what distinguishes this specific failure mode)
+- Recommends fixing the retrieval stage (improving recall or precision) for what is a
+  generation attention problem
+- Claims increasing context window size eliminates lost-in-the-middle (the effect scales
+  with window size — a larger window does not fix positional attention bias)
+
+---
+
+## Q11 — LLM attention across mixed-format multi-document prompts
+
+**Difficulty:** advanced
+
+**Question:**
+Your RAG system retrieves chunks from three documents with different formatting conventions:
+Document A is a markdown table (rows and columns), Document B is a narrative prose paragraph,
+and Document C is a numbered list. All three are injected into the same prompt context block.
+How does an LLM's attention behave differently across these three formats, and what concrete
+mitigation exists for the attention inconsistency?
+
+**Correct answer criteria:**
+- Attention behavior differences:
+  1. Markdown tables: LLMs are trained on tables in markdown format but attend to table
+     content less uniformly than prose — they tend to read tables row-by-row and may miss
+     values in interior rows or columns, especially when the table is wide or the relevant
+     value is at a non-salient position. Numeric values in tables are particularly prone
+     to misreading or omission
+  2. Narrative prose: LLMs attend most reliably to prose because the majority of their
+     training data is prose. Sentence-structured claims in prose are more likely to be
+     incorporated into the generation than equivalent information expressed as a table cell
+  3. Numbered lists: list items are attended to more reliably than table cells because
+     each list item is a discrete, linearly presented statement. However, LLMs may attend
+     to the first 3–5 items more strongly than later items in a long list (positional bias
+     applies within a list structure)
+- Concrete mitigations:
+  1. Normalize format before injection: convert tables and lists to prose sentences before
+     inserting them into the context block. "The retention period for EU users is 90 days"
+     is more reliably attended to than a table row. This is the most effective mitigation
+     but adds a pre-processing step
+  2. Explicit format flagging in the system prompt: instruct the LLM "The context includes
+     tables, lists, and prose. Treat all formats equally. Pay particular attention to values
+     in tables." This partially mitigates but does not eliminate the attention asymmetry
+  3. Place table-containing chunks at the beginning of the context block (most attended
+     position) to compensate for the lower baseline attention to table content
+
+**Partial credit criteria:**
+- Correctly describes the attention difference for two of three formats but cannot describe
+  any mitigation
+- Describes the normalization mitigation correctly but attributes all attention differences
+  to chunk size or position rather than format
+
+**Incorrect / no-credit criteria:**
+- Claims LLMs attend equally to all formatting styles because they process tokens uniformly
+- Cannot identify any difference in how LLMs handle table content vs. prose content
+- Recommends increasing model size as the primary mitigation for format-based attention
+  inconsistency

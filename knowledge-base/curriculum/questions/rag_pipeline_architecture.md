@@ -274,3 +274,156 @@ wrong answer generated). What would you look for in each case?
 **Follow-up probe:**
 "If the retrieved chunks contain the correct information but the LLM still answers
 incorrectly, what three things would you change first in the prompt template?"
+
+---
+
+## Q9 — Multi-intent query routing in a RAG pipeline
+
+**Difficulty:** advanced
+
+**Question:**
+A user submits: "What is our data retention policy for EU users, and how does it compare
+to what competitors typically offer?" This single query requires information from two
+different document collections: your internal compliance documentation and your competitive
+intelligence knowledge base. Describe the routing decision you would make in the pipeline,
+what happens when the router misfires on one collection, and how you would recover
+gracefully.
+
+**Correct answer criteria:**
+- Routing decision: decompose the query into two sub-queries before retrieval. Sub-query 1
+  targets the compliance document collection ("data retention policy EU users"). Sub-query 2
+  targets the competitive intelligence collection ("competitor data retention practices").
+  Each sub-query is routed to its respective collection independently, and the results are
+  merged before prompt assembly. The router must classify which part of the query belongs
+  to which collection — this requires either explicit query decomposition (LLM-based) or
+  metadata-based routing rules (e.g., queries containing "policy" → compliance collection)
+- When the router misfires: the most common misfire is routing both sub-queries to the
+  same collection, or routing the competitive intelligence sub-query to the compliance
+  collection (which contains no competitor data). The result is that one half of the
+  answer has no context — the LLM either hallucinates the missing half or signals
+  "I don't know" for the second part
+- Graceful recovery: the prompt should include collection-specific context labels
+  ("--- Internal Policy ---" and "--- Competitive Intelligence ---") so that when one
+  collection returns empty results, the LLM can explicitly state "No competitive intelligence
+  data was retrieved for this query" rather than hallucinating. The fallback instruction
+  in the system prompt ("If information from a section is unavailable, say so explicitly")
+  is the mechanism for graceful degradation. A routing confidence threshold can also gate
+  whether a sub-query is sent to a collection at all
+
+**Partial credit criteria:**
+- Correctly describes query decomposition and dual-collection retrieval but does not
+  address the misfire failure mode
+- Identifies the misfire and proposes collection-labeled context but cannot describe the
+  graceful degradation mechanism in the prompt
+
+**Incorrect / no-credit criteria:**
+- Routes the full original query to both collections without decomposing it into sub-queries
+  (this retrieves mismatched documents for each half of the question)
+- Cannot identify that the router misfiring leads to hallucination of the missing half
+- Proposes running two separate LLM calls and concatenating the answers (addresses the
+  routing problem but creates citation and synthesis consistency issues)
+
+---
+
+## Q10 — Adding a reranker to an existing RAG pipeline
+
+**Difficulty:** advanced
+
+**Question:**
+You are considering adding a cross-encoder reranker to an existing RAG pipeline that
+currently retrieves top-20 chunks and passes them directly to the LLM. Describe where in
+the pipeline the reranker sits, what the latency cost profile looks like, and under what
+conditions the quality gain justifies the added p99 latency. When does it not?
+
+**Correct answer criteria:**
+- Pipeline placement: the reranker sits between the retriever and the prompt assembly step.
+  The retriever returns top-20 candidates; the reranker scores each (query, chunk) pair
+  with a cross-encoder and re-orders them; only the top-5 (or top-K) reranked chunks are
+  passed to the LLM. The reranker does not change what is retrieved — it changes which
+  retrieved chunks are injected into the prompt
+- Latency cost profile: cross-encoders require one forward pass per (query, chunk) pair.
+  Scoring 20 candidates requires 20 inference calls to the reranker model. At 20ms per
+  inference, this adds 400ms to the pipeline. p99 latency is disproportionately affected
+  because reranker latency is additive and consistent — there is no "fast path." The
+  latency is proportional to the number of candidates scored (reranking 100 candidates
+  costs 5× more than reranking 20)
+- When quality gain justifies the cost:
+  1. When the first-stage retriever's top-1 recall is low — i.e., the correct chunk is
+     often in the top-20 but not in the top-3. The reranker restores top-1 precision
+     without changing recall
+  2. When the use case involves high-stakes or complex queries where answer quality
+     justifies the additional latency (e.g., customer support escalations, legal research)
+  3. When the LLM context window is small and you must reduce from 20 to 5 chunks anyway —
+     reranking ensures the best 5 are selected
+- When it does not justify the cost:
+  1. Latency-sensitive applications (chatbots with <500ms SLA) where 400ms of reranker
+     latency is unacceptable
+  2. When the first-stage retriever already has high top-3 precision — adding a reranker
+     provides diminishing returns if the retriever is already returning the right chunks first
+  3. Very short documents or highly structured corpora where any of the top-20 chunks
+     would produce a correct answer — diversity of results matters more than reranking
+
+**Partial credit criteria:**
+- Correctly describes the pipeline placement and the latency model but does not distinguish
+  the conditions where the gain justifies the cost from those where it does not
+- Correctly identifies when reranking helps but describes the latency cost as negligible
+  without computing or estimating the actual p99 impact
+
+**Incorrect / no-credit criteria:**
+- Places the reranker before retrieval (describes it as a pre-retrieval filtering step)
+- Claims a reranker increases retrieval recall (it reorders already-retrieved candidates;
+  it cannot surface chunks that were not in the top-20)
+- Cannot identify any condition where the latency cost is not justified
+
+---
+
+## Q11 — Isolating the cause of a sudden faithfulness drop
+
+**Difficulty:** advanced
+
+**Question:**
+Your production RAG system's faithfulness score drops from 0.83 to 0.61 after a Friday
+deployment. The deployment touched three components: the LLM was upgraded from version 2
+to version 3, the prompt template was modified to reduce response length, and a document
+batch of 12,000 new files was indexed. You have no canary deployment — all traffic went
+to the new version at once. Describe the instrumentation you would add and the sequence
+of checks you would run to isolate which change caused the faithfulness drop.
+
+**Correct answer criteria:**
+- Instrumentation to add immediately (before any investigation):
+  1. Log the full retrieved context for every query, not just the final answer. If you
+     are not already logging the context passed to the LLM, you cannot distinguish
+     retrieval failure from generation failure
+  2. Add per-query faithfulness scoring using an LLM evaluator on a sample of live traffic,
+     so you have a rolling real-time faithfulness signal rather than batch evaluation
+- Sequence of checks:
+  1. First, separate retrieval failure from generation failure: run 50 sampled production
+     queries and manually inspect whether the correct answer is present in the retrieved
+     context. If not → retrieval problem (likely the new document batch has poor chunking
+     or introduced index pollution). If yes → generation problem (LLM upgrade or prompt change)
+  2. If the failure is in generation: bisect the two generation changes by reverting one
+     at a time. Revert only the prompt template change first (lower risk, easier to revert)
+     and re-evaluate faithfulness on the same 50 queries. If faithfulness recovers → the
+     prompt change was the cause. If not → the LLM upgrade is the likely cause
+  3. If the failure is in retrieval: check whether the faithfulness drop correlates with
+     queries that return chunks from the new document batch. Tag new-batch chunks with a
+     metadata flag and filter your evaluation sample to queries that retrieved at least one
+     new-batch chunk. If faithfulness is lower for new-batch queries, the batch ingestion
+     introduced the problem
+  4. In parallel with the above: run a RAGAS evaluation comparing context_precision and
+     context_recall before and after the deployment using a fixed test set. A drop in
+     context_precision with stable context_recall points to retrieval noise from the new
+     batch; stable context metrics with falling faithfulness points to the LLM or prompt
+
+**Partial credit criteria:**
+- Correctly describes the retrieval vs. generation bisection as the first check but
+  does not address how to isolate the LLM upgrade from the prompt change
+- Identifies the need to tag new-batch chunks but cannot describe the metric pattern
+  that distinguishes a new-batch retrieval problem from an LLM generation problem
+
+**Incorrect / no-credit criteria:**
+- Recommends rolling back all three changes simultaneously without isolating the cause
+  (solves the immediate problem but provides no diagnostic information)
+- Cannot describe how to distinguish a retrieval failure from a generation failure using
+  available data
+- Does not identify the need to log retrieved context as the prerequisite for any diagnosis

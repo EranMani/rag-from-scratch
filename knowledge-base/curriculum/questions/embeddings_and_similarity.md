@@ -272,3 +272,146 @@ and you use inner product anyway?
 - Claims inner product and cosine similarity are always equivalent
 - Says the difference is only a performance optimization with no quality impact
 - Cannot identify any condition under which one is preferred over the other
+
+---
+
+## Q9 — Fine-tuning an embedding model vs. using a general-purpose model
+
+**Difficulty:** advanced
+
+**Question:**
+Your RAG system has been running for three months using a general-purpose embedding model.
+Retrieval RAGAS scores show context_precision = 0.65 and context_recall = 0.71. A teammate
+suggests fine-tuning the embedding model on your domain corpus. What specific signals in
+your retrieval metrics would indicate that fine-tuning would help, and what risks does
+fine-tuning introduce that a general-purpose model does not have?
+
+**Correct answer criteria:**
+- Signals that indicate fine-tuning would help:
+  1. Context_precision is consistently low (below 0.70) despite good chunking and appropriate
+     top-K — this suggests the embedding model's similarity rankings are imprecise in your
+     domain, returning semantically related but domain-mismatched documents
+  2. Manual inspection of retrieval failures reveals a systematic vocabulary mismatch
+     pattern: user queries use domain-specific terminology (abbreviations, product names,
+     specialized jargon) while retrieved documents use different vocabulary for the same
+     concepts. This is the domain shift signal — the general-purpose model was not trained
+     on text where these terms appeared in similar contexts
+  3. Embedding visualization (e.g., UMAP) shows your domain's documents clustering poorly
+     — relevant documents are not close together in the embedding space
+- Risks that fine-tuning introduces:
+  1. Catastrophic forgetting: fine-tuning on a narrow domain corpus can degrade the model's
+     performance on queries or documents outside that domain. If your corpus grows to include
+     broader content, the fine-tuned model may underperform the general model on the new content
+  2. Re-indexing requirement: after fine-tuning, the embedding space changes. Every document
+     in the vector store must be re-embedded with the new model before it can be queried.
+     This is a full re-indexing event — potentially expensive and disruptive
+  3. Training data quality dependency: if the fine-tuning corpus is not representative of
+     the actual query-document pairs the system will see, fine-tuning can worsen performance.
+     Fine-tuning requires positive and negative query-document pairs; constructing these
+     from a document corpus alone (without labeled query data) is an approximation
+
+**Partial credit criteria:**
+- Identifies the vocabulary mismatch signal but cannot connect it to the specific RAGAS
+  metric pattern that reveals it
+- Correctly identifies re-indexing as a risk but treats it as a one-time cost rather than
+  an ongoing constraint (every future fine-tune requires another full re-index)
+
+**Incorrect / no-credit criteria:**
+- Recommends fine-tuning based on low faithfulness scores (faithfulness is a generation
+  metric, not a signal for embedding model quality)
+- Claims fine-tuning has no risks compared to using a general-purpose model
+- Cannot identify any metric signal that would indicate fine-tuning is needed
+
+---
+
+## Q10 — Detecting embedding model drift from your document corpus
+
+**Difficulty:** advanced
+
+**Question:**
+Your RAG system uses an embedding model that was state-of-the-art when you deployed it
+18 months ago. Your document corpus has grown significantly with new content in emerging
+product areas. You do not have labeled test queries. What operational signal would alert
+you that your embedding model has drifted from your corpus — meaning it no longer
+represents your documents' semantic space well — and how would you act on that signal?
+
+**Correct answer criteria:**
+- Signal 1: retrieval latency does not change, but answer quality (measured by proxy
+  signals) degrades over time. Track fallback rate ("I don't know" responses or very low
+  confidence answers) over rolling 30-day windows. A rising fallback rate against stable
+  query volume indicates retrieval is increasingly failing to surface relevant context,
+  consistent with drift
+- Signal 2: embedding space density check. Periodically embed a sample of recent documents
+  and compute their average distance to their nearest neighbors in the existing index. If
+  new documents are systematically farther from their nearest neighbors than older documents
+  were at index time, the model's embedding space does not accommodate the new vocabulary
+  well — new document vectors are landing in sparse, low-density regions of the space
+- Signal 3: query-document similarity score distribution. Track the distribution of the
+  top-1 cosine similarity score across a sample of queries over time. A downward drift in
+  the median top-1 score (i.e., even the best-matching document is matching less strongly)
+  indicates the model's representation of queries and documents is diverging
+- How to act: first, benchmark the current model against a recently released general-purpose
+  model using a small held-out query sample (even without labeled ground truth, you can
+  use an LLM-as-judge to prefer one retrieval result over another). If the new model is
+  preferred, plan a full re-indexing migration (see shadow index approach)
+
+**Partial credit criteria:**
+- Identifies fallback rate as a proxy signal but cannot describe the embedding space
+  density check or similarity score distribution method
+- Correctly describes two signals but conflates model drift with index staleness (they
+  are different problems: staleness is about document content not being in the index;
+  drift is about the model's representations no longer fitting the content that is indexed)
+
+**Incorrect / no-credit criteria:**
+- Recommends waiting for a full RAGAS evaluation to detect drift (requires labeled data
+  the question specifies is unavailable)
+- Cannot identify any operational signal that does not require labeled test queries
+- Claims embedding model drift is detectable only through direct user feedback
+
+---
+
+## Q11 — Shadow index strategy for embedding model upgrades
+
+**Difficulty:** advanced
+
+**Question:**
+You need to upgrade your embedding model from model-v1 to model-v2. Your production
+system serves 500 queries per minute and cannot tolerate a retrieval outage or a period
+where half the corpus is indexed under model-v1 and half under model-v2. Describe the
+shadow index approach for this migration, including what the consistency window looks
+like during cutover and when you would declare the migration complete.
+
+**Correct answer criteria:**
+- The shadow index approach:
+  1. Build a new, separate index (shadow index) using model-v2 on the full corpus while
+     the production index (model-v1) continues serving all traffic. The shadow index is
+     write-only — no production queries reach it during build
+  2. Once the shadow index contains all documents, begin a validation period: run a sample
+     of production queries against both indexes in parallel (shadow evaluation). Compare
+     the retrieved chunks — measure context_precision and faithfulness on both indexes
+     using an LLM evaluator. Do not switch traffic yet
+  3. When shadow index quality meets or exceeds the production index quality on the sampled
+     queries, perform the cutover: update the retriever to point to the shadow index.
+     This is an atomic configuration change — queries shift from model-v1 to model-v2 in
+     a single deployment
+- The consistency window: during the build phase, new documents being added to the corpus
+  must be dual-written to both indexes — added to the model-v1 production index so they
+  are retrievable now, and to the model-v2 shadow index so it remains current. Without
+  dual-write, the shadow index is stale by the time the build completes
+- Declaring migration complete: after cutover, monitor the model-v2 index for 48–72 hours.
+  If fallback rate, faithfulness proxy metrics, and query latency are stable or improved,
+  decommission the model-v1 index. Until then, keep model-v1 available as a rollback target
+
+**Partial credit criteria:**
+- Correctly describes building the shadow index in parallel but does not address the dual-
+  write requirement during the build phase (the consistency window problem)
+- Identifies the dual-write requirement but proposes a cutover without a validation period,
+  making the migration a blind swap
+
+**Incorrect / no-credit criteria:**
+- Proposes stopping writes to the production index during the build phase (causes retrieval
+  outage or staleness)
+- Describes a rolling migration where some queries go to model-v1 and others to model-v2
+  simultaneously (produces split-brain retrieval — query results are inconsistent depending
+  on which index is hit)
+- Cannot identify the consistency window as a problem that requires dual-write

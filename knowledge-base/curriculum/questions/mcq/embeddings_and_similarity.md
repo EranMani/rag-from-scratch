@@ -1,8 +1,8 @@
 # MCQ Bank — embeddings_and_similarity
 # Topic: embeddings_and_similarity
 # Phase: 1 (Foundations)
-# Questions: 5 (2 beginner, 2 intermediate, 1 advanced)
-# Last updated: 2026-05-19 (Commit 33)
+# Questions: 10 (2 beginner, 3 intermediate, 3 advanced, 2 expert)
+# Last updated: 2026-05-21 (Commit 45)
 
 ---
 
@@ -25,6 +25,12 @@ D. A hash of the text used to detect duplicate documents
 **Explanation:**
 An embedding is a dense vector of floating-point numbers in a high-dimensional space where texts with similar meanings are geometrically close. It encodes semantic meaning, not surface form — unlike A (which implies lossless reconstruction), C (which describes a positional index), or D (which describes a hash for deduplication rather than meaning representation).
 
+**Why A is wrong:** An embedding is a lossy, fixed-length projection — the original text cannot be reconstructed from it. Developers coming from compression backgrounds (zip, base64) sometimes expect embeddings to be reversible. They are not; they are a transformation into a semantic space, not a compressed copy.
+
+**Why C is wrong:** A keyword/positional index (like those used in BM25 or inverted indexes) is a fundamentally different data structure: it maps terms to document positions. Embeddings are dense floating-point vectors with no per-token positional accounting. Confusing the two leads to incorrect assumptions about what retrieval failure modes look like.
+
+**Why D is wrong:** Hashes are deterministic, fixed-length outputs designed for collision resistance and equality checks, not semantic comparison. Similar texts produce wildly different hashes. Embeddings of similar texts produce geometrically close vectors. The two serve completely different purposes.
+
 ---
 
 ## MCQ-2 — Cosine similarity meaning
@@ -45,6 +51,12 @@ D. One text is a paraphrase of the other with 5% new content
 
 **Explanation:**
 Cosine similarity measures the angle between two vectors in embedding space — a score near 1.0 indicates the vectors point in nearly the same direction, meaning the texts are semantically very similar. It says nothing about word overlap (B), text length (A), or percentage of new content (D). Semantically equivalent sentences that use entirely different words can still have high cosine similarity.
+
+**Why A is wrong:** Cosine similarity is magnitude-invariant — it measures direction only. A ten-word text and a thousand-word text can have cosine similarity of 1.0 if they embed to the same direction. Length is not encoded in the similarity score. Developers who are unfamiliar with vector geometry sometimes assume similarity must correlate with structural properties like length.
+
+**Why B is wrong:** Word overlap is what lexical metrics (like Jaccard similarity or BM25) measure. Cosine similarity operates on the resulting embedding vector, not on the raw tokens. Two texts with no shared words can have high cosine similarity if they convey the same meaning. Confusing semantic similarity with lexical overlap is one of the most common foundational errors.
+
+**Why D is wrong:** Cosine similarity is not a percentage-of-new-content metric. A score of 0.95 does not mean 5% of the content is different — it means the embeddings are geometrically close. The relationship between score magnitude and semantic difference is non-linear and model-dependent.
 
 ---
 
@@ -67,6 +79,12 @@ D. When the embedding model uses ReLU activations in its final layer
 **Explanation:**
 Cosine similarity normalizes by the product of the two magnitudes: `cos(a, b) = dot(a, b) / (|a| × |b|)`. When both vectors are already unit-normalized (|a| = |b| = 1), the denominator is 1 and the dot product equals the cosine similarity. This matters in practice because many vector databases index dot product similarity, and unit-normalized embeddings must be stored for the results to match cosine ranking. Zero-mean centering (B) does not cause equivalence.
 
+**Why A is wrong:** Dot product and cosine similarity are only equivalent when vectors are unit-normalized. For unnormalized vectors, longer vectors have higher dot products regardless of direction — a very long vector can dominate dot product rankings even if it is not semantically the closest. This causes retrieval ranking to favor long documents over genuinely relevant short passages.
+
+**Why B is wrong:** Zero-mean centering (subtracting the mean of the vector space) is an isotropy correction technique, not a normalization step. Centering does not fix magnitude differences — two centered vectors can still have different magnitudes, so dot product and cosine will diverge. Engineers who apply centering to improve embedding isotropy sometimes incorrectly assume it implies normalization.
+
+**Why D is wrong:** The activation function in the model's final layer affects the distribution of values in each vector, but it does not ensure unit magnitude. ReLU outputs can vary widely in norm depending on the input. Model architecture choices do not replace explicit L2 normalization when using a dot-product index.
+
 ---
 
 ## MCQ-4 — Embedding space and retrieval failure
@@ -88,6 +106,12 @@ D. The vector database index became corrupted during ingestion
 **Explanation:**
 Embeddings are only comparable when produced by the same model — two different models map text into different vector spaces, and similarity scores across spaces are meaningless. Using model A at index time and model B at query time is a common production failure mode. Option A is incorrect because embedding models encode semantic patterns, not specific vocabulary. Option C would cause no results, not wrong results. Option D is possible but far less likely than a model mismatch for this symptom pattern.
 
+**Why A is wrong:** Embedding models learn distributional representations from large corpora and generalize across vocabulary. A model trained without the word "password" will still embed "reset my password" into the same semantic region as "account recovery" because the surrounding context conveys the meaning. Vocabulary gaps are a concern for sparse retrieval methods (BM25), not for dense embeddings.
+
+**Why C is wrong:** A threshold set too high would return zero results or too few results — not wrong results. Returning a document about firewall configuration indicates the similarity scores are positive and the retriever found a best match, just the wrong one. Threshold tuning affects coverage, not correctness of matches.
+
+**Why D is wrong:** Index corruption is possible but exceedingly rare and would typically manifest as errors, missing results, or random garbage returns — not as systematic wrong retrievals. Systematic wrong retrievals point to a model mismatch, embedding space incompatibility, or domain mismatch in training data. Blaming corruption without evidence is premature.
+
 ---
 
 ## MCQ-5 — Semantic vs. lexical gap
@@ -108,4 +132,143 @@ D. The chunking strategy split the document at a sentence boundary, discarding t
 
 **Explanation:**
 This is the classic semantic-lexical gap problem. Dense embeddings capture distributional similarity, but when one text uses formal clinical language ("cardiovascular pump") and another uses colloquial language ("heart"), even a strong general-purpose embedding model may not bridge the gap. Hybrid retrieval (dense + BM25) is the architectural solution: BM25 would match "heart" if it appears anywhere in the document, while dense retrieval covers paraphrase cases. Option A assumes fine-tuning is required — but the issue is not vocabulary unfamiliarity, it is term-level distance in the embedding space. Option B is partially correct but does not name the architectural remedy.
+
+**Why A is wrong:** Fine-tuning changes how the model represents tokens in the embedding space. But the failure here is not that the model lacks the term — both "heart" and "cardiovascular pump" are common English terms that any general embedding model knows. The model simply may not have learned that they are near-synonyms in clinical context. Fine-tuning on a medical corpus would help, but the correct architectural answer is hybrid retrieval, which is faster to deploy, more maintainable, and does not require labeled training data.
+
+**Why B is wrong:** Option B correctly describes the mechanism (the terms are distant in the embedding space) but stops there. It does not identify the architectural remedy, which is what the question asks for. Identifying the cause without prescribing the fix is an incomplete diagnostic — and in production, an incomplete diagnosis leads to prolonged outages.
+
+---
+
+## MCQ-6 — Embedding model drift without re-indexing
+
+**Difficulty:** advanced
+**Topic:** embeddings_and_similarity
+
+**Question:**
+A team upgrades their embedding model from `text-embedding-ada-002` to `text-embedding-3-large` to improve retrieval quality. They update the query embedding call but forget to re-embed the document corpus. What is the observable production symptom and the precise mechanism behind it?
+
+**Options:**
+A. The system throws a dimension mismatch error at query time because the two models produce vectors of different lengths
+B. Retrieval accuracy silently degrades — queries are embedded in model B's vector space while documents remain in model A's vector space; cosine similarity scores become meaningless across the two spaces, causing the system to return apparently random results with high confidence scores
+C. The vector database rejects the new query vectors because they fail the checksum validation used to verify index integrity
+D. Retrieval recall drops to zero because the new model uses a different tokenizer that produces out-of-vocabulary tokens for all stored documents
+
+**Correct answer:** B
+
+**Explanation:**
+Each embedding model defines its own high-dimensional vector space with its own geometry. When you embed a query with model B, you get a vector that means something in model B's space. The stored document vectors were computed by model A and mean something in model A's space. Cosine similarity between the two is nonsense — it measures the angle between a point in one coordinate system and a point in a different coordinate system. The failure is silent: the system does not error, returns results with high scores, and appears to work. This is one of the most dangerous failure modes because it passes integration tests that only check for response shape, not semantic correctness. The fix is always to re-index when changing embedding models.
+
+**Why A is wrong:** Dimension mismatch would produce an explicit error, which would be caught immediately. Real production failures are silent, not noisy. `text-embedding-ada-002` outputs 1536 dimensions and `text-embedding-3-large` outputs 3072 dimensions by default — so this error is possible, but it is a loud failure that gets caught at deployment, not a silent degradation. The question describes the more dangerous silent variant.
+
+**Why C is wrong:** Vector databases do not perform checksum validation on stored vectors. They are numerical arrays — there is no integrity check that distinguishes a valid model-A vector from a valid model-B vector. The database stores and retrieves both identically. This is precisely why the failure is silent.
+
+**Why D is wrong:** Tokenization happens at embedding time to produce the vector; the tokens themselves are not stored in the vector database. Once a document is embedded, it is stored as a float array. A different tokenizer at query time affects how the query text is converted to a vector, but stored document vectors are unaffected because they were already computed and stored. Recall does not drop to zero — it degrades silently.
+
+---
+
+## MCQ-7 — Fine-tuned embedding and domain overfitting
+
+**Difficulty:** advanced
+**Topic:** embeddings_and_similarity
+
+**Question:**
+A team fine-tunes a general-purpose embedding model on their internal support ticket corpus to improve retrieval for customer support queries. After deployment, RAGAS recall@5 improves on support queries but drops significantly on queries about product documentation, which was also in the corpus. What is the most likely cause?
+
+**Options:**
+A. The fine-tuned model's embedding dimension is smaller than the original, reducing its capacity to represent product documentation semantics
+B. Fine-tuning on support ticket pairs biased the model toward support-language patterns; the resulting embedding space compresses regions relevant to documentation style, making documentation chunks harder to distinguish from each other at query time
+C. The vector database needs to be re-indexed after fine-tuning because the stored vectors are stale — re-indexing will restore documentation recall
+D. Fine-tuning causes catastrophic forgetting of the base model's vocabulary, making product terminology out-of-vocabulary
+
+**Correct answer:** B
+
+**Explanation:**
+Fine-tuning on domain-specific data adjusts the model's embedding space to prioritize the patterns in that data. If the fine-tuning corpus is predominantly support tickets, the model learns to geometrically separate support-language concepts while compressing other regions of the space. Documentation-style text, which uses different sentence structures and terminology, may collapse into a smaller region of the fine-tuned space — documentation chunks that were previously distinguishable become neighbors of each other, making precision difficult. This is domain overfitting: the model trades general retrieval quality for specialized performance on the fine-tuning distribution.
+
+**Why A is wrong:** Fine-tuning does not change the model's output dimension — that is determined by the model architecture and is fixed. A fine-tuned version of `text-embedding-3-large` still outputs 3072-dimensional vectors. Dimension reduction would require a different architectural choice (e.g., MRL or PCA compression).
+
+**Why C is wrong:** Re-indexing (re-embedding documents with the fine-tuned model) is required when the model changes — but the question asks why recall dropped on documentation after re-indexing was presumably done. If re-indexing had not been done, the failure mode would be cross-space incoherence (wrong results everywhere), not selective degradation on one content type. Re-indexing is necessary but not sufficient when the model has overfitted.
+
+**Why D is wrong:** Fine-tuning on a contrastive objective adjusts the representation space geometry, not the vocabulary. The underlying tokenizer and vocabulary are unchanged. Catastrophic forgetting of vocabulary does not occur in embedding fine-tuning — it is a concern for generative model fine-tuning where the output distribution can shift dramatically.
+
+---
+
+## MCQ-8 — Cosine similarity score inflation past threshold
+
+**Difficulty:** advanced
+**Topic:** embeddings_and_similarity
+
+**Question:**
+A developer adds a similarity threshold filter: only retrieve chunks with cosine similarity >= 0.75. In early testing this eliminates irrelevant results. After six months with a 500,000-document corpus, users report that queries return confidently-scored results that are semantically unrelated to the query. Cosine scores are consistently in the 0.75–0.82 range. What is the most precise diagnosis?
+
+**Options:**
+A. The HNSW index degrades over time and returns approximate neighbors with inflated similarity scores
+B. In high-dimensional embedding spaces, cosine similarity scores concentrate near a narrow range as corpus size grows — many unrelated documents end up with similar scores to any query because the curse of dimensionality causes pairwise distances to converge. The fixed threshold no longer discriminates signal from noise
+C. The embedding model has drifted because the documents added over six months shifted the centroid of the embedding space, making the threshold calibration stale
+D. The similarity threshold filter has an off-by-one bug that accepts scores >= 0.74 instead of >= 0.75, allowing near-threshold irrelevant results through
+
+**Correct answer:** B
+
+**Explanation:**
+In high-dimensional spaces (typical embedding dimensions are 768–3072), the "curse of dimensionality" causes pairwise cosine distances between random vectors to concentrate around a mean value. As the corpus grows from 10,000 to 500,000 documents, the density of the high-dimensional space increases, and more unrelated documents fall within any fixed similarity band. A threshold of 0.75 that was discriminative at small scale becomes uninformative at large scale because the distribution of scores shifts — the bulk of the corpus, including unrelated documents, starts scoring in the 0.73–0.82 range. The fix is relative thresholding (e.g., return top-k with a minimum margin over the k+1 score) rather than absolute thresholding, or recalibrate the threshold against the full-scale corpus distribution.
+
+**Why A is wrong:** HNSW approximate recall degradation manifests as failing to return the true nearest neighbors — missed results, not inflated scores for wrong results. The scenario describes consistent high scores for unrelated documents, which is a distributional problem, not an index accuracy problem.
+
+**Why C is wrong:** Embedding models do not drift — the weights are frozen after training. The centroid of the embedded corpus shifts as new documents are added, but this affects the overall density of the vector space, not the model's output for any given input. This is precisely the curse-of-dimensionality effect described in B, but the mechanism is corpus density, not model drift.
+
+**Why D is wrong:** An off-by-one on the threshold comparison would create a small, consistent boundary leak, not a systematic shift across the entire score distribution. The symptom is scores in the 0.75–0.82 range being returned for unrelated content — this is a distributional issue affecting many documents, not a boundary condition affecting a few.
+
+---
+
+## MCQ-9 — Cross-encoder vs. bi-encoder operational tradeoff
+
+**Difficulty:** expert
+**Topic:** embeddings_and_similarity
+
+**Question:**
+A RAG system uses a bi-encoder to retrieve top-100 candidates and a cross-encoder to rerank to top-5. Query latency is 180ms. A product request requires reducing latency to under 80ms while maintaining answer quality. Which change is most operationally sound?
+
+**Options:**
+A. Replace the bi-encoder with a cross-encoder for all 100 candidates — cross-encoders produce better similarity scores, so fewer candidates are needed
+B. Reduce the bi-encoder candidate pool from 100 to 10 and eliminate the cross-encoder reranker — the bi-encoder score is sufficient for final ranking when the pool is small enough
+C. Keep the bi-encoder retrieval step and eliminate the cross-encoder; compensate by improving bi-encoder recall through a larger candidate pool (200) and tighter chunk quality
+D. Replace the cross-encoder with a lighter reranker (e.g., a smaller cross-encoder variant or a learned sparse reranker) that operates on the top-100 but at lower inference cost — maintain the two-stage architecture
+
+**Correct answer:** D
+
+**Explanation:**
+The two-stage retrieval architecture (bi-encoder for recall, cross-encoder for precision) exists because bi-encoders are fast but less precise (they independently encode query and document) while cross-encoders are precise but slow (they jointly encode query-document pairs and cannot be precomputed). The latency bottleneck is the cross-encoder running over 100 candidates at query time. The operationally sound fix is to replace the cross-encoder with a lighter reranker — not to remove the reranking stage entirely. Option B eliminates reranking and accepts lower precision. Option C increases bi-encoder pool size (raising retrieval latency) while removing the precision stage — the opposite direction. Option A replaces a fast precomputed step (bi-encoder) with the slow step (cross-encoder) at full scale, which would make latency far worse than 180ms.
+
+**Why A is wrong:** Running a cross-encoder over 100 candidates is the current bottleneck. Replacing the fast bi-encoder with a cross-encoder for the initial retrieval stage would require running a joint query-document forward pass for every document in the index — which is exactly what makes cross-encoders impractical as primary retrievers. This change would increase latency by orders of magnitude.
+
+**Why B is wrong:** Reducing the candidate pool from 100 to 10 and removing reranking accepts the bi-encoder's lower precision as final. For many queries, the true best answer is in positions 6–20 of the bi-encoder ranking — a pool of 10 with no reranking means those results are permanently missed. This trades quality for latency in a way that will surface in evaluation metrics.
+
+**Why C is wrong:** Increasing the bi-encoder pool from 100 to 200 increases bi-encoder retrieval time (more ANN comparisons) and more importantly increases the number of chunks returned to the LLM if no reranking is done. Chunk quality improvement is an indexing-time concern that does not address query-time latency. This option moves in the wrong direction on both dimensions.
+
+---
+
+## MCQ-10 — Batch vs. single-query embedding inconsistency
+
+**Difficulty:** expert
+**Topic:** embeddings_and_similarity
+
+**Question:**
+A team notices that the same document, when embedded via batch API call (alongside 511 other documents), produces a slightly different vector than when embedded in a single-call request. The L2 distance between the two vectors is small (0.003) but non-zero. Six months after launch, RAGAS context_recall drops from 0.91 to 0.82 with no code changes or corpus updates. The only operational event was a migration that re-indexed documents using single-call embedding for each chunk instead of the original batch embedding. What is the most precise diagnosis and the correct operational response?
+
+**Options:**
+A. This is expected floating-point non-determinism and is operationally irrelevant — an L2 distance of 0.003 is below any meaningful similarity threshold and cannot affect retrieval ranking at scale
+B. Batch embedding and single-query embedding in some embedding APIs apply different internal padding and normalization passes depending on input count and sequence length distribution. The re-indexed vectors are in a subtly shifted position relative to the original query-time vectors (which were generated via single calls). If query embeddings were not re-generated using the same call mode as the re-indexed documents, the query and document vector spaces are now misaligned. Recall drops because the angular relationships that retrieval depends on have shifted. The fix is to ensure query embedding and document embedding always use identical call modes, and to re-generate query benchmarks after any re-indexing
+C. The recall drop is caused by the re-indexing operation replacing HNSW graph structure, which requires a 48-hour warm-up period before the graph connectivity stabilizes to full recall quality
+D. Single-call embedding is always higher quality than batch embedding — the recall drop happened because the migration exposed pre-existing poor-quality batch embeddings. The correct response is to leave the single-call embeddings in place and wait for recall to recover as the HNSW graph self-optimizes
+
+**Correct answer:** B
+
+**Explanation:**
+Several embedding APIs — including some versions of OpenAI's embedding endpoint — exhibit input-count-dependent behavior: when a batch of sequences is processed together, the internal padding to the maximum sequence length in the batch, combined with layer normalization passes that are sensitive to the batch distribution, can produce vectors that differ slightly from vectors produced by embedding the same text in isolation. These differences are small per-vector but systematic — they shift the entire re-indexed document space relative to the original. If query embeddings continue to be generated via single calls (matching the original mode), the query vector space and the re-indexed document vector space are now misaligned by the batch-mode offset. The recall drop is not random noise — it is a consistent angular shift that makes previously near neighbors slightly farther away. The fix is call-mode consistency: queries and documents must always be embedded using the same API call pattern and model version. After re-indexing, the evaluation benchmark queries should also be re-embedded in the new mode to validate alignment before declaring the migration complete.
+
+**Why A is wrong:** An L2 distance of 0.003 sounds negligible in isolation, but its impact depends on the geometry of the embedding space near the retrieval boundary. In high-dimensional spaces, small systematic shifts can move borderline-relevant documents from just inside the top-k retrieval radius to just outside it — consistently, across thousands of queries. The 0.09 recall drop (from 0.91 to 0.82) is not noise; it is a consistent degradation that cannot result from truly random floating-point error, which would be symmetric and average out. A practitioner who dismisses systematic vector offset as "below threshold" without checking for call-mode inconsistency is missing the mechanism.
+
+**Why C is wrong:** HNSW indexes do not have a warm-up period during which recall gradually improves after a build. The graph is fully constructed and queryable immediately after the build completes. Recall quality at time-of-completion is the recall quality the index will have until the next incremental insert degrades it. There is no self-healing or stabilization process. This option invents a non-existent HNSW operational characteristic and would cause a team to wait 48 hours before investigating the real cause.
+
+**Why D is wrong:** Neither batch nor single-call embedding is universally higher quality — the two modes produce consistent but slightly different vectors for API-specific reasons that are implementation details, not quality hierarchies. The premise that single-call embeddings are "better" is not established; they are just different. More critically, the claim that the HNSW graph will "self-optimize" over time is false — HNSW graphs do not self-modify after construction. The recall drop will persist indefinitely until the call-mode mismatch is resolved.
 

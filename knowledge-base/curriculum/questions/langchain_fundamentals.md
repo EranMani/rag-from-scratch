@@ -1,7 +1,7 @@
 # Question Bank: `langchain_fundamentals`
 # Phase: 2 — Core Components
 # Maintained by: Lara (RAG Curriculum Specialist)
-# Last updated: 2026-05-20 (Commit 40)
+# Last updated: 2026-05-21 (Commit 45)
 
 ---
 
@@ -325,3 +325,162 @@ already present.
 - Cannot identify the retriever as the first diagnostic target.
 - Does not distinguish between retrieval failures and generation failures as separate
   diagnostic hypotheses.
+
+---
+
+## Q9 — Diagnosing silent empty context in a LangChain chain
+
+**Difficulty:** advanced
+
+**Question:**
+A LangChain RAG chain is returning answers that are consistently vague and non-specific,
+but no exceptions are raised and the chain completes successfully. A colleague suspects
+the LLM is receiving an empty context block. Describe the exact diagnostic procedure to
+confirm or rule out empty context, identify three mechanisms by which a LangChain chain
+can silently pass empty context to the LLM, and specify the instrumentation change that
+would surface this in production automatically.
+
+**Correct answer criteria:**
+- Diagnostic procedure:
+  1. Enable LangChain verbose logging (`verbose=True` on the chain or chain components)
+     and run a failing query. Inspect the rendered prompt sent to the LLM in the output.
+  2. Alternatively, attach a callback: `callbacks=[CustomLoggingCallback()]` that
+     implements `on_llm_start(serialized, prompts, **kwargs)` and logs the raw prompt string.
+  3. Confirm whether the context block in the logged prompt is empty or populated.
+
+- Mechanism 1 — Retriever returning empty list: if the retriever finds no results (score
+  threshold too high, index empty, embedding model producing out-of-distribution query
+  vectors), it returns `[]`. The chain passes this empty list through the document
+  formatter, which produces an empty string. No error is raised. Detection: log
+  `len(docs)` in an `on_retriever_end` callback.
+
+- Mechanism 2 — Variable name mismatch in the prompt template: the prompt template
+  expects `{context}` but the chain's RunnablePassthrough passes the key as
+  `"retrieved_context"` or `"documents"`. The template renders with an empty string for
+  the missing variable (or raises a KeyError that a try/except swallows). Detection:
+  validate chain input/output schema at startup using `.input_schema` and `.output_schema`.
+
+- Mechanism 3 — Document formatter producing empty string: the `format_docs` function
+  (or `StuffDocumentsChain` format method) is passed `Document` objects but the `.page_content`
+  attribute is empty because the text was not properly stored at indexing time. The
+  formatter produces whitespace or an empty string. Detection: log the document text
+  lengths in `on_retriever_end`.
+
+- Production instrumentation: register a LangChain callback that logs on_retriever_end
+  (chunk count and first 100 characters of each chunk's content), on_llm_start (prompt
+  length and first/last 100 characters), and emits a metric/alert when chunk count is
+  zero or prompt length is below a threshold.
+
+**Partial credit criteria:**
+- Identifies the diagnostic procedure and one mechanism, with a correct instrumentation
+  approach for that mechanism only
+- Identifies all three mechanisms but does not describe how to surface them in production
+  (only describes manual debugging steps)
+
+**Incorrect / no-credit criteria:**
+- Recommends only restarting the service or checking API connectivity
+- Cannot identify any mechanism that would cause silent empty context
+- Describes "print the output" as the diagnostic procedure without identifying LangChain-
+  specific instrumentation points (callbacks, verbose mode)
+
+---
+
+## Q10 — Migrating ConversationalRetrievalChain to LCEL with preserved memory
+
+**Difficulty:** advanced
+
+**Question:**
+You have a production RAG assistant built on `ConversationalRetrievalChain`. The team
+wants to migrate to LCEL for better streaming support and traceability. Describe the
+specific behavioral differences you must account for when replacing
+`ConversationalRetrievalChain` with an LCEL equivalent, with focus on memory handling.
+What fails silently if you compose the LCEL chain without explicitly replicating
+the memory behavior?
+
+**Correct answer criteria:**
+- ConversationalRetrievalChain behavior: the chain automatically retrieves conversation
+  history from its memory component, condenses the history + current question into a
+  standalone question (via a separate LLM call), and uses the condensed question as the
+  retrieval query. This "question condensation" step is not present in a basic LCEL chain.
+
+- What fails silently without question condensation: follow-up queries that reference
+  previous turns ("And what about the second option you mentioned?") are passed directly
+  to the retriever as-is. The retriever embeds a query that contains pronouns and
+  implicit references with no context, producing irrelevant or empty retrieval results.
+  No error is raised — the chain completes with a bad context block.
+
+- What must be explicitly replicated in LCEL:
+  1. A conversation history store (e.g., `ChatMessageHistory` with `RunnableWithMessageHistory`)
+  2. A question condensation step: a sub-chain that takes (chat_history, current_question)
+     and generates a standalone, self-contained retrieval query before calling the retriever
+  3. The retrieval step using the condensed question
+  4. The final generation step using original history + retrieved context
+
+- Key LCEL-specific note: `RunnableWithMessageHistory` handles session-scoped history
+  persistence, but the question condensation logic must be authored explicitly as a
+  sub-chain — it is not automatically provided by any LCEL primitive.
+
+**Partial credit criteria:**
+- Correctly identifies that question condensation is missing and explains why it matters
+  for follow-up queries, but cannot describe the full LCEL component list needed to
+  replicate the behavior
+- Lists the required components correctly but cannot explain what fails silently if
+  question condensation is omitted
+
+**Incorrect / no-credit criteria:**
+- Claims `RunnableWithMessageHistory` alone replicates `ConversationalRetrievalChain`
+  behavior (memory persistence is not the same as question condensation)
+- Cannot identify the question condensation step as the critical difference
+- Describes the migration as straightforward with no behavioral differences to account for
+
+---
+
+## Q11 — LangSmith traces show tool calls succeeding but final answer is wrong
+
+**Difficulty:** advanced
+
+**Question:**
+A LangSmith trace for a failing query shows: (1) the retriever tool called successfully
+and returned 5 chunks with similarity scores 0.81–0.89, (2) the LLM tool called
+successfully and returned a completion, (3) no errors or exceptions anywhere in the trace.
+Yet the final answer is factually wrong in a way that contradicts the retrieved chunks.
+Walk through the four diagnostic hypotheses you would investigate using the trace data
+alone, before making any code changes.
+
+**Correct answer criteria:**
+The learner should demonstrate how to use LangSmith trace anatomy (inputs/outputs at each
+step) to isolate the failure:
+
+- Hypothesis 1 — Context not reaching the LLM: expand the LLM tool node in the trace
+  and inspect the actual prompt input. Verify that the retrieved chunks appear in the
+  context block. If the prompt shows an empty or truncated context block despite
+  the retriever returning 5 chunks, there is a document formatting or variable binding
+  failure between the retriever output and the prompt template input.
+
+- Hypothesis 2 — Prompt template rendering error: the rendered prompt in the LLM input
+  may show context present but malformatted (e.g., `[Document(page_content='...')]` as a
+  Python repr string rather than clean text). This happens when `format_docs` is missing
+  from the chain and documents are passed as raw objects. The LLM receives a technical
+  string it was not designed to reason over.
+
+- Hypothesis 3 — Retrieved chunks do not contain the correct answer despite high
+  similarity scores: expand each retrieved document in the trace. High cosine similarity
+  does not guarantee the chunk contains the specific fact needed — it means the chunk is
+  topically related. If the answer requires a specific numerical value, date, or name that
+  is absent from all 5 chunks, the failure is retrieval quality, not generation.
+
+- Hypothesis 4 — LLM output truncation: inspect the token count and stop reason in the
+  LLM node output. If the completion was stopped by a length limit (stop_reason="length"
+  rather than "stop"), the answer may have been cut off mid-reasoning. The truncated
+  portion that was generated but not returned may have contained the correct answer.
+
+**Partial credit criteria:**
+- Identifies three of four hypotheses with correct LangSmith trace inspection steps
+- Identifies all four hypotheses but describes only generic debugging (not trace-specific
+  inspection steps)
+
+**Incorrect / no-credit criteria:**
+- Recommends code changes before exhausting trace-based diagnostics
+- Cannot identify more than one hypothesis
+- Describes only "check the retrieval quality" without specifying what to inspect
+  in the trace and what signal confirms or rules out each hypothesis
