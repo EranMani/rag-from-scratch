@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-21 (Commit 45 rag-specialist-content done)",
+  "last_updated": "2026-05-22 (Commit 45.1 novice-prompt-comprehension done)",
   "status": "active",
   "current_commit": {
-    "number": "46",
-    "name": "nginx-config",
+    "number": "45.2",
+    "name": "open-question-delivery",
     "status": "pending",
-    "assignee": "devops"
+    "assignee": "ai-engineer"
   },
   "commits_done": [
     "01",
@@ -55,15 +55,20 @@
     "41",
     "42",
     "43",
-    "44"
+    "44",
+    "45",
+    "45.1"
   ],
   "commits_pending": [
+    "45.2",
+    "45.3",
+    "45.4",
     "46",
     "47",
     "48",
     "49"
   ],
-  "next_commit": "46",
+  "next_commit": "45.2",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
