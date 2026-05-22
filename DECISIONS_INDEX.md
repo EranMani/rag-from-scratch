@@ -17,7 +17,11 @@
 69. **`!important` on Quasar button gradient** — Quasar re-applies its own background after render; `!important` is the reliable override; class-based approach is the clean future fix
 70. **Google Fonts CDN accepted (portfolio)** — privacy trade-off logged (CWE-829); self-host `@fontsource/inter` if real users added
 
-*Last updated: 2026-05-19 — Commit 33*
+## Question Type Balance (C45.3)
+85. **`select_question_type` as standalone pure function** — inlining in `select_test_question` would make ratio-distribution testing require full pipeline mocking; standalone function keeps the decision point visible and testable independently
+86. **Explicit 0.0 fast-path for novice/beginner** — `random.random() < 0.0` is always False but semantically misleading; explicit guard makes the pedagogical constraint visible in code, not just the constant value
+
+*Last updated: 2026-05-22 — Commit 45.3*
 
 ---
 

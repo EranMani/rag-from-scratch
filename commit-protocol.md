@@ -60,7 +60,7 @@
 | 45 | rag-specialist-content | rag-specialist | ✅ done · 2026-05-21 |
 | 45.1 | novice-prompt-comprehension | ai-engineer | ✅ done · 2026-05-22 |
 | 45.2 | open-question-delivery | ai-engineer | ✅ done · 2026-05-22 |
-| 45.3 | question-type-balance | ai-engineer | pending |
+| 45.3 | question-type-balance | ai-engineer | ✅ done · 2026-05-22 |
 | 45.4 | question-difficulty-degradation | ai-engineer | pending |
 | 46 | nginx-config | devops | pending |
 | 47 | aws-ec2-deployment | devops | pending |

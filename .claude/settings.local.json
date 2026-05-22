@@ -175,7 +175,8 @@
       "Bash(.venv/Scripts/pytest tests/test_open_question_delivery.py tests/test_assess_node.py -x -q)",
       "Bash(.venv/Scripts/pytest tests/test_open_question_delivery.py -x -q)",
       "Bash(.venv/Scripts/pytest tests/test_assess_node.py -x -q)",
-      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_open_question_delivery.py -v -q)"
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_open_question_delivery.py -v -q)",
+      "Bash(\".venv/Scripts/python.exe\" -m pytest tests/test_question_type_balance.py tests/test_open_question_delivery.py -x -q)"
     ]
   }
 }

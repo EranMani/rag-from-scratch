@@ -940,6 +940,28 @@
 
 ---
 
+## Question Type Balance (C45.3)
+
+### `select_question_type` as a standalone pure function
+
+- **Date:** 2026-05-22
+- **Decided by:** Nova
+- **Decision:** Level-based question type selection lives in its own `select_question_type(user_level: str) -> str` function rather than inlined in `select_test_question`.
+- **Alternatives considered:** Inline `_OPEN_PROB.get() + random.random()` directly in `select_test_question`.
+- **Reason:** A standalone function is independently testable — ratio distribution can be validated with 1000 draws without running the full passive assessment and slug selection pipeline. The caller reads `if question_type == "open"` which matches spec language; inline logic would obscure the decision point. `_OPEN_PROB` constants also stay scoped to `question_selection.py` rather than bleeding into `test_delivery.py`.
+- **Consequences:** Ratio constants are co-located with slug selection logic in one file. Future level additions require only a dict entry in `question_selection.py`.
+
+### Explicit 0.0 fast-path for novice/beginner (no random call)
+
+- **Date:** 2026-05-22
+- **Decided by:** Nova
+- **Decision:** When `_OPEN_PROB` yields 0.0, return `"mcq"` immediately without calling `random.random()`.
+- **Alternatives considered:** Single code path: `return "open" if random.random() < prob else "mcq"` for all levels.
+- **Reason:** `random.random() < 0.0` always evaluates to False and produces correct behavior. But calling `random` for a deterministic outcome is semantically wrong and could mislead future readers into thinking novice/beginner have a non-zero open probability. The explicit guard makes the pedagogical constraint visible in code, not just in the constant value. Unknown/invalid levels also take this fast-path (default 0.0), conservatively receiving MCQs.
+- **Consequences:** The probability draw is only invoked for the three genuinely probabilistic levels (intermediate, advanced, expert).
+
+---
+
 ## Agent Architecture (2026-05-22)
 
 ### LangGraph nodes are thin routers — logic lives in domain modules

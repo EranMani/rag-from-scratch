@@ -802,6 +802,7 @@ No token data recorded. Tracking began at Commit 10.
 | 44 | phase-unlock-ui | 182,103 | Viktor+Sage+Mira+Ryan (Haiku) | **over** | Aria 44k (17 uses ✅); Viktor 35k (2 uses); Sage 32k (0 uses); Mira 30k (0 uses); Ryan 41k (8 uses, over 5-cap) |
 | 45 | rag-specialist-content | 496,336 | zero gates (content-only) | **well over** ≤60k | 7 × tool-cap sessions; 18 files; ~180 questions authored; volume-justified |
 | 45.2 | open-question-delivery | 173,047 | Viktor+Quinn+Ryan (Haiku) | **over** | Nova 68k (27 uses, +2 over cap); Viktor 34k (1 use ✅); Quinn 34k (0 uses ✅); Ryan 36k (one-liner) |
+| 45.3 | question-type-balance | 153,894 | Viktor+Quinn+Ryan (Haiku) | **over** | Nova 49k (23 uses ✅); Viktor 34k (0 uses ✅ PASS); Quinn 35k (2 uses ✅ ADEQUATE); Ryan 36k (2 uses ✅); Sage/Mira skipped (gate triage) |
 
 ---
 

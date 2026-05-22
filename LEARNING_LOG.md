@@ -1217,3 +1217,19 @@ The empty `delta` (`{}`) ensures no score update happens, so the profile stays h
 Added delivery functions for open-ended questions (`select_open_question`, `get_open_question_count`, `load_open_question`, `deliver_open_question`) mirroring MCQ pattern; ratio logic wired in Commit 45.3.
 
 ---
+
+## Commit 45.3 — `question-type-balance` · Nova · 2026-05-22 · `new feature`
+
+> **In one sentence:** Added `select_question_type()` to route novice/beginner learners exclusively to MCQs and probabilistically balance MCQ vs. open questions for advanced users, activating the open-question delivery pipeline from C45.2.
+
+**Interview talking point:**
+> **Q:** How did you decide between inlining the type-selection logic and extracting it to its own function?
+>
+> **A:** Inlining would have required mocking the full passive assessment pipeline just to test the ratio distribution — 1000 draws against live LLM calls. The standalone function lets us validate the probability contract in isolation: novice always returns MCQ, expert hits ~70% open over 1000 draws. The caller reads `if question_type == "open"`, which is literal spec language; the decision point is immediately readable without unpacking a conditional expression.
+
+**What happened and why:**
+- `select_question_type(user_level: str) -> str` added to `question_selection.py` — weighted random draw against `_OPEN_PROB` dict; novice/beginner take a deterministic fast-path (explicit `if prob == 0.0` guard, no `random` call)
+- `select_test_question` now calls `select_question_type` immediately after the non-RAG early return; `"open"` delegates to `deliver_open_question` (wired in C45.2); MCQ path unchanged
+- 12 new tests cover all spec gates: determinism (50 draws, set must be `{"mcq"}`), probabilistic coverage (200 draws, both types must appear), ratio approximation (±15% over 1000 draws), and routing delegation via mock
+
+---
