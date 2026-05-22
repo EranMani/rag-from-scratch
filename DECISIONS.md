@@ -937,3 +937,17 @@
 - **Alternatives considered:** Keep options at the bottom (original design).
 - **Why changed:** Bottom-panel MCQ created a spatial disconnect — the question was in the chat bubble, the answers were floating 400px lower at the screen edge. Users were confused about which question the options belonged to. Inline placement makes the Q+A unit visually coherent.
 - **Consequences:** The pre-built `mcq_panel`, `mcq_btns`, `_mcq_active`, and `_mcq_opts` constructs are removed. Options are created on-demand when a MCQ done event arrives. Full option text (not just the letter) is sent as the user message so the conversation history is readable. NiceGUI slot-context is preserved by using direct `async def` handlers instead of `asyncio.ensure_future`.
+
+---
+
+## Agent Architecture (2026-05-22)
+
+### LangGraph nodes are thin routers — logic lives in domain modules
+
+- **Date:** 2026-05-22
+- **Decided by:** Team Lead
+- **Decision:** When a LangGraph node grows past ~50 lines, its logic moves into named domain modules. The node file imports and delegates; it never owns business logic directly.
+- **Pattern:** `assessment/node.py` (~25 lines) routes to `evaluation.py` and `test_delivery.py`. Domain concerns (passive inference, slug selection, rubric loading, result shapes) each live in their own module.
+- **Reason:** Nodes are control-flow primitives. Mixing routing with domain logic makes both harder to read and test independently. A thin node is also easier to rewire in the graph without touching business logic.
+- **Rule of thumb:** If you can't read the full node in one screen, it's holding logic it shouldn't.
+- **Consequences:** All future node files must stay thin. When a node accumulates logic, extract to a sibling domain module (`src/agents/assessment/`, `src/agents/generation/`, etc.) before the node grows past ~50 lines.

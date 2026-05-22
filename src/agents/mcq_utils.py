@@ -22,15 +22,7 @@ def load_mcq_question(slug: str, question_index: int) -> tuple[str, str]:
         FileNotFoundError: MCQ file for slug does not exist.
         ValueError: Question block is malformed (missing required fields).
     """
-    path = _MCQ_DIR / f"{slug}.md"
-    content = path.read_text(encoding="utf-8")
-
-    blocks = re.split(r"(?=^## MCQ-)", content, flags=re.MULTILINE)
-    question_blocks = [b for b in blocks if b.strip().startswith("## MCQ-")]
-
-    if not question_blocks:
-        raise ValueError(f"No MCQ question blocks found in file for slug '{slug}'")
-
+    question_blocks = get_mcq_question_blocks(slug)
     idx = question_index % len(question_blocks)
     block = question_blocks[idx]
 
@@ -51,3 +43,22 @@ def load_mcq_question(slug: str, question_index: int) -> tuple[str, str]:
 
     display_text = f"Knowledge check: {question_text}\n\n{options_text}"
     return display_text, correct_answer
+
+
+def get_mcq_question_blocks(slug: str) -> list[str]:
+    path = _MCQ_DIR / f"{slug}.md"
+    content = path.read_text(encoding="utf-8")
+
+    blocks = re.split(r"(?=^## MCQ-)", content, flags=re.MULTILINE)
+    question_blocks = [b for b in blocks if b.strip().startswith("## MCQ-")]
+
+    if not question_blocks:
+        raise ValueError(f"No MCQ question blocks for slug '{slug}'")
+
+    return question_blocks
+
+
+def get_mcq_count(slug: str) -> int:
+    """Return the amount of questions from the given slug"""
+    n = len(get_mcq_question_blocks(slug))    
+    return n

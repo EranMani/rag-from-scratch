@@ -175,9 +175,28 @@ def compute_topic_scores(
         current_session = float(max(0.0, min(1.0, session_score)))
 
         if is_passive:
-            # Additive up to a 0.3 ceiling — cannot reduce a score the user earned via MCQ
+            # Additive up to a 0.3 ceiling — cannot reduce a score the user earned via MCQ.
+            # Append to history so the guard in update_profile_node sees a non-empty
+            # prior_history and bypasses the 3-question gate. Passive entries are ≤ 0.3,
+            # so best_prior from passive never reduces a subsequent correct MCQ answer
+            # (formula gives ≥ 0.7×1.0 = 0.70 which always exceeds the 0.3 cap).
             existing = merged.get(slug) or 0.0
             topic_score = max(existing, min(existing + current_session, 0.3))
+            history.setdefault(slug, []).append(current_session)
+        elif current_session == 0.0:
+            # Wrong answer: flat −10 pp penalty, floor 0.
+            # The spaced-repetition formula (0.7×0 + 0.3×best_prior) collapses to
+            # ~22% from a 72% score after one wrong answer — far too aggressive.
+            # A modest fixed penalty keeps the signal meaningful without obliterating
+            # earned progress. The mastery-level ratchet prevents level regression.
+            #
+            # 0.0 is NOT appended to session_history. History tracks demonstrated
+            # knowledge (positive session scores used as best_prior for future correct
+            # answers). Adding 0.0 would make best_prior=0.0, causing the next correct
+            # answer's formula (0.7×1 + 0.3×0 = 0.70) to fall below the already-
+            # penalised stored score — a double-penalty and a visible decrease on correct.
+            existing = max(merged.get(slug) or 0.0, 0.0)
+            topic_score = max(0.0, existing - 0.10)
         else:
             prior_sessions = history.get(slug, [])
             if prior_sessions:

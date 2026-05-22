@@ -116,19 +116,52 @@ def update_profile_node(state: AgentState) -> dict[str, Any]:
 
     # Happy path: merge delta into existing scores and compute derived fields
     topic_scores_delta: dict[str, float] = state.get("topic_scores_delta", {})
+    is_passive_delta: bool = state.get("is_passive_delta", False)
     session_question_counts: dict[str, int] = state.get("session_question_counts") or {}
     session_count: int | None = None
-    if len(topic_scores_delta) == 1:
+    if not is_passive_delta and len(topic_scores_delta) == 1:
         active_slug = next(iter(topic_scores_delta))
-        session_count = session_question_counts.get(active_slug)
+        active_score = topic_scores_delta[active_slug]
+        # The minimum-session guard prevents a single lucky correct answer from
+        # inflating mastery on a brand-new topic. It must NOT block wrong-answer
+        # penalisation (score=0.0) — failing an MCQ should always register.
+        #
+        # The guard only applies when the topic has NO prior session history. Once a
+        # topic has been answered in any previous session (history is non-empty), single
+        # correct answers update the score immediately. Without this check the counter
+        # resets to 0 on every page load (new LangGraph thread_id), permanently blocking
+        # updates for returning learners who have already demonstrated competence.
+        if active_score > 0.0:
+            prior_history = current_profile.get("session_history", {}).get(active_slug, [])
+            if not prior_history:
+                session_count = session_question_counts.get(active_slug)
 
     previous_level: str | None = current_profile.get("mastery_level")
 
     score_update: TopicScoreUpdate = compute_topic_scores(
         current_profile,
         topic_scores_delta,
+        is_passive=is_passive_delta,
         session_question_count=session_count,
     )
+
+    # Ratchet: mastery_level only advances, never regresses.
+    # The scoring formula (0.7 × current + 0.3 × best_prior) can drop a Phase-1
+    # topic below its gate threshold on a single partial answer — mathematically,
+    # 0.7×0.5 + 0.3×x ≥ 0.70 requires x ≥ 1.167 (impossible). Remediation
+    # questions are for practice, not re-assessment of earned phase gates.
+    computed_level = score_update["mastery_level"]
+    prev_rank = _LEVEL_ORDER.get(previous_level or "novice", 0)
+    comp_rank = _LEVEL_ORDER.get(computed_level, 0)
+    if previous_level and comp_rank < prev_rank:
+        final_mastery_level = previous_level
+        logger.info(
+            "update_profile_node: mastery regression blocked for user_id=%s "
+            "(%s → %s); retaining %s",
+            user_id, previous_level, computed_level, final_mastery_level,
+        )
+    else:
+        final_mastery_level = computed_level
 
     update_profile(
         user_id,
@@ -136,7 +169,7 @@ def update_profile_node(state: AgentState) -> dict[str, Any]:
         session_history=score_update["session_history"],
         strengths=score_update["strengths"],
         gaps=score_update["gaps"],
-        mastery_level=score_update["mastery_level"],
+        mastery_level=final_mastery_level,
         interaction_count=interaction_count + 1,
         last_activity_at=datetime.now(timezone.utc).isoformat(),
     )
@@ -146,11 +179,11 @@ def update_profile_node(state: AgentState) -> dict[str, Any]:
         "interaction_count=%d mastery_level=%s",
         user_id,
         interaction_count + 1,
-        score_update["mastery_level"],
+        final_mastery_level,
     )
 
-    old_rank = _LEVEL_ORDER.get(previous_level or "novice", 0)
-    new_rank = _LEVEL_ORDER.get(score_update["mastery_level"], 0)
+    old_rank = prev_rank
+    new_rank = _LEVEL_ORDER.get(final_mastery_level, 0)
 
     gate_just_passed: str | None = None
     for gate_name, threshold in _GATE_THRESHOLDS.items():

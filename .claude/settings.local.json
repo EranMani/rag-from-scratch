@@ -168,7 +168,10 @@
       "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/ -x -q --tb=short)",
       "Bash(.venv/Scripts/python -m pytest tests/test_update_profile_node.py tests/test_generate_node.py -v)",
       "Bash(.venv/Scripts/python -m pytest tests/test_update_profile_node.py::TestGate2InteractionCountIncrements::test_interaction_count_not_incremented_on_error_path tests/test_update_profile_node.py::TestGate3FallbackPathSkipsDB::test_get_profile_not_called_on_error -v)",
-      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_update_profile_node.py tests/test_generate_node.py -v)"
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_update_profile_node.py tests/test_generate_node.py -v)",
+      "Bash(ls pyproject.toml requirements*.txt)",
+      "Bash(.venv/Scripts/pytest.exe --tb=short -q)",
+      "Bash(.venv/Scripts/pytest.exe tests/test_profile_api.py --tb=line -q)"
     ]
   }
 }

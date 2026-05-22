@@ -2675,7 +2675,7 @@ html, body {
                                     "flex:1; padding:10px 14px; font-size:0.875rem; "
                                     "color:#e2e8f0; line-height:1.45"
                                 )
-                                async def _opt_click(_e, _t=_otext, _col=_mcq_inline):
+                                async def _opt_click(_e, _t=_opt_line.strip(), _col=_mcq_inline):
                                     _col.set_visibility(False)
                                     await send_message(_t)
                                 _orow.on("click", _opt_click)

@@ -147,6 +147,13 @@ class AgentState(TypedDict):
     """Per-topic count of MCQ answers evaluated this session (topic slug → count).
     Used by update_profile_node to enforce the minimum-3-questions guard in compute_topic_scores."""
 
+    is_passive_delta: bool
+    """True when topic_scores_delta originates from passive inference (natural query analysis),
+    False when it comes from an explicit MCQ or open-ended evaluation.
+    update_profile_node passes this to compute_topic_scores so passive signals use the
+    additive capped formula instead of the SRS formula — preventing passive inference
+    from reducing a score the user earned through active testing."""
+
     # --- Observability ---
     trace_id: str
     """Unique identifier for this request trace; set before graph entry."""
@@ -211,13 +218,13 @@ class PassiveAssessmentOutput(BaseModel):
     """Side-channel mastery signal inferred from the user's natural query."""
 
     relevant_slug: str | None
-    """Primary topic slug this question reveals knowledge about, or None."""
+    """primary topic from the question, or null if off-topic/unclear."""
 
     inferred_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
-    """Inferred mastery level for the relevant slug."""
+    """ mastery implied by vocabulary and specificity in the question"""
 
     confidence: float
-    """Confidence in the inference: 0.0–1.0."""
+    """certainty in both relevant_slug and inferred_level (0.0–1.0)"""
 
     @field_validator("confidence", mode="before")
     @classmethod

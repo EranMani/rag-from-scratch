@@ -238,8 +238,10 @@ async def chat(
         "topic_scores_delta": {},
         "identified_gaps": [],
         "assessment_error": False,
-        "is_mcq": False,
-        "pending_mcq_correct_answer": None,
+        # is_mcq and pending_mcq_correct_answer are intentionally NOT reset here.
+        # They must persist from the question-selection turn (N) to the answer-
+        # evaluation turn (N+1) via the LangGraph checkpointer. Resetting them here
+        # would cause every MCQ evaluation to fall through to the LLM grading path.
         "trace_id": str(uuid.uuid4()),
         "latency_ms": 0,
         "cache_hit": "miss",
