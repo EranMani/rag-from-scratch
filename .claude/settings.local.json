@@ -171,7 +171,11 @@
       "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_update_profile_node.py tests/test_generate_node.py -v)",
       "Bash(ls pyproject.toml requirements*.txt)",
       "Bash(.venv/Scripts/pytest.exe --tb=short -q)",
-      "Bash(.venv/Scripts/pytest.exe tests/test_profile_api.py --tb=line -q)"
+      "Bash(.venv/Scripts/pytest.exe tests/test_profile_api.py --tb=line -q)",
+      "Bash(.venv/Scripts/pytest tests/test_open_question_delivery.py tests/test_assess_node.py -x -q)",
+      "Bash(.venv/Scripts/pytest tests/test_open_question_delivery.py -x -q)",
+      "Bash(.venv/Scripts/pytest tests/test_assess_node.py -x -q)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_open_question_delivery.py -v -q)"
     ]
   }
 }

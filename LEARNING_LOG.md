@@ -1211,3 +1211,9 @@ The empty `delta` (`{}`) ensures no score update happens, so the profile stays h
 **The rule:** When a component fails and you can't determine the correct signal, default to the value that keeps the system running, not the value that shuts it down. Fail open on uncertainty; fail closed only when you have positive evidence that shutting down is correct.
 
 ---
+
+## Commit 45.2 — `open-question-delivery` · Nova · 2026-05-22
+
+Added delivery functions for open-ended questions (`select_open_question`, `get_open_question_count`, `load_open_question`, `deliver_open_question`) mirroring MCQ pattern; ratio logic wired in Commit 45.3.
+
+---

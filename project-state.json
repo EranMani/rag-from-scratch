@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-22 (Commit 45.1 novice-prompt-comprehension done)",
+  "last_updated": "2026-05-22 (Commit 45.2 open-question-delivery done)",
   "status": "active",
   "current_commit": {
-    "number": "45.2",
-    "name": "open-question-delivery",
+    "number": "45.3",
+    "name": "question-type-balance",
     "status": "pending",
     "assignee": "ai-engineer"
   },
@@ -57,10 +57,11 @@
     "43",
     "44",
     "45",
-    "45.1"
+    "45.1",
+    "45.2"
   ],
   "commits_pending": [
-    "45.2",
+    "45.3",
     "45.3",
     "45.4",
     "46",
@@ -68,7 +69,7 @@
     "48",
     "49"
   ],
-  "next_commit": "45.2",
+  "next_commit": "45.3",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

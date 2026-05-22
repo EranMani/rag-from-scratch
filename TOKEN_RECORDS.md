@@ -733,6 +733,30 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 45.2 — `open-question-delivery` · 2026-05-22 · Nova
+
+> Gate wave: Viktor + Quinn (Haiku). Sage + Mira skipped (gate triage: new logic functions, no auth/secrets/user-facing behavior change).
+> Viktor: PASS WITH CONCERNS — 2 concerns (ValueError propagation in select_open_question; bare `dict` return type) both classified as deferred per team-preferences.md blocking criteria (not system-breaking on the happy path).
+> Quinn: ADEQUATE — all happy paths and both error paths covered; 22 new tests.
+> Ryan: one-liner (routine utility addition; mirrors MCQ pattern; no architecture change).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Nova (implementation) | Sonnet | 68,346 | 27 ⚠️ | **+8k** over ≤60k | 3 files + 1 new test file; 27 uses (2 over 25 cap) |
+| Viktor | Haiku | 34,442 | 1 | **+19k** over ≤15k | PASS WITH CONCERNS; 1 tool use (full context inline) ✅ |
+| Quinn | Haiku | 33,800 | 0 | **+19k** over ≤15k | ADEQUATE; 0 tool uses (full context inline) ✅ |
+| Ryan | Haiku | 36,459 | 4 | **+21k** over ≤15k | one-liner; 4 tool uses (within 5 cap) ✅ |
+| **Total** | | **173,047** | **32** | over ≤90k | Viktor/Quinn over ≤15k (pattern); Nova marginal over |
+
+**Notes:**
+- Nova: 68,346 tokens / 27 tool uses (2 over 25 cap). Three new functions across 2 files + 22-test file. Marginal over-cap.
+- Viktor 1 tool use: full context inline — zero file reads. Correct reviewer pattern.
+- Quinn 0 tool uses: full test file passed inline — no reads needed. Ideal reviewer pattern.
+- Viktor findings downgraded from "blocking" to deferred: (1) ValueError from get_open_question_count propagates in select_open_question — not happy-path crash (all valid slugs have question files); (2) `-> dict` annotation — explicitly "logged for deferred review" per team-preferences.md blocking criteria.
+- Pre-existing test failures: 26 (test_profile_api, test_retrieve_node, test_scoring) — confirmed pre-existing via git stash check.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -777,6 +801,7 @@ No token data recorded. Tracking began at Commit 10.
 | 43 | phase-unlock-agent | 142,799 (excl. Ryan) | Viktor+Quinn (Haiku, Hard Block+NEEDS ADDITIONS) | **over** | Nova 73k (cap hit); Viktor 35k (1 tool use ✅); Quinn 33k (3 uses ✅); fixes → C43.5 |
 | 44 | phase-unlock-ui | 182,103 | Viktor+Sage+Mira+Ryan (Haiku) | **over** | Aria 44k (17 uses ✅); Viktor 35k (2 uses); Sage 32k (0 uses); Mira 30k (0 uses); Ryan 41k (8 uses, over 5-cap) |
 | 45 | rag-specialist-content | 496,336 | zero gates (content-only) | **well over** ≤60k | 7 × tool-cap sessions; 18 files; ~180 questions authored; volume-justified |
+| 45.2 | open-question-delivery | 173,047 | Viktor+Quinn+Ryan (Haiku) | **over** | Nova 68k (27 uses, +2 over cap); Viktor 34k (1 use ✅); Quinn 34k (0 uses ✅); Ryan 36k (one-liner) |
 
 ---
 

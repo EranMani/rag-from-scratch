@@ -59,7 +59,7 @@
 | 44 | phase-unlock-ui | frontend | ✅ done · 2026-05-21 |
 | 45 | rag-specialist-content | rag-specialist | ✅ done · 2026-05-21 |
 | 45.1 | novice-prompt-comprehension | ai-engineer | ✅ done · 2026-05-22 |
-| 45.2 | open-question-delivery | ai-engineer | pending |
+| 45.2 | open-question-delivery | ai-engineer | ✅ done · 2026-05-22 |
 | 45.3 | question-type-balance | ai-engineer | pending |
 | 45.4 | question-difficulty-degradation | ai-engineer | pending |
 | 46 | nginx-config | devops | pending |
