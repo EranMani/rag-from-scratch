@@ -122,9 +122,6 @@ class AgentState(TypedDict):
     """True if assess_node failed (e.g., LLM parse error).
     Triggers the fallback edge that skips profile_update_node."""
 
-    test_mode: bool
-    """True when assess_node has selected a curriculum question and is waiting for the user's answer."""
-
     pending_test_question: str | None
     """The curriculum test question text currently awaiting the user's answer."""
 

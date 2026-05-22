@@ -32,7 +32,6 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
             topic_scores_delta=passive_delta,
             identified_gaps=gaps,
             assessment_error=False,
-            test_mode=False,
         )
 
     slug = _select_test_slug(state)
@@ -42,7 +41,6 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
             topic_scores_delta=passive_delta,
             identified_gaps=gaps,
             assessment_error=True,
-            test_mode=False,
         )
 
     try:
@@ -54,7 +52,6 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
             topic_scores_delta=passive_delta,
             identified_gaps=gaps,
             assessment_error=True,
-            test_mode=False,
         )
 
     messages = []
@@ -66,7 +63,6 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
         topic_scores_delta=passive_delta,
         identified_gaps=gaps,
         assessment_error=False,
-        test_mode=True,
         pending_test_question=display_text,
         pending_test_slug=slug,
         is_mcq=True,
