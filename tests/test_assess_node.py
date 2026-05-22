@@ -5,8 +5,8 @@ Coverage targets (spec gates):
 
 Gate 1 — Test mode turn: node returns curriculum question in pending_test_question
          with correct pending_test_slug; no LLM call made.
-Gate 2 — Evaluation mode turn: node evaluates answer and returns non-zero test_answer_score.
-Gate 3 — Score delta is derived from test_answer_score, not question content.
+Gate 2 — Evaluation mode turn: node evaluates answer and updates topic_scores_delta.
+Gate 3 — Score delta is derived from verdict, not question content.
 Gate 4 — assessment_error fallback path still works; graph never crashes on LLM failure.
 Gate 5 — AgentState schema: all 4 new fields present with correct types.
 
@@ -67,7 +67,6 @@ def _base_state(**overrides: Any) -> dict[str, Any]:
         "test_mode": False,
         "pending_test_question": None,
         "pending_test_slug": None,
-        "test_answer_score": None,
         "is_mcq": False,
         "pending_mcq_correct_answer": None,
         "session_question_counts": {},
@@ -151,7 +150,6 @@ def _make_full_initial_state(question: str = "What is RAG?") -> dict[str, Any]:
         "test_mode": False,
         "pending_test_question": None,
         "pending_test_slug": None,
-        "test_answer_score": None,
         "is_mcq": False,
         "pending_mcq_correct_answer": None,
         "session_question_counts": {},
@@ -342,74 +340,14 @@ class TestGate1TestMode:
             "On-topic query must still set pending_test_question"
         )
 
-    @pytest.mark.asyncio
-    async def test_test_mode_test_answer_score_is_none(self) -> None:
-        """Test mode sets test_answer_score=None (no answer yet)."""
-        with patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")):
-            with patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD):
-                result = await assess_node(_base_state())  # type: ignore[arg-type]
-        assert result["test_answer_score"] is None, (
-            f"Test mode must set test_answer_score=None, got {result['test_answer_score']!r}"
-        )
 
 
 # ---------------------------------------------------------------------------
-# Gate 2 — Evaluation mode: returns non-zero test_answer_score
+# Gate 2 — Evaluation mode: clears test state and invokes LLM path
 # ---------------------------------------------------------------------------
 
 class TestGate2EvaluationMode:
-    """assess_node in evaluation mode returns a scored test_answer_score."""
-
-    @pytest.mark.asyncio
-    async def test_eval_mode_returns_nonzero_score_for_partial(self) -> None:
-        """Evaluation mode with 'partial' verdict returns test_answer_score=0.5."""
-        eval_out = _make_eval_output("partial")
-        mock_provider = _make_provider_mock()
-        mock_prompt, _ = _make_prompt_mock(eval_out)
-        with (
-            patch("agents.nodes.assess.get_provider", return_value=mock_provider),
-            patch("agents.nodes.assess.assessment_prompt", mock_prompt),
-            patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
-            patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
-        ):
-            result = await assess_node(_eval_mode_state())  # type: ignore[arg-type]
-        assert result["test_answer_score"] == 0.5, (
-            f"Expected test_answer_score=0.5 for 'partial', got {result['test_answer_score']!r}"
-        )
-
-    @pytest.mark.asyncio
-    async def test_eval_mode_returns_1_0_for_correct(self) -> None:
-        """Evaluation mode with 'correct' verdict returns test_answer_score=1.0."""
-        eval_out = _make_eval_output("correct")
-        mock_provider = _make_provider_mock()
-        mock_prompt, _ = _make_prompt_mock(eval_out)
-        with (
-            patch("agents.nodes.assess.get_provider", return_value=mock_provider),
-            patch("agents.nodes.assess.assessment_prompt", mock_prompt),
-            patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
-            patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
-        ):
-            result = await assess_node(_eval_mode_state())  # type: ignore[arg-type]
-        assert result["test_answer_score"] == 1.0, (
-            f"Expected test_answer_score=1.0 for 'correct', got {result['test_answer_score']!r}"
-        )
-
-    @pytest.mark.asyncio
-    async def test_eval_mode_returns_0_0_for_incorrect(self) -> None:
-        """Evaluation mode with 'incorrect' verdict returns test_answer_score=0.0."""
-        eval_out = _make_eval_output("incorrect")
-        mock_provider = _make_provider_mock()
-        mock_prompt, _ = _make_prompt_mock(eval_out)
-        with (
-            patch("agents.nodes.assess.get_provider", return_value=mock_provider),
-            patch("agents.nodes.assess.assessment_prompt", mock_prompt),
-            patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
-            patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
-        ):
-            result = await assess_node(_eval_mode_state())  # type: ignore[arg-type]
-        assert result["test_answer_score"] == 0.0, (
-            f"Expected test_answer_score=0.0 for 'incorrect', got {result['test_answer_score']!r}"
-        )
+    """assess_node in evaluation mode clears test state and invokes the LLM path."""
 
     @pytest.mark.asyncio
     async def test_eval_mode_clears_test_mode_flag(self) -> None:
@@ -445,11 +383,11 @@ class TestGate2EvaluationMode:
 
 
 # ---------------------------------------------------------------------------
-# Gate 3 — Score delta derived from test_answer_score, not question content
+# Gate 3 — Score delta derived from verdict, not question content
 # ---------------------------------------------------------------------------
 
 class TestGate3ScoreDeltaFromScore:
-    """topic_scores_delta is derived from test_answer_score and pending_test_slug."""
+    """topic_scores_delta is derived from verdict and pending_test_slug."""
 
     @pytest.mark.asyncio
     async def test_correct_verdict_produces_delta_1_0(self) -> None:
@@ -581,11 +519,11 @@ class TestGate4FallbackOnFailure:
                     result = await assess_node(_eval_mode_state())  # type: ignore[arg-type]
         expected = {
             "topic_scores_delta", "identified_gaps", "assessment_error",
-            "test_mode", "pending_test_question", "pending_test_slug", "test_answer_score",
+            "test_mode", "pending_test_question", "pending_test_slug",
             "is_mcq", "pending_mcq_correct_answer",
         }
         assert set(result.keys()) == expected, (
-            f"Fallback must return all 9 keys, got {set(result.keys())}"
+            f"Fallback must return all 8 keys, got {set(result.keys())}"
         )
 
     @pytest.mark.asyncio
@@ -640,35 +578,17 @@ class TestGate5AgentStateNewFields:
         )
 
     @pytest.mark.asyncio
-    async def test_test_answer_score_is_float_or_none(self) -> None:
-        """test_answer_score is float after evaluation, None in test mode."""
-        eval_out = _make_eval_output("correct")
-        mock_provider = _make_provider_mock()
-        mock_prompt, _ = _make_prompt_mock(eval_out)
-        with (
-            patch("agents.nodes.assess.get_provider", return_value=mock_provider),
-            patch("agents.nodes.assess.assessment_prompt", mock_prompt),
-            patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")),
-            patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
-        ):
-            result = await assess_node(_eval_mode_state())  # type: ignore[arg-type]
-        val = result["test_answer_score"]
-        assert val is None or isinstance(val, float), (
-            f"test_answer_score must be float or None, got {type(val)}"
-        )
-
-    @pytest.mark.asyncio
-    async def test_all_4_new_fields_present_in_test_mode_output(self) -> None:
-        """test_mode output contains all 4 new AgentState fields."""
+    async def test_all_3_new_fields_present_in_test_mode_output(self) -> None:
+        """test_mode output contains all 3 new AgentState fields."""
         with patch("agents.nodes.assess._CURRICULUM_DIR", new=pathlib.Path("/fake")):
             with patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD):
                 result = await assess_node(_base_state())  # type: ignore[arg-type]
-        for field in ("test_mode", "pending_test_question", "pending_test_slug", "test_answer_score"):
+        for field in ("test_mode", "pending_test_question", "pending_test_slug"):
             assert field in result, f"Output missing new field '{field}'"
 
     @pytest.mark.asyncio
-    async def test_all_4_new_fields_present_in_eval_mode_output(self) -> None:
-        """eval_mode output contains all 4 new AgentState fields."""
+    async def test_all_3_new_fields_present_in_eval_mode_output(self) -> None:
+        """eval_mode output contains all 3 new AgentState fields."""
         eval_out = _make_eval_output("partial")
         mock_provider = _make_provider_mock()
         mock_prompt, _ = _make_prompt_mock(eval_out)
@@ -679,7 +599,7 @@ class TestGate5AgentStateNewFields:
             patch("pathlib.Path.read_text", return_value=_SAMPLE_CURRICULUM_MD),
         ):
             result = await assess_node(_eval_mode_state())  # type: ignore[arg-type]
-        for field in ("test_mode", "pending_test_question", "pending_test_slug", "test_answer_score"):
+        for field in ("test_mode", "pending_test_question", "pending_test_slug"):
             assert field in result, f"Eval mode output missing new field '{field}'"
 
 
@@ -741,7 +661,7 @@ class TestGate6SlugValidation:
 # ---------------------------------------------------------------------------
 
 class TestGate7OutputKeyBoundary:
-    """assess_node must write only its 7 declared output keys."""
+    """assess_node must write only its 8 declared output keys."""
 
     _DECLARED_OUTPUT_KEYS: frozenset[str] = frozenset({
         "topic_scores_delta",
@@ -750,7 +670,6 @@ class TestGate7OutputKeyBoundary:
         "test_mode",
         "pending_test_question",
         "pending_test_slug",
-        "test_answer_score",
         "is_mcq",
         "pending_mcq_correct_answer",
     })
@@ -870,7 +789,6 @@ class TestGate8GraphTopologySmoke:
                 "test_mode": False,
                 "pending_test_question": None,
                 "pending_test_slug": None,
-                "test_answer_score": None,
                 "is_mcq": False,
                 "pending_mcq_correct_answer": None,
             }
@@ -1147,8 +1065,8 @@ class TestMcqEvaluationIntegration:
         with patch("agents.nodes.assess.get_provider") as mock_gp:
             result = await assess_node(_mcq_eval_state())  # type: ignore[arg-type]
         mock_gp.assert_not_called()
-        assert result["test_answer_score"] == 1.0, (
-            f"Correct MCQ answer must score 1.0, got {result['test_answer_score']!r}"
+        assert result["topic_scores_delta"].get("chunking_strategies") == 1.0, (
+            f"Correct MCQ answer must score 1.0 in topic_scores_delta, got {result['topic_scores_delta']!r}"
         )
 
     @pytest.mark.asyncio
@@ -1184,8 +1102,8 @@ class TestMcqEvaluationIntegration:
         )
         with patch("agents.nodes.assess.get_provider"):
             result = await assess_node(state)  # type: ignore[arg-type]
-        assert result["test_answer_score"] == 0.0, (
-            f"Wrong MCQ answer must score 0.0, got {result['test_answer_score']!r}"
+        assert result["topic_scores_delta"].get("chunking_strategies") == 0.0, (
+            f"Wrong MCQ answer must score 0.0 in topic_scores_delta, got {result['topic_scores_delta']!r}"
         )
 
     @pytest.mark.asyncio
@@ -1221,8 +1139,8 @@ class TestMcqEvaluationIntegration:
         with patch("agents.nodes.assess.get_provider") as mock_gp:
             result = await assess_node(state)  # type: ignore[arg-type]
         assert result["assessment_error"] is True
-        assert result.get("test_answer_score") is None, (
-            "Invalid slug must not produce a score"
+        assert result.get("topic_scores_delta") == {}, (
+            "Invalid slug must not produce a score delta"
         )
         mock_gp.assert_not_called()
 

@@ -1,7 +1,7 @@
 """
 Assessment prompt template for assess_node evaluation mode (Commit 24).
 
-Receives a curriculum test question, its rubric, and the user's answer.
+Receives a curriculum test question, its grading criteria, and the user's answer.
 Returns EvaluationOutput: verdict (correct/partial/incorrect), confidence,
 identified_gaps, and user_level.
 
@@ -12,7 +12,7 @@ The node calls:
     chain = assessment_prompt | llm.with_structured_output(EvaluationOutput)
     result = await chain.ainvoke({
         "question":    state["pending_test_question"],
-        "rubric":      rubric_text,
+        "criteria":    criteria_text,
         "user_answer": state["question"],
     })
 """
@@ -28,10 +28,10 @@ You are a curriculum evaluator for a RAG (Retrieval-Augmented Generation) learni
 
 You are given:
 1. A test question from the curriculum.
-2. A rubric with correct, partial, and incorrect answer criteria.
+2. Grading criteria with correct, partial, and incorrect answer criteria.
 3. The learner's answer.
 
-Your task is to evaluate the learner's answer against the rubric and return a structured verdict.
+Your task is to evaluate the learner's answer against the grading criteria and return a structured verdict.
 
 CONSTRAINTS:
 - verdict MUST be exactly one of: correct, partial, incorrect.
@@ -61,15 +61,15 @@ _HUMAN = """\
 
 {question}
 
-## Rubric
+## Grading Criteria
 
-{rubric}
+{criteria}
 
 ## Learner's Answer
 
 {user_answer}
 
-Evaluate the learner's answer against the rubric and return the structured output.
+Evaluate the learner's answer against the grading criteria and return the structured output.
 """
 
 # ---------------------------------------------------------------------------

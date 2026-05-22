@@ -2,7 +2,7 @@ from typing import Any
 
 from agents.state import AgentState
 
-from .evaluation import _evaluate_answer
+from .evaluation import evaluate_answer
 from .test_delivery import _select_test_question
 
 
@@ -23,5 +23,5 @@ def _is_evaluation_mode(state: AgentState) -> bool:
 async def assess_node(state: AgentState) -> dict[str, Any]:
     """LangGraph node: routes to evaluation or question selection based on state."""
     if _is_evaluation_mode(state):
-        return await _evaluate_answer(state)
+        return await evaluate_answer(state)
     return await _select_test_question(state)

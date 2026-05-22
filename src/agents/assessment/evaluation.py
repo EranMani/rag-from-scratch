@@ -8,8 +8,7 @@ from agents.state import VALID_MODULE_SLUGS, AgentState, EvaluationOutput
 from rag.providers import get_provider
 
 from .constants import _VERDICT_SCORE
-from .results import _build_eval_result
-from .slug_selection import _select_mcq_question_index
+from .results import build_eval_result
 
 logger = logging.getLogger(__name__)
 
@@ -17,37 +16,56 @@ _CURRICULUM_DIR = (
     pathlib.Path(__file__).resolve().parents[3] / "knowledge-base" / "curriculum" / "questions"
 )
 
+def _breakdown_criteria_parts(section: list[str]) -> list:
+    """
+    Retrieve the question criteria parts:
+    - Correct answer criteria
+    - Partial credit criteria
+    - Incorrect / no-credit criteria
 
-def _load_rubric_text(slug: str, question_index: int = 0) -> str:
-    """Extract grading criteria (Correct/Partial/Incorrect) for a question."""
-    path = _CURRICULUM_DIR / f"{slug}.md"
-    content = path.read_text(encoding="utf-8")
-
-    # Lookahead split: breaks file into per-question sections while keeping ## Q headers intact
-    sections = re.split(r"(?=^## Q\d)", content, flags=re.MULTILINE)
-    question_sections = [s for s in sections if s.strip().startswith("## Q")]
-    if not question_sections:
-        return ""
-
-    idx = question_index % len(question_sections)
-    section = question_sections[idx]
-
-    rubric_parts: list[str] = []
+    Return a list of each criteria part and its description
+    """
+    criteria_parts: list[str] = []
     for label in ("Correct answer criteria", "Partial credit criteria", "Incorrect / no-credit criteria"):
         pattern = rf"\*\*{re.escape(label)}:\*\*\s*\n(.*?)(?=\n\n\*\*|\Z)"
         match = re.search(pattern, section, re.DOTALL)
         if match:
-            rubric_parts.append(f"**{label}:**\n{match.group(1).strip()}")
-    return "\n\n".join(rubric_parts)
+            criteria_parts.append(f"**{label}:**\n{match.group(1).strip()}")
 
+    return criteria_parts
+
+def _load_open_question_criteria(slug: str, question_index: int = 0) -> str:
+    """Extract grading criteria (Correct/Partial/Incorrect) for an open question."""
+    # Get open questions content files
+    path = _CURRICULUM_DIR / f"{slug}.md"
+    content = path.read_text(encoding="utf-8")
+
+    # Breaks file into per-question sections while keeping ## Q headers intact
+    sections = re.split(r"(?=^## Q\d)", content, flags=re.MULTILINE)
+    question_sections = [s for s in sections if s.strip().startswith("## Q")]
+
+    if not question_sections:
+        raise ValueError(f"No question sections found in curriculum file for slug '{slug}'")
+
+    # Select which section question to use, creating varient by using indexed value
+    idx = question_index % len(question_sections)
+    section = question_sections[idx]
+    criteria_parts = _breakdown_criteria_parts(section)
+
+    if not criteria_parts:
+        raise ValueError(f"No grading criteria found for slug '{slug}', question index {idx}")
+
+    return "\n\n".join(criteria_parts)
 
 def _evaluate_mcq_answer(user_message: str, correct_answer: str) -> float:
-    """Deterministic binary MCQ evaluator — no LLM call."""
+    """
+    Deterministic binary MCQ evaluator — no LLM call
+    Fetch the user decision answer and compare it against the correct answer
+    """
     match = re.search(r"\b([A-Da-d])\b", user_message.strip())
     if match and match.group(1).upper() == correct_answer.upper():
         return 1.0
     return 0.0
-
 
 def _verdict_to_score(verdict: str) -> float:
     if verdict in _VERDICT_SCORE:
@@ -58,9 +76,46 @@ def _verdict_to_score(verdict: str) -> float:
     )
     return 0.0
 
+def _build_mcq_eval_result(state: AgentState, pending_slug: str) -> dict[str, Any]:
+    correct = state.get("pending_mcq_correct_answer")
+    if correct is None:
+        logger.error(
+            "assess_node: is_mcq=True but pending_mcq_correct_answer is None; trace_id=%s",
+            state.get("trace_id"),
+        )
+        return build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
 
-async def _evaluate_answer(state: AgentState) -> dict[str, Any]:
-    """Evaluate the user's answer — MCQ binary path or LLM rubric path."""
+    user_msg = (state.get("messages") or [])[-1].content or ""
+    score = _evaluate_mcq_answer(user_msg, correct)
+    delta: dict[str, float] = {pending_slug: score}
+    eval_result = build_eval_result(
+        topic_scores_delta=delta,
+        identified_gaps=[],
+        assessment_error=False,
+    )
+
+    return eval_result
+
+def _update_session_questions_count(state: AgentState, pending_slug: str) -> dict[str, int]:
+    counts = dict(state.get("session_question_counts") or {})
+    counts[pending_slug] = counts.get(pending_slug, 0) + 1
+    return counts
+
+async def _invoke_ai_model(state: AgentState, criteria: str) -> EvaluationOutput:
+    llm = get_provider().get_llm()
+
+    chain = assessment_prompt | llm.with_structured_output(EvaluationOutput)
+    # Keys must match the {placeholder} names defined in the assessment_prompt template.
+    eval_output: EvaluationOutput = await chain.ainvoke({
+        "question": state.get("pending_test_question") or "",
+        "criteria": criteria,
+        "user_answer": state.get("question") or "",
+    })
+
+    return eval_output
+    
+async def evaluate_answer(state: AgentState) -> dict[str, Any]:
+    """Evaluate the user's answer — MCQ binary path or open question LLM path."""
     pending_slug: str | None = state.get("pending_test_slug")
 
     if pending_slug not in VALID_MODULE_SLUGS:
@@ -69,61 +124,43 @@ async def _evaluate_answer(state: AgentState) -> dict[str, Any]:
             pending_slug,
             state.get("trace_id"),
         )
-        return _build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
+        return build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
 
+    # Answer came from MCQ question
     if state.get("is_mcq"):
-        correct = state.get("pending_mcq_correct_answer")
-        if correct is None:
-            logger.error(
-                "assess_node: is_mcq=True but pending_mcq_correct_answer is None; trace_id=%s",
-                state.get("trace_id"),
-            )
-            return _build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
-
-        user_msg = (state.get("messages") or [])[-1].content or ""
-        score = _evaluate_mcq_answer(user_msg, correct)
-        delta: dict[str, float] = {pending_slug: score}
-        eval_result = _build_eval_result(
-            topic_scores_delta=delta,
-            identified_gaps=[],
-            assessment_error=False,
-            test_answer_score=score,
-        )
-        counts = dict(state.get("session_question_counts") or {})
-        counts[pending_slug] = counts.get(pending_slug, 0) + 1
-        eval_result["session_question_counts"] = counts
+        # Get the evaluation results from the state, and update session questions count
+        eval_result = _build_mcq_eval_result(state, pending_slug)
+        eval_result["session_question_counts"] = _update_session_questions_count(state, pending_slug)
         return eval_result
 
+    # Answer came from open question
     try:
-        q_idx = _select_mcq_question_index(state, pending_slug)
-        rubric = _load_rubric_text(pending_slug, q_idx)
-        llm = get_provider().get_llm()
+        # Get the open question criteria using overall conversation messages
+        message_count = len(state.get("messages") or [])
+        criteria = _load_open_question_criteria(pending_slug, message_count)
 
-        chain = assessment_prompt | llm.with_structured_output(EvaluationOutput)
-        eval_output: EvaluationOutput = await chain.ainvoke({
-            "question": state.get("pending_test_question") or "",
-            "rubric": rubric,
-            "user_answer": state.get("question") or "",
-        })
+        model_response = await _invoke_ai_model(state, criteria)
 
-        score = _verdict_to_score(eval_output.verdict)
+        score = _verdict_to_score(model_response.verdict)
         llm_delta: dict[str, float] = {pending_slug: score} if score > 0.0 else {}
 
-        eval_result = _build_eval_result(
+        eval_result = build_eval_result(
             topic_scores_delta=llm_delta,
-            identified_gaps=eval_output.identified_gaps,
+            identified_gaps=model_response.identified_gaps,
             assessment_error=False,
-            test_answer_score=score,
         )
-        counts = dict(state.get("session_question_counts") or {})
-        counts[pending_slug] = counts.get(pending_slug, 0) + 1
-        eval_result["session_question_counts"] = counts
+        eval_result["session_question_counts"] = _update_session_questions_count(state, pending_slug)
         return eval_result
 
     except Exception:
+        # Catches any exception from the open question path (e.g. ValueError raised by
+        # _load_open_question_criteria when the curriculum file has no question sections or
+        # no grading criteria). exc_info=True attaches the full traceback to the log entry.
+        # Returns assessment_error=True with an empty delta so the knowledge profile is
+        # never updated on a failed evaluation. The LangGraph node continues normally.
         logger.warning(
             "assess_node: evaluation failed, trace_id=%s",
             state.get("trace_id"),
             exc_info=True,
         )
-        return _build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
+        return build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)

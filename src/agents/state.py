@@ -131,9 +131,6 @@ class AgentState(TypedDict):
     pending_test_slug: str | None
     """The topic slug of the pending test question; must be in VALID_MODULE_SLUGS."""
 
-    test_answer_score: float | None
-    """Score for the most recently evaluated test answer: 1.0 correct, 0.5 partial, 0.0 incorrect."""
-
     is_mcq: bool
     """True when the pending test question is MCQ format (A/B/C/D options).
     False for open-ended questions and when no question is pending."""
@@ -177,7 +174,7 @@ class EvaluationOutput(BaseModel):
     """Structured evaluator output: verdict on user's answer to a curriculum question."""
 
     verdict: Literal["correct", "partial", "incorrect"]
-    """LLM's judgment of the user answer against the rubric."""
+    """LLM's judgment of the user answer against the open question grading criteria."""
 
     confidence: float
     """Evaluator confidence in the verdict: 0.0–1.0."""
