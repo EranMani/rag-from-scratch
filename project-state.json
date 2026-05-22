@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-22 (Commit 45.3 question-type-balance done)",
+  "last_updated": "2026-05-23 (Commit 45.4 question-difficulty-degradation done — pending Team Lead approval; C45.4.1 is-mcq-fix queued next)",
   "status": "active",
   "current_commit": {
-    "number": "45.4",
-    "name": "question-difficulty-degradation",
+    "number": "45.4.1",
+    "name": "is-mcq-fix",
     "status": "pending",
     "assignee": "ai-engineer"
   },
@@ -59,29 +59,29 @@
     "45",
     "45.1",
     "45.2",
-    "45.3"
+    "45.3",
+    "45.4"
   ],
   "commits_pending": [
-    "45.4",
-    "45.4",
+    "45.4.1",
     "46",
     "47",
     "48",
     "49"
   ],
-  "next_commit": "45.4",
+  "next_commit": "45.4.1",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "30",
-      "tests": "not run — static UI page; no logic paths, no backend routes changed",
-      "viktor": "BLOCKED — rAF loop missing DOM guard (`document.contains(canvas)` before rAF call). Deferred per no-gate-fix-passes rule. Fix scheduled as Commit 30.5.",
-      "sage": "not triggered — static marketing page; no user data rendered, no auth, no external API calls",
-      "quinn": "not triggered — no logic coverage applicable; visual-only commit",
-      "mira": "not triggered — static page, no product scope changes",
-      "gate_wave": "Viktor only (new JS animation loop with rAF)",
-      "note": "C30: NiceGUI full-bleed layout pattern established. CSS namespace isolation with rag-landing- prefix. Viktor deferred block: rAF canvas guard. See DECISIONS.md C30 entries."
+      "number": "45.4",
+      "tests": "PASS — 34 new tests (test_question_difficulty_degradation.py); pre-existing test_assess_node.py import fixed (+25 unblocked). Net +59 tests passing.",
+      "viktor": "HARD BLOCK — step 2 partial return missing `\"is_mcq\": False`. If original question was MCQ, user's answer to simplified open question routes to MCQ evaluator. Deferred to C45.4.1 per no-gate-fix-passes rule.",
+      "sage": "not triggered — gate triage: new logic function, no auth/secrets/user input trust boundary",
+      "quinn": "not triggered — gate triage: behavior change (new code path), no new routes or services",
+      "mira": "not triggered — no user-facing behavior change visible to non-technical reviewer",
+      "gate_wave": "Viktor only (new logic path in assess_node routing)",
+      "note": "C45.4: two-step difficulty degradation added. Viktor Hard Block scheduled as C45.4.1. Pre-existing test debt in test_assess_node.py cleaned up."
     },
     "commit_26": {
       "number": "26",
