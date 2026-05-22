@@ -1,4 +1,4 @@
-from agents.mcq_utils import get_mcq_count
+from agents.mcq_utils import get_mcq_count, get_open_question_count
 from agents.state import VALID_MODULE_SLUGS, AgentState
 from app.profile.scoring import PHASE_1_TOPICS, PHASE_2_TOPICS, PHASE_3_TOPICS
 
@@ -36,6 +36,18 @@ def select_mcq_question(state: AgentState) -> tuple[str, int] | None:
         return None
     messages = state.get("messages") or []
     return slug, len(messages) % get_mcq_count(slug)
+
+
+def select_open_question(state: AgentState) -> tuple[str, int] | None:
+    """Select the next open question topic and index for this learner.
+
+    Returns (slug, question_index) or None if no valid slug matches.
+    """
+    slug = _select_slug(state)
+    if slug is None:
+        return None
+    messages = state.get("messages") or []
+    return slug, len(messages) % get_open_question_count(slug)
 
 
 def _select_slug(state: AgentState) -> str | None:

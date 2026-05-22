@@ -5,13 +5,19 @@
 ---
 
 ## Current State
-*Last updated: Commit 43 — phase-unlock-agent · 2026-05-20*
+*Last updated: Commit 45.2 — open-question-delivery · 2026-05-22*
 
-**Last completed:** Commit 43 — phase-unlock-agent ✅
+**Last completed:** Commit 45.2 — open-question-delivery ✅
 **Currently active:** none
 **Blocked by:** none
 
 **Open Handoffs — Outbound:**
+- → Nova (Commit 45.3 `question-type-balance`): `select_open_question` and `deliver_open_question`
+  are now live in `question_selection.py` and `test_delivery.py`. The ratio logic that decides
+  MCQ vs. open question per turn goes into `select_test_question` in `test_delivery.py`.
+  Call `deliver_open_question(state, passive_delta, gaps, should_redirect)` for the open-question
+  path. Both paths return the same `build_selection_result` schema — 45.3 only needs to add
+  the branching condition and any ratio/level logic.
 - → Aria (Commit 44 `phase-unlock-ui`): `gate_just_passed` is now an `AgentState` field.
   By the time `generate_node` returns it is always `None` (cleared after reading).
   The SSE `done` event in `chat.py` serialises `AgentState` fields — verify `gate_just_passed`

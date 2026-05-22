@@ -60,5 +60,40 @@ def get_mcq_question_blocks(slug: str) -> list[str]:
 
 def get_mcq_count(slug: str) -> int:
     """Return the amount of questions from the given slug"""
-    n = len(get_mcq_question_blocks(slug))    
+    n = len(get_mcq_question_blocks(slug))
     return n
+
+
+def get_open_question_blocks(slug: str) -> list[str]:
+    path = _CURRICULUM_DIR / f"{slug}.md"
+    content = path.read_text(encoding="utf-8")
+    blocks = re.split(r"(?=^## Q\d+)", content, flags=re.MULTILINE)
+    question_blocks = [b for b in blocks if b.strip().startswith("## Q")]
+    if not question_blocks:
+        raise ValueError(f"No open question blocks for slug '{slug}'")
+    return question_blocks
+
+
+def get_open_question_count(slug: str) -> int:
+    return len(get_open_question_blocks(slug))
+
+
+def load_open_question(slug: str, question_index: int) -> str:
+    """Load an open question from knowledge-base/curriculum/questions/[slug].md.
+
+    Returns display_text ready to render. No correct answer — LLM-graded.
+
+    Raises:
+        FileNotFoundError: open question file for slug does not exist.
+        ValueError: question block is malformed (missing **Question:** field).
+    """
+    question_blocks = get_open_question_blocks(slug)
+    idx = question_index % len(question_blocks)
+    block = question_blocks[idx]
+
+    q_match = re.search(r"\*\*Question:\*\*\s*\n(.*?)(?=\n\n\*\*|\Z)", block, re.DOTALL)
+    if not q_match:
+        raise ValueError(f"Open question block {idx} for slug '{slug}' missing **Question:** field")
+    question_text = q_match.group(1).strip()
+
+    return f"Knowledge check: {question_text}"
