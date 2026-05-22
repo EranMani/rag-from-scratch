@@ -1167,3 +1167,29 @@ When the inferred question level is more than one step above the user's current 
 This keeps the profile honest: scores reflect what the user has demonstrated, not what they've asked about.
 
 ---
+
+## Design Principles — Assessment Module Refactor · 2026-05-22
+
+> Recorded from the evaluate_answer refactor session. Three patterns discovered that apply broadly.
+
+### 1. `_` prefix means private to the file — not the package
+
+Python's `_` prefix convention signals "do not import this from outside." If a function is imported by another module, it is not private regardless of its name. During this refactor, `_build_eval_result`, `_build_test_result`, and `_evaluate_answer` all had leading underscores despite being imported and called by sibling modules. The fix: remove the prefix from anything that crosses a file boundary. Keep it only for functions that are genuinely internal to a single file.
+
+**The rule:** Before naming a function with `_`, check whether it will be imported anywhere. If yes, it belongs to the module's public surface.
+
+### 2. Modulo index must match the collection it indexes
+
+The open question evaluation path was using `_select_mcq_question_index()` — a function that calls `get_mcq_count(slug)` — to pick which open question to load. MCQ count and open question count per slug are independent numbers. The result was a double modulo: `(len(messages) % mcq_count) % open_question_count`. With mismatched bases (e.g. 5 MCQ, 3 open questions), some open questions would be selected more often than others — a silent, biased distribution.
+
+The fix: pass `len(messages)` directly to `_load_open_question_criteria`, which already applies `% len(question_sections)` internally. One modulo, correct base.
+
+**The rule:** When using modulo to index into a collection, the divisor must be the length of *that specific collection*, not a count from a related but distinct collection.
+
+### 3. Audit state fields for dead reads before keeping them
+
+`test_answer_score` was written in three places — two `build_eval_result` call sites and two `build_test_result` call sites — but never read by any downstream node, API route, or UI component. It existed as documentation of the score, but `topic_scores_delta` already carried the same information in a more useful form (keyed by topic slug). The field was removed entirely.
+
+**The rule:** Before keeping a state field, grep for all read sites (`state.get("field_name")`). If results are only write sites — assignments and dict literals in builder functions — the field is dead state and should be removed.
+
+---
