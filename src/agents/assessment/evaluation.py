@@ -16,7 +16,7 @@ _CURRICULUM_DIR = (
     pathlib.Path(__file__).resolve().parents[3] / "knowledge-base" / "curriculum" / "questions"
 )
 
-def _breakdown_criteria_parts(section: list[str]) -> list:
+def _breakdown_criteria_parts(section: str) -> list[str]:
     """
     Retrieve the question criteria parts:
     - Correct answer criteria
@@ -85,7 +85,9 @@ def _build_mcq_eval_result(state: AgentState, pending_slug: str) -> dict[str, An
         )
         return build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
 
-    user_msg = (state.get("messages") or [])[-1].content or ""
+    messages = state.get("messages") or []
+    user_msg = messages[-1].content if messages else ""
+
     score = _evaluate_mcq_answer(user_msg, correct)
     delta: dict[str, float] = {pending_slug: score}
     eval_result = build_eval_result(
@@ -125,6 +127,9 @@ async def evaluate_answer(state: AgentState) -> dict[str, Any]:
             state.get("trace_id"),
         )
         return build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
+
+    # None not in VALID_MODULE_SLUGS, so the guard above already exits — narrows type for the type checker
+    assert pending_slug is not None
 
     # Answer came from MCQ question
     if state.get("is_mcq"):
