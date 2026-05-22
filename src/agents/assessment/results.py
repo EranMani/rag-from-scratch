@@ -1,7 +1,7 @@
 from typing import Any
 
 
-def build_test_result(
+def build_selection_result(
     *,
     topic_scores_delta: dict[str, float],
     identified_gaps: list[str],
@@ -12,8 +12,7 @@ def build_test_result(
     pending_mcq_correct_answer: str | None = None,
     messages: list[Any] | None = None,
 ) -> dict[str, Any]:
-    """
-    Build a passive-assessment result dict that carries a pending question forward.
+    """Pack the output of _select_test_question into a state update dict.
 
     Always sets ``is_passive_delta=True``. ``messages`` is only included in the
     returned dict when it is not ``None`` — callers must not assume the key exists.
@@ -42,7 +41,7 @@ def build_eval_result(
     """
     Build an eval result dict after scoring a user answer — no pending question.
 
-    Always sets ``is_passive_delta=False``, ``test_mode=False``, ``is_mcq=False``,
+    Always sets ``is_passive_delta=False``, ``is_mcq=False``,
     and all pending-question fields to ``None``.
     """
     return {
