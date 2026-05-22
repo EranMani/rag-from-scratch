@@ -3,7 +3,9 @@ import pathlib
 import re
 from typing import Any
 
-from agents.prompts.assessment import assessment_prompt
+from langchain_core.messages import AIMessage
+
+from agents.prompts.assessment import assessment_prompt, simplification_prompt
 from agents.state import VALID_MODULE_SLUGS, AgentState, EvaluationOutput
 from rag.providers import get_provider
 
@@ -15,6 +17,36 @@ logger = logging.getLogger(__name__)
 _CURRICULUM_DIR = (
     pathlib.Path(__file__).resolve().parents[3] / "knowledge-base" / "curriculum" / "questions"
 )
+
+_DIFFICULTY_PHRASES: tuple[str, ...] = (
+    "too hard",
+    "don't understand",
+    "do not understand",
+    "i don't know",
+    "i do not know",
+    "help",
+    "can you simplify",
+    "simplify",
+    "hint",
+    "not sure",
+    "no idea",
+    "give up",
+)
+
+
+def _is_difficulty_signal(message: str) -> bool:
+    """Return True if the user is signaling difficulty, not answering the question."""
+    lowered = message.lower().strip()
+    return any(phrase in lowered for phrase in _DIFFICULTY_PHRASES)
+
+
+async def _simplify_question(original_question: str, user_level: str) -> str:
+    """Call LLM to rephrase the question at lower complexity. Returns rephrased text."""
+    llm = get_provider().get_llm()
+    chain = simplification_prompt | llm
+    response = await chain.ainvoke({"question": original_question, "user_level": user_level})
+    return response.content.strip()
+
 
 def _breakdown_criteria_parts(section: str) -> list[str]:
     """
@@ -117,7 +149,7 @@ async def _invoke_ai_model(state: AgentState, criteria: str) -> EvaluationOutput
     return eval_output
     
 async def evaluate_answer(state: AgentState) -> dict[str, Any]:
-    """Evaluate the user's answer — MCQ binary path or open question LLM path."""
+    """Evaluate the user's answer — difficulty degradation, MCQ binary, or open LLM path."""
     pending_slug: str | None = state.get("pending_test_slug")
 
     if pending_slug not in VALID_MODULE_SLUGS:
@@ -131,17 +163,58 @@ async def evaluate_answer(state: AgentState) -> dict[str, Any]:
     # None not in VALID_MODULE_SLUGS, so the guard above already exits — narrows type for the type checker
     assert pending_slug is not None
 
+    # Difficulty degradation path — check before MCQ/open branch
+    messages = state.get("messages") or []
+    user_msg = messages[-1].content if messages else ""
+    if _is_difficulty_signal(user_msg):
+        already_simplified = state.get("question_simplified") or False
+        original_question = state.get("pending_test_question") or ""
+        existing_gaps = list(state.get("identified_gaps") or [])
+
+        if not already_simplified:
+            # Step 2 — rephrase at lower difficulty, do not reveal answer
+            try:
+                user_level = state.get("user_level") or "novice"
+                simplified = await _simplify_question(original_question, user_level)
+                logger.info("assess_node: simplified question for trace_id=%s", state.get("trace_id"))
+                return {
+                    "pending_test_question": simplified,
+                    "question_simplified": True,
+                    "messages": [AIMessage(content=(
+                        "Let me rephrase that question at a simpler level:\n\n" + simplified
+                    ))],
+                }
+            except Exception:
+                logger.warning(
+                    "assess_node: simplification failed, trace_id=%s",
+                    state.get("trace_id"),
+                    exc_info=True,
+                )
+                return build_eval_result(topic_scores_delta={}, identified_gaps=[], assessment_error=True)
+        else:
+            # Step 3 — reveal answer from docs; mark as gap and clear pending question
+            if pending_slug not in existing_gaps:
+                existing_gaps.append(pending_slug)
+            logger.info(
+                "assess_node: difficulty signal after simplification — revealing answer; trace_id=%s",
+                state.get("trace_id"),
+            )
+            result = build_eval_result(
+                topic_scores_delta={},
+                identified_gaps=existing_gaps,
+                assessment_error=False,
+            )
+            return result
+
     # Answer came from MCQ question
     if state.get("is_mcq"):
-        # Get the evaluation results from the state, and update session questions count
         eval_result = _build_mcq_eval_result(state, pending_slug)
         eval_result["session_question_counts"] = _update_session_questions_count(state, pending_slug)
         return eval_result
 
     # Answer came from open question
     try:
-        # Get the open question criteria using overall conversation messages
-        message_count = len(state.get("messages") or [])
+        message_count = len(messages)
         criteria = _load_open_question_criteria(pending_slug, message_count)
 
         model_response = await _invoke_ai_model(state, criteria)
@@ -158,11 +231,6 @@ async def evaluate_answer(state: AgentState) -> dict[str, Any]:
         return eval_result
 
     except Exception:
-        # Catches any exception from the open question path (e.g. ValueError raised by
-        # _load_open_question_criteria when the curriculum file has no question sections or
-        # no grading criteria). exc_info=True attaches the full traceback to the log entry.
-        # Returns assessment_error=True with an empty delta so the knowledge profile is
-        # never updated on a failed evaluation. The LangGraph node continues normally.
         logger.warning(
             "assess_node: evaluation failed, trace_id=%s",
             state.get("trace_id"),

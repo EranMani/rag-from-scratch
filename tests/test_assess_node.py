@@ -36,12 +36,10 @@ from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
 
-from agents.nodes.assess import (
+from agents.assessment import assess_node
+from agents.assessment.evaluation import (
     _CURRICULUM_DIR,
     _evaluate_mcq_answer,
-    _load_mcq_question,
-    _select_question_index,
-    assess_node,
 )
 from agents.assessment.question_selection import select_mcq_question
 from agents.state import VALID_MODULE_SLUGS, AgentState, EvaluationOutput
@@ -519,11 +517,12 @@ class TestGate4FallbackOnFailure:
                     result = await assess_node(_eval_mode_state())  # type: ignore[arg-type]
         expected = {
             "topic_scores_delta", "identified_gaps", "assessment_error",
-            "test_mode", "pending_test_question", "pending_test_slug",
-            "is_mcq", "pending_mcq_correct_answer",
+            "pending_test_question", "pending_test_slug",
+            "is_mcq", "pending_mcq_correct_answer", "is_passive_delta",
+            "question_simplified",
         }
         assert set(result.keys()) == expected, (
-            f"Fallback must return all 8 keys, got {set(result.keys())}"
+            f"Fallback must return all 9 keys, got {set(result.keys())}"
         )
 
     @pytest.mark.asyncio
@@ -667,11 +666,12 @@ class TestGate7OutputKeyBoundary:
         "topic_scores_delta",
         "identified_gaps",
         "assessment_error",
-        "test_mode",
         "pending_test_question",
         "pending_test_slug",
         "is_mcq",
         "pending_mcq_correct_answer",
+        "is_passive_delta",
+        "question_simplified",
     })
 
     _FORBIDDEN_KEYS: frozenset[str] = frozenset({

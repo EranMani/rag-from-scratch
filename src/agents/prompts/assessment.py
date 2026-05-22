@@ -103,3 +103,33 @@ passive_prompt: ChatPromptTemplate = ChatPromptTemplate.from_messages([
     ("system", _PASSIVE_SYSTEM),
     ("human", _PASSIVE_HUMAN),
 ])
+
+# ---------------------------------------------------------------------------
+# Simplification prompt — rephrase question at lower difficulty, no answer hints
+# ---------------------------------------------------------------------------
+
+_SIMPLIFICATION_SYSTEM = """\
+You are a curriculum writer for a RAG (Retrieval-Augmented Generation) learning system.
+
+You are given a curriculum question that a learner found too difficult. Your task is to
+rephrase it at a lower complexity level appropriate for a {user_level} learner.
+
+HARD CONSTRAINTS:
+- Do NOT hint at the correct answer. Do NOT reveal what the right answer is.
+- Do NOT add examples that lead toward the answer.
+- Change only the vocabulary, framing, and complexity — not the concept being tested.
+- The rephrased question must test the same knowledge as the original.
+- Return only the rephrased question text. No explanations, no preamble.\
+"""
+
+_SIMPLIFICATION_HUMAN = """\
+Original question:
+{question}
+
+Rephrase this question at a simpler level for a {user_level} learner.\
+"""
+
+simplification_prompt: ChatPromptTemplate = ChatPromptTemplate.from_messages([
+    ("system", _SIMPLIFICATION_SYSTEM),
+    ("human", _SIMPLIFICATION_HUMAN),
+])

@@ -973,3 +973,25 @@
 - **Reason:** Nodes are control-flow primitives. Mixing routing with domain logic makes both harder to read and test independently. A thin node is also easier to rewire in the graph without touching business logic.
 - **Rule of thumb:** If you can't read the full node in one screen, it's holding logic it shouldn't.
 - **Consequences:** All future node files must stay thin. When a node accumulates logic, extract to a sibling domain module (`src/agents/assessment/`, `src/agents/generation/`, etc.) before the node grows past ~50 lines.
+
+---
+
+## Question Difficulty Degradation (C45.4)
+
+### Keyword-based difficulty signal detection — no LLM (Commit 45.4)
+- **Date:** 2026-05-23
+- **Commit:** 45.4
+- **Decided by:** Nova (spec) + Claude (validation)
+- **Decision:** `_is_difficulty_signal(message: str) -> bool` uses simple substring matching against a conservative `_DIFFICULTY_PHRASES` tuple. No LLM call involved.
+- **Alternatives considered:** LLM-based intent classification ("does this message signal difficulty?"); semantic similarity against anchor phrases.
+- **Reason:** Difficulty detection is a routing decision — it determines which code path fires, not what content to generate. Routing decisions that can be handled deterministically should never use an LLM. A keyword list is transparent, testable with one-line assertions, and has zero latency. False negatives (user signals difficulty but keywords don't match) are safer than false positives (a real answer incorrectly triggers simplification). The conservative phrase list covers all natural formulations without over-matching.
+- **Consequences:** Users who signal difficulty in unusual phrasings (e.g., non-English, or highly idiomatic expressions not in the list) will have their message evaluated as a normal answer. This is the correct conservative default.
+
+### Step 3 reveals via clearing `pending_test_question` — no new mechanism (Commit 45.4)
+- **Date:** 2026-05-23
+- **Commit:** 45.4
+- **Decided by:** Nova
+- **Decision:** When a user signals difficulty a second time (`question_simplified=True`), the system clears `pending_test_question` to `None`, adds the slug to `identified_gaps`, and returns. No new retrieval mechanism is added. `generate_node` already falls back to RAG retrieval when no pending question is present — this behavior is reused verbatim.
+- **Alternatives considered:** Introducing a new `reveal_mode` flag; calling `retrieve_node` directly from `evaluate_answer`; adding a new graph edge for the reveal path.
+- **Reason:** The system already has a well-tested path where `pending_test_question=None` causes `generate_node` to run the standard RAG pipeline. Reusing this invariant keeps the degradation path free of new infrastructure — no new AgentState fields for the reveal, no additional LangGraph edges. The slug in `identified_gaps` ensures the profile update node records it as a knowledge gap regardless of how the question was resolved.
+- **Consequences:** The RAG reveal uses the user's original question text (from `question` in state) as the retrieval query. This is appropriate — the user's question is what they were trying to understand. If the topic has poor knowledge base coverage, the reveal may be less helpful; this is a curriculum quality issue, not a system design issue.

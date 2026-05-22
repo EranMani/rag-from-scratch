@@ -26,6 +26,7 @@ def build_selection_result(
         "is_mcq": is_mcq,
         "pending_mcq_correct_answer": pending_mcq_correct_answer,
         "is_passive_delta": True,
+        "question_simplified": False,
     }
     if messages is not None:
         result["messages"] = messages
@@ -53,4 +54,5 @@ def build_eval_result(
         "is_mcq": False,
         "pending_mcq_correct_answer": None,
         "is_passive_delta": False,
+        "question_simplified": False,
     }

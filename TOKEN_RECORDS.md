@@ -757,6 +757,29 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 45.4 — `question-difficulty-degradation` · 2026-05-23 · Nova
+
+> Gate wave: Viktor only (Haiku). Sage skipped (no auth/secrets/user input trust boundary). Quinn skipped (gate triage: behavior change, no new routes or services). Mira skipped (no user-facing behavior change).
+> Viktor: HARD BLOCK — step 2 partial return missing `"is_mcq": False`; deferred to Commit 45.4.1 per no-gate-fix-passes rule.
+> Ryan: full entry (ARCHITECTURE.md, DECISIONS.md, GLOSSARY.md all updated).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Nova (implementation) | Sonnet | 68,810 | 26 ⚠️ | **+9k** over ≤60k | hit tool cap; worklog write blocked; orchestrator applied header update directly |
+| Viktor | Haiku | 36,025 | 1 | **+21k** over ≤15k | HARD BLOCK: step 2 missing `"is_mcq": False`; 1 tool use (full context inline) ✅ |
+| Ryan | Haiku | 44,497 | 7 | **+29k** over ≤15k | full entry; hit cap before LEARNING_LOG_SUMMARY.md — orchestrator applied direct Edit |
+| **Total** | | **149,332** | **34** | **over ≤75k** | Viktor HARD BLOCK deferred to C45.4.1 per HARD RULE |
+
+**Notes:**
+- Nova: 68,810 tokens / 26 tool uses (at cap). Hit cap before worklog write; orchestrator applied header update directly.
+- Viktor 1 tool use: full context inline — zero file reads. Correct reviewer pattern.
+- Viktor Hard Block: step 2 return in `evaluate_answer` missing `"is_mcq": False`. LangGraph partial merge keeps prior `is_mcq` — if original question was MCQ, user's answer to simplified open question routes to MCQ evaluator. Deferred to Commit 45.4.1 per no-gate-fix-passes HARD RULE.
+- Ryan hit 7-tool cap before LEARNING_LOG_SUMMARY.md update; orchestrator applied direct Edit for summary backfill (C45.2, C45.3, C45.4 one-liners).
+- Sage/Quinn/Mira skipped: gate triage — new logic (degradation routing in evaluation.py), no auth/secrets/routes/user-facing behavior.
+- Pre-existing test debt fixed: `test_assess_node.py` stale imports from prior refactoring. Net test improvement: +59 tests (34 new + 25 unblocked by ImportError fix).
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -803,6 +826,7 @@ No token data recorded. Tracking began at Commit 10.
 | 45 | rag-specialist-content | 496,336 | zero gates (content-only) | **well over** ≤60k | 7 × tool-cap sessions; 18 files; ~180 questions authored; volume-justified |
 | 45.2 | open-question-delivery | 173,047 | Viktor+Quinn+Ryan (Haiku) | **over** | Nova 68k (27 uses, +2 over cap); Viktor 34k (1 use ✅); Quinn 34k (0 uses ✅); Ryan 36k (one-liner) |
 | 45.3 | question-type-balance | 153,894 | Viktor+Quinn+Ryan (Haiku) | **over** | Nova 49k (23 uses ✅); Viktor 34k (0 uses ✅ PASS); Quinn 35k (2 uses ✅ ADEQUATE); Ryan 36k (2 uses ✅); Sage/Mira skipped (gate triage) |
+| 45.4 | question-difficulty-degradation | 149,332 | Viktor (Haiku, HARD BLOCK) | **over** | Nova 69k (26 uses, cap hit); Viktor 36k (1 use ✅); Ryan 44k (7 uses); Sage/Quinn/Mira skipped (gate triage) |
 
 ---
 

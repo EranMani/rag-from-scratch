@@ -134,6 +134,11 @@ class AgentState(TypedDict):
     Set when assess_node delivers an MCQ question; cleared after evaluation.
     None when no MCQ question is pending."""
 
+    question_simplified: bool
+    """True once the pending question has been rephrased at a lower difficulty level.
+    Prevents re-simplification loops — second difficulty signal triggers RAG reveal instead.
+    Reset to False whenever a new question is delivered (via build_selection_result)."""
+
     session_question_counts: dict[str, int]
     """Per-topic count of MCQ answers evaluated this session (topic slug → count).
     Used by update_profile_node to enforce the minimum-3-questions guard in compute_topic_scores."""

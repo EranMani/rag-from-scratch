@@ -288,4 +288,10 @@
 **Used in:** `src/agents/nodes/generate.py`
 **Introduced in:** Commit 41
 
-*Last updated: 2026-05-20 — Commit 41 complete (session_question_counts, proximity hint, langchain_fundamentals slug)*
+### Difficulty Degradation
+**Meaning on this project:** A three-step path for handling assessment questions a learner signals they cannot answer. Step 1: original question delivered. Step 2 (user signals difficulty): the LLM rephrases the question at a lower vocabulary/complexity level — `question_simplified` is set to `True` to prevent re-simplification. Step 3 (second difficulty signal): the system clears the pending question and adds the slug to `identified_gaps`, causing `generate_node` to reveal the answer via the standard RAG path. Simplification is dynamic (model-generated) not from a pre-authored variant bank.
+**Distinct from:** Assessment deferral (user postpones the whole question); `question_simplified` state field (the per-question boolean that enforces step 2 fires only once).
+**Used in:** `src/agents/assessment/evaluation.py`, `src/agents/prompts/assessment.py` (simplification_prompt), `src/agents/assessment/results.py` (reset in build_selection_result)
+**Introduced in:** Commit 45.4
+
+*Last updated: 2026-05-23 — Commit 45.4 complete (difficulty degradation, question_simplified)*

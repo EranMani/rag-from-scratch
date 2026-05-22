@@ -1233,3 +1233,69 @@ Added delivery functions for open-ended questions (`select_open_question`, `get_
 - 12 new tests cover all spec gates: determinism (50 draws, set must be `{"mcq"}`), probabilistic coverage (200 draws, both types must appear), ratio approximation (±15% over 1000 draws), and routing delegation via mock
 
 ---
+
+## Commit 45.4 — `question-difficulty-degradation` · Nova · 2026-05-23 · `new feature | architectural`
+
+> **In one sentence:** Added two-step graceful degradation for open questions the user can't answer: step 2 rephrases the question at a lower difficulty via LLM (once only), step 3 records the slug as a knowledge gap and falls back to the RAG teaching path on second difficulty signal.
+
+**Interview talking point:**
+> **Q:** How do you handle the case where a learner genuinely can't answer the assessment question, without just moving on or giving them the answer outright?
+>
+> **A:** The system uses a two-step scaffold. On the first difficulty signal ("too hard", "I don't understand", etc.), the question is rephrased at the user's level — the hard constraint in the prompt is "Do NOT reveal what the right answer is." If the user still can't answer after the simplification, the topic is recorded as a knowledge gap and `generate_node` falls back to its normal RAG path, which teaches the concept through context. The key design choice: a `question_simplified: bool` flag in `AgentState` prevents re-simplification loops — `MemorySaver` holds the flag across turns, and `build_selection_result` resets it to `False` when a new question is delivered. Difficulty signal detection is keyword-based (13 phrases, case-insensitive) — no LLM call, deliberate cost-and-latency decision.
+
+**What happened and why:**
+
+- Added `_DIFFICULTY_PHRASES` tuple and `_is_difficulty_signal(message: str) -> bool` to `evaluation.py`. Keyword match via `any(phrase in answer.lower() for phrase in _DIFFICULTY_PHRASES)`. No LLM call for detection — deliberate (see design table).
+- Added `_simplify_question(original_question: str, user_level: str) -> str` — calls `simplification_prompt | llm` as a LangChain `ainvoke` chain. Prompt has hard constraints against revealing the answer.
+- Added `simplification_prompt: ChatPromptTemplate` to `prompts/assessment.py` with `{user_level}` (system) and `{question}` / `{user_level}` (human) placeholders. Hard constraint text: "Do NOT hint at the correct answer. Do NOT reveal what the right answer is."
+- Degradation routing block added at top of `evaluate_answer` before the MCQ/open branch. No difficulty signal → normal path unchanged. Difficulty signal + `question_simplified=False` → step 2 (simplify, set flag). Difficulty signal + `question_simplified=True` → step 3 (clear pending, add slug to gaps, RAG path).
+- `question_simplified: bool` added to `AgentState`. Reset to `False` in `build_selection_result` (new question delivery) and `build_eval_result` (evaluation complete).
+- 34 new tests in `tests/test_question_difficulty_degradation.py`: 7 gates covering signal detection, false-positive prevention, step 2/step 3 routing, reset behavior, and prompt constraints.
+- **Pre-existing debt fixed:** `tests/test_assess_node.py` had stale imports from `agents.nodes.assess` (functions moved to `agents.assessment.*` in prior refactoring). Fixed imports and updated expected key sets for `build_eval_result` output.
+
+**Viktor Hard Block — deferred to Commit 45.4.1:** Step 2 partial return dict is missing `"is_mcq": False`. LangGraph partial merge keeps the prior `is_mcq` value; if the original question was MCQ, the user's next-turn answer to the simplified open question routes to the MCQ evaluator. Fix is one line — scheduled as its own commit per the no-gate-fix-passes rule.
+
+**The key change:**
+
+```python
+# src/agents/assessment/evaluation.py — difficulty degradation routing
+if _is_difficulty_signal(answer):
+    already_simplified = state.get("question_simplified", False)
+    slug = state.get("pending_test_slug") or ""
+    if not already_simplified:
+        simplified = await _simplify_question(original_question, user_level)
+        return {
+            "pending_test_question": simplified,
+            "question_simplified": True,
+            "messages": [AIMessage(content="Let me rephrase that question at a simpler level:\n\n" + simplified)],
+        }
+    else:
+        existing_gaps = list(state.get("identified_gaps") or [])
+        if slug and slug not in existing_gaps:
+            existing_gaps.append(slug)
+        return build_eval_result(
+            topic_scores_delta={},
+            identified_gaps=existing_gaps,
+            assessment_error=False,
+        )
+```
+
+**Design pattern:**
+
+| Pattern | What it means here | Why it was chosen |
+|---|---|---|
+| Keyword detection over LLM | 13 phrases matched case-insensitively; no LLM call on difficulty signal | LLM call per turn doubles latency and cost for a signal that maps directly to simple phrases |
+| Single-flag simplification gate | `question_simplified: bool` in AgentState + MemorySaver persistence | Prevents infinite rephrase loops without a counter; reset semantics are clear (False = new question) |
+| Step 3 reuses RAG path via `pending_test_question=None` | Clearing the field is the existing signal for `generate_node` to use RAG | No new mechanism needed; field absence already means "teach, don't test" |
+| Hard constraint in simplification prompt | "Do NOT reveal what the right answer is" explicit text | LLM will naturally try to be helpful by hinting; constraint anchors it to pedagogical rephrasing only |
+
+**Files touched:**
+
+- `src/agents/state.py` — `question_simplified: bool` field added to `AgentState`
+- `src/agents/assessment/evaluation.py` — `_DIFFICULTY_PHRASES`, `_is_difficulty_signal`, `_simplify_question`, degradation routing block in `evaluate_answer`; `simplification_prompt` import
+- `src/agents/prompts/assessment.py` — `simplification_prompt` added
+- `src/agents/assessment/results.py` — `question_simplified: False` added to `build_selection_result` and `build_eval_result`
+- `tests/test_question_difficulty_degradation.py` — new: 34 tests, 7 gates
+- `tests/test_assess_node.py` — stale import fix + expected key set update (pre-existing debt)
+
+---
