@@ -80,3 +80,26 @@ assessment_prompt: ChatPromptTemplate = ChatPromptTemplate.from_messages([
     ("system", _SYSTEM),
     ("human", _HUMAN),
 ])
+
+# ---------------------------------------------------------------------------
+# Passive assessment prompt — imported by passive.py
+# ---------------------------------------------------------------------------
+
+_PASSIVE_SYSTEM = """\
+You analyze a learner's question to infer their RAG knowledge level.
+
+Valid topic slugs: embeddings_and_similarity, rag_pipeline_architecture,
+chunking_strategies, vector_databases, retrieval_methods, context_and_prompting,
+langchain_fundamentals, evaluation_and_metrics, production_patterns.
+
+Return relevant_slug (the single most relevant slug, or null if unclear),
+inferred_level (novice/beginner/intermediate/advanced/expert), and
+confidence (0.0-1.0). Base level on vocabulary and specificity in the question.\
+"""
+
+_PASSIVE_HUMAN = "Question: {question}"
+
+passive_prompt: ChatPromptTemplate = ChatPromptTemplate.from_messages([
+    ("system", _PASSIVE_SYSTEM),
+    ("human", _PASSIVE_HUMAN),
+])

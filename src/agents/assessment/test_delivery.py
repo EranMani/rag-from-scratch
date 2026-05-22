@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessage
 from agents.mcq_utils import load_mcq_question as _load_mcq_question
 from agents.state import AgentState
 
-from .passive import _run_passive_assessment
+from .passive import run_passive_assessment
 from .results import build_test_result
 from .slug_selection import _select_mcq_question_index, _select_test_slug
 
@@ -22,7 +22,7 @@ _REDIRECT_MESSAGE = (
 async def _select_test_question(state: AgentState) -> dict[str, Any]:
     """Run passive assessment then select and load a curriculum question."""
     user_level = state.get("user_level") or "novice"
-    passive_delta, is_rag_related, should_redirect = await _run_passive_assessment(
+    passive_delta, is_rag_related, should_redirect = await run_passive_assessment(
         state.get("question") or "", user_level
     )
     gaps = state.get("identified_gaps") or []
