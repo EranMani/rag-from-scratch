@@ -7,4 +7,5 @@ data/chroma_db/
 data/user_profiles/
 data/uploads/
 data/*.db
-.claude/worktrees/.nicegui/
+.claude/worktrees/
+.nicegui/
