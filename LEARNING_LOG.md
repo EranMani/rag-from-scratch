@@ -1192,4 +1192,22 @@ The fix: pass `len(messages)` directly to `_load_open_question_criteria`, which 
 
 **The rule:** Before keeping a state field, grep for all read sites (`state.get("field_name")`). If results are only write sites — assignments and dict literals in builder functions — the field is dead state and should be removed.
 
+### 4. Guard clause return: distinguish intentional signal from error
+
+When a function returns early with an empty/neutral value, ask first: is this case an *expected, valid outcome* or an *unexpected failure*?
+
+In `_validated_passive_delta`, `relevant_slug is None` returns `{}, False` rather than raising. That's correct — the system prompt explicitly documents `None` as a valid LLM response meaning "question is not RAG-related." The caller handles it: `is_rag_related = result.relevant_slug is not None` routes the flow accordingly. Raising `ValueError` here would be wrong: it would be caught by the outer `except Exception`, flip `is_rag_related` to `True`, and treat a non-RAG question as RAG-related.
+
+Contrast with a truly unexpected case — e.g. a slug that is non-null but not in `VALID_MODULE_SLUGS`. That's an LLM hallucination, not a designed signal. It still doesn't raise (the caller can't act on it usefully) but it logs a warning, making the anomaly visible without crashing the flow.
+
+**The rule:** Before writing a guard clause, ask: "Is this value intentional — designed and handled by the caller — or is it a failure?" Intentional: return a neutral value, let the caller route. Unexpected but recoverable: log a warning, return neutral. Unexpected and unrecoverable: raise. Never raise on values the LLM prompt deliberately allows as output.
+
+### 5. On uncertainty, fail open — not closed
+
+When an LLM call fails and you don't know whether the input was relevant, returning a "not relevant" signal silently suppresses downstream behavior. In `run_passive_assessment`, an exception returns `({}, True, False)` — `is_rag_related=True` — rather than `False`. Returning `False` would cause the caller to skip test selection entirely, as if the question were confirmed off-topic. That's worse than doing nothing: it actively suppresses a knowledge check based on a failure, not evidence.
+
+The empty `delta` (`{}`) ensures no score update happens, so the profile stays honest. But the flow continues — the user still gets a question.
+
+**The rule:** When a component fails and you can't determine the correct signal, default to the value that keeps the system running, not the value that shuts it down. Fail open on uncertainty; fail closed only when you have positive evidence that shutting down is correct.
+
 ---
