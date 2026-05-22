@@ -1,3 +1,5 @@
+import random
+
 from agents.mcq_utils import get_mcq_count, get_open_question_count
 from agents.state import VALID_MODULE_SLUGS, AgentState
 from app.profile.scoring import PHASE_1_TOPICS, PHASE_2_TOPICS, PHASE_3_TOPICS
@@ -24,6 +26,24 @@ _ORDERED_SLUGS: list[str] = [
     "evaluation_and_metrics",
     "production_patterns",
 ]
+
+
+# Open-question probability by level: novice/beginner=0%, intermediate=20%, advanced=40%, expert=70%
+_OPEN_PROB: dict[str, float] = {
+    "novice":       0.0,
+    "beginner":     0.0,
+    "intermediate": 0.2,
+    "advanced":     0.4,
+    "expert":       0.7,
+}
+
+
+def select_question_type(user_level: str) -> str:
+    """Return 'mcq' or 'open' based on level-weighted probability."""
+    prob = _OPEN_PROB.get(user_level, 0.0)
+    if prob == 0.0:
+        return "mcq"
+    return "open" if random.random() < prob else "mcq"
 
 
 def select_mcq_question(state: AgentState) -> tuple[str, int] | None:

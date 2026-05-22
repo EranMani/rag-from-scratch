@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 45.2 — open-question-delivery · 2026-05-22*
+*Last updated: Commit 45.3 — question-type-balance · 2026-05-22*
 
-**Last completed:** Commit 45.2 — open-question-delivery ✅
+**Last completed:** Commit 45.3 — question-type-balance ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -150,6 +150,7 @@ The commit plan has been updated. Here is what changed for you:
 
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 16 | Commit 45.3 `question-type-balance` | ✅ Done | `select_question_type` is a standalone pure function; novice/beginner take the 0.0 fast-path (no random draw); ratio table is a file-level constant in `question_selection.py` |
 | 01 | Commit 07 `langgraph-state-schema` | ✅ Done | Used `Annotated[list[BaseMessage], add_messages]` with `from __future__ import annotations`; `session_id` excluded from state per architecture decision |
 | 02 | Commit 08 `langgraph-retrieve-node` | ✅ Done | `retrieval_source` derived from CB state before/after call, not from return value — retrieve() doesn't expose which path ran |
 | 03 | Commit 09 `langgraph-generate-node` | ✅ Done | Node is async (`ainvoke`) for streaming-readiness; `question` not read — current question is last HumanMessage in messages; LLM via get_provider().get_llm() |
@@ -165,6 +166,39 @@ The commit plan has been updated. Here is what changed for you:
 | 13 | ad-hoc: off-topic suppression fix | ✅ Done | `_run_passive_assessment` returns `(delta, is_rag_related)` tuple; off-topic queries skip knowledge check entirely; exception fallback is permissive (returns True); 6 stale tests fixed to mock `_run_passive_assessment` explicitly. |
 | 14 | Commit 34 `phase-gate-enforcement` | ✅ Done | `_LEVEL_TO_PHASE` dict with `PHASE_1_TOPICS` default; `_ORDERED_SLUGS` promoted to module scope; scoring.py constants made public; 8 new tests + 1 stale test corrected; hit 26 tool cap (worklog written by orchestrator). |
 | 15 | Commit 35.5 gate-fix: test additions | ✅ Done | 4 new tests for Quinn gaps + Viktor guard; `test_letter_followed_by_period_returns_1_0` confirms "B." regex extraction; invalid-slug-with-is_mcq guard; None correct answer guard; tuple-unpacking integrity; 71 tests total passing. |
+
+---
+
+## Session 16 — Commit 45.3: `question-type-balance`
+
+**Date:** 2026-05-22
+**Status:** ✅ Done
+
+### AI Problem Being Solved
+
+`select_test_question` always delivered an MCQ regardless of user mastery level. The curriculum design requires open questions to grow in proportion as users advance — novices never see them, experts see them 70% of the time. The missing piece was a probabilistic dispatch function that maps `user_level` → question type before the slug selection and content-load chain runs.
+
+### Key Decisions
+
+**`select_question_type` as a standalone pure function, not inlined in `select_test_question`.** Inlining would have made unit testing the ratio distribution impossible without mocking internals. A standalone function is mockable, testable, and importable — and the branching in `select_test_question` becomes a one-liner that reads like a spec: `if question_type == "open"`.
+
+**Novice/beginner take a fast path (no `random` call).** The spec says 0% open — that's deterministic. A `random.random() < 0.0` would always be False and would work, but calling `random` for a non-probabilistic outcome is semantically wrong. The `if prob == 0.0: return "mcq"` guard makes the intent explicit and eliminates any floating-point edge cases.
+
+**`_OPEN_PROB` dict with a default of `0.0`.** Unknown levels default to MCQ — the most restrictive behavior. This is consistent with `_LEVEL_TO_PHASE`'s `PHASE_1_TOPICS` fallback pattern used in 45.2 and C34.
+
+**`deliver_open_question` called directly in the branch, not via an intermediate helper.** The function signature already matches the call site exactly — no wrapper needed. Adding indirection here would only obscure the control flow.
+
+### Changes Made
+
+1. `src/agents/assessment/question_selection.py` — added `import random`; added `_OPEN_PROB` dict constant; added `select_question_type(user_level: str) -> str` public function.
+
+2. `src/agents/assessment/test_delivery.py` — added `select_question_type` to import; updated `select_test_question` docstring; inserted `question_type = select_question_type(user_level)` immediately after the `is_rag_related` early return; added `if question_type == "open": return await deliver_open_question(...)` branch before existing MCQ path; removed stale "not wired yet" note from `deliver_open_question` docstring.
+
+3. `tests/test_question_type_balance.py` — new file; 13 tests across 4 gate classes: deterministic levels (novice/beginner/unknown always MCQ), probabilistic levels (intermediate/advanced/expert produce both types over 200 draws), ratio approximation (±15% tolerance over 1000 draws), routing integration (mocked `run_passive_assessment` + `select_question_type` to verify call delegation without live LLM).
+
+### Approach
+
+The problem appeared deceptively simple — add a ratio dict and a random draw. The non-trivial design question was where the dispatch logic lives. Three candidates: inside `select_test_question` (no testability), inside `_select_slug` (wrong abstraction layer — slug selection should not know about question type), or as a dedicated function (testable, spec-faithful). The third option was clear. The test suite then wrote itself around the function contract: deterministic levels need zero probabilistic slack, probabilistic levels need enough draws to avoid flaky CI, and the routing test needs mocks to isolate dispatch from delivery. All 34 tests (21 from 45.2 + 13 new) pass on first run.
 
 ---
 

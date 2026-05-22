@@ -8,7 +8,7 @@ from agents.state import AgentState
 
 from .passive import run_passive_assessment
 from .results import build_selection_result
-from .question_selection import select_mcq_question, select_open_question
+from .question_selection import select_mcq_question, select_open_question, select_question_type
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,10 @@ _REDIRECT_MESSAGE = (
 
 
 async def select_test_question(state: AgentState) -> dict[str, Any]:
-    """Run passive assessment then select and deliver a curriculum MCQ.
+    """Run passive assessment then select and deliver a curriculum question.
 
     Returns an empty messages list (no question) when the user's input is not RAG-related.
+    Routes to MCQ or open delivery based on level-weighted probability.
     """
     user_level = state.get("user_level") or "novice"
     passive_delta, is_rag_related, should_redirect = await run_passive_assessment(
@@ -37,6 +38,11 @@ async def select_test_question(state: AgentState) -> dict[str, Any]:
             identified_gaps=gaps,
             assessment_error=False,
         )
+
+    question_type = select_question_type(user_level)
+
+    if question_type == "open":
+        return await deliver_open_question(state, passive_delta, gaps, should_redirect)
 
     selection = select_mcq_question(state)
     if selection is None:
@@ -81,10 +87,7 @@ async def deliver_open_question(
     gaps: list,
     should_redirect: bool,
 ) -> dict:
-    """Select and deliver an open-ended curriculum question.
-
-    Not wired into select_test_question yet — 45.3 adds the ratio logic.
-    """
+    """Select and deliver an open-ended curriculum question."""
     selection = select_open_question(state)
     if selection is None:
         logger.warning("deliver_open_question: no valid slug available")
