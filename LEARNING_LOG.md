@@ -1136,3 +1136,34 @@ return {
 **One-liner:** First RAG Specialist content pass — expanded all 9 MCQ question banks from 5 questions to 10–12 each, added expert-tier questions and practitioner-depth "why wrong" distractor explanations for every incorrect option, and appended 3 open-ended questions per topic (27 total). Zero gate wave (knowledge-base content only, no code paths). Curriculum gap flagged: LangSmith tracing may warrant a standalone Phase 3 topic (handoff to Lara).
 
 ---
+
+## Design Principle — Constants Should Be Narrow and Honest · 2026-05-22
+
+> Recorded from the assess node decomposition session. Not tied to a single commit — applies across the entire codebase.
+
+**The principle:** A constant should do exactly one thing and its comment should say exactly that. When logic changes around a constant, update the comment to match the new reality. A comment that describes old behavior is a lie waiting to mislead someone.
+
+**Where it came from:**
+
+During the assess node refactor, `_PASSIVE_LEVEL_SCORE` was being used to reward the *complexity of the user's question*, not the *user's actual mastery level*. A novice who happened to ask an advanced question would receive a +0.3 score bump — the same reward as an expert. This was semantically wrong: the system was measuring question vocabulary, not demonstrated understanding.
+
+The fix was to anchor the score delta to `user_level` from `AgentState` instead of `inferred_level` from the LLM. This also changed what the constant *means*:
+
+- **Before:** "How much does a question of this complexity level contribute to mastery?"
+- **After:** "How much does a user at this mastery level gain from engaging with their topic?"
+
+That is a fundamentally different thing. The constant's comment had to narrow with it.
+
+Similarly, `_PASSIVE_CONFIDENCE_THRESHOLD` originally guarded both slug inference and level inference. After the level moved to `AgentState`, it only guards slug inference. The comment was updated to say so.
+
+**The rule:**
+
+> After any refactor that changes what a constant governs, ask: does the comment still describe what this constant actually does? If the constant now does less — say so explicitly.
+
+**The related behavior change:**
+
+When the inferred question level is more than one step above the user's current level, the system now redirects rather than inflating the profile score. A novice asking an expert-level question doesn't receive +0.3 — they receive a message: "I can see you're eager to get ahead. Let's make sure the foundations are solid first." A question appropriate to their level follows.
+
+This keeps the profile honest: scores reflect what the user has demonstrated, not what they've asked about.
+
+---
