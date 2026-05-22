@@ -3,7 +3,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage
 
-from agents.mcq_utils import load_mcq_question as _load_mcq_question
+from agents.mcq_utils import load_mcq_question
 from agents.state import AgentState
 
 from .passive import run_passive_assessment
@@ -19,14 +19,18 @@ _REDIRECT_MESSAGE = (
 )
 
 
-async def _select_test_question(state: AgentState) -> dict[str, Any]:
-    """Run passive assessment then select and load a curriculum question."""
+async def select_test_question(state: AgentState) -> dict[str, Any]:
+    """Run passive assessment then select and deliver a curriculum MCQ.
+
+    Returns an empty messages list (no question) when the user's input is not RAG-related.
+    """
     user_level = state.get("user_level") or "novice"
     passive_delta, is_rag_related, should_redirect = await run_passive_assessment(
         state.get("question") or "", user_level
     )
     gaps = state.get("identified_gaps") or []
 
+    # General chat topic
     if not is_rag_related:
         return build_selection_result(
             topic_scores_delta=passive_delta,
@@ -45,7 +49,7 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
 
     slug, q_idx = selection
     try:
-        display_text, correct_answer = _load_mcq_question(slug, q_idx)
+        display_question_text, correct_answer = load_mcq_question(slug, q_idx)
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("assess_node: failed to load MCQ question for slug '%s': %s", slug, exc)
         return build_selection_result(
@@ -57,13 +61,13 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
     messages = []
     if should_redirect:
         messages.append(AIMessage(content=_REDIRECT_MESSAGE))
-    messages.append(AIMessage(content=f"\n\n{display_text}"))
+    messages.append(AIMessage(content=f"\n\n{display_question_text}"))
 
     return build_selection_result(
         topic_scores_delta=passive_delta,
         identified_gaps=gaps,
         assessment_error=False,
-        pending_test_question=display_text,
+        pending_test_question=display_question_text,
         pending_test_slug=slug,
         is_mcq=True,
         pending_mcq_correct_answer=correct_answer,

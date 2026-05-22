@@ -12,7 +12,7 @@ def build_selection_result(
     pending_mcq_correct_answer: str | None = None,
     messages: list[Any] | None = None,
 ) -> dict[str, Any]:
-    """Pack the output of _select_test_question into a state update dict.
+    """Pack the output of select_test_question into a state update dict.
 
     Always sets ``is_passive_delta=True``. ``messages`` is only included in the
     returned dict when it is not ``None`` — callers must not assume the key exists.
