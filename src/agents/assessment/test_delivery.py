@@ -12,10 +12,19 @@ from .slug_selection import _select_mcq_question_index, _select_test_slug
 
 logger = logging.getLogger(__name__)
 
+_REDIRECT_MESSAGE = (
+    "I can see you're eager to get ahead — that's great! "
+    "Let's make sure the foundations are solid first. "
+    "Here's a question that matches your current level:"
+)
+
 
 async def _select_test_question(state: AgentState) -> dict[str, Any]:
     """Run passive assessment then select and load a curriculum question."""
-    passive_delta, is_rag_related = await _run_passive_assessment(state.get("question") or "")
+    user_level = state.get("user_level") or "novice"
+    passive_delta, is_rag_related, should_redirect = await _run_passive_assessment(
+        state.get("question") or "", user_level
+    )
     gaps = state.get("identified_gaps") or []
 
     if not is_rag_related:
@@ -48,6 +57,11 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
             test_mode=False,
         )
 
+    messages = []
+    if should_redirect:
+        messages.append(AIMessage(content=_REDIRECT_MESSAGE))
+    messages.append(AIMessage(content=f"\n\n{display_text}"))
+
     return _build_test_result(
         topic_scores_delta=passive_delta,
         identified_gaps=gaps,
@@ -57,5 +71,5 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
         pending_test_slug=slug,
         is_mcq=True,
         pending_mcq_correct_answer=correct_answer,
-        messages=[AIMessage(content=f"\n\n{display_text}")],
+        messages=messages,
     )

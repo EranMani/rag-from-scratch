@@ -28,37 +28,52 @@ _passive_prompt: ChatPromptTemplate = ChatPromptTemplate.from_messages([
     ("human", _PASSIVE_HUMAN),
 ])
 
+_LEVEL_ORDER: dict[str, int] = {
+    "novice": 0, "beginner": 1, "intermediate": 2, "advanced": 3, "expert": 4
+}
 
-def _validated_passive_delta(result: PassiveAssessmentOutput) -> dict[str, float]:
+
+def _validated_passive_delta(
+    result: PassiveAssessmentOutput, user_level: str
+) -> tuple[dict[str, float], bool]:
+    """Returns (delta, should_redirect). should_redirect is True when question is 2+ levels above user."""
     if result.relevant_slug is None:
-        return {}
+        return {}, False
 
     if result.relevant_slug not in VALID_MODULE_SLUGS:
         logger.warning(
             "passive_assessment: slug '%s' not in VALID_MODULE_SLUGS — ignoring",
             result.relevant_slug,
         )
-        return {}
+        return {}, False
 
     if result.confidence < _PASSIVE_CONFIDENCE_THRESHOLD:
-        return {}
+        return {}, False
 
-    score = _PASSIVE_LEVEL_SCORE.get(result.inferred_level, 0.0)
-    return {result.relevant_slug: score} if score > 0.0 else {}
+    question_rank = _LEVEL_ORDER.get(result.inferred_level, 0)
+    user_rank = _LEVEL_ORDER.get(user_level, 0)
+    if question_rank > user_rank + 1:
+        return {}, True
+
+    score = _PASSIVE_LEVEL_SCORE.get(user_level, 0.0)
+    return ({result.relevant_slug: score} if score > 0.0 else {}), False
 
 
-async def _run_passive_assessment(question: str) -> tuple[dict[str, float], bool]:
+async def _run_passive_assessment(
+    question: str, user_level: str
+) -> tuple[dict[str, float], bool, bool]:
     """Infer knowledge level from the user's natural query (no formal test).
 
-    Returns (delta, is_rag_related) where is_rag_related=True when relevant_slug is not None.
-    On exception, returns ({}, True) — permissive fallback avoids suppressing the knowledge check.
+    Returns (delta, is_rag_related, should_redirect).
+    On exception, returns ({}, True, False) — permissive fallback avoids suppressing the knowledge check.
     """
     try:
         llm = get_provider().get_llm()
         chain = _passive_prompt | llm.with_structured_output(PassiveAssessmentOutput)
         result: PassiveAssessmentOutput = await chain.ainvoke({"question": question})
         is_rag_related = result.relevant_slug is not None
-        return _validated_passive_delta(result), is_rag_related
+        delta, should_redirect = _validated_passive_delta(result, user_level)
+        return delta, is_rag_related, should_redirect
     except Exception:
         logger.warning("passive_assessment: LLM call failed — continuing with empty delta", exc_info=True)
-        return {}, True
+        return {}, True, False
