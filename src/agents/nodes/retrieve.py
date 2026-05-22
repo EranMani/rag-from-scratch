@@ -3,9 +3,9 @@ retrieve_node — LangGraph node wrapping the existing retrieve() function.
 
 Node contract:
     Input:  AgentState.question (str)
-    Output: {"docs": list[Document], "retrieval_source": str}
+    Output: {"docs": list[Document]}
 
-Only reads `question` from state.  Only writes `docs` and `retrieval_source`.
+Only reads `question` from state.  Only writes `docs`.
 """
 
 """
@@ -18,37 +18,9 @@ from langchain_core.documents import Document
 
 from agents.state import AgentState
 from rag.pipeline.retriever import retrieve
-from rag.resilience.circuit_breaker import chroma_cb
 
 
 def retrieve_node(state: AgentState) -> dict:
-    """LangGraph node: retrieve relevant documents for the current question.
-
-    Wraps the existing retrieve() function and annotates which retrieval
-    path was taken ('chroma' or 'bm25') by inspecting the circuit breaker
-    state before and after the call.
-
-    Determination logic:
-    - If chroma_cb was NOT available before the call → BM25 ran directly.
-    - If chroma_cb WAS available before the call but is OPEN after → Chroma
-      failed mid-call, BM25 fallback activated → source is 'bm25'.
-    - If chroma_cb WAS available before the call and is still available
-      after → Chroma succeeded → source is 'chroma'.
-    """
-
-    # Fetch user question from agent state
-    question: str = state["question"]
-    # Check chroma availability. Fallback to bm25 if not available
-    chroma_available_before: bool = chroma_cb.is_available()
-    # Retrieve the documents
-    docs: list[Document] = retrieve(question)
-    # Check chroma availability again
-    chroma_available_after: bool = chroma_cb.is_available()
-
-    # Check with path were used to retrieve the documents
-    if chroma_available_before and chroma_available_after:
-        retrieval_source: str = "chroma"
-    else:
-        retrieval_source = "bm25"
-    
-    return {"docs": docs, "retrieval_source": retrieval_source}
+    """LangGraph node: retrieve relevant documents for the current question."""
+    docs: list[Document] = retrieve(state["question"])
+    return {"docs": docs}

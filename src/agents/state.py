@@ -71,7 +71,7 @@ class AgentState(TypedDict):
 
     Fields are grouped by lifecycle stage:
       - Turn input  : messages, question, user_id, user_level
-      - Retrieval   : docs, retrieval_source
+      - Retrieval   : docs
       - Generation  : answer
       - Assessment  : topic_scores_delta, identified_gaps, assessment_error
       - Observability: trace_id, latency_ms, cache_hit
@@ -94,9 +94,6 @@ class AgentState(TypedDict):
     # --- Retrieval ---
     docs: list[Document]
     """Retrieved LangChain Document objects produced by retrieve_node."""
-
-    retrieval_source: str
-    """Which retriever was used: 'chroma' (dense) or 'bm25' (keyword fallback)."""
 
     # --- Generation ---
     answer: str

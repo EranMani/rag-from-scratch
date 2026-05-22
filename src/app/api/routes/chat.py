@@ -233,7 +233,6 @@ async def chat(
         "user_id": user_id,
         "user_level": user_level,
         "docs": [],
-        "retrieval_source": "",
         "answer": "",
         "topic_scores_delta": {},
         "identified_gaps": [],
