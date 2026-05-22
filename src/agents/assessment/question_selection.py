@@ -26,12 +26,19 @@ _ORDERED_SLUGS: list[str] = [
 ]
 
 
-def _select_test_slug(state: AgentState) -> str | None:
-    """Pick the next MCQ topic slug for this learner.
+def select_mcq_question(state: AgentState) -> tuple[str, int] | None:
+    """Select the next MCQ topic and question variant for this learner.
 
-    Order: intermediate Phase 1 gaps → any eligible gap → first eligible slug in _ORDERED_SLUGS.
-    Returns None if no valid slug matches.
+    Returns (slug, question_index) or None if no valid slug matches.
     """
+    slug = _select_slug(state)
+    if slug is None:
+        return None
+    messages = state.get("messages") or []
+    return slug, len(messages) % get_mcq_count(slug)
+
+
+def _select_slug(state: AgentState) -> str | None:
     user_level: str = state.get("user_level") or "novice"
     eligible: frozenset[str] = _LEVEL_TO_PHASE.get(user_level, PHASE_1_TOPICS)
     gaps: list[str] = state.get("identified_gaps") or []
@@ -51,10 +58,3 @@ def _select_test_slug(state: AgentState) -> str | None:
         if slug in eligible and slug in VALID_MODULE_SLUGS:
             return slug
     return None
-
-
-def _select_mcq_question_index(state: AgentState, slug: str) -> int:
-    """Deterministically select a question index based on conversation depth."""
-    messages = state.get("messages") or []
-    mcq_count = get_mcq_count(slug)
-    return len(messages) % mcq_count

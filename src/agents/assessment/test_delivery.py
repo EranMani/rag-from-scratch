@@ -8,7 +8,7 @@ from agents.state import AgentState
 
 from .passive import run_passive_assessment
 from .results import build_selection_result
-from .slug_selection import _select_mcq_question_index, _select_test_slug
+from .question_selection import select_mcq_question
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,8 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
             assessment_error=False,
         )
 
-    slug = _select_test_slug(state)
-    if slug is None:
+    selection = select_mcq_question(state)
+    if selection is None:
         logger.warning("assess_node: no valid slug available for test selection")
         return build_selection_result(
             topic_scores_delta=passive_delta,
@@ -43,8 +43,8 @@ async def _select_test_question(state: AgentState) -> dict[str, Any]:
             assessment_error=True,
         )
 
+    slug, q_idx = selection
     try:
-        q_idx = _select_mcq_question_index(state, slug)
         display_text, correct_answer = _load_mcq_question(slug, q_idx)
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("assess_node: failed to load MCQ question for slug '%s': %s", slug, exc)

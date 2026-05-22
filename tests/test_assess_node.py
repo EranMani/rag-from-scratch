@@ -41,9 +41,9 @@ from agents.nodes.assess import (
     _evaluate_mcq_answer,
     _load_mcq_question,
     _select_question_index,
-    _select_test_slug,
     assess_node,
 )
+from agents.assessment.question_selection import select_mcq_question
 from agents.state import VALID_MODULE_SLUGS, AgentState, EvaluationOutput
 
 
@@ -827,11 +827,11 @@ class TestGate8GraphTopologySmoke:
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# TestPhaseGateSlugSelection — _select_test_slug phase-gating (Commit 34)
+# TestPhaseGateSlugSelection — select_test_slug phase-gating (Commit 34)
 # ---------------------------------------------------------------------------
 
 class TestPhaseGateSlugSelection:
-    """_select_test_slug returns only slugs eligible for the user's current phase."""
+    """select_test_slug returns only slugs eligible for the user's current phase."""
 
     _PHASE_1_SLUGS: frozenset[str] = frozenset({"embeddings_and_similarity", "rag_pipeline_architecture"})
     _PHASE_2_SLUGS: frozenset[str] = frozenset({"chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting", "langchain_fundamentals"})
@@ -840,7 +840,8 @@ class TestPhaseGateSlugSelection:
     def test_novice_returns_only_phase_1_slug(self) -> None:
         """novice level: selected slug must be a Phase 1 topic."""
         state = _base_state(user_level="novice", identified_gaps=[])
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result in self._PHASE_1_SLUGS, (
             f"novice must get a Phase 1 slug, got {result!r}"
         )
@@ -848,7 +849,8 @@ class TestPhaseGateSlugSelection:
     def test_beginner_returns_only_phase_1_slug(self) -> None:
         """beginner level: selected slug must be a Phase 1 topic."""
         state = _base_state(user_level="beginner", identified_gaps=[])
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result in self._PHASE_1_SLUGS, (
             f"beginner must get a Phase 1 slug, got {result!r}"
         )
@@ -856,7 +858,8 @@ class TestPhaseGateSlugSelection:
     def test_intermediate_returns_only_phase_2_slug(self) -> None:
         """intermediate level: selected slug must be a Phase 2 topic."""
         state = _base_state(user_level="intermediate", identified_gaps=[])
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result in self._PHASE_2_SLUGS, (
             f"intermediate must get a Phase 2 slug, got {result!r}"
         )
@@ -864,7 +867,8 @@ class TestPhaseGateSlugSelection:
     def test_advanced_returns_only_phase_3_slug(self) -> None:
         """advanced level: selected slug must be a Phase 3 topic."""
         state = _base_state(user_level="advanced", identified_gaps=[])
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result in self._PHASE_3_SLUGS, (
             f"advanced must get a Phase 3 slug, got {result!r}"
         )
@@ -872,7 +876,8 @@ class TestPhaseGateSlugSelection:
     def test_expert_returns_phase_1_slug_first(self) -> None:
         """expert level: canonical ordering puts Phase 1 first, so first slug is Phase 1."""
         state = _base_state(user_level="expert", identified_gaps=[])
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result in self._PHASE_1_SLUGS, (
             f"expert canonical ordering must start with Phase 1 slug, got {result!r}"
         )
@@ -883,7 +888,8 @@ class TestPhaseGateSlugSelection:
             user_level="intermediate",
             identified_gaps=["retrieval_methods"],
         )
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result == "retrieval_methods", (
             f"Phase 2 gap 'retrieval_methods' must be returned first, got {result!r}"
         )
@@ -894,7 +900,8 @@ class TestPhaseGateSlugSelection:
             user_level="beginner",
             identified_gaps=["evaluation_and_metrics"],  # Phase 3 — not eligible for beginner
         )
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result in self._PHASE_1_SLUGS, (
             f"Phase 3 gap must be skipped for beginner; expected Phase 1 slug, got {result!r}"
         )
@@ -902,8 +909,9 @@ class TestPhaseGateSlugSelection:
     def test_returns_none_when_valid_slugs_empty(self) -> None:
         """None returned when VALID_MODULE_SLUGS is patched to empty."""
         state = _base_state(user_level="novice", identified_gaps=[])
-        with patch("agents.nodes.assess.VALID_MODULE_SLUGS", new=frozenset()):
-            result = _select_test_slug(state)  # type: ignore[arg-type]
+        with patch("agents.assessment.question_selection.VALID_MODULE_SLUGS", new=frozenset()):
+            selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result is None, (
             f"Must return None when VALID_MODULE_SLUGS is empty, got {result!r}"
         )
@@ -1208,7 +1216,7 @@ class TestQuestionIndexCycling:
 # ---------------------------------------------------------------------------
 
 class TestGateRemediation:
-    """_select_test_slug grants intermediate users access to Phase 1 gap remediation."""
+    """select_test_slug grants intermediate users access to Phase 1 gap remediation."""
 
     def test_intermediate_with_phase1_gap_returns_phase1_slug(self) -> None:
         """Intermediate user with a Phase 1 identified gap receives that Phase 1 slug."""
@@ -1216,7 +1224,8 @@ class TestGateRemediation:
             user_level="intermediate",
             identified_gaps=["embeddings_and_similarity"],
         )
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result == "embeddings_and_similarity", (
             f"Intermediate user with Phase 1 gap must receive that slug, got {result!r}"
         )
@@ -1224,7 +1233,8 @@ class TestGateRemediation:
     def test_intermediate_with_no_gaps_returns_phase2_slug(self) -> None:
         """Intermediate user with no gaps falls through to canonical Phase 2 ordering."""
         state = _base_state(user_level="intermediate", identified_gaps=[])
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         from app.profile.scoring import PHASE_2_TOPICS
         assert result in PHASE_2_TOPICS, (
             f"Intermediate with no gaps must get a Phase 2 slug, got {result!r}"
@@ -1236,7 +1246,8 @@ class TestGateRemediation:
             user_level="intermediate",
             identified_gaps=["retrieval_methods", "rag_pipeline_architecture"],
         )
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result == "rag_pipeline_architecture", (
             f"Phase 1 gap must beat Phase 2 gap for intermediate; got {result!r}"
         )
@@ -1247,7 +1258,8 @@ class TestGateRemediation:
             user_level="novice",
             identified_gaps=["rag_pipeline_architecture"],
         )
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result == "rag_pipeline_architecture", (
             f"Novice with Phase 1 gap must still receive that slug, got {result!r}"
         )
@@ -1264,7 +1276,8 @@ class TestGateRemediation:
             user_level="intermediate",
             identified_gaps=["langchain_fundamentals"],
         )
-        result = _select_test_slug(state)  # type: ignore[arg-type]
+        selection = select_mcq_question(state)  # type: ignore[arg-type]
+        result = selection[0] if selection else None
         assert result == "langchain_fundamentals", (
             f"langchain_fundamentals gap must be served to intermediate user, got {result!r}"
         )
