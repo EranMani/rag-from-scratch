@@ -294,4 +294,10 @@
 **Used in:** `src/agents/assessment/evaluation.py`, `src/agents/prompts/assessment.py` (simplification_prompt), `src/agents/assessment/results.py` (reset in build_selection_result)
 **Introduced in:** Commit 45.4
 
-*Last updated: 2026-05-23 — Commit 45.4 complete (difficulty degradation, question_simplified)*
+### generated_question_pool
+**Meaning on this project:** An `AgentState` field (`dict[str, list] | None`) that caches LLM-synthesized MCQ questions within a single session thread. Keyed by `"slug:mastery_level"` (e.g., `"embeddings_and_similarity:novice"`). Populated on first delivery for a `(slug, level)` pair by `_deliver_mcq` in `test_delivery.py`; reused for subsequent questions in the same thread; None on session start. Persisted across turns by LangGraph's MemorySaver via `thread_id`, but not saved to the user profile DB — fresh per session.
+**Distinct from:** `pending_test_question` (the question text currently awaiting the user's answer); `identified_gaps` (the per-turn list of weak slugs); the MCQ bank files in `knowledge-base/curriculum/questions/mcq/` (the source used to construct example prompts for LLM synthesis).
+**Used in:** `src/agents/state.py` (field declaration), `src/agents/assessment/test_delivery.py` (`_deliver_mcq`), `src/agents/assessment/results.py` (`build_selection_result`)
+**Introduced in:** Commit 52
+
+*Last updated: 2026-05-24 — Commit 52 complete (ai-question-generation)*

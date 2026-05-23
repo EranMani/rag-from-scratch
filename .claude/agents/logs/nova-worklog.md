@@ -5,11 +5,12 @@
 ---
 
 ## Current State
-*Last updated: Commit 46 — mastery-matched-routing · 2026-05-23*
+*Last updated: Commit 52 — ai-question-generation · 2026-05-24*
 
-**Last completed:** Commit 46 — mastery-matched-routing ✅
+**Last completed:** Commit 52 — ai-question-generation ✅
 **Currently active:** none
 **Blocked by:** none
+**Up next:** Commit 52.1 — state mutation refactor in `_deliver_mcq` (return 3-tuple) + tighten type annotation `dict[str,list]` → `dict[str,list[dict[str,Any]]]`
 
 **Open Handoffs — Outbound:**
 - → Nova (Commit 45.4.1 `is-mcq-fix`): `src/agents/assessment/evaluation.py` step 2 return

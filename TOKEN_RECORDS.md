@@ -955,6 +955,31 @@ No token data recorded. Tracking began at Commit 10.
 - Pass 5 gap-fill was triggered by script verification revealing 5 remaining gaps that agent self-reports had missed. Script verification after multi-pass content work is the correct protocol.
 - Pattern for future: after any multi-pass content expansion, run the count script before surfacing for approval rather than trusting agent self-reports.
 
+## Commit 52 — `ai-question-generation` · 2026-05-24 · Nova
+
+> Gate wave: Viktor + Quinn (Haiku). Sage/Mira skipped (gate triage: new logic, no auth surface, no UI, no user-facing routes).
+> Nova hit tool cap (26 uses) before running tests — orchestrator ran tests directly via PowerShell.
+> 2 regressions in test_mastery_routing.py fixed by orchestrator (direct Edit, no agent re-invocation).
+> Viktor raised 1 advisory (state mutation pattern) + 1 false positive (generate_questions empty-list — impossible by contract). Team Lead chose Option B: commit as-is, fix in C52.1.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Nova | Sonnet | 61,300 | 26 | over ≤60k | Hit tool cap before test run; orchestrator ran tests |
+| Viktor | Haiku | 36,985 | 0 | over ≤15k | PASS WITH ADVISORY — 1 advisory (state mutation) + 1 false positive identified |
+| Quinn | Haiku | 34,307 | 0 | over ≤15k | PASS — coverage adequate for new logic |
+| **Total** | | **132,592** | **26** | **over ≤75k** | |
+
+**Gate wave:** Viktor (advisory — not a hard block) + Quinn (PASS)
+
+**vs. target:** over ≤75k — Nova cap hit; test regression fixes added orchestrator overhead
+
+**Notes:**
+- Nova hit 26-tool cap before running tests. Orchestrator ran `pytest` directly and identified 2 regressions.
+- Regression root cause: tests in `TestSelectTestQuestionMasteryIntegration` patched `load_mcq_question_for_difficulty` but not `generate_questions`. After C52, `_deliver_mcq` calls real LLM first; LLM succeeded, bypassing bank. Fix: added `AsyncMock(side_effect=RuntimeError("LLM unavailable"))` patch to both tests.
+- Viktor Concern 2 (empty list from `generate_questions`) was a false positive: function raises `ValueError` if `not valid` — never returns `[]`. Orchestrator identified and communicated.
+- Viktor Concern 1 (state mutation `state["generated_question_pool"] = pool`) is a design advisory. Team Lead chose Option B: commit C52, fix in C52.1.
+- C52.1 will refactor `_deliver_mcq` to return `(display_text, correct_answer, updated_pool)` 3-tuple and tighten type annotation to `dict[str, list[dict[str, Any]]]`.
+
 ---
 
 ## Running Summary
@@ -1015,6 +1040,7 @@ No token data recorded. Tracking began at Commit 10.
 | 49.1 | slug-add-langgraph | 32,871 | Viktor only (Haiku, PASS) | ⚠️ over ≤15k reviewer target | Claude direct Edits (~0 impl); Viktor 32,871 (0 uses ✅ PASS); no implementation agent |
 | 50 | langgraph-questions | 69,856 | zero gates (content-only) | ⚠️ +10k over ≤60k | RAG Specialist (69,856 · 6 uses); 20 MCQs + 19 open-ended; no gate wave (pure markdown) |
 | 51 | bank-expansion | 529,647 | zero gates (content-only) | **well over ≤60k — volume-justified** | 5 RAG Specialist passes (tool-cap splits); 16 files expanded; ≥5 novice + ≥5 intermediate per file achieved |
+| 52 | ai-question-generation | 132,592 | Viktor+Quinn (Haiku) | **over ≤75k** | Nova 61,300 (26 uses, cap hit); Viktor 36,985 (0 uses, PASS WITH ADVISORY); Quinn 34,307 (0 uses, PASS); orchestrator fixed 2 test regressions (direct Edit); Sage/Mira skipped |
 
 ---
 

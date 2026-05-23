@@ -177,6 +177,18 @@ responsive to who they are, not a static Q&A tool.
 - **Consumed by:** `agents.nodes.assess` (MCQ phase-gate tests), `app.api.routes.onboarding` (diagnostic + completion endpoints)
 - **Introduced in:** Commit 36 (extracted from `assess.py`)
 
+### Question Generation Module
+- **Type:** AI/ML domain module
+- **Owner:** Nova
+- **Purpose:** LLM-synthesized MCQ question generation. Reads existing bank blocks for a `(slug, mastery_level)` pair, calls the LLM to synthesize N new questions, validates output structure, and returns the validated list. Integrated into `_deliver_mcq` in `test_delivery.py` — not a new LangGraph node.
+- **Location:** `src/agents/assessment/question_generation.py`
+- **Contract:** `generate_questions(slug: str, mastery_level: str, bank_blocks: list[str]) -> list[dict[str, Any]]` (async) — raises on any failure (LLM error, timeout, JSON parse, no valid questions). Caller is responsible for catching and falling back to bank questions.
+- **Session cache:** `AgentState.generated_question_pool` (`dict[str, list] | None`) keyed by `"slug:mastery_level"`. Populated on first delivery for a `(slug, level)` pair; reused for subsequent questions in the same session thread. None on session start.
+- **Timeout:** `asyncio.wait_for()` with 15s hard timeout on the LLM call.
+- **Validation:** Each generated question must pass structural checks: exactly 4 options (A–D), exactly 1 correct key in `{A,B,C,D}`, exactly 3 distractor explanations (for non-correct keys), no circular distractor (stem verbatim in explanation), slug must match expected.
+- **Depends on:** `rag.providers` (LLM), `agents.mcq_utils` (bank blocks for example extraction)
+- **Introduced in:** Commit 52
+
 ### ChatResponse
 - **Type:** typed wire schema (Pydantic model)
 - **Owner:** Nova

@@ -1085,3 +1085,33 @@
 - **Alternatives considered:** Keeping `langchain_fundamentals` alongside `document_ingestion` (10-slug curriculum); deleting the LangChain files entirely.
 - **Reason:** The app is named "RAG from scratch" — a dedicated topic slot for LangChain API specifics conflicts with the concept-first identity. LangChain is a convenience layer, not a RAG concept; teaching it as a required Core topic implies the curriculum is about a framework rather than the underlying principles. `document_ingestion` is the actual "from scratch" starting point that was absent: a learner who cannot explain how raw documents flow into a RAG pipeline is missing the first practical step. Files are archived (not deleted) so the content is recoverable if a follow-on "frameworks" track is added later.
 - **Consequences:** Phase 2 now covers: `chunking_strategies`, `vector_databases`, `retrieval_methods`, `context_and_prompting`, `document_ingestion`. A parallel C47.1 (Nova) updates the five src/ slug registries (`VALID_MODULE_SLUGS`, `PHASE_2_TOPICS`, `_ORDERED_SLUGS`, Core topics list in ui.py, assessment prompt) to match. `langchain_fundamentals` is orphaned in the archive and will not appear in any user's learning path or scoring calculation after C47.1.
+
+---
+
+## LLM Question Synthesis (C52)
+
+### LLM synthesis integrated into `_deliver_mcq`, not as a new LangGraph node (Commit 52)
+- **Date:** 2026-05-24
+- **Commit:** 52
+- **Decided by:** Nova + commit spec
+- **Decision:** `question_generation.py` is called from a new `_deliver_mcq` async helper inside `test_delivery.py`. No new LangGraph node is added. The function tries LLM generation, caches the result in `AgentState.generated_question_pool`, and falls back to the bank silently on any failure.
+- **Alternatives considered:** A new `generate_node` in the LangGraph graph (before `test_delivery`); a background pre-generation job that populates a separate cache.
+- **Reason:** Adding a node would require a new graph edge, state field for generation status, and error-handling at the graph routing level. The synthesis is a delivery-time enhancement — it belongs in the delivery layer, not the routing layer. `_deliver_mcq` already owns fallback logic; generation is a transparent upgrade to that path. Bank fallback happens silently within the same async call, with no graph topology changes.
+- **Consequences:** `_deliver_mcq` is the single point of responsibility for what question text reaches the user. Generation success, pool cache hit, and bank fallback all produce the same return shape — callers are decoupled from the source. The 15s LLM timeout is enforced inside `generate_questions` to prevent the delivery path from hanging.
+
+### Session-scoped question pool in `AgentState` (Commit 52)
+- **Date:** 2026-05-24
+- **Commit:** 52
+- **Decided by:** Nova + commit spec
+- **Decision:** `AgentState.generated_question_pool: dict[str, list] | None` is the session cache for LLM-synthesized questions, keyed by `"slug:mastery_level"`. LangGraph's MemorySaver persists it across turns within a thread.
+- **Alternatives considered:** External Redis cache (shared across sessions and users); in-memory module-level dict (shared across all threads); not caching (call LLM on every delivery).
+- **Reason:** Per-session thread persistence is the correct granularity for generated questions: questions stay fresh for a session but are regenerated across sessions to avoid staleness. Redis would add cross-session coupling without benefit; module-level state would mix user questions. Using LangGraph's existing MemorySaver (already in use for `messages`) is zero additional infrastructure.
+- **Consequences:** `generated_question_pool` is None on session start and never saved to the user profile DB. Each new session (new thread_id) begins with a fresh LLM generation call on the first delivery for each `(slug, level)` pair. The pool is included in `build_selection_result`'s returned dict only when not None, following the `messages` optionality pattern.
+
+### State mutation pattern in `_deliver_mcq` — deferred refactor to C52.1 (Commit 52)
+- **Date:** 2026-05-24
+- **Commit:** 52
+- **Decided by:** Team Lead (Option B at gate review)
+- **Decision:** `_deliver_mcq` directly mutates `state["generated_question_pool"]` to make the updated pool visible to `select_test_question` for inclusion in the returned dict. This is a deliberate temporary pattern — the C52.1 refactor will make `_deliver_mcq` return a 3-tuple `(display_text, correct_answer, updated_pool)`, removing the mutation.
+- **Reason:** Viktor flagged the mutation as a fragile LangGraph pattern — state updates must flow through returned dicts, not in-place mutation. The mutation is currently safe because `generate_questions()` either returns a non-empty list or raises, so no exception can occur between mutation and return. However, the pattern violates the LangGraph state contract and obscures the data flow. Team Lead chose to commit C52 as functionally correct and defer the structural fix to a named follow-up to preserve the gate result and avoid another review cycle on unchanged behavior.
+- **Consequences:** C52.1 converts `_deliver_mcq` to return `(str | None, str | None, dict | None)` and threads the pool update through `select_test_question` → `build_selection_result`. Type annotation also tightened: `dict[str, list]` → `dict[str, list[dict[str, Any]]]`.

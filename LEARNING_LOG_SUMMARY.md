@@ -4,24 +4,7 @@
 
 ---
 
-- **C01** auth-gate-on-ingest — guard-clause auth + two-layer path confinement + asyncio.to_thread; establishes blocking I/O pattern for all future async routes
-- **C02** config-and-naming-cleanup — atomic rename of two misspelled identifiers across all call sites
-- **C03** wire-conversation-history — history injected post-retrieval, not pre; retrieval stays query-pure; LLM cache key excludes history (accepted permanent gap)
-- **C04** user-profile-db-schema — user_profiles in same SQLite file as users; WAL mode; FK ON DELETE CASCADE; JSON fields stored as TEXT strings
-- **C05** user-profile-service — frozenset allowlist closes dynamic SQL injection path in update_profile; TOCTOU-safe get_or_create_profile via IntegrityError absorption; old JSON profile store deleted
-- **C06** user-profile-api — GET /api/profile/me behind JWT; create_profile (not get_or_create) at registration — registration is the creation event; static 404 detail prevents CWE-209
-- **C07** langgraph-state-schema — AgentState designed for full C07–C17 arc; add_messages reducer; Literal enforcement on user_level/cache_hit; from __future__ + include_extras=True gotcha documented
-- **C08** langgraph-retrieve-node — pre/post chroma_cb.is_available() inspection detects retrieval backend without modifying retrieve() signature; covers all 3 CB state transitions
-- **C09** langgraph-generate-node — per-invocation get_provider() (never module singleton); await llm.ainvoke() async-by-design for streaming; add_messages accumulates history automatically
-- **C10** langgraph-graph-assembly — build_graph(checkpointer) factory pattern; blocking I/O (get_user_level) hoisted outside async generator; graph.astream_events(v2) + SSE StreamingResponse; SessionMemory deleted
-- **C11** langgraph-graph-smoke-test — 14 smoke tests gate Phase 4; fresh MemorySaver per test class prevents state bleed between test runs
-- **C12** langgraph-assessment-scaffold — stub pattern proves wiring before real LLM call; try/except wraps construction not just LLM call; add_conditional_edges with named routing hook _route_after_assess
-- **C13** langgraph-assessment-llm — assess_node real LangChain chain: assessment_prompt | llm.with_structured_output(AssessmentOutput); prompt in src/agents/prompts/; prompt.__or__ patch pattern for LCEL chain tests; user_level not written mid-graph to avoid circular turn-update
-- **C14** topic-scoring-service — TopicScoreUpdate TypedDict is Rex→Nova domain contract; compute_topic_scores pure function merges delta, clamps to [0,1], computes mastery; value-type filter (not allowlist) decouples scoring from curriculum; silent clamping defends against out-of-range LLM output
-- **C17** adaptive-prompt-templates — 5 mastery-level `ChatPromptTemplate` objects + `DEFAULT_PROMPT` fallback; single `{context}` variable per template; `DEFAULT_PROMPT` kept outside dict for clean `.get(user_level, DEFAULT_PROMPT)` pattern; full template library before wiring (C18)
-- **C18** adaptive-graph-integration — three `user_level` consumers updated atomically (prompt selection, cache key, response schema); null-byte separator makes composite cache key injective; `ChatResponse` Pydantic model replaces hand-constructed SSE done dict; `user_level: str | None` — `None` means assessment did not run, not novice
-- **C19** profile-ui-panel — nested `@ui.refreshable` closes over HTTP client and auth headers; two-column layout (280px sidebar + flex:1 chat); all 6 topics render as progress bars (missing default to 0.0); duplicate 37-line login form removed; null-safe rendering with `.get(key) or "—"` pattern
-- **C20** dynamic-chat-ui — cycling stage labels replace static spinner; `profile_panel.refresh()` in `finally` keeps sidebar live; adaptation badge surfaces `user_level` in response card; `stage_active` flag + `finally` ordering prevents timer callback use-after-delete race
+- **[Era 2]** Commits 01–20 (compressed) → see learning-log-archive-era2.md
 - **C21** production-compose — separate prod Compose file with no bind mounts, `expose:`-only ports, `x-logging` rotation anchor, memory caps; three gate-fix bugs: bash healthcheck → curl, CHROMA_PORT 8001→8000 in prod env, ANNONYMOUS → ANONYMOUS typo
 - **C22** rag-curriculum-design — 8-topic RAG curriculum across 3 phases; spaced repetition scoring (0.7×current + 0.3×best_prior); Phase 2 dual gate (per-topic 0.70 + mean 0.75); null vs. 0.0 for unassessed topics; 64 rubric-structured questions in `knowledge-base/`
 - **C23** scoring-model-product-spec — canonical implementation contract for Nova (C24) and Rex (C25); assessment triggers at topic score 0.60 or 5 content turns; no score decay; `user_level` driven by phase gate state not score average; transparent assessment with one deferral per topic per session
@@ -60,3 +43,4 @@
 - **C49** langgraph-curriculum — `langgraph_fundamentals` added as Phase 3 concepts-only topic; Phase 3 gate updated to 3 required topics (≥0.75 each); topic-slugs.json grows to 9 slugs; C49.1 follows to register slug in src/.
 - **C50** langgraph-questions — 20 MCQs + 19 open-ended questions for langgraph_fundamentals Phase 3 topic; concepts-only (no Python API references); covers directed graphs, state flow, conditional routing, graph compilation, checkpointing, agentic behavior.
 - **C51** bank-expansion — expanded novice and intermediate tiers to ≥5 questions each across all 8 original topics (both MCQ + open); eliminates guaranteed question repetition within 2–3 sessions; verified by count script after 5 tool-cap passes.
+- **C52** ai-question-generation — LLM synthesis in _deliver_mcq (not a new node); session pool in AgentState keyed "slug:mastery_level"; 15s timeout; structural validation; state mutation deferred to C52.1 (*full entry*)
