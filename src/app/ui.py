@@ -129,6 +129,7 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
     gaps: list = profile.get("gaps") or []
     strengths: list = profile.get("strengths") or []
     mastery_level: str = profile.get("mastery_level") or "novice"
+    topic_scores: dict = profile.get("topic_scores") or {}
 
     def _label(slug: str) -> str:
         return _MODULE_LABELS.get(slug, slug.replace("_", " ").title())
@@ -138,48 +139,79 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
 
     if interaction_count == 0 and mastery_level == "novice":
         return (
-            f"Ready to start, **{name}**? I'll build a picture of where you are as we go.\n\n"
-            "Best first move: **What is retrieval-augmented generation?**"
+            f"Welcome, **{name}**! I'm RAG Tutor — your AI-powered guide to Retrieval-Augmented Generation.\n\n"
+            "Not sure where to start? Try one of these:\n"
+            '- "Explain RAG like I\'m 14 — no jargon"\n'
+            '- "I know some ML — how does RAG differ from fine-tuning?"\n'
+            '- "I\'m building a chatbot — what RAG pattern should I use?"\n'
+            '- "Give me the 5-minute overview of why RAG matters"'
         )
+
+    # Build cross-phase progress summary for returning users.
+    _PROGRESS_PHASES: list[tuple[str, list[str]]] = [
+        ("Foundations", ["embeddings_and_similarity", "rag_pipeline_architecture"]),
+        ("Core",        ["chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting", "langchain_fundamentals"]),
+        ("Production",  ["evaluation_and_metrics", "production_patterns"]),
+    ]
+    _DONE_THRESHOLD = 0.70
+
+    phase_parts: list[str] = []
+    for phase_name, slugs in _PROGRESS_PHASES:
+        total = len(slugs)
+        done = sum(1 for s in slugs if topic_scores.get(s, 0.0) >= _DONE_THRESHOLD)
+        if done == total:
+            phase_parts.append(f"{phase_name} ✓")
+        else:
+            phase_parts.append(f"{phase_name} {done}/{total}")
+    progress_line = " · ".join(phase_parts)
+
+    # Last active area: gaps take priority (user was recently tested there), then strengths.
+    last_active_slug = gaps[0] if gaps else (strengths[0] if strengths else None)
 
     if gaps:
         top_gap = gaps[0]
+        last_area = f"**{_label(last_active_slug)}**" if last_active_slug else "your recent topics"
         return (
-            f"Welcome back, **{name}**. **{_label(top_gap)}** came up as a weak spot last time — "
-            f"today's a good time to close it.\n\n"
+            f"Welcome back, **{name}**.\n\n"
+            f"**Your progress:** {progress_line}\n\n"
+            f"Last time you worked on {last_area} — ready to keep building?\n"
             f"Try: **{_starter(top_gap)}**"
         )
 
     if strengths:
         top_strength = strengths[0]
         next_slug = _NEXT_UNLOCK.get(top_strength)
+        last_area = f"**{_label(last_active_slug)}**" if last_active_slug else "your recent topics"
         if next_slug:
             return (
-                f"You have **{_label(top_strength)}** down solid, **{name}** — that's a real foundation. "
-                f"**{_label(next_slug)}** is the natural next unlock.\n\n"
+                f"Welcome back, **{name}**.\n\n"
+                f"**Your progress:** {progress_line}\n\n"
+                f"Last time you worked on {last_area} — up next is **{_label(next_slug)}**.\n"
                 f"Try: **{_starter(next_slug)}**"
             )
         return (
-            f"You've worked through the full curriculum, **{name}**. "
-            "At this point, sharpening the edges matters more than covering new ground.\n\n"
+            f"Welcome back, **{name}**.\n\n"
+            f"**Your progress:** {progress_line}\n\n"
+            f"You've worked through the full curriculum — sharpening the edges is what's left.\n"
             f"Try: **{_starter(top_strength)}**"
         )
 
-    # Fallback: mastery is known but gaps/strengths not yet populated —
-    # recommend the first topic of their current phase.
+    # Fallback: mastery is known but gaps/strengths not yet populated.
     phase_topics = _PHASE_TOPICS.get(mastery_level, [])
     if phase_topics:
         rec_slug = phase_topics[0]
-        phase_name = _PHASE_LABELS.get(mastery_level, ("", "your current phase"))[1]
+        phase_label = _PHASE_LABELS.get(mastery_level, ("", "your current phase"))[1]
         return (
-            f"Welcome back, **{name}**. You're in **{phase_name}** — "
-            f"that's where the real leverage is.\n\n"
+            f"Welcome back, **{name}**.\n\n"
+            f"**Your progress:** {progress_line}\n\n"
+            f"You're in **{phase_label}** — that's where the real leverage is.\n"
             f"Try: **{_starter(rec_slug)}**"
         )
 
     return (
-        f"Good to have you back, **{name}**. Your profile is still forming — "
-        "the fastest way to build it is to start a conversation.\n\n"
+        f"Welcome back, **{name}**.\n\n"
+        f"**Your progress:** {progress_line}\n\n"
+        "Your profile is still forming — the fastest way to build it is to start a conversation.\n"
         "Try: **What is retrieval-augmented generation?**"
     )
 

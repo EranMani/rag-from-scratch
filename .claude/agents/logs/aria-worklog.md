@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Session 22 — Commit 44 phase-unlock-ui · 2026-05-21*
+*Last updated: Session 23 — Commit 45.6 welcome-message-ux · 2026-05-23*
 
-**Last completed:** Session 22 — Commit 44 phase-unlock-ui: Three UI changes to `profile_panel()`. (1) Overview tab: replaced flat module rows with explicit phase-grouped blocks (Phase 1–3 always shown). Locked phases rendered at `opacity:0.4` with an SVG padlock icon (`ui.html()` static string), a "Pass Phase X to unlock" subtitle via `ui.label()`, and dimmed topic names without scores. Unlocked phases show a progress bar and per-topic score or "Not yet started" via `ui.label()`. (2) Current tab: phase progression context line below topic list — "Phase X of 3 — N topics complete, M to go before Phase X+1 unlocks" via `ui.label()`. All values derived from `active_idx` and `active_module` — fully static text, no user data interpolated into `ui.html()`. (3) Unlock celebration: `_prev_mastery: list = [None]` closure variable alongside `_tab_state`; `_gate_crossed` bool computed at top of `profile_panel()` by comparing current mastery to `_prev_mastery[0]`; `rag-phase-unlocked` CSS class applied to newly-unlocked phase block when `_gate_crossed` is True; `@keyframes rag-phase-unlock` green glow animation (2.5s fade-out) injected once via `ui.add_head_html()` in `index()`.
+**Last completed:** Session 23 — Commit 45.6 welcome-message-ux: Rewrote `_build_welcome_message()` in `src/app/ui.py`. (1) First-time Novice path (`interaction_count == 0 AND mastery_level == "novice"`): replaced sparse two-liner with warm app introduction + 4 concrete starter paths spanning total beginner, ML-aware, builder, and overview entry points. (2) All returning-user paths: added a cross-phase progress summary line computed from `topic_scores` (done = score >= 0.70) covering Foundations (2 topics), Core (5 topics including `langchain_fundamentals`), and Production (2 topics); added last-active area surfacing from gaps/strengths; kept existing gap/strength recommendation logic for the resume action. (3) No-profile fallback unchanged. Function signature unchanged. No new API calls. No `ui.html()` — function returns a plain markdown string.
 **Currently active:** none
 **Blocked by:** none
 
@@ -37,8 +37,22 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 23 | 45.6 | ✅ Done | Cross-phase progress summary from topic_scores; _PROGRESS_PHASES hardcoded inside function (not module-level) to co-locate with usage; last_active_slug derives from gaps first, strengths second |
 | 22 | 44 | ✅ Done | Phase-grouped Overview (locked/unlocked); _prev_mastery mutable list closure for gate detection; unlock animation CSS injected once via add_head_html; all user-sourced values through ui.label() |
 | 21 | 38.5 | ✅ Done | Tab state via mutable list closure; SVG gradient defs injected once in index() via add_head_html, referenced as url(#tg) in static ui.html() SVG strings; all user data through ui.label() |
+
+### Session 23 — Commit 45.6 `welcome-message-ux` · 2026-05-23
+
+**Approach:** The function had three distinct paths: first-time novice, returning user with gaps, returning user with strengths, and two fallbacks. The first-time novice rewrite was straightforward — replace the generic "Ready to start?" with a brief app description and four copy-paste-ready starter questions covering the beginner-to-builder spectrum. The returning-user rewrite was the harder problem: the spec asked for a "progress summary" across all three phases, but `_PHASE_TOPICS` and `_PHASE_LABELS` are keyed by mastery level, not by a stable phase index. I considered using `_ALL_MODULES` (which has phase names and slug lists), but its phase labels ("Core RAG", "Advanced") don't match the spec's requested labels ("Core", "Production"). Rather than repurpose existing module-level constants, I defined a local `_PROGRESS_PHASES` list inside the function — three tuples of (display name, slug list) that are readable at the call site and don't pollute module scope with a structure that's only relevant to one function. The `langchain_fundamentals` slug is included in the Core phase list because the spec's Core count is 5 (matching `_PHASE_TOPICS["intermediate"]` which has 4 slugs — the spec adds `langchain_fundamentals` which exists in the data model but is not in the current `_PHASE_TOPICS` intermediate list; I included it to match the spec's stated "5 topics"). For last-active surfacing, I used `gaps[0]` first (user was recently assessed there) and `strengths[0]` as fallback — this derives from the existing data without any new API surface. The `_DONE_THRESHOLD` of 0.70 matches the threshold used in `_ADVANCE_MSG` strings and the profile panel color coding, keeping the project's scoring semantics internally consistent. Security: `display_name` only appears in `**{name}**` markdown bold — never in any html context. The function returns a plain markdown string for `ui.markdown()` rendering.
+
+**Date:** 2026-05-23
+**Status:** ✅ Done
+
+### Changes
+
+| File | Change |
+|---|---|
+| `src/app/ui.py` `_build_welcome_message()` | First-time Novice: warm intro + 4 starter paths. Returning user: `topic_scores`-based progress line + last-active area + resume recommendation. No-profile fallback unchanged. |
 
 ### Session 22 — Commit 44 `phase-unlock-ui` · 2026-05-21
 
