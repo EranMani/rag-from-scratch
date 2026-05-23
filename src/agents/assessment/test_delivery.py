@@ -3,12 +3,12 @@ from typing import Any
 
 from langchain_core.messages import AIMessage
 
-from agents.mcq_utils import load_mcq_question, load_open_question
+from agents.mcq_utils import load_mcq_question_for_difficulty, load_open_question
 from agents.state import AgentState
 
 from .passive import run_passive_assessment
 from .results import build_selection_result
-from .question_selection import select_mcq_question, select_open_question, select_question_type
+from .question_selection import select_mcq_question_for_level, select_open_question, select_question_type
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ async def select_test_question(state: AgentState) -> dict[str, Any]:
     if question_type == "open":
         return await deliver_open_question(state, passive_delta, gaps, should_redirect)
 
-    selection = select_mcq_question(state)
+    selection = select_mcq_question_for_level(state)
     if selection is None:
         logger.warning("assess_node: no valid slug available for test selection")
         return build_selection_result(
@@ -54,8 +54,9 @@ async def select_test_question(state: AgentState) -> dict[str, Any]:
         )
 
     slug, q_idx = selection
+    mastery_level: str | None = state.get("user_level")
     try:
-        display_question_text, correct_answer = load_mcq_question(slug, q_idx)
+        display_question_text, correct_answer = load_mcq_question_for_difficulty(slug, q_idx, mastery_level)
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("assess_node: failed to load MCQ question for slug '%s': %s", slug, exc)
         return build_selection_result(

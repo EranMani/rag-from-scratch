@@ -13,6 +13,71 @@ _CURRICULUM_DIR = (
 _MCQ_DIR = _CURRICULUM_DIR / "mcq"
 
 
+# Difficulty fallback order: lower tiers first, then higher
+_DIFFICULTY_FALLBACK: dict[str, list[str]] = {
+    "novice":       ["novice", "intermediate", "advanced", "expert"],
+    "intermediate": ["intermediate", "novice", "advanced", "expert"],
+    "advanced":     ["advanced", "intermediate", "novice", "expert"],
+    "expert":       ["expert", "advanced", "intermediate", "novice"],
+}
+
+
+def get_mcq_blocks_for_difficulty(slug: str, difficulty: str | None) -> list[str]:
+    """Return MCQ blocks filtered to difficulty, with fallback to nearest tier.
+
+    If difficulty is None or unrecognized, returns all blocks (unrestricted).
+    Falls back through the tier order until at least one block is found.
+    """
+    all_blocks = get_mcq_question_blocks(slug)
+    if not difficulty or difficulty not in _DIFFICULTY_FALLBACK:
+        return all_blocks
+
+    def _blocks_at_tier(tier: str) -> list[str]:
+        return [b for b in all_blocks if re.search(rf"^\*\*Difficulty:\*\*\s*{tier}", b, re.MULTILINE)]
+
+    for tier in _DIFFICULTY_FALLBACK[difficulty]:
+        filtered = _blocks_at_tier(tier)
+        if filtered:
+            return filtered
+    return all_blocks
+
+
+def get_mcq_count_for_difficulty(slug: str, difficulty: str | None) -> int:
+    """Return count of MCQ questions at the target difficulty tier (with fallback)."""
+    return len(get_mcq_blocks_for_difficulty(slug, difficulty))
+
+
+def load_mcq_question_for_difficulty(
+    slug: str, question_index: int, difficulty: str | None
+) -> tuple[str, str]:
+    """Load a difficulty-filtered MCQ question.
+
+    Returns (display_text, correct_answer). Falls back to nearest tier if needed.
+    Falls back to unrestricted if difficulty is None or unrecognized.
+    """
+    blocks = get_mcq_blocks_for_difficulty(slug, difficulty)
+    idx = question_index % len(blocks)
+    block = blocks[idx]
+
+    q_match = re.search(r"\*\*Question:\*\*\s*\n(.*?)(?=\n\n\*\*|\Z)", block, re.DOTALL)
+    if not q_match:
+        raise ValueError(f"MCQ block {idx} for slug '{slug}' missing **Question:** field")
+    question_text = q_match.group(1).strip()
+
+    opts_match = re.search(r"\*\*Options:\*\*\s*\n(.*?)(?=\n\n\*\*|\Z)", block, re.DOTALL)
+    if not opts_match:
+        raise ValueError(f"MCQ block {idx} for slug '{slug}' missing **Options:** field")
+    options_text = opts_match.group(1).strip()
+
+    ans_match = re.search(r"\*\*Correct answer:\*\*\s*([A-Da-d])", block)
+    if not ans_match:
+        raise ValueError(f"MCQ block {idx} for slug '{slug}' missing **Correct answer:** field")
+    correct_answer = ans_match.group(1).strip().upper()
+
+    display_text = f"Knowledge check: {question_text}\n\n{options_text}"
+    return display_text, correct_answer
+
+
 def load_mcq_question(slug: str, question_index: int) -> tuple[str, str]:
     """Load an MCQ question from knowledge-base/curriculum/questions/mcq/[slug].md.
 

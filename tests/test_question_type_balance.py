@@ -155,11 +155,11 @@ class TestSelectTestQuestionRouting:
                 return_value="mcq",
             ),
             patch(
-                "agents.assessment.test_delivery.select_mcq_question",
+                "agents.assessment.test_delivery.select_mcq_question_for_level",
                 return_value=("embeddings_and_similarity", 0),
             ),
             patch(
-                "agents.assessment.test_delivery.load_mcq_question",
+                "agents.assessment.test_delivery.load_mcq_question_for_difficulty",
                 return_value=("MCQ question text", "B"),
             ),
         ):

@@ -1,6 +1,6 @@
 import random
 
-from agents.mcq_utils import get_mcq_count, get_open_question_count
+from agents.mcq_utils import get_mcq_count, get_mcq_count_for_difficulty, get_open_question_count
 from agents.state import VALID_MODULE_SLUGS, AgentState
 from app.profile.scoring import PHASE_1_TOPICS, PHASE_2_TOPICS, PHASE_3_TOPICS
 
@@ -54,6 +54,22 @@ def select_mcq_question(state: AgentState) -> tuple[str, int] | None:
         return None
     messages = state.get("messages") or []
     return slug, len(messages) % get_mcq_count(slug)
+
+
+def select_mcq_question_for_level(state: AgentState) -> tuple[str, int] | None:
+    """Select the next MCQ question filtered to the learner's mastery level.
+
+    Returns (slug, question_index) where question_index indexes into the
+    difficulty-filtered block list. Returns None if no valid slug matches.
+    mastery_level=None or unrecognized falls back to unrestricted sampling.
+    """
+    slug = _select_slug(state)
+    if slug is None:
+        return None
+    mastery_level: str | None = state.get("user_level")
+    messages = state.get("messages") or []
+    count = get_mcq_count_for_difficulty(slug, mastery_level)
+    return slug, len(messages) % count
 
 
 def select_open_question(state: AgentState) -> tuple[str, int] | None:
