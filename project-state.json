@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (C46 mastery-matched-routing done; next: 47 curriculum-restructure)",
+  "last_updated": "2026-05-23 (C47 curriculum-restructure done; next: 47.1 slug-swap-document-ingestion)",
   "status": "active",
   "current_commit": {
-    "number": "47",
-    "name": "curriculum-restructure",
+    "number": "47.1",
+    "name": "slug-swap-document-ingestion",
     "status": "pending",
-    "assignee": "lara"
+    "assignee": "nova"
   },
   "commits_done": [
     "01",
@@ -64,10 +64,10 @@
     "45.4.1",
     "45.5",
     "45.6",
-    "46"
+    "46",
+    "47"
   ],
   "commits_pending": [
-    "47",
     "47.1",
     "48",
     "49",
