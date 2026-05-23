@@ -1,44 +1,35 @@
-# Commit 46 Spec — `nginx-config`
-> **Project:** rag-from-scratch · **Assignee:** Adam · **Load only for the active commit.**
-> **Note:** This was formerly Commit 30, renumbered to 33 (replan 2026-05-19), then to 39 (replan 2026-05-19), then to 46 (replan 2026-05-20 — 7 learning flow commits inserted before deployment).
+# Commit 46 Spec — `mastery-matched-routing`
+> **Project:** rag-from-scratch · **Assignee:** Nova · **Load only for the active commit.**
+> **Note:** New commit added in replan 2026-05-23 — adaptive engine priority over infra. Former nginx-config (old 46) renumbered to 53.
 
 ---
 
-### Commit 46 — `nginx-config`
+### Commit 46 — `mastery-matched-routing`
 
-**Commit message:** `feat: nginx reverse proxy with WebSocket support, HTTPS, and monitoring routes`
+**Commit message:** `feat(EranMani): filter question pool by user mastery level in select_test_question`
 
 **Body:**
-Adds nginx as a service in `docker-compose.prod.yml` and writes `nginx/nginx.conf`.
+Requested by Eran Mani, our team lead: route assessment questions to the user's current mastery level. A novice user should receive novice-tier questions; an advanced user receives advanced-tier questions. The `mastery_level` field already exists in `AgentState` and the `difficulty:` field already exists in every question file — this commit wires the two together.
 
-Required config (non-negotiable):
-- HTTP → HTTPS redirect (301), except `/.well-known/acme-challenge/` for Certbot renewal
-- SSL termination with Let's Encrypt certs at `/etc/letsencrypt/live/{domain}/`
-- `proxy_read_timeout 86400` — **critical**: NiceGUI WebSocket silently disconnects
-  at the default 60s timeout without this
-- `proxy_buffering off` — required for NiceGUI SSE fallback and any streaming responses
-- WebSocket upgrade headers: `Upgrade`, `Connection: upgrade`
-- `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto` headers
-
-Security:
-- `location /metrics { deny all; return 403; }` — Prometheus scrape endpoint must
-  not be publicly accessible
-- Monitoring dashboards proxied at internal paths with HTTP basic auth:
-  `/grafana/` → Grafana, `/kibana/` → Kibana, `/prometheus/` → Prometheus
-- Security headers: `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`,
-  `Strict-Transport-Security max-age=31536000`
-
-**Assignee:** Adam (`adam.stockagent@gmail.com`)
+**Assignee:** Nova
 
 **Files touched:**
-- `nginx/nginx.conf` (new)
-- `docker-compose.prod.yml` (add nginx service with cert volumes)
+- `src/rag/graph/nodes/test_delivery.py` — filter question pool by mastery_level before sampling
+- `src/rag/graph/nodes/question_selection.py` — pass mastery_level to question loader if applicable
+- `tests/test_mastery_routing.py` (new) — test scenarios for tier-matched delivery
 
-**Depends on:** 32 (all application features complete)
+**Depends on:** 45.6 (all prior features stable)
+
+**Design constraints:**
+- The mapping is direct: mastery_level `"novice"` → difficulty `"novice"`, etc.
+- If no questions exist at the user's mastery tier for a given slug, fall back to the nearest available tier (lower first, then higher). Do not return an empty question — always deliver something.
+- If `mastery_level` is `None` or unrecognized, fall back to unrestricted sampling (current behavior).
+- No changes to `AgentState` schema — `mastery_level` already exists.
+- No changes to knowledge-base files.
 
 **Testing — done when:**
-- [ ] `nginx -t` (config test) passes inside the nginx container
-- [ ] `curl -I http://domain` returns 301 redirect to https
-- [ ] NiceGUI chat page remains connected for > 60 seconds without disconnect
-- [ ] `GET /metrics` returns 403 from outside the Docker network
-- [ ] WebSocket connection established (check browser DevTools Network tab)
+- [ ] Novice user (`mastery_level="novice"`) receives only novice-difficulty questions
+- [ ] Advanced user (`mastery_level="advanced"`) receives advanced-difficulty questions
+- [ ] Fallback tier logic: if no questions at target tier, nearest tier is served (not an error)
+- [ ] `mastery_level=None` preserves prior unrestricted behavior
+- [ ] All existing tests still pass

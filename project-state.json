@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (Wave H complete — 45.5 rag-prompt-quality ∥ 45.6 welcome-message-ux both done; infra phase next: 46 nginx-config)",
+  "last_updated": "2026-05-23 (Replan: adaptive engine priority — 7 new commits 46-52 inserted; infra slides to 53-56; next: 46 mastery-matched-routing)",
   "status": "active",
   "current_commit": {
     "number": "46",
-    "name": "nginx-config",
+    "name": "mastery-matched-routing",
     "status": "pending",
-    "assignee": "devops"
+    "assignee": "ai-engineer"
   },
   "commits_done": [
     "01",
@@ -69,7 +69,14 @@
     "46",
     "47",
     "48",
-    "49"
+    "49",
+    "50",
+    "51",
+    "52",
+    "53",
+    "54",
+    "55",
+    "56"
   ],
   "next_commit": "46",
   "open_handoffs": [],
@@ -231,6 +238,18 @@
       "new_agent": "RAG Specialist — practitioner-depth content author; owns knowledge-base/curriculum/questions/ depth; never touches src/ or Lara's structure files",
       "parallel_waves_added": "Wave F: 39 ∥ 40 (scoring fixes ∥ LangChain curriculum); Wave G: 44 ∥ 45 (phase unlock UI ∥ RAG Specialist content)",
       "approved_by": "Team Lead · 2026-05-20"
+    },
+    {
+      "date": "2026-05-23",
+      "trigger": "Curriculum completeness review + entrepreneurial direction — adaptive engine takes priority over infra. Panel consultation (Mira, Lara, RAG Specialist, Nova) identified: curriculum is 'understand RAG' not 'build RAG from scratch'; document ingestion missing; langchain_fundamentals conflicts with concept-first identity; langgraph_fundamentals gap (app itself uses it); novice questions too hard; question bank too thin for repetition-free sessions. Decision: 7 new commits before deployment.",
+      "commits_added": ["46 mastery-matched-routing", "47 curriculum-restructure", "48 document-ingestion-questions", "49 langgraph-curriculum", "50 langgraph-questions", "51 bank-expansion", "52 ai-question-generation"],
+      "commits_reordered": ["46 nginx-config → 53", "47 aws-ec2-deployment → 54", "48 integration-tests → 55", "49 documentation → 56"],
+      "commits_removed": [],
+      "new_agent": "none — existing agents cover all new work (Nova, Lara, RAG Specialist)",
+      "key_decisions": "langchain_fundamentals archived not deleted; langgraph_fundamentals is concepts-only (no Python API); AI-generated questions (C52) gated on bank-expansion (C51) completing; mastery_level field already exists in AgentState — no schema changes needed for C46; 4-phase curriculum restructure explicitly deferred to post-ship based on user feedback",
+      "parallel_waves_added": "Wave I: 46 ∥ 47 (src/ vs knowledge-base/); Wave J: 48 ∥ 49 (content vs curriculum-map); Wave K: 51 ∥ 52 (content vs code)",
+      "consulted": "Mira (product), Lara (curriculum), RAG Specialist (content), Nova (technical) — all four consulted before replan drafted.",
+      "approved_by": "Team Lead · 2026-05-23"
     },
     {
       "date": "2026-05-23",

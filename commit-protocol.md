@@ -65,10 +65,17 @@
 | 45.4.1 | is-mcq-fix | ai-engineer | ✅ done · 2026-05-23 |
 | 45.5 | rag-prompt-quality | ai-engineer | ✅ done · 2026-05-23 |
 | 45.6 | welcome-message-ux | frontend | ✅ done · 2026-05-23 |
-| 46 | nginx-config | devops | pending |
-| 47 | aws-ec2-deployment | devops | pending |
-| 48 | integration-tests | backend + ai-engineer | pending |
-| 49 | documentation | tech-writer | pending |
+| 46 | mastery-matched-routing | ai-engineer | pending |
+| 47 | curriculum-restructure | curriculum-specialist | pending |
+| 48 | document-ingestion-questions | rag-specialist | pending |
+| 49 | langgraph-curriculum | curriculum-specialist | pending |
+| 50 | langgraph-questions | rag-specialist | pending |
+| 51 | bank-expansion | rag-specialist | pending |
+| 52 | ai-question-generation | ai-engineer | pending |
+| 53 | nginx-config | devops | pending |
+| 54 | aws-ec2-deployment | devops | pending |
+| 55 | integration-tests | backend + ai-engineer | pending |
+| 56 | documentation | tech-writer | pending |
 
 ---
 
@@ -83,6 +90,9 @@ Wave E (Progression): 35 ∥ 36      — both depend on 34; 35 also needs 33
 Wave F (Scoring):     39 ∥ 40      — scoring fixes (Rex+Nova) vs LangChain curriculum (Lara), no shared files
 Wave G (Content):     44 ∥ 45      — phase unlock UI (Aria) vs RAG Specialist content (Lara+Specialist), no shared files
 Wave H (UX Quality):  45.5 ∥ 45.6 — rag-prompt-quality (Nova, rag.py) vs welcome-message-ux (Aria, ui.py), no shared files
+Wave I (Adaptive):    46 ∥ 47     — mastery-matched-routing (Nova, src/) vs curriculum-restructure (Lara, knowledge-base/), no shared files
+Wave J (Content):     48 ∥ 49     — document-ingestion-questions (RAG Specialist) vs langgraph-curriculum (Lara), no shared files
+Wave K (Final):       51 ∥ 52     — bank-expansion (RAG Specialist, knowledge-base/) vs ai-question-generation (Nova, src/), no shared files
 ```
 
 ---
