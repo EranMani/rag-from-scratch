@@ -1,0 +1,31 @@
+* When im in a certain topic, i get an mcq or open question that relates to another topic
+  i want to get the question that referrs to the current topic that im On
+  the agent needs to remember which topic / slug im currently at in the phase
+  in order to present the corrent questions
+
+* Im missing guidance. as a novice i need guidance.
+  i need the agent to walk me through with how to continue
+  my biggest issue is that after an mcq question the agent / model
+  doesnt say or mention how should the user continue and he left the user
+  with the thinking of how to continue by himself
+  we need more guidance! right now i dont feel this is an ai tutor, just an ai answer exam tool
+
+* the topic / slug progress is stuck on max of 30%. is there a cap somewhere?
+  i see in scoring.py that 0.3 is tied to gaps.
+  what happens when a topic reaches 30%? is it considered a gap or strength?
+
+
+* we have guardrails for questions that are not appropriate right?
+  like "shut the fuck up"
+  i get this generic answer:
+    Great question! I'm set up to help with RAG systems specifically. 
+    You could ask me about things like how chunking works, 
+    what vector databases do, or how retrieval helps AI give better answers!
+
+  we should put more ai magic into this and try to add more comforting words
+  instead of just generic.
+  remember, the theme is that the ai tutors and learns about you. it should give
+  a sense of comfort and human touch as well. generic answers like these
+  are not that helpful.
+  It needs to add a comfort side and then redirect the user to questions
+  about rag
