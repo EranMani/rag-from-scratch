@@ -1361,3 +1361,59 @@ if _is_difficulty_signal(answer):
 - `src/app/ui.py` — `_build_welcome_message()` rewritten; function signature and no-profile fallback unchanged
 
 ---
+
+---
+
+## Hotfix — `markdown-heading-rendering` · Aria + Team Lead · 2026-05-23 · `Prompt Engineering / CSS`
+
+> **In one sentence:** AI responses were missing visible headers because Quasar's CSS cascade overwrote the gradient-clip trick, and the prompt heading rule gave the model discretion it used to skip headers on follow-up questions.
+
+**Interview talking point:**
+> **Q:** You have a conditional formatting rule in your prompt ("use headings when the response is long enough"). Users report headings appear sometimes but not consistently. What's wrong and how do you fix it?
+>
+> **A:** Two separate bugs. First: the CSS. The gradient text trick (`background-clip: text` + `color: transparent`) breaks silently when any higher-specificity rule sets `color` on the element — Quasar's body color was cascading into headings and making the gradient invisible. Fix: `!important` on all five gradient declarations. Second: the prompt. "Required when 2+ concepts" is a permission question the LLM answers per turn. For follow-up questions — which are shorter and more focused — the model consistently answered "this is one concept, skip the heading." The rule looked mandatory but behaved optional. Fix: make it truly unconditional ("every response longer than one sentence MUST open with a `##` heading"). The escape hatch for single-sentence answers prevents over-formatting without reopening the discretion gap.
+
+**What happened and why:**
+- User reported: first AI response had gradient headers; second (a follow-up) had none. Repeated consistently.
+- CSS investigation: `.nicegui-markdown h1/h2/h3` gradient declarations existed but lacked `!important` — Quasar's cascade was winning. Adding `!important` to all five properties fixed header visibility when headers were present.
+- Prompt investigation: the heading rule was "required whenever the response has 2+ distinct concepts or paragraphs." Follow-up questions get focused single-concept answers — the model read the rule, evaluated the response as "one concept," and skipped the heading. Correct behavior per the rule; wrong behavior per the user expectation.
+- Pattern identified: the model treats conditional formatting rules as permission questions. When in doubt it omits structure rather than adds it. The only reliable fix is to remove the condition.
+- MCQ responses were a separate case: clicking an option sends "A. option text" — a 5-word message — which generates a short feedback reply that also skipped headings. Fixed by adding an explicit MCQ detection rule: letter-prefixed messages always get `## Result / ## Why / ## Key Takeaway`.
+
+**Key changes:**
+
+```python
+# src/agents/prompts/rag.py — heading rule (all 5 templates, before)
+- Heading (## Title): required whenever the response has 2+ distinct concepts or paragraphs.
+
+# After
+- Heading (## Title): every response longer than one sentence MUST open with a ##
+  heading that names the concept being explained. No exceptions. Use additional ##
+  headings for each new concept, and ### for sub-points within a section.
+- MCQ answer: when the user's message is a single letter (A/B/C/D) or a letter
+  followed by option text, always respond with ## Result · ## Why · ## Key Takeaway.
+```
+
+```css
+/* src/app/ui.py — .nicegui-markdown heading CSS (before) */
+.nicegui-markdown h1,.nicegui-markdown h2,.nicegui-markdown h3{
+  background:linear-gradient(135deg,#f97316,#ec4899);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent; ... }
+
+/* After */
+.nicegui-markdown h1,.nicegui-markdown h2,.nicegui-markdown h3{
+  background:linear-gradient(135deg,#f97316,#ec4899) !important;
+  -webkit-background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;
+  background-clip:text !important;
+  color:transparent !important; ... }
+```
+
+**Design principles:**
+> Conditional formatting rules in prompts are permission questions. LLMs default to "no." Remove the condition, not the rule.
+> The gradient-clip CSS trick is fragile under cascade — always `!important` it or put it inline.
+
+**Files touched:**
+- `src/agents/prompts/rag.py` — heading rule rewritten in all 5 prompt strings; MCQ rule added
+- `src/app/ui.py` — `!important` added to 5 gradient-clip declarations; `color: transparent !important` added

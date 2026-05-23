@@ -1043,3 +1043,23 @@
 - **Decided by:** Aria
 - **Decision:** The scaffolded starter-path welcome is shown only to users with both `interaction_count == 0` AND `mastery_level == "novice"`. Non-novice users with `interaction_count == 0` (e.g. self-reported intermediate who skipped onboarding) receive the progress-first returning-user format with 0/N counts.
 - **Reason:** The first-time welcome is for users who genuinely don't know where to start. A user who self-identified as intermediate during onboarding already has a declared entry point; offering "Explain RAG like I'm 14" is condescending and incongruent. The returning-user format with 0/5 Core progress still communicates "you haven't started yet" without being tone-deaf about their reported expertise level.
+
+## Markdown Rendering & Prompt Formatting (2026-05-23)
+
+### CSS gradient declarations require `!important` to survive Quasar's cascade (2026-05-23)
+- **Date:** 2026-05-23
+- **Commit:** hotfix (EranMani request — `fix(EranMani): enforce markdown headers`)
+- **Decided by:** Aria / Team Lead
+- **Decision:** All five gradient-clip declarations on `.nicegui-markdown h1/h2/h3` use `!important`, plus an explicit `color: transparent !important` guard.
+- **Alternatives considered:** Increasing selector specificity (e.g. `body .nicegui-markdown h2`); injecting a `<style>` block directly inside the card that contains `streaming_md`.
+- **Reason:** Quasar sets `color` on the body and its component reset CSS cascades that value into block elements. The `-webkit-text-fill-color: transparent` gradient trick only works when the text fill is fully transparent — if Quasar's `color` wins, it bleeds through and the gradient disappears. `!important` on all five declarations is the minimal reliable fix. Selector specificity alone is fragile because Quasar's stylesheet load order relative to `ui.add_head_html()` is not guaranteed across NiceGUI versions.
+- **Consequences:** Any future override of heading colors inside `.nicegui-markdown` will also need `!important`. Document this in any PR that touches the chat CSS.
+
+### Prompt heading rules must be unconditional, not discretionary (2026-05-23)
+- **Date:** 2026-05-23
+- **Commit:** hotfix (EranMani request — `fix(EranMani): enforce markdown headers`)
+- **Decided by:** Team Lead
+- **Decision:** All 5 RAG prompt templates now state: "every response longer than one sentence MUST open with a `##` heading — no exceptions." The previous rule ("required when 2+ distinct concepts or paragraphs") was replaced.
+- **Alternatives considered:** Keeping the conditional rule but making it louder; post-processing responses to inject a heading if none is found; adding a second LLM call to format the output.
+- **Reason:** LLMs treat conditional formatting rules as a permission question they answer per-response. "Required when 2+ concepts" means the model decides on every turn whether that condition is met — and for follow-up questions it consistently decided it wasn't, producing plain prose. An unconditional rule removes the decision entirely. The escape hatch ("single-sentence answers may use plain prose") prevents forced structure on trivially short answers while ensuring every substantive response has at least one visible heading.
+- **Consequences:** Responses that would previously have been one short paragraph may now open with a `##` heading. Mira flagged this as worth monitoring for over-formatting; the rule can be relaxed per-level-prompt if users report it as noisy.
