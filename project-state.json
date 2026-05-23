@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (C50 langgraph-questions done; next: 51 bank-expansion)",
+  "last_updated": "2026-05-23 (C51 bank-expansion done; next: 52 ai-question-generation)",
   "status": "active",
   "current_commit": {
-    "number": "51",
-    "name": "bank-expansion",
+    "number": "52",
+    "name": "ai-question-generation",
     "status": "pending",
-    "assignee": "rag-specialist"
+    "assignee": "ai-engineer"
   },
   "commits_done": [
     "01",
@@ -70,17 +70,17 @@
     "48",
     "49",
     "49.1",
-    "50"
+    "50",
+    "51"
   ],
   "commits_pending": [
-    "51",
     "52",
     "53",
     "54",
     "55",
     "56"
   ],
-  "next_commit": "51",
+  "next_commit": "52",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

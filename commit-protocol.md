@@ -72,7 +72,7 @@
 | 49 | langgraph-curriculum | curriculum-specialist | ✅ done · 2026-05-23 |
 | 49.1 | slug-add-langgraph | ai-engineer | ✅ done · 2026-05-23 |
 | 50 | langgraph-questions | rag-specialist | ✅ done · 2026-05-23 |
-| 51 | bank-expansion | rag-specialist | pending |
+| 51 | bank-expansion | rag-specialist | ✅ done · 2026-05-23 |
 | 52 | ai-question-generation | ai-engineer | pending |
 | 53 | nginx-config | devops | pending |
 | 54 | aws-ec2-deployment | devops | pending |
