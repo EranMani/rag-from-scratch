@@ -9,6 +9,7 @@
 
 ```
                          ┌──────────────┐
+                         │   Eran Mani  │
                          │  Team Lead   │  Final approval. Every commit.
                          └──────┬───────┘
                                 │
@@ -19,11 +20,12 @@
           ┌───────────────┬─────┴─────┬───────────────┐
           │               │           │               │
    ┌──────▼──────┐ ┌──────▼──────┐ ┌─▼──────────┐ ┌─▼────────────┐
+   │     Rex     │ │    Adam     │ │    Aria    │ │     Nova     │
    │   Backend   │ │   DevOps    │ │  Frontend  │ │  AI Engineer │
-   │  Engineer   │ │  Engineer   │ │  Engineer  │ │   (if AI)    │
+   │  Engineer   │ │  Engineer   │ │  Engineer  │ │              │
    └─────────────┘ └─────────────┘ └────────────┘ └──────────────┘
 
-QUALITY GATE LAYER (invoked at Step 8–11 of every commit loop):
+QUALITY GATE LAYER:
    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
    │    Viktor   │  │    Sage     │  │    Quinn    │  │    Mira     │
    │Code Reviewer│  │  Security   │  │     QA      │  │   Product   │
