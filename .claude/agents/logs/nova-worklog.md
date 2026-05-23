@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 45.4 — question-difficulty-degradation · 2026-05-23*
+*Last updated: Commit 45.5 — rag-prompt-quality · 2026-05-23*
 
-**Last completed:** Commit 45.4 — question-difficulty-degradation ✅
+**Last completed:** Commit 45.5 — rag-prompt-quality ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -149,6 +149,7 @@ The commit plan has been updated. Here is what changed for you:
 
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 17 | Commit 45.5 `rag-prompt-quality` | ✅ Done | Floor-first RESPONSE FORMAT replacing permissive "only if" gates; persona statement names two failure modes explicitly; analogy rule hardened to MUST; all changes prompt-only in `src/agents/prompts/rag.py` |
 | 16 | Commit 45.3 `question-type-balance` | ✅ Done | `select_question_type` is a standalone pure function; novice/beginner take the 0.0 fast-path (no random draw); ratio table is a file-level constant in `question_selection.py` |
 | 01 | Commit 07 `langgraph-state-schema` | ✅ Done | Used `Annotated[list[BaseMessage], add_messages]` with `from __future__ import annotations`; `session_id` excluded from state per architecture decision |
 | 02 | Commit 08 `langgraph-retrieve-node` | ✅ Done | `retrieval_source` derived from CB state before/after call, not from return value — retrieve() doesn't expose which path ran |
@@ -165,6 +166,35 @@ The commit plan has been updated. Here is what changed for you:
 | 13 | ad-hoc: off-topic suppression fix | ✅ Done | `_run_passive_assessment` returns `(delta, is_rag_related)` tuple; off-topic queries skip knowledge check entirely; exception fallback is permissive (returns True); 6 stale tests fixed to mock `_run_passive_assessment` explicitly. |
 | 14 | Commit 34 `phase-gate-enforcement` | ✅ Done | `_LEVEL_TO_PHASE` dict with `PHASE_1_TOPICS` default; `_ORDERED_SLUGS` promoted to module scope; scoring.py constants made public; 8 new tests + 1 stale test corrected; hit 26 tool cap (worklog written by orchestrator). |
 | 15 | Commit 35.5 gate-fix: test additions | ✅ Done | 4 new tests for Quinn gaps + Viktor guard; `test_letter_followed_by_period_returns_1_0` confirms "B." regex extraction; invalid-slug-with-is_mcq guard; None correct answer guard; tuple-unpacking integrity; 71 tests total passing. |
+
+---
+
+## Session 17 — Commit 45.5: `rag-prompt-quality`
+
+**Date:** 2026-05-23
+**Status:** ✅ Done
+
+### AI Problem Being Solved
+
+Two structural prompt defects in `rag.py` that cause the LLM to default to generic assistant voice and suppress all markdown formatting. First: `_NOVICE_SYSTEM` opened with "You are a patient tutor" — the word "are" implies a declared identity but there are no negative constraints on what the identity is *not*, so the LLM defaults to manual/search-engine voice. Second: all five RESPONSE FORMAT blocks used "only if/when/for" conditional gates — the LLM reads these as permission thresholds it must satisfy before using any structure, so most responses render as plain prose even when structure would clearly help.
+
+### Key Decisions
+
+**Persona statement names two failure modes explicitly.** "You are an enthusiastic and patient tutor — you never sound like a manual or a search engine." The negative constraints ("never sound like a manual or a search engine") are the operative change, not the persona label. An LLM given only "enthusiastic tutor" can still default to manual voice because it doesn't know what it's *not*. Naming the two specific failure modes gives the model a concrete rejection signal.
+
+**Floor-first RESPONSE FORMAT, not permission-gate RESPONSE FORMAT.** The old pattern ("Bold: key terms on first use", "Table: only when comparing...") is structured as a list of conditions the LLM must satisfy before it can use each element. The new pattern declares a floor: "Every response must bold the first technical term it introduces. Responses longer than 3 sentences must use at least one structural element." The LLM is now told the minimum it must do, then given guidance on when to use more. The single-sentence escape hatch ("Single-sentence answers may use plain prose") prevents over-structuring very short answers. All five prompts received identical floor language — consistency matters because the same LLM behavior should apply regardless of user level.
+
+**Analogy rule upgraded from BEFORE to MUST OPEN.** "Lead with... BEFORE introducing the technical concept" still leaves the door open: the LLM can satisfy "BEFORE" by burying the analogy after a preamble. "You MUST open every answer with a real-world analogy. Do this even for short answers" specifies the position (opening) and removes the length exception. The phrase "Do this even for short answers" is needed because most LLM failures on analogy were on short questions ("What is chunking?") where the model skips straight to the definition.
+
+### Changes Made
+
+1. `src/agents/prompts/rag.py` — all changes prompt-only, no code logic:
+   - `_NOVICE_SYSTEM`: replaced opening sentence with explicit persona + two negative constraints; hardened analogy rule from "Lead with... BEFORE" to "You MUST open every answer with... Do this even for short answers."
+   - `_DEFAULT_SYSTEM`, `_NOVICE_SYSTEM`, `_INTERMEDIATE_SYSTEM`, `_ADVANCED_SYSTEM`, `_EXPERT_SYSTEM`: replaced permissive RESPONSE FORMAT block with floor-first rules in all five prompts. `{context}` variable unchanged in all.
+
+### Approach
+
+The initial read of the file confirmed the prior diagnosis: "only if/when/for" appeared 4 times in each RESPONSE FORMAT block across all five prompts — the same structural pattern repeated uniformly. The fix was also uniform. The key design question was how to write the floor without eliminating the upper-bound guidance (we still want the LLM to use tables for comparisons, headings for long answers). The solution: keep the category list but reframe the first two rules as mandatory floors, then let the remaining entries serve as "use when relevant" guidance without repeating "only". The three-sentence threshold for "must use at least one structural element" was chosen because it's the minimum length where structure starts to help readability — one or two sentences are inherently short-form; three or more sentences benefit from at least bold emphasis to guide the reader's eye.
 
 ---
 
