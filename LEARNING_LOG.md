@@ -1417,3 +1417,43 @@ if _is_difficulty_signal(answer):
 **Files touched:**
 - `src/agents/prompts/rag.py` — heading rule rewritten in all 5 prompt strings; MCQ rule added
 - `src/app/ui.py` — `!important` added to 5 gradient-clip declarations; `color: transparent !important` added
+
+---
+
+## C46 — mastery-matched-routing
+
+**What was built:** The question-delivery pipeline now filters MCQ questions by the learner's `user_level` before sampling. A novice gets novice-difficulty questions; an advanced learner gets advanced-difficulty questions. When no questions exist at the target tier for a given topic, the system falls back to the nearest available tier (lower before higher) rather than returning an error.
+
+**Where the code lives:**
+- `src/agents/mcq_utils.py` — `_DIFFICULTY_FALLBACK` dict + `get_mcq_blocks_for_difficulty()`, `get_mcq_count_for_difficulty()`, `load_mcq_question_for_difficulty()`
+- `src/agents/assessment/question_selection.py` — `select_mcq_question_for_level()`
+- `src/agents/assessment/test_delivery.py` — routes MCQ delivery through the mastery-aware path
+
+**The design pattern — difficulty filtering with graceful fallback:**
+
+```python
+_DIFFICULTY_FALLBACK: dict[str, list[str]] = {
+    "novice":       ["novice", "intermediate", "advanced", "expert"],
+    "intermediate": ["intermediate", "novice", "advanced", "expert"],
+    "advanced":     ["advanced", "intermediate", "novice", "expert"],
+    "expert":       ["expert", "advanced", "intermediate", "novice"],
+}
+
+def get_mcq_blocks_for_difficulty(slug: str, difficulty: str | None) -> list[str]:
+    all_blocks = get_mcq_question_blocks(slug)
+    if not difficulty or difficulty not in _DIFFICULTY_FALLBACK:
+        return all_blocks  # unrestricted — preserves prior behavior for None/unknown
+    for tier in _DIFFICULTY_FALLBACK[difficulty]:
+        filtered = [b for b in all_blocks if re.search(rf"^\*\*Difficulty:\*\*\s*{tier}", b, re.MULTILINE)]
+        if filtered:
+            return filtered
+    return all_blocks  # final safety net
+```
+
+**Why the fallback order is lower-before-higher:** When an advanced user asks about a topic with no advanced questions in the bank, serving an intermediate question (consolidation) is pedagogically better than serving an expert question (stretch). A user already at their skill ceiling getting a harder question than expected creates frustration; getting a slightly easier one creates confidence and still tests valid knowledge. The opposite fallback would undermine the adaptive engine's purpose.
+
+**Why `None` mastery level returns all blocks:** The pre-Commit-46 behavior was unrestricted sampling. `mastery_level=None` means the system doesn't know the user's level — falling back to unrestricted is the safest default. Narrowing to any specific tier without evidence of the user's level would introduce incorrect filtering.
+
+**What the old functions still do:** `select_mcq_question` and `load_mcq_question` were not removed — they still serve `test_assess_node.py` test helpers and `onboarding.py` respectively. The mastery-aware versions are the new production path; the old functions remain for callers that don't need tier filtering.
+
+**Files touched:** `src/agents/mcq_utils.py`, `src/agents/assessment/question_selection.py`, `src/agents/assessment/test_delivery.py`, `tests/test_mastery_routing.py` (new — 17 tests, 5 classes)

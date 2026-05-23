@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (Replan: adaptive engine priority — 7 new commits 46-52 inserted; infra slides to 53-56; next: 46 mastery-matched-routing)",
+  "last_updated": "2026-05-23 (C46 mastery-matched-routing done; next: 47 curriculum-restructure)",
   "status": "active",
   "current_commit": {
-    "number": "46",
-    "name": "mastery-matched-routing",
+    "number": "47",
+    "name": "curriculum-restructure",
     "status": "pending",
-    "assignee": "ai-engineer"
+    "assignee": "lara"
   },
   "commits_done": [
     "01",
@@ -63,10 +63,10 @@
     "45.4",
     "45.4.1",
     "45.5",
-    "45.6"
+    "45.6",
+    "46"
   ],
   "commits_pending": [
-    "46",
     "47",
     "48",
     "49",
@@ -78,7 +78,7 @@
     "55",
     "56"
   ],
-  "next_commit": "46",
+  "next_commit": "47",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

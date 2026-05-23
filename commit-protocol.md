@@ -65,7 +65,7 @@
 | 45.4.1 | is-mcq-fix | ai-engineer | ✅ done · 2026-05-23 |
 | 45.5 | rag-prompt-quality | ai-engineer | ✅ done · 2026-05-23 |
 | 45.6 | welcome-message-ux | frontend | ✅ done · 2026-05-23 |
-| 46 | mastery-matched-routing | ai-engineer | pending |
+| 46 | mastery-matched-routing | ai-engineer | done |
 | 47 | curriculum-restructure | curriculum-specialist | pending |
 | 48 | document-ingestion-questions | rag-specialist | pending |
 | 49 | langgraph-curriculum | curriculum-specialist | pending |

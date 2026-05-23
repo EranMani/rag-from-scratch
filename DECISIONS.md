@@ -1055,6 +1055,15 @@
 - **Reason:** Quasar sets `color` on the body and its component reset CSS cascades that value into block elements. The `-webkit-text-fill-color: transparent` gradient trick only works when the text fill is fully transparent — if Quasar's `color` wins, it bleeds through and the gradient disappears. `!important` on all five declarations is the minimal reliable fix. Selector specificity alone is fragile because Quasar's stylesheet load order relative to `ui.add_head_html()` is not guaranteed across NiceGUI versions.
 - **Consequences:** Any future override of heading colors inside `.nicegui-markdown` will also need `!important`. Document this in any PR that touches the chat CSS.
 
+### Mastery-matched routing: fallback to lower tier before higher (Commit 46)
+- **Date:** 2026-05-23
+- **Commit:** 46
+- **Decided by:** Nova
+- **Decision:** When a user's target difficulty tier has no questions for a given slug, the fallback order is lower tiers first, then higher. For example: `advanced` → tries `intermediate` before trying `expert`. For `expert`: tries `advanced`, then `intermediate`, then `novice`.
+- **Alternatives considered:** Fallback to higher tier first; random selection among available tiers; error/empty return.
+- **Reason:** Serving easier material is pedagogically preferable to serving harder material when the target tier is unavailable. A user who is advanced but has no advanced questions on a topic is better served by a consolidation question (intermediate) than a stretch question (expert). An empty return is never acceptable — always deliver something. Higher-first fallback would produce the opposite behavior and create frustration.
+- **Consequences:** A novice user with no novice questions on a topic gets intermediate before advanced before expert. The fallback only activates when the question bank has a gap at the target tier.
+
 ### Prompt heading rules must be unconditional, not discretionary (2026-05-23)
 - **Date:** 2026-05-23
 - **Commit:** hotfix (EranMani request — `fix(EranMani): enforce markdown headers`)

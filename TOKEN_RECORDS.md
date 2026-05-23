@@ -822,6 +822,29 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 46 — `mastery-matched-routing` · 2026-05-23 · Nova
+
+> Gate wave: Viktor only (Haiku). Sage skipped (no auth/secrets/user input trust boundary). Quinn skipped (17 new tests included — gate triage: comprehensive coverage already built-in). Mira skipped (internal routing change; no user-facing behavior visible to non-technical reviewer).
+> Viktor: PASS WITH COMMENTS — 4 advisories (regex anchoring, docstring clarity, mastery_level assignment placement, implementation visibility).
+> Orchestrator applied 2 direct test patches (Nova hit tool cap before test run): test_mastery_routing.py advanced-slug assertion + test_question_type_balance.py patch targets renamed.
+> Ryan: full entry (DECISIONS.md updated — fallback tier order is non-obvious design choice).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Nova (implementation) | Sonnet | 51,667 | 27 ⚠️ | ✅ under ≤60k | Hit cap before test run; orchestrator ran tests + fixed 2 test patches |
+| Viktor | Haiku | 35,099 | 1 | **+20k** over ≤15k | PASS WITH COMMENTS — 4 advisories; 1 tool use (inline context) ✅ |
+| Ryan | Haiku | 75,376 | 5 | **+60k** over ≤15k | full entry; 5 tool uses (within cap) |
+| **Total** | | **162,142** | **33** | **over ≤90k** | Viktor 1 tool use ✅; Nova over cap; Ryan full entry |
+
+**Notes:**
+- Nova: 51,667 tokens / 27 tool uses (+2 over 25 cap). Hit cap before test run. Orchestrator ran tests and applied 2 test fixes: (1) `test_mastery_routing.py` advanced-slug assertion removed (advanced users get Phase 3 slugs, not Phase 1); (2) `test_question_type_balance.py` mock patch targets updated to new function names (`select_mcq_question_for_level`, `load_mcq_question_for_difficulty`).
+- Viktor 1 tool use: full context inline — zero file reads. Correct reviewer pattern ✅.
+- Viktor advisories (non-blocking): (1) regex anchoring for difficulty header; (2) docstring clarity on filtered index; (3) move `mastery_level` assignment; (4) full implementation body not visible in diff (confirmed correct by orchestrator).
+- Sage/Quinn/Mira correctly skipped: no auth surface, 17 new tests included, no user-facing behavior change.
+- Pre-existing failures: 82 (one regression from C46 fixed by orchestrator: `test_question_type_balance.py::test_mcq_path_when_type_is_mcq` — patch targets renamed).
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -872,6 +895,7 @@ No token data recorded. Tracking began at Commit 10.
 | 45.4.1 | is-mcq-fix | ~0 | none | ✅ ~0 | Direct Edit by Team Lead (no agents); single-line fix to step 2 return dict |
 | 45.5 | rag-prompt-quality | ~118,005 | Mira only (Haiku) | over ≤75k | Nova ✅ (71k · 18 uses); Mira 26k (0 uses ✅); Ryan ~22k (shared invocation); Viktor/Sage/Quinn skipped |
 | 45.6 | welcome-message-ux | ~136,421 | Sage+Mira (Haiku) | over ≤90k | Aria ✅ (60k · 15 uses); Sage 28k (0 uses ✅); Mira 26k (0 uses ✅); Ryan ~23k (shared invocation); Viktor/Quinn skipped |
+| 46 | mastery-matched-routing | 86,766 (excl. Ryan) | Viktor only (Haiku) | over ≤75k | Nova 52k (27 uses, +2 over cap); Viktor 35k (1 use ✅ PASS WITH COMMENTS); Sage/Quinn/Mira skipped; orchestrator fixed 2 test patches (no agent) |
 
 ---
 

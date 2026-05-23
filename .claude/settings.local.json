@@ -182,7 +182,15 @@
       "Bash(.venv/Scripts/pytest tests/ -q)",
       "Bash(.venv/Scripts/pytest tests/test_assess_node.py -q)",
       "Bash(.venv/Scripts/pytest tests/test_assess_node.py -q -k \"Gate4 or Gate7 or error_fallback or OutputKey\")",
-      "Bash(docker exec *)"
+      "Bash(docker exec *)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_scoring.py tests/test_rag_prompts.py tests/test_question_type_balance.py tests/test_cache.py tests/test_update_profile_node.py -x -q)",
+      "Bash(echo \"\")",
+      "Bash(echo \"## Mastery Level Simplification \\(2026-05-23\\)\")",
+      "Bash(echo \"85. **Remove \\\\`beginner\\\\` level, merge into \\\\`novice\\\\`** — both mapped to Phase 1 in-progress with no user-facing distinction; beginner had no badge design; four-level ladder \\(novice/intermediate/advanced/expert\\) is simpler and complete\")",
+      "Bash(pip show *)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_mastery_routing.py -v)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_question_type_balance.py -v)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_question_type_balance.py tests/test_mastery_routing.py -v)"
     ]
   }
 }

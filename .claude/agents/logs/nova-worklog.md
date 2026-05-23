@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 45.5 — rag-prompt-quality · 2026-05-23*
+*Last updated: Commit 46 — mastery-matched-routing · 2026-05-23*
 
-**Last completed:** Commit 45.5 — rag-prompt-quality ✅
+**Last completed:** Commit 46 — mastery-matched-routing ✅
 **Currently active:** none
 **Blocked by:** none
 
@@ -1946,3 +1946,50 @@ Hard limit: touch ONLY `src/agents/prompts/rag.py`. No graph, no nodes, no state
 **What changed in your sequence:** your next commit is still 45.4.1 (`is-mcq-fix`). Commit 45.5 follows it. Commit 45.5 can run in parallel with Commit 45.6 (`welcome-message-ux`, assigned to Aria) — Wave H.
 
 **Your next commit is now: Commit 39 `scoring-correctness`** (co-owned with Rex; your piece is one line in assess.py)
+
+---
+
+## Session — Commit 46 · 2026-05-23
+
+**Status:** ✅ Done (Nova hit tool cap; orchestrator ran tests and applied 2 test patches)
+
+### Task Brief
+
+Wire `AgentState.user_level` into the question-selection pipeline so each user
+receives MCQ questions matched to their current mastery tier. Both the filtering
+constant (`_DIFFICULTY_FALLBACK`) and the fallback chain logic live in `mcq_utils.py`.
+Three delivery functions added: `get_mcq_blocks_for_difficulty`, `get_mcq_count_for_difficulty`,
+`load_mcq_question_for_difficulty`. `test_delivery.py` updated to call the new mastery-aware
+selector and loader. New test file with 17 tests across 5 classes.
+
+### Approach
+
+The key discovery on Phase 1 reads: the spec said `mastery_level` but `AgentState` has
+`user_level` — same field, different conceptual name. No schema change needed.
+
+The filtering layer belonged in `mcq_utils.py` (already owns file I/O) rather than
+`question_selection.py` (which operates at slug level). Adding `get_mcq_blocks_for_difficulty`
+there kept the responsibility boundary clean.
+
+The fallback chain design: considered "just return all blocks if target tier missing"
+but that loses the mastery signal entirely. Considered "hard error" but the spec explicitly
+said always deliver something. Lower-before-higher fallback (intermediate before expert for
+an advanced user) is pedagogically correct — consolidation before stretch.
+
+Index math: `len(messages) % count` where `count` is the filtered block count. This wraps
+within the reduced pool — exact same formula as before, just operating on fewer blocks.
+The old selector (`select_mcq_question`) is preserved unchanged because `test_assess_node.py`
+still calls it directly. Same for `load_mcq_question` — still used by `onboarding.py`.
+
+Nova hit the 27-tool cap before running tests. Orchestrator ran the test suite and applied
+two patches: (1) removed overly-specific slug assertion in the advanced tier test (advanced
+users get Phase 3 topics, not Phase 1); (2) updated mock patch targets in
+`test_question_type_balance.py` from old function names to new ones.
+
+### Files Modified
+
+- `src/agents/mcq_utils.py` — `_DIFFICULTY_FALLBACK` dict + 3 new functions
+- `src/agents/assessment/question_selection.py` — `select_mcq_question_for_level` added
+- `src/agents/assessment/test_delivery.py` — wired to mastery-aware path
+- `tests/test_mastery_routing.py` — new (17 tests, 5 classes)
+- `tests/test_question_type_balance.py` — 2 mock patch targets updated (orchestrator)
