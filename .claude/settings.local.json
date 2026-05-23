@@ -190,7 +190,8 @@
       "Bash(pip show *)",
       "Bash(.venv/Scripts/python.exe -m pytest tests/test_mastery_routing.py -v)",
       "Bash(.venv/Scripts/python.exe -m pytest tests/test_question_type_balance.py -v)",
-      "Bash(.venv/Scripts/python.exe -m pytest tests/test_question_type_balance.py tests/test_mastery_routing.py -v)"
+      "Bash(.venv/Scripts/python.exe -m pytest tests/test_question_type_balance.py tests/test_mastery_routing.py -v)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest --tb=short -q)"
     ]
   }
 }

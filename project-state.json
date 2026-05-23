@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (C47 curriculum-restructure done; next: 47.1 slug-swap-document-ingestion)",
+  "last_updated": "2026-05-23 (C47.1 slug-swap-document-ingestion done; next: 48 document-ingestion-questions)",
   "status": "active",
   "current_commit": {
-    "number": "47.1",
-    "name": "slug-swap-document-ingestion",
+    "number": "48",
+    "name": "document-ingestion-questions",
     "status": "pending",
-    "assignee": "nova"
+    "assignee": "rag-specialist"
   },
   "commits_done": [
     "01",
@@ -65,10 +65,10 @@
     "45.5",
     "45.6",
     "46",
-    "47"
+    "47",
+    "47.1"
   ],
   "commits_pending": [
-    "47.1",
     "48",
     "49",
     "50",
@@ -79,7 +79,7 @@
     "55",
     "56"
   ],
-  "next_commit": "47",
+  "next_commit": "48",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
