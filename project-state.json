@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-24 (C52 ai-question-generation done; next: 52.1 state-mutation-refactor)",
+  "last_updated": "2026-05-24 (C52.1 state-mutation-refactor done; next: 53 nginx-config)",
   "status": "active",
   "current_commit": {
-    "number": "52.1",
-    "name": "state-mutation-refactor",
+    "number": "53",
+    "name": "nginx-config",
     "status": "pending",
-    "assignee": "ai-engineer"
+    "assignee": "devops"
   },
   "commits_done": [
     "01",
@@ -72,28 +72,28 @@
     "49.1",
     "50",
     "51",
-    "52"
+    "52",
+    "52.1"
   ],
   "commits_pending": [
-    "52.1",
     "53",
     "54",
     "55",
     "56"
   ],
-  "next_commit": "52.1",
+  "next_commit": "53",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "52",
-      "tests": "PASS — 28 new tests (test_question_generation.py); 2 regressions in test_mastery_routing.py fixed by orchestrator (direct Edit). All tests passing.",
-      "viktor": "PASS WITH ADVISORY — 1 advisory: state mutation pattern in _deliver_mcq; 1 false positive: empty-list risk (generate_questions cannot return [] per contract). Deferred to C52.1.",
-      "sage": "not triggered — gate triage: new LLM integration, no auth surface, no user input trust boundary",
-      "quinn": "PASS — coverage adequate for new logic paths",
-      "mira": "not triggered — no user-facing behavior change visible to non-technical reviewer",
-      "gate_wave": "Viktor + Quinn (Haiku); Sage/Mira skipped",
-      "note": "C52: LLM synthesis layer integrated into _deliver_mcq. State mutation pattern deferred to C52.1. Viktor advisory is a design issue, not a correctness bug."
+      "number": "52.1",
+      "tests": "PASS — 45/45 (test_question_generation.py 28 + test_mastery_routing.py 17). 7 test sites updated from 2-tuple to 3-tuple unpacking.",
+      "viktor": "PASS — all 4 checklist items confirmed; 0 tool uses (full context inline); no findings",
+      "sage": "not triggered — gate triage: function signature refactor, no auth surface, no trust boundary",
+      "quinn": "not triggered — no new behavior, same code paths",
+      "mira": "not triggered — no user-facing change",
+      "gate_wave": "Viktor only (Haiku); Sage/Quinn/Mira skipped",
+      "note": "C52.1: pure structural refactor. _deliver_mcq → 3-tuple return. state mutation removed. Viktor advisory from C52 resolved. No behavior change."
     },
     "commit_26": {
       "number": "26",

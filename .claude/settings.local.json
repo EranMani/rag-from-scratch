@@ -191,7 +191,12 @@
       "Bash(.venv/Scripts/python.exe -m pytest tests/test_mastery_routing.py -v)",
       "Bash(.venv/Scripts/python.exe -m pytest tests/test_question_type_balance.py -v)",
       "Bash(.venv/Scripts/python.exe -m pytest tests/test_question_type_balance.py tests/test_mastery_routing.py -v)",
-      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest --tb=short -q)"
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest --tb=short -q)",
+      "Bash(.venv/Scripts/pytest.exe tests/test_scoring.py --tb=short -q)",
+      "Bash(.venv/Scripts/pytest.exe tests/test_scoring.py::TestPassiveScoringLogic::test_passive_does_not_update_session_history tests/test_profile_api.py::TestGetProfileAuthenticated::test_valid_token_returns_200 --tb=line -q)",
+      "Bash(.venv/Scripts/pytest.exe --tb=no -q)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -m pytest tests/test_question_generation.py -v)",
+      "Bash(.venv/Scripts/pytest tests/test_question_generation.py tests/test_mastery_routing.py -v)"
     ]
   }
 }
