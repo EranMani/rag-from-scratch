@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # checks user progress multiple times per turn.
 PHASE_1_TOPICS: frozenset[str] = frozenset({"embeddings_and_similarity", "rag_pipeline_architecture"})
 PHASE_2_TOPICS: frozenset[str] = frozenset({"chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting", "document_ingestion"})
-PHASE_3_TOPICS: frozenset[str] = frozenset({"evaluation_and_metrics", "production_patterns"})
+PHASE_3_TOPICS: frozenset[str] = frozenset({"evaluation_and_metrics", "production_patterns", "langgraph_fundamentals"})
 
 # Academic standards — the score a user must demonstrate to advance.
 # These thresholds are the "syllabus gates" of the system.

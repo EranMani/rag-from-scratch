@@ -913,6 +913,24 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 49.1 — `slug-add-langgraph` · 2026-05-23 · Claude (direct Edit)
+
+> Gate wave: Viktor only — slug registration change affects Phase 3 gate logic.
+> Implementation: Claude direct Edit calls (all 5 locations known from reading src/ files). No Nova subagent invoked.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Claude (impl, direct Edits) | — | ~0 | — | ✅ ~0 | 6 Edit calls across 5 src/ + 1 test file; no subagent spawn |
+| Viktor | Haiku | 32,871 | 0 | ⚠️ over ≤15k | PASS — all 5 registration points consistent; Phase 3 correctly assigned |
+| **Total** | | **32,871** | **0** | ⚠️ 32,871 total | Viktor-only gate; consistent with C47.1 (33,694 for same commit type) |
+
+**Notes:**
+- No Nova invocation: exact insertions derivable from reading src/ files (exact file+line+content rule). Saved ~25k vs. Nova Sonnet subagent overhead.
+- Viktor over ≤15k target: large diff (5 files) passed inline. Pattern matches C47.1 and C30.5 slug-registration commits. Acceptable for this commit type.
+- 5 src/ files + 1 test file. Tests updated from 9-slug to 10-slug counts. Pre-existing test failures (83) unchanged from baseline.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -968,6 +986,7 @@ No token data recorded. Tracking began at Commit 10.
 | 47.1 | slug-swap-document-ingestion | ~34k | Viktor only (Haiku) | ✅ well under ≤75k | orchestrator direct Edits (~0 impl tokens); Viktor 33,694 (0 uses ✅ PASS WITH COMMENTS) |
 | 48 | document-ingestion-questions | 49,547 | zero gates (content-only) | ✅ well under ≤60k | RAG Specialist ✅ (49,547 · 8 uses); no gate wave (pure markdown, no code, no auth surface) |
 | 49 | langgraph-curriculum | ~0 | zero gates (content-only) | ✅ ~0 | Claude direct Edits only; 4 files (curriculum-map.md, gates.md, topic-slugs.json); no gate wave |
+| 49.1 | slug-add-langgraph | 32,871 | Viktor only (Haiku, PASS) | ⚠️ over ≤15k reviewer target | Claude direct Edits (~0 impl); Viktor 32,871 (0 uses ✅ PASS); no implementation agent |
 
 ---
 

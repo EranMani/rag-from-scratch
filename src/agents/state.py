@@ -43,6 +43,7 @@ class TopicScoresDelta(BaseModel):
     document_ingestion: float = 0.0
     evaluation_and_metrics: float = 0.0
     production_patterns: float = 0.0
+    langgraph_fundamentals: float = 0.0
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ VALID_MODULE_SLUGS: frozenset[str] = frozenset({
     "document_ingestion",
     "evaluation_and_metrics",
     "production_patterns",
+    "langgraph_fundamentals",
 })
 
 

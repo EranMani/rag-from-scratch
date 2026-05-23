@@ -151,7 +151,7 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
     _PROGRESS_PHASES: list[tuple[str, list[str]]] = [
         ("Foundations", ["embeddings_and_similarity", "rag_pipeline_architecture"]),
         ("Core",        ["chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting", "document_ingestion"]),
-        ("Production",  ["evaluation_and_metrics", "production_patterns"]),
+        ("Production",  ["evaluation_and_metrics", "production_patterns", "langgraph_fundamentals"]),
     ]
     _DONE_THRESHOLD = 0.70
 

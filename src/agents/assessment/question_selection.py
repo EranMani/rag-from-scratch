@@ -24,6 +24,7 @@ _ORDERED_SLUGS: list[str] = [
     "document_ingestion",
     "evaluation_and_metrics",
     "production_patterns",
+    "langgraph_fundamentals",
 ]
 
 

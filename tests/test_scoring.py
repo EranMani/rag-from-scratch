@@ -37,11 +37,11 @@ from agents.state import VALID_MODULE_SLUGS, TopicScoresDelta
 # ---------------------------------------------------------------------------
 
 class TestSchemaGates:
-    """VALID_MODULE_SLUGS and TopicScoresDelta match the 9-slug canonical set."""
+    """VALID_MODULE_SLUGS and TopicScoresDelta match the 10-slug canonical set."""
 
     def test_valid_module_slugs_has_exactly_9_entries(self) -> None:
-        assert len(VALID_MODULE_SLUGS) == 9, (
-            f"VALID_MODULE_SLUGS must have exactly 9 entries, got {len(VALID_MODULE_SLUGS)}: {VALID_MODULE_SLUGS}"
+        assert len(VALID_MODULE_SLUGS) == 10, (
+            f"VALID_MODULE_SLUGS must have exactly 10 entries, got {len(VALID_MODULE_SLUGS)}: {VALID_MODULE_SLUGS}"
         )
 
     def test_valid_module_slugs_canonical_set(self) -> None:
@@ -55,6 +55,7 @@ class TestSchemaGates:
             "document_ingestion",
             "evaluation_and_metrics",
             "production_patterns",
+            "langgraph_fundamentals",
         }
         assert VALID_MODULE_SLUGS == expected, (
             f"VALID_MODULE_SLUGS mismatch.\nExpected: {expected}\nGot: {VALID_MODULE_SLUGS}"
@@ -73,8 +74,8 @@ class TestSchemaGates:
     def test_topic_scores_delta_has_exactly_9_fields(self) -> None:
         delta = TopicScoresDelta()
         fields = set(delta.model_fields.keys())
-        assert len(fields) == 9, (
-            f"TopicScoresDelta must have exactly 9 fields, got {len(fields)}: {fields}"
+        assert len(fields) == 10, (
+            f"TopicScoresDelta must have exactly 10 fields, got {len(fields)}: {fields}"
         )
 
     def test_topic_scores_delta_excludes_rag_fundamentals(self) -> None:
@@ -289,7 +290,7 @@ class TestGetMasteryLevel:
     """get_mastery_level uses phase gate state, evaluated expert → novice."""
 
     def _all_passing(self) -> dict:
-        """All 9 topics at a score that passes all phase gates."""
+        """All 10 topics at a score that passes all phase gates."""
         return {
             "embeddings_and_similarity": 0.80,
             "rag_pipeline_architecture": 0.80,
@@ -300,6 +301,7 @@ class TestGetMasteryLevel:
             "document_ingestion": 0.80,
             "evaluation_and_metrics": 0.80,
             "production_patterns": 0.80,
+            "langgraph_fundamentals": 0.80,
         }
 
     def test_novice_all_null(self) -> None:
