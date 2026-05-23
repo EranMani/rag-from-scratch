@@ -1299,3 +1299,65 @@ if _is_difficulty_signal(answer):
 - `tests/test_assess_node.py` — stale import fix + expected key set update (pre-existing debt)
 
 ---
+
+## Commit 45.5 — `rag-prompt-quality` · Nova · 2026-05-23 · `prompt engineering`
+
+> **In one sentence:** Rewrote the RESPONSE FORMAT block in all 5 RAG prompt templates from permissive conditional rules to a mandatory floor, and replaced `_NOVICE_SYSTEM`'s audience description with an explicit persona declaration and hardened analogy rule.
+
+**Interview talking point:**
+> **Q:** How do you improve LLM response consistency without changing the underlying model or adding a post-processing layer?
+>
+> **A:** The key insight is that LLMs treat "only if appropriate" as a permission decision — and the default answer to an open permission is no. "Bold key terms only if it helps" means the model decides most answers don't need bolding, and they get plain prose. Replace the permission with a minimum floor ("Every response must bold the first technical term it introduces") and the decision is made for the model. The escape hatch matters too: "single-sentence answers may use plain prose" keeps the rule from forcing structure onto trivially short answers. The same principle applies to persona: describing the target audience tells the model who it's talking to; declaring a voice with negative constraints ("never sounds like a manual or a search engine") tells it how to behave.
+
+**What happened and why:**
+- Two root causes identified by Nova and confirmed in Mira product review: (1) `_NOVICE_SYSTEM` described the audience but didn't declare a behavioral voice — LLM defaulted to general assistant tone; (2) RESPONSE FORMAT used "only if/when/for" language in all 5 prompts, giving the LLM permission to skip structure on every response.
+- Fix 1 (persona): "You are a patient tutor explaining RAG to someone with no technical background" → "You are an enthusiastic and patient tutor — you never sound like a manual or a search engine." The negative constraints are the operative part.
+- Fix 2 (analogy): "Lead with a real-world everyday analogy BEFORE introducing the technical concept" → "You MUST open every answer with a real-world analogy. Do this even for short answers." Soft directive removed; MUST + explicit short-answer scope added.
+- Fix 3 (RESPONSE FORMAT — all 5 prompts): "only if/only when" conditional blocks → two mandatory floor rules + one single-sentence escape hatch.
+
+**The key change:**
+
+```python
+# src/agents/prompts/rag.py — RESPONSE FORMAT (before, in all 5 prompts)
+# - Bold (**term**) key technical terms on first use.
+# - Table: only when comparing two or more things across the same attributes.
+# - Numbered list: for sequential steps or processes only.
+# - Heading (## Title): only if the response is long enough to need section navigation.
+# - Plain prose: for short or conversational replies.
+
+# After — all 5 prompts
+# - Every response must bold the first technical term it introduces.
+# - Responses longer than 3 sentences must use at least one structural element (bold, list, or heading).
+# - Single-sentence answers may use plain prose — no structure required.
+# - Table: when comparing two or more things across the same attributes.
+# - Numbered list: for sequential steps or processes.
+# - Heading (## Title): when the response is long enough to need section navigation.
+```
+
+**Design principle:**
+> Permissive constraints give the LLM a permission question. Mandatory floors give it a default. When the goal is consistency, remove the permission question — don't make it louder.
+
+**Files touched:**
+- `src/agents/prompts/rag.py` — all 5 prompt strings updated; no functional code changed
+
+---
+
+## Commit 45.6 — `welcome-message-ux` · Aria · 2026-05-23 · `UX improvement`
+
+> **In one sentence:** Rewrote `_build_welcome_message()` to give first-time Novice users 4 concrete starter paths and give returning users a progress-first summary with phases done/total, last active topic, and one resume action.
+
+**Interview talking point:**
+> **Q:** How do you improve first-time user retention when you can't add new analytics or A/B tests?
+>
+> **A:** The old first-time message said "Ready to start? Best first move: What is RAG?" — it assumed the user knew what to do with that. A non-technical user sees a blank chat and one cryptic prompt and interprets it as "the app doesn't guide me." The fix was structural: establish what the app is in one sentence, then offer 4 concrete starter paths that span different entry points (total beginner, ML-aware, builder, overview-seeker). The user can act in under 10 seconds without any prior knowledge of RAG. For returning users, the old message said "Here's your weak spot, try this question" — useful but missing location context. The new format leads with progress (`Foundations ✓ · Core 1/5 · Production 0/2`), surfaces the last active topic for continuity, then gives the one recommended action. The user knows where they are before they decide what to do next.
+
+**What happened and why:**
+- Mira product review (2026-05-23) flagged two day-1 retention risks: first-time message outsources the first decision to the user without establishing the app's purpose; returning-user message lacks progress context and narrative continuity.
+- First-time path (new): warm 1-sentence app description + 4 copy-paste starter paths spanning novice/ML-aware/builder/overview entry points. Condition: `interaction_count == 0 AND mastery_level == "novice"` — non-novice first-timers get the returning-user format with 0/N counts.
+- Returning user path (new): all branches now open with `**Your progress:** Foundations X/2 · Core X/5 · Production X/2` computed from `topic_scores` (score ≥ 0.70 = done). Existing gap/strength recommendation logic preserved for the resume action.
+- Progress computation: `_PROGRESS_PHASES` defined inline (not reusing `_PHASE_TOPICS`) — the two constants serve different purposes: adaptive question selection vs. cumulative progress display.
+
+**Files touched:**
+- `src/app/ui.py` — `_build_welcome_message()` rewritten; function signature and no-profile fallback unchanged
+
+---

@@ -21,7 +21,15 @@
 85. **`select_question_type` as standalone pure function** — inlining in `select_test_question` would make ratio-distribution testing require full pipeline mocking; standalone function keeps the decision point visible and testable independently
 86. **Explicit 0.0 fast-path for novice/beginner** — `random.random() < 0.0` is always False but semantically misleading; explicit guard makes the pedagogical constraint visible in code, not just the constant value
 
-*Last updated: 2026-05-22 — Commit 45.3*
+## Prompt Quality (C45.5)
+87. **Floor-first RESPONSE FORMAT (all 5 prompts)** — "only if/when" → mandatory floor; LLM treats permissive as withheld permission → plain prose; floor forces minimum structure signal
+88. **Explicit persona in `_NOVICE_SYSTEM`** — audience description → declared voice + negative constraints; abstract label gives LLM no behavioral anchor
+
+## Welcome Message UX (C45.6)
+89. **`_PROGRESS_PHASES` inline (not `_PHASE_TOPICS`)** — display phase uses hardcoded slug lists; selection phase uses mastery-keyed dict; two concerns, same slugs, different semantics — independence explicit
+90. **First-time path: `interaction_count == 0 AND mastery_level == "novice"`** — non-novice first-timers get returning-user format (handles 0/N gracefully); first-time path for users who genuinely don't know where to start
+
+*Last updated: 2026-05-23 — Commit 45.6*
 
 ---
 
@@ -158,3 +166,11 @@
 
 ## Mastery Level Simplification (2026-05-23)
 85. **Remove `beginner` level, merge into `novice`** — both mapped to Phase 1 in-progress with no user-facing distinction; beginner had no badge design; four-level ladder (novice/intermediate/advanced/expert) is simpler and complete
+
+## Prompt Quality (C45.5)
+87. **Floor-first RESPONSE FORMAT (all 5 prompts)** — "only if/when" → mandatory floor; LLM treats permissive as withheld permission → plain prose; floor forces minimum structure signal
+88. **Explicit persona in `_NOVICE_SYSTEM`** — audience description → declared voice + negative constraints; abstract label gives LLM no behavioral anchor
+
+## Welcome Message UX (C45.6)
+89. **`_PROGRESS_PHASES` inline (not `_PHASE_TOPICS`)** — display phase uses hardcoded slug lists; selection phase uses mastery-keyed dict; two concerns, same slugs, different semantics — independence explicit
+90. **First-time path: `interaction_count == 0 AND mastery_level == "novice"`** — non-novice first-timers get returning-user format (handles 0/N gracefully); first-time path for users who genuinely don't know where to start

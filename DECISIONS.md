@@ -1005,3 +1005,41 @@
 - **Alternatives considered:** Keeping both and adding a badge design for `beginner`; renaming `beginner` to something other than `novice`.
 - **Reason:** `beginner` and `novice` were semantically identical from a user perspective — both represented Phase 1 in-progress work — and `beginner` had no badge design. Maintaining two levels for the same curriculum phase added complexity with no user-facing payoff: distinct prompt templates, separate dict entries across 10+ files, and a self-report option that was confusing rather than clarifying. `novice` already captured the intent; `beginner` was dead weight.
 - **Consequences:** `get_mastery_level()` now returns `novice` for any user who has not passed Phase 1, regardless of whether any Phase 1 topics have been scored. `_LEVEL_ORDER` is renumbered (0–3). `_GATE_THRESHOLDS` adjusted accordingly (phase_1 threshold = 1). The onboarding self-report now offers Novice / Intermediate / Expert. Question difficulty labels in the knowledge base are renamed `novice` (previously `beginner`).
+
+---
+
+## Prompt Quality — Wave H (C45.5 / 2026-05-23)
+
+### Floor-first RESPONSE FORMAT in all 5 prompts (Commit 45.5)
+- **Date:** 2026-05-23
+- **Commit:** 45.5
+- **Decided by:** Nova
+- **Decision:** RESPONSE FORMAT block in all 5 prompt templates (`_DEFAULT_SYSTEM`, `_NOVICE_SYSTEM`, `_INTERMEDIATE_SYSTEM`, `_ADVANCED_SYSTEM`, `_EXPERT_SYSTEM`) rewritten from permissive conditional rules ("only if/when/for") to mandatory floor rules: (1) every response must bold the first technical term it introduces; (2) responses longer than 3 sentences must use at least one structural element (bold, list, or heading); (3) single-sentence answers may use plain prose.
+- **Alternatives considered:** Keeping conditional rules but making them stronger ("prefer to bold..."); adding examples for each format type.
+- **Reason:** LLMs treat "only if" and "when appropriate" as withheld permission, not granted permission — the model interprets permission not taken as a correct choice and defaults to plain prose. A mandatory floor removes the permission question entirely. The single-sentence escape hatch prevents forced structure on trivially short answers while ensuring all multi-sentence responses carry a formatting signal.
+- **Consequences:** Advanced and expert users may encounter slightly more structured responses than strictly necessary. Mira flagged this as worth monitoring; plain prose preference in those levels can be restored per-prompt if users report over-formatting.
+
+### Explicit persona declaration in `_NOVICE_SYSTEM` (Commit 45.5)
+- **Date:** 2026-05-23
+- **Commit:** 45.5
+- **Decided by:** Nova
+- **Decision:** `_NOVICE_SYSTEM` opening replaced from audience description ("explaining RAG to someone with no technical background") to explicit persona with negative constraints ("You are an enthusiastic and patient tutor — you never sound like a manual or a search engine").
+- **Alternatives considered:** Keeping the description but making it more emphatic; adding a "tone" section at the end of the prompt.
+- **Reason:** Describing the target audience tells the LLM who it's talking to, not how to behave. Without a declared voice, the model defaults to its trained general-assistant persona, which is formal and manual-like. Negative constraints ("never sounds like a manual or search engine") are operationally stronger than positive descriptions because they give the model a concrete rejection signal it can apply to each generated sentence.
+
+## Welcome Message UX (C45.6 / 2026-05-23)
+
+### `_PROGRESS_PHASES` inline, not reusing `_PHASE_TOPICS` (Commit 45.6)
+- **Date:** 2026-05-23
+- **Commit:** 45.6
+- **Decided by:** Aria
+- **Decision:** Progress display in `_build_welcome_message()` uses a locally-defined `_PROGRESS_PHASES` list (hardcoded slugs per phase) rather than the module-level `_PHASE_TOPICS` dict.
+- **Alternatives considered:** Reusing `_PHASE_TOPICS` directly; extracting a shared constant for both purposes.
+- **Reason:** `_PHASE_TOPICS` maps mastery level → the topics active for question selection at that phase. `_PROGRESS_PHASES` maps phase name → all slugs that belong to that phase for progress counting. These serve different purposes: the first is adaptive (which topics are in scope right now), the second is cumulative (all topics the user might have scored across their journey). They happen to overlap but are not the same concept. Inline constant makes the independence explicit and prevents future callers from conflating them.
+
+### First-time welcome condition: `interaction_count == 0 AND mastery_level == "novice"` (Commit 45.6)
+- **Date:** 2026-05-23
+- **Commit:** 45.6
+- **Decided by:** Aria
+- **Decision:** The scaffolded starter-path welcome is shown only to users with both `interaction_count == 0` AND `mastery_level == "novice"`. Non-novice users with `interaction_count == 0` (e.g. self-reported intermediate who skipped onboarding) receive the progress-first returning-user format with 0/N counts.
+- **Reason:** The first-time welcome is for users who genuinely don't know where to start. A user who self-identified as intermediate during onboarding already has a declared entry point; offering "Explain RAG like I'm 14" is condescending and incongruent. The returning-user format with 0/5 Core progress still communicates "you haven't started yet" without being tone-deaf about their reported expertise level.

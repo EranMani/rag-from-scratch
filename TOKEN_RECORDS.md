@@ -780,6 +780,48 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 45.5 — `rag-prompt-quality` · 2026-05-23 · Nova (Wave H — parallel with 45.6)
+
+> Gate wave: Mira only (Haiku). Viktor skipped (no code logic change — pure string constant rewrite). Sage skipped (no auth/secrets/trust boundary). Quinn skipped (no new code paths).
+> Ryan: full entry (DECISIONS.md updated — prompt engineering decisions logged).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Nova (implementation) | Sonnet | 71,288 | 18 | ✅ under ≤60k | prompt-only rewrite; 5 prompts updated; no logic changed |
+| Mira | Haiku | 25,717 | 0 | **+11k** over ≤15k | PASS; 1 advisory (analogy rule for short answers); 0 tool uses ✅ |
+| Ryan | Haiku | ~22,000 | 2 | over ≤15k | shared invocation with 45.6 (44,719 total split ~50/50); 2 Edit calls |
+| **Total** | | **~118,005** | **20** | over ≤75k | no gate cycle; Nova clean pass; Mira 0 tool uses (inline context) |
+
+**Notes:**
+- Nova: 71,288 tokens / 18 tool uses. Clean two-phase discipline. Prompt-only change — no test failures possible (test suite checks structural invariants, not literal content).
+- Mira 0 tool uses: full diff + context passed inline. Correct reviewer pattern.
+- Mira advisory: analogy rule ("MUST open every answer") mandatory even for single-sentence replies — could feel forced. Accepted as-is; Novice users benefit from consistent analogy anchoring; monitor for complaints.
+- Viktor/Sage/Quinn correctly skipped per spec: no code logic, no auth surface, no new code paths.
+
+---
+
+## Commit 45.6 — `welcome-message-ux` · 2026-05-23 · Aria (Wave H — parallel with 45.5)
+
+> Gate wave: Sage + Mira (Haiku). Viktor skipped (no code logic beyond string building). Quinn skipped (string-building function; behavior verified by reading output, not unit test).
+> Ryan: full entry (DECISIONS.md updated).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Aria (implementation) | Sonnet | 60,007 | 15 | ✅ at target | _build_welcome_message() rewrite; progress computation added |
+| Sage | Haiku | 28,066 | 0 | **+13k** over ≤15k | PASS — no XSS, injection, or disclosure; display_name in markdown not html; 0 tool uses ✅ |
+| Mira | Haiku | 25,629 | 0 | **+11k** over ≤15k | PASS; 1 concern (progress line lacks phase meaning context); non-blocking; 0 tool uses ✅ |
+| Ryan | Haiku | ~22,719 | 2 | over ≤15k | shared invocation with 45.5 (44,719 total split ~50/50); 2 Edit calls |
+| **Total** | | **~136,421** | **17** | over ≤90k | Sage triggered (user data rendered); no gate cycles |
+
+**Notes:**
+- Aria: 60,007 tokens / 15 tool uses. At target. Clean pass.
+- Sage 0 tool uses + PASS: full function code passed inline; no reads needed. Ideal reviewer pattern.
+- Mira concern: `Foundations 0/2 · Core 0/5` shows structure but users may not intuit phase semantics on first return. Non-blocking — "Last time you worked on {topic}" line is the concrete anchor; progress tally is secondary context.
+- Aria scope note: `_PROGRESS_PHASES` includes `langchain_fundamentals` in Core (5 slugs per spec); slug is in data model and will show 0 until scored — display shows `Core 0/5`, which is accurate.
+- Viktor/Quinn correctly skipped per spec.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -827,6 +869,9 @@ No token data recorded. Tracking began at Commit 10.
 | 45.2 | open-question-delivery | 173,047 | Viktor+Quinn+Ryan (Haiku) | **over** | Nova 68k (27 uses, +2 over cap); Viktor 34k (1 use ✅); Quinn 34k (0 uses ✅); Ryan 36k (one-liner) |
 | 45.3 | question-type-balance | 153,894 | Viktor+Quinn+Ryan (Haiku) | **over** | Nova 49k (23 uses ✅); Viktor 34k (0 uses ✅ PASS); Quinn 35k (2 uses ✅ ADEQUATE); Ryan 36k (2 uses ✅); Sage/Mira skipped (gate triage) |
 | 45.4 | question-difficulty-degradation | 149,332 | Viktor (Haiku, HARD BLOCK) | **over** | Nova 69k (26 uses, cap hit); Viktor 36k (1 use ✅); Ryan 44k (7 uses); Sage/Quinn/Mira skipped (gate triage) |
+| 45.4.1 | is-mcq-fix | ~0 | none | ✅ ~0 | Direct Edit by Team Lead (no agents); single-line fix to step 2 return dict |
+| 45.5 | rag-prompt-quality | ~118,005 | Mira only (Haiku) | over ≤75k | Nova ✅ (71k · 18 uses); Mira 26k (0 uses ✅); Ryan ~22k (shared invocation); Viktor/Sage/Quinn skipped |
+| 45.6 | welcome-message-ux | ~136,421 | Sage+Mira (Haiku) | over ≤90k | Aria ✅ (60k · 15 uses); Sage 28k (0 uses ✅); Mira 26k (0 uses ✅); Ryan ~23k (shared invocation); Viktor/Quinn skipped |
 
 ---
 
