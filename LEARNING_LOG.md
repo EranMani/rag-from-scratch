@@ -1501,3 +1501,9 @@ Question banks represent significant authoring effort and real pedagogical value
 ## Commit 48 — `document-ingestion-questions` · RAG Specialist · 2026-05-23 · `content`
 
 > **In one sentence:** Added the full question bank for the `document_ingestion` Phase 2 topic — 20 MCQs across novice/intermediate/advanced/expert tiers and 22 open-ended questions with rubrics, covering document loaders, parsing failure modes, encoding handling (mojibake, BOM markers), metadata extraction, and format-specific gotchas (multi-column PDFs, JavaScript-rendered HTML, DOCX embedded objects).
+
+---
+
+## Commit 49 — `langgraph-curriculum` · Claude (direct Edit) · 2026-05-23 · `curriculum design`
+
+Added `langgraph_fundamentals` as a Phase 3 topic in `curriculum-map.md` and `gates.md`; topic is concepts-only (directed graphs, state flow, conditional routing, graph compilation, checkpointing) — the conceptual architecture behind the adaptive system itself. Phase 3 gate now requires 3 topics at ≥0.75. `topic-slugs.json` updated from 8 to 9 slugs. C49.1 follows to register the slug in src/.

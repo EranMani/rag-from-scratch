@@ -57,3 +57,4 @@
 - **C46** mastery-matched-routing — `_DIFFICULTY_FALLBACK` fallback chain filters MCQ pool by `user_level`; lower-tier-before-higher preserves pedagogic intent when target tier is absent; `None` mastery falls through to unrestricted (*full entry*)
 - **C47** curriculum-restructure — `document_ingestion` replaces `langchain_fundamentals` in Phase 2; LangChain archived (concept-first identity constraint); C47.1 (Nova) updates src/ slug registries (*full entry*)
 - **C48** document-ingestion-questions — 20 MCQs + 22 open-ended questions for document_ingestion Phase 2 topic; covers loaders, parsing failures, encoding, metadata, format gotchas.
+- **C49** langgraph-curriculum — `langgraph_fundamentals` added as Phase 3 concepts-only topic; Phase 3 gate updated to 3 required topics (≥0.75 each); topic-slugs.json grows to 9 slugs; C49.1 follows to register slug in src/.

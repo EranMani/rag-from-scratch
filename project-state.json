@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (C48 document-ingestion-questions done; next: 49 langgraph-curriculum)",
+  "last_updated": "2026-05-23 (C49 langgraph-curriculum done; next: 49.1 slug-add-langgraph)",
   "status": "active",
   "current_commit": {
-    "number": "49",
-    "name": "langgraph-curriculum",
+    "number": "49.1",
+    "name": "slug-add-langgraph",
     "status": "pending",
-    "assignee": "curriculum-specialist"
+    "assignee": "ai-engineer"
   },
   "commits_done": [
     "01",
@@ -67,10 +67,11 @@
     "46",
     "47",
     "47.1",
-    "48"
+    "48",
+    "49"
   ],
   "commits_pending": [
-    "49",
+    "49.1",
     "50",
     "51",
     "52",
@@ -79,7 +80,7 @@
     "55",
     "56"
   ],
-  "next_commit": "49",
+  "next_commit": "49.1",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

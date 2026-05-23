@@ -4,7 +4,7 @@
 > Quality signal: tests pass · no Viktor hard blocks · learning log entry written.
 >
 > Companion file: TOKEN_OPTIMIZATION.md — the methods behind the numbers.
-> Last updated: 2026-05-20 (Commit 41 gate wave)
+> Last updated: 2026-05-23 (Commit 49)
 
 ---
 
@@ -883,6 +883,36 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 48 — `document-ingestion-questions` · 2026-05-23 · RAG Specialist
+
+> Gate wave: zero — pure Markdown question bank in knowledge-base/ only (no logic, no auth, no user data, no src/ files).
+> Ryan: one-liner written directly by Claude (no Ryan agent invocation).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| RAG Specialist | Sonnet | 49,547 | 8 | ✅ under ≤60k | 20 MCQs + 22 open-ended questions; clean single pass |
+| **Total** | | **49,547** | **8** | ✅ well under ≤75k | knowledge-base content only; zero gate wave |
+
+---
+
+## Commit 49 — `langgraph-curriculum` · 2026-05-23 · Claude (direct Edit)
+
+> Gate wave: zero — pure Markdown edits in knowledge-base/ only (no logic, no auth, no user data, no src/ files).
+> Implementation: Claude direct Edit calls (exact file + insertion point + content known from spec). No Lara subagent invoked.
+> Ryan: one-liner written directly by Claude (~0 tokens).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Claude (impl, direct Edits) | — | ~0 | — | ✅ ~0 | 7 Edit calls across 4 files; no subagent spawn |
+| **Total** | | **~0** | — | ✅ ~0 | lowest-cost commit; direct Edit approach; zero gate wave |
+
+**Notes:**
+- No Lara invocation: exact insertions were derivable from the spec + reading both files (~1k orchestrator tokens). Saved ~15–25k vs. Lara Sonnet subagent overhead.
+- 4 files touched (curriculum-map.md, gates.md, topic-slugs.json, plus Last updated headers): knowledge-base/ only.
+- Scope note: `topic-slugs.json` updated (9 slugs) — implied by spec but not listed in "Files touched." Adding `langgraph_fundamentals` to `VALID_MODULE_SLUGS` and `_ORDERED_SLUGS` in src/ is a follow-on (C49.1, analogous to C47.1).
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -937,6 +967,7 @@ No token data recorded. Tracking began at Commit 10.
 | 47 | curriculum-restructure | 112,790 | zero gates | over ≤75k | Lara 67k (21 uses); Ryan 45k (cap hit, 7 uses); orchestrator direct Edits (~0); no gate wave |
 | 47.1 | slug-swap-document-ingestion | ~34k | Viktor only (Haiku) | ✅ well under ≤75k | orchestrator direct Edits (~0 impl tokens); Viktor 33,694 (0 uses ✅ PASS WITH COMMENTS) |
 | 48 | document-ingestion-questions | 49,547 | zero gates (content-only) | ✅ well under ≤60k | RAG Specialist ✅ (49,547 · 8 uses); no gate wave (pure markdown, no code, no auth surface) |
+| 49 | langgraph-curriculum | ~0 | zero gates (content-only) | ✅ ~0 | Claude direct Edits only; 4 files (curriculum-map.md, gates.md, topic-slugs.json); no gate wave |
 
 ---
 

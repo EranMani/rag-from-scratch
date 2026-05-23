@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 47 · 2026-05-23*
+*Last updated: Commit 49 · 2026-05-23*
 
-**Last completed:** Commit 47 `curriculum-restructure` (complete)
+**Last completed:** Commit 49 `langgraph-curriculum` (complete — applied directly by Claude/orchestrator)
 **Currently active:** none
 **Blocked by:** none
 
@@ -21,19 +21,15 @@
   `rag_pipeline_architecture` MCQ files can source onboarding diagnostics (3 questions each,
   mixed difficulty). Onboarding questions are read-only references — do not modify MCQ banks
   for onboarding.
-- Nova (Commit 47.1 `src-slug-swap`): `langchain_fundamentals` has been REMOVED from the
-  active Phase 2 curriculum and replaced with `document_ingestion`. Nova must update three
-  files in src/ to reflect this:
-  (1) `VALID_MODULE_SLUGS` in `src/agents/state.py` — replace `"langchain_fundamentals"` with
-      `"document_ingestion"`
-  (2) `PHASE_2_TOPICS` in `src/app/profile/scoring.py` — replace `"langchain_fundamentals"` with
-      `"document_ingestion"`
-  (3) `_ORDERED_SLUGS` in `src/agents/nodes/assess.py` — replace `"langchain_fundamentals"` with
-      `"document_ingestion"` (preserving its position: after `context_and_prompting`, before the
-      Phase 3 slugs).
-  The curriculum-map.md `document_ingestion` entry is complete. topic-slugs.json already
-  contains `"document_ingestion"` (not `"langchain_fundamentals"`). The old langchain question
-  files are archived at `knowledge-base/curriculum/questions/archive/`.
+- Nova (Commit 47.1 `src-slug-swap`): DONE. `document_ingestion` replaces
+  `langchain_fundamentals` in all three src/ registries.
+- Nova (Commit 49.1 `slug-add-langgraph`): `langgraph_fundamentals` has been ADDED as a
+  Phase 3 topic. Nova must register it in src/:
+  (1) `VALID_MODULE_SLUGS` in `src/agents/state.py` — add `"langgraph_fundamentals"`
+  (2) `_ORDERED_SLUGS` in `src/agents/nodes/assess.py` — add `"langgraph_fundamentals"` after
+      `"production_patterns"` (Phase 3, last position)
+  `topic-slugs.json` already contains the new slug (position 9). No changes needed to
+  `PHASE_2_TOPICS` in scoring.py — this is a Phase 3 topic.
 
 **Open Handoffs — Inbound:**
 - (none)
