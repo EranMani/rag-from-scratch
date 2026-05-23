@@ -936,6 +936,7 @@ No token data recorded. Tracking began at Commit 10.
 | 46 | mastery-matched-routing | 86,766 (excl. Ryan) | Viktor only (Haiku) | over ≤75k | Nova 52k (27 uses, +2 over cap); Viktor 35k (1 use ✅ PASS WITH COMMENTS); Sage/Quinn/Mira skipped; orchestrator fixed 2 test patches (no agent) |
 | 47 | curriculum-restructure | 112,790 | zero gates | over ≤75k | Lara 67k (21 uses); Ryan 45k (cap hit, 7 uses); orchestrator direct Edits (~0); no gate wave |
 | 47.1 | slug-swap-document-ingestion | ~34k | Viktor only (Haiku) | ✅ well under ≤75k | orchestrator direct Edits (~0 impl tokens); Viktor 33,694 (0 uses ✅ PASS WITH COMMENTS) |
+| 48 | document-ingestion-questions | 49,547 | zero gates (content-only) | ✅ well under ≤60k | RAG Specialist ✅ (49,547 · 8 uses); no gate wave (pure markdown, no code, no auth surface) |
 
 ---
 

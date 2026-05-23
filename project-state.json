@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (C47.1 slug-swap-document-ingestion done; next: 48 document-ingestion-questions)",
+  "last_updated": "2026-05-23 (C48 document-ingestion-questions done; next: 49 langgraph-curriculum)",
   "status": "active",
   "current_commit": {
-    "number": "48",
-    "name": "document-ingestion-questions",
+    "number": "49",
+    "name": "langgraph-curriculum",
     "status": "pending",
-    "assignee": "rag-specialist"
+    "assignee": "curriculum-specialist"
   },
   "commits_done": [
     "01",
@@ -66,10 +66,10 @@
     "45.6",
     "46",
     "47",
-    "47.1"
+    "47.1",
+    "48"
   ],
   "commits_pending": [
-    "48",
     "49",
     "50",
     "51",
@@ -79,7 +79,7 @@
     "55",
     "56"
   ],
-  "next_commit": "48",
+  "next_commit": "49",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

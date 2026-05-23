@@ -1495,3 +1495,9 @@ Question banks represent significant authoring effort and real pedagogical value
 - `knowledge-base/curriculum/topic-slugs.json` — slug replaced at position 7
 - `knowledge-base/curriculum/questions/archive/langchain_fundamentals.md` (new)
 - `knowledge-base/curriculum/questions/archive/mcq/langchain_fundamentals.md` (new)
+
+---
+
+## Commit 48 — `document-ingestion-questions` · RAG Specialist · 2026-05-23 · `content`
+
+> **In one sentence:** Added the full question bank for the `document_ingestion` Phase 2 topic — 20 MCQs across novice/intermediate/advanced/expert tiers and 22 open-ended questions with rubrics, covering document loaders, parsing failure modes, encoding handling (mojibake, BOM markers), metadata extraction, and format-specific gotchas (multi-column PDFs, JavaScript-rendered HTML, DOCX embedded objects).

@@ -68,7 +68,7 @@
 | 46 | mastery-matched-routing | ai-engineer | done |
 | 47 | curriculum-restructure | curriculum-specialist | done |
 | 47.1 | slug-swap-document-ingestion | ai-engineer | done |
-| 48 | document-ingestion-questions | rag-specialist | pending |
+| 48 | document-ingestion-questions | rag-specialist | ✅ done · 2026-05-23 |
 | 49 | langgraph-curriculum | curriculum-specialist | pending |
 | 50 | langgraph-questions | rag-specialist | pending |
 | 51 | bank-expansion | rag-specialist | pending |
