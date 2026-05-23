@@ -1899,4 +1899,20 @@ The commit plan has been updated. Here is what changed for you (3 new Nova commi
 
 **What changed in your sequence:** integration-tests moves from Commit 41 → **Commit 48**
 
+## 📋 Replan Notice — 2026-05-23
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was added:** Commit 45.5 `rag-prompt-quality` — assigned to you (Nova)
+
+**What it requires (`src/agents/prompts/rag.py` only):**
+1. Add explicit persona statement to `_NOVICE_SYSTEM` (before COMPREHENSION LEVEL): one sentence anchoring tone — e.g. "You are an enthusiastic and patient tutor — you never sound like a manual or a search engine."
+2. Harden the analogy rule in `_NOVICE_SYSTEM` HOW TO EXPLAIN: change "Lead with a real-world everyday analogy BEFORE" → "You MUST open every answer with a real-world analogy. Do this even for short answers."
+3. Rewrite RESPONSE FORMAT block in ALL 5 prompts (`_DEFAULT_SYSTEM`, `_NOVICE_SYSTEM`, `_INTERMEDIATE_SYSTEM`, `_ADVANCED_SYSTEM`, `_EXPERT_SYSTEM`): flip from permissive "only if" to a prescriptive floor — every response bolds its first technical term; responses >3 sentences use at least one structural element; single-sentence answers may use plain prose.
+Hard limit: touch ONLY `src/agents/prompts/rag.py`. No graph, no nodes, no state. INTENT CLASSIFICATION cases unchanged. `{context}` variable unchanged.
+
+**What was removed:** nothing
+
+**What changed in your sequence:** your next commit is still 45.4.1 (`is-mcq-fix`). Commit 45.5 follows it. Commit 45.5 can run in parallel with Commit 45.6 (`welcome-message-ux`, assigned to Aria) — Wave H.
+
 **Your next commit is now: Commit 39 `scoring-correctness`** (co-owned with Rex; your piece is one line in assess.py)

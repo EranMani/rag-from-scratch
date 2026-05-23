@@ -64,6 +64,8 @@
   ],
   "commits_pending": [
     "45.4.1",
+    "45.5",
+    "45.6",
     "46",
     "47",
     "48",
@@ -135,6 +137,11 @@
     }
   },
   "parallel_groups_available": [
+    {
+      "wave": "H",
+      "commits": ["45.5", "45.6"],
+      "note": "rag-prompt-quality (Nova, rag.py) vs welcome-message-ux (Aria, ui.py) — no shared files"
+    },
     {
       "wave": "A",
       "commits": [
@@ -224,6 +231,17 @@
       "new_agent": "RAG Specialist — practitioner-depth content author; owns knowledge-base/curriculum/questions/ depth; never touches src/ or Lara's structure files",
       "parallel_waves_added": "Wave F: 39 ∥ 40 (scoring fixes ∥ LangChain curriculum); Wave G: 44 ∥ 45 (phase unlock UI ∥ RAG Specialist content)",
       "approved_by": "Team Lead · 2026-05-20"
+    },
+    {
+      "date": "2026-05-23",
+      "trigger": "Requirement changed — Team Lead registered as first-time Novice user and identified 4 UX gaps via Mira + Nova consultation: cold first-time welcome, under-personalized welcome back, weak novice persona tone, inconsistent markdown formatting.",
+      "commits_added": ["45.5 rag-prompt-quality", "45.6 welcome-message-ux"],
+      "commits_reordered": [],
+      "commits_removed": [],
+      "new_agent": "none — Nova and Aria already active",
+      "key_decisions": "45.5 and 45.6 are parallel-eligible (different files: rag.py vs ui.py) — Wave H. Both insert before infra phase (46). Nova diagnosed no code bug in user_level routing — root cause is prompt quality only.",
+      "consulted": "Mira (product review) + Nova (technical diagnosis). Both consulted before replan drafted.",
+      "approved_by": "Team Lead · 2026-05-23"
     },
     {
       "date": "2026-05-20",

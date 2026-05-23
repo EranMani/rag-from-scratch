@@ -1072,4 +1072,21 @@ The commit plan has been updated. Here is what changed for you:
 
 **What changed in your sequence:** all prior Aria commits (37, 38, 38.5) are done. Commit 44 runs in parallel with Commit 45 (RAG Specialist content — different domain, no conflict). Depends on Nova's Commit 43.
 
+## 📋 Replan Notice — 2026-05-23
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was added:** Commit 45.6 `welcome-message-ux` — assigned to you (Aria)
+
+**What it requires (`src/app/ui.py` — `_build_welcome_message()` only):**
+1. First-time Novice (interaction_count == 0, mastery_level == "novice"): replace current 2-line message with a scaffolded entry — warm 1-sentence app description + 3–4 concrete starter paths the user can copy-paste (span different entry points: total beginner, ML-aware, builder mindset).
+2. Returning user (interaction_count > 0): replace current single-gap message with a progress-first structure — phase completion summary (computed from topic_scores ≥ 0.70 vs phase totals), last active topic (from gaps/strengths), then one concrete next step.
+3. No-profile fallback (lines 122–126): leave unchanged.
+Function signature unchanged: `(display_name: str | None, profile: dict | None) -> str`. Returns markdown string — rendered by `ui.markdown()`, NOT `ui.html()`. No new API calls. No new NiceGUI components.
+Phase data already in ui.py: `_PHASE_TOPICS`, `_PHASE_LABELS`, `_MODULE_LABELS`, `_TOPIC_STARTER`.
+
+**What was removed:** nothing
+
+**What changed in your sequence:** your next Aria commit after 45.4.1 resolves is now 45.6. It can run in parallel with Commit 45.5 (`rag-prompt-quality`, assigned to Nova) — Wave H, different files.
+
 **Your next commit is now: Commit 44 `phase-unlock-ui`** (after Nova's Commit 43 `phase-unlock-agent` is complete)

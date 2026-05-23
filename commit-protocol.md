@@ -63,6 +63,8 @@
 | 45.3 | question-type-balance | ai-engineer | ✅ done · 2026-05-22 |
 | 45.4 | question-difficulty-degradation | ai-engineer | ✅ done · 2026-05-23 |
 | 45.4.1 | is-mcq-fix | ai-engineer | pending |
+| 45.5 | rag-prompt-quality | ai-engineer | pending |
+| 45.6 | welcome-message-ux | frontend | pending |
 | 46 | nginx-config | devops | pending |
 | 47 | aws-ec2-deployment | devops | pending |
 | 48 | integration-tests | backend + ai-engineer | pending |
@@ -80,6 +82,7 @@ Wave D (Progression): 33 ∥ 34      — knowledge-base only (Lara) vs AI layer 
 Wave E (Progression): 35 ∥ 36      — both depend on 34; 35 also needs 33
 Wave F (Scoring):     39 ∥ 40      — scoring fixes (Rex+Nova) vs LangChain curriculum (Lara), no shared files
 Wave G (Content):     44 ∥ 45      — phase unlock UI (Aria) vs RAG Specialist content (Lara+Specialist), no shared files
+Wave H (UX Quality):  45.5 ∥ 45.6 — rag-prompt-quality (Nova, rag.py) vs welcome-message-ux (Aria, ui.py), no shared files
 ```
 
 ---
