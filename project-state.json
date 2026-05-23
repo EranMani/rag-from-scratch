@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (C49 langgraph-curriculum done; next: 49.1 slug-add-langgraph)",
+  "last_updated": "2026-05-23 (C49.1 slug-add-langgraph done; next: 50 langgraph-questions)",
   "status": "active",
   "current_commit": {
-    "number": "49.1",
-    "name": "slug-add-langgraph",
+    "number": "50",
+    "name": "langgraph-questions",
     "status": "pending",
-    "assignee": "ai-engineer"
+    "assignee": "rag-specialist"
   },
   "commits_done": [
     "01",
@@ -68,10 +68,10 @@
     "47",
     "47.1",
     "48",
-    "49"
+    "49",
+    "49.1"
   ],
   "commits_pending": [
-    "49.1",
     "50",
     "51",
     "52",
@@ -80,7 +80,7 @@
     "55",
     "56"
   ],
-  "next_commit": "49.1",
+  "next_commit": "50",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
