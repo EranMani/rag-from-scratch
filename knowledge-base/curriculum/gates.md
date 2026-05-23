@@ -1,7 +1,7 @@
 # Phase Gates — RAG Curriculum
 # Project: rag-from-scratch
 # Maintained by: Lara (RAG Curriculum Specialist)
-# Last updated: 2026-05-23 (Commit 47)
+# Last updated: 2026-05-23 (Commit 49)
 
 ---
 
@@ -92,15 +92,15 @@ If individual thresholds pass but mean fails, the learner receives a mixed remed
 session drawing from all Phase 2 topics, weighted by distance from 0.75.
 
 **Hard gate enforcement:**
-Phase 3 topics (`evaluation_and_metrics`, `production_patterns`) are not accessible
-until `phase_2_passed = true`. Additionally, `document_ingestion` (a Phase 2 topic)
-is not accessible until `phase_1_passed = true`.
+Phase 3 topics (`evaluation_and_metrics`, `production_patterns`, `langgraph_fundamentals`)
+are not accessible until `phase_2_passed = true`. Additionally, `document_ingestion`
+(a Phase 2 topic) is not accessible until `phase_1_passed = true`.
 
 ---
 
 ### Phase 3 Gate (Curriculum Completion)
 
-**Topics required:** `evaluation_and_metrics`, `production_patterns`
+**Topics required:** `evaluation_and_metrics`, `production_patterns`, `langgraph_fundamentals`
 
 **Advancement threshold:** Each topic must reach a minimum score of **0.75**.
 
@@ -109,6 +109,7 @@ is not accessible until `phase_1_passed = true`.
 phase_3_passed = (
     score["evaluation_and_metrics"] >= 0.75
     AND score["production_patterns"] >= 0.75
+    AND score["langgraph_fundamentals"] >= 0.75
 )
 ```
 
@@ -183,7 +184,7 @@ being "skipped" from accidentally passing a gate.
       "mean_minimum": 0.75
     },
     "phase_3": {
-      "required_topics": ["evaluation_and_metrics", "production_patterns"],
+      "required_topics": ["evaluation_and_metrics", "production_patterns", "langgraph_fundamentals"],
       "per_topic_minimum": 0.75,
       "mean_minimum": null
     }

@@ -1,7 +1,7 @@
 # RAG Curriculum Map
 # Project: rag-from-scratch
 # Maintained by: Lara (RAG Curriculum Specialist)
-# Last updated: 2026-05-23 (Commit 47)
+# Last updated: 2026-05-23 (Commit 49)
 
 ---
 
@@ -28,7 +28,8 @@ Phase 2 — Core Components
       ↓ Phase 2 Gate
 Phase 3 — Production
   ├── evaluation_and_metrics       (entry: Phase 2 gate)
-  └── production_patterns          (entry: Phase 2 gate)
+  ├── production_patterns          (entry: Phase 2 gate)
+  └── langgraph_fundamentals       (entry: Phase 2 gate)
       ↓ Phase 3 Gate (curriculum complete)
 ```
 
@@ -289,6 +290,42 @@ for building any real RAG system.
 
 ## Phase 3 — Production
 
+### Topic: `langgraph_fundamentals`
+
+**Phase:** 3
+**Description:** Understand graph-based agent architectures — what a directed graph is in
+computation, how state flows between nodes, how conditional routing enables branching behavior,
+and why graph compilation is necessary before execution. This is the conceptual layer behind
+adaptive RAG systems, including this one.
+
+**Prerequisites:**
+- Phase 2 gate passed (requires solid understanding of RAG components before learning how
+  to orchestrate them as an agent)
+
+**Learning Objectives:**
+1. Explain what a directed graph is in computation and how nodes and edges map to agent behavior.
+2. Describe what "state" means in a graph agent — what it carries, how it is updated at each
+   node, and why it flows rather than being mutated globally.
+3. Explain conditional routing: how a graph edge can branch on state values and what this
+   enables that a sequential chain cannot do.
+4. Describe graph compilation: what it produces, why the graph must be compiled before running,
+   and what happens at compile time.
+5. Explain checkpointing: how state is persisted across turns in a multi-turn agent and why
+   this enables conversation memory without manual state management.
+
+**Typical Misconceptions:**
+- "A LangGraph graph is just a more complicated chain." (A graph adds state, branching, cycles,
+  and persistence — it is a different execution model, not a stylistic choice.)
+- "Conditional routing requires writing if-statements in each node." (Routing logic lives on
+  the edges — nodes are pure state transformers; edges decide where to go next based on state.)
+- "Graph compilation is just syntax checking." (Compilation validates the graph topology,
+  resolves edge conditions, and produces an execution plan — it is semantically meaningful,
+  not just validation.)
+- "Checkpointing is the same as caching." (Checkpointing persists intermediate state at each
+  node for resumability and multi-turn memory — cache stores results to avoid recomputation.)
+
+---
+
 ### Topic: `evaluation_and_metrics`
 
 **Phase:** 3
@@ -374,3 +411,4 @@ modes at scale.
 | `document_ingestion` | 2 | Core | Format parsing, metadata, encoding, structure |
 | `evaluation_and_metrics` | 3 | Production | RAGAS, faithfulness, precision, recall |
 | `production_patterns` | 3 | Production | Caching, async, observability, cost |
+| `langgraph_fundamentals` | 3 | Production | Graph agents, state flow, routing, compilation |
