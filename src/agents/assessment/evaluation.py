@@ -180,6 +180,7 @@ async def evaluate_answer(state: AgentState) -> dict[str, Any]:
                 return {
                     "pending_test_question": simplified,
                     "question_simplified": True,
+                    "is_mcq": False,
                     "messages": [AIMessage(content=(
                         "Let me rephrase that question at a simpler level:\n\n" + simplified
                     ))],

@@ -167,6 +167,28 @@ class TestGate3SimplificationPath:
         assert messages, "Step 2 must add a guidance message"
         assert isinstance(messages[0], AIMessage)
 
+    @pytest.mark.asyncio
+    async def test_step2_clears_is_mcq_flag(self) -> None:
+        """Step 2 must set is_mcq=False; LangGraph partial merge keeps prior is_mcq=True otherwise."""
+        from agents.assessment.node import assess_node
+
+        state = _pending_state(
+            question_simplified=False,
+            is_mcq=True,
+            pending_mcq_correct_answer="B",
+        )
+
+        with patch(
+            "agents.assessment.evaluation._simplify_question",
+            new=AsyncMock(return_value="What does a number list represent for text?"),
+        ):
+            result = await assess_node(state)  # type: ignore[arg-type]
+
+        assert result.get("is_mcq") is False, (
+            "Step 2 must set is_mcq=False so the user's next answer routes to the "
+            "LLM evaluator, not the MCQ evaluator"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Gate 4 — Step 3: second difficulty signal → doc reveal (RAG) path
