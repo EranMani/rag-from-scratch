@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (Commit 45.4 question-difficulty-degradation done — pending Team Lead approval; C45.4.1 is-mcq-fix queued next)",
+  "last_updated": "2026-05-23 (Commit 45.4.1 is-mcq-fix done — fix committed directly by EranMani; Wave H next: 45.5 rag-prompt-quality ∥ 45.6 welcome-message-ux)",
   "status": "active",
   "current_commit": {
-    "number": "45.4.1",
-    "name": "is-mcq-fix",
+    "number": "45.5",
+    "name": "rag-prompt-quality",
     "status": "pending",
     "assignee": "ai-engineer"
   },
@@ -60,10 +60,10 @@
     "45.1",
     "45.2",
     "45.3",
-    "45.4"
+    "45.4",
+    "45.4.1"
   ],
   "commits_pending": [
-    "45.4.1",
     "45.5",
     "45.6",
     "46",
@@ -71,7 +71,7 @@
     "48",
     "49"
   ],
-  "next_commit": "45.4.1",
+  "next_commit": "45.5",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
