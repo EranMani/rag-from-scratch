@@ -406,6 +406,131 @@ problem, and what the corrective actions are.
 
 ---
 
+## Q12 — What a vector database stores
+
+**Difficulty:** novice
+
+**Question:**
+What does a vector database store? Name the two types of data that every record in a
+vector database contains.
+
+**Correct answer criteria:**
+- A vector database stores embedding vectors — high-dimensional numerical representations
+  of documents, chunks, or other content
+- Each record contains: (1) the embedding vector itself (an array of floating-point numbers
+  produced by an embedding model), and (2) metadata — additional fields associated with
+  that vector such as the original text, document ID, source URL, timestamp, or category
+- The metadata allows filtered search (e.g., retrieve only chunks from documents in a
+  specific category) and allows the system to return the original text to the LLM without
+  needing a separate document store
+
+**Partial credit criteria:**
+- Correctly identifies that vectors are stored but cannot explain what metadata is or why
+  it is stored alongside the vector
+- Identifies both types of data but cannot explain what an embedding vector is
+
+**Incorrect / no-credit criteria:**
+- Describes a vector database as storing raw text documents (not vectors)
+- Claims vector databases store only the vector with no associated data
+- Confuses a vector database with a relational database that has numeric columns
+
+---
+
+## Q13 — What indexing means in a vector database
+
+**Difficulty:** novice
+
+**Question:**
+What does "indexing" mean in the context of a vector database? Why is an index needed
+rather than simply storing vectors in a list?
+
+**Correct answer criteria:**
+- Indexing means building a data structure over the stored vectors that makes similarity
+  search fast at query time
+- Without an index, finding the most similar vector to a query requires comparing the query
+  against every stored vector — this is exact nearest neighbor search with O(N) cost per
+  query. At millions of vectors, this is too slow for real-time use
+- The index (such as HNSW or IVF) organizes vectors so the search can skip most of the
+  vector space and find approximate nearest neighbors in far fewer comparisons
+
+**Partial credit criteria:**
+- Correctly explains that indexing makes search faster but cannot describe why a list
+  would be too slow
+- Explains the O(N) problem but cannot name or describe any index structure
+
+**Incorrect / no-credit criteria:**
+- Describes indexing as the process of uploading or storing vectors (confuses write and
+  index operations)
+- Claims a list is equally fast to an index for similarity search
+- Cannot explain what similarity search is
+
+---
+
+## Q14 — What approximate nearest neighbor means
+
+**Difficulty:** novice
+
+**Question:**
+A vector database uses approximate nearest neighbor (ANN) search rather than exact nearest
+neighbor search. What does "approximate" mean in this context, and what is the tradeoff
+being made?
+
+**Correct answer criteria:**
+- Approximate nearest neighbor search returns vectors that are very close to the query
+  vector — but does not guarantee returning the single closest vector. The true nearest
+  neighbor may occasionally not be in the result set
+- The tradeoff: ANN trades a small chance of missing the absolute closest match for a
+  dramatic reduction in search time. It can search millions of vectors in milliseconds
+  instead of seconds
+- In practice, for RAG retrieval, the loss is acceptable: retrieving the 2nd or 3rd
+  most similar chunk instead of the 1st rarely produces a meaningfully different answer
+
+**Partial credit criteria:**
+- Correctly explains that ANN may not return the exact nearest neighbor but cannot describe
+  why this tradeoff is made
+- Correctly describes the speed benefit but cannot explain what "approximate" means in
+  terms of result accuracy
+
+**Incorrect / no-credit criteria:**
+- Claims ANN always returns the same results as exact search
+- Describes ANN as simply "less accurate" without explaining the speed benefit
+- Cannot identify that ANN may miss the true nearest neighbor
+
+---
+
+## Q15 — When to choose a vector database over a regular database
+
+**Difficulty:** novice
+
+**Question:**
+You are choosing between a relational database (PostgreSQL) and a vector database (Qdrant)
+to store and search 500,000 product descriptions. When would you choose the vector database,
+and when would you stay with the relational database?
+
+**Correct answer criteria:**
+- Choose a vector database when queries are semantic — you want to find descriptions that
+  are conceptually similar to a user's phrasing, even if they share no exact words with the
+  query. For example: "comfortable shoes for long walks" should match "ergonomic footwear
+  for extended use" even though no keywords match
+- Choose a relational database when queries are filter-based — you need to find products
+  by exact category, price range, SKU, or other structured field. These are precise
+  matching conditions, not similarity questions
+- The key distinction: if the query is a structured question with a definite field-match
+  answer, use a relational database. If the query is a natural language question requiring
+  semantic understanding, use a vector database
+
+**Partial credit criteria:**
+- Correctly identifies the semantic vs. filter distinction but gives only one scenario
+- Correctly gives both scenarios but cannot articulate the core reason behind the choice
+
+**Incorrect / no-credit criteria:**
+- Recommends a vector database for all search tasks regardless of query type
+- Believes vector databases can also do efficient structured filtering without a metadata
+  filtering mechanism
+- Cannot identify semantic similarity as the distinguishing use case for a vector database
+
+---
+
 ## Q11 — Zero-downtime migration between vector databases
 
 **Difficulty:** advanced

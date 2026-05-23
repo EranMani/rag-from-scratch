@@ -1,8 +1,8 @@
 # MCQ Bank — embeddings_and_similarity
 # Topic: embeddings_and_similarity
 # Phase: 1 (Foundations)
-# Questions: 10 (2 novice, 3 intermediate, 3 advanced, 2 expert)
-# Last updated: 2026-05-21 (Commit 45)
+# Questions: 15 (5 novice, 5 intermediate, 3 advanced, 2 expert)
+# Last updated: 2026-05-23 (Commit 51)
 
 ---
 
@@ -271,4 +271,163 @@ Several embedding APIs — including some versions of OpenAI's embedding endpoin
 **Why C is wrong:** HNSW indexes do not have a warm-up period during which recall gradually improves after a build. The graph is fully constructed and queryable immediately after the build completes. Recall quality at time-of-completion is the recall quality the index will have until the next incremental insert degrades it. There is no self-healing or stabilization process. This option invents a non-existent HNSW operational characteristic and would cause a team to wait 48 hours before investigating the real cause.
 
 **Why D is wrong:** Neither batch nor single-call embedding is universally higher quality — the two modes produce consistent but slightly different vectors for API-specific reasons that are implementation details, not quality hierarchies. The premise that single-call embeddings are "better" is not established; they are just different. More critically, the claim that the HNSW graph will "self-optimize" over time is false — HNSW graphs do not self-modify after construction. The recall drop will persist indefinitely until the call-mode mismatch is resolved.
+
+---
+
+## MCQ-11 — What an embedding model outputs
+
+**Difficulty:** novice
+**Topic:** embeddings_and_similarity
+
+**Question:**
+You call an embedding API and pass in the sentence "The patient has a fever." What does the API return?
+
+**Options:**
+A. A summary of the sentence in fewer words
+B. A list of keywords extracted from the sentence
+C. A fixed-length array of floating-point numbers
+D. A probability score indicating how common the sentence is in English
+
+**Correct answer:** C
+
+**Explanation:**
+An embedding API converts input text into a dense vector — a fixed-length array of floating-point numbers. The length is determined by the model (e.g., 768 or 1536 dimensions). The numbers encode the text's semantic position in a high-dimensional space. They are not human-readable and do not map to words, summaries, or frequency statistics.
+
+**Why A is wrong:** Summarization produces shorter text, not a numerical representation. An embedding does not reduce the text to fewer words — it transforms the text into a completely different format (a vector) that is not readable as natural language. Developers who conflate embeddings with summarization will not understand why embedding similarity search works.
+
+**Why B is wrong:** Keyword extraction produces a list of tokens or phrases from the original text. Embeddings produce a dense numerical vector that encodes meaning holistically — individual tokens are not separately extractable from the output. This confusion often comes from familiarity with earlier NLP tools like TF-IDF that do produce keyword representations.
+
+**Why D is wrong:** A probability score of sentence frequency would be a scalar, not a vector, and would measure corpus frequency rather than meaning. Embeddings are not statistics about how common text is — they represent semantic position in a learned space where meaning similarity corresponds to geometric closeness.
+
+---
+
+## MCQ-12 — Comparing two embeddings from different models
+
+**Difficulty:** novice
+**Topic:** embeddings_and_similarity
+
+**Question:**
+Document A was embedded using Model X. Document B was embedded using Model Y (a different model). A developer computes cosine similarity between Document A's vector and Document B's vector and gets 0.82. What does this score mean?
+
+**Options:**
+A. The two documents are 82% semantically similar
+B. The score is meaningless — vectors from different embedding models are in different coordinate spaces and cannot be compared
+C. The score is slightly less accurate than comparing vectors from the same model, but still useful
+D. A score of 0.82 indicates that Model X and Model Y learned similar representations for this document pair
+
+**Correct answer:** B
+
+**Explanation:**
+Each embedding model learns its own high-dimensional vector space during training. The axes (dimensions) in Model X's space represent different learned patterns than the axes in Model Y's space. Cosine similarity measures the angle between vectors in the same space; applied across spaces, the resulting number has no geometric meaning. A score of 0.82 across models tells you nothing about document similarity. Both documents must be embedded with the same model to produce comparable vectors.
+
+**Why A is wrong:** The 0.82 score cannot be interpreted as a similarity percentage when vectors are from different models. Cosine similarity is only interpretable when both vectors inhabit the same learned coordinate system. A developer who treats cross-model similarity as meaningful will make incorrect retrieval decisions — and this failure is silent, because the number looks plausible.
+
+**Why C is wrong:** Cross-model comparison is not "slightly less accurate" — it is architecturally invalid. There is no graceful degradation: the geometry of two separate vector spaces bears no relationship to each other. A vector's position in Model X's space says nothing about where a similar concept sits in Model Y's space. This option understates a hard constraint as a soft tradeoff.
+
+**Why D is wrong:** Cosine similarity between two vectors does not measure whether the models that produced them learned similar representations. Evaluating whether two models agree requires comparing them on the same input with a calibrated method, not measuring cross-model vector similarity. The models' representations may be completely orthogonal while still producing a numerically high cosine score by chance.
+
+---
+
+## MCQ-13 — The purpose of vector space geometry
+
+**Difficulty:** novice
+**Topic:** embeddings_and_similarity
+
+**Question:**
+In a text embedding space, the embedding for "cat" is closer to "kitten" than to "automobile." What property of the embedding space produces this relationship?
+
+**Options:**
+A. The embedding model looked up "cat" and "kitten" in a synonym dictionary during training
+B. "Cat" and "kitten" share more letters than "cat" and "automobile"
+C. The model learned that "cat" and "kitten" appear in similar contexts across training data, placing their representations close together in the vector space
+D. Shorter words are always embedded closer together than shorter words are to longer words
+
+**Correct answer:** C
+
+**Explanation:**
+Embedding models are trained on large text corpora using distributional learning — the insight that words appearing in similar contexts (surrounded by similar words and sentences) develop similar vector representations. "Cat" and "kitten" both appear in contexts about pets, fur, meowing, and veterinary care. "Automobile" appears in contexts about roads, engines, and driving. The context similarity pushes "cat" and "kitten" together in the embedding space and apart from "automobile."
+
+**Why A is wrong:** Embedding models do not use external dictionaries. They learn relationships from statistical patterns in text. Two words could be synonyms but appear in very different contexts — in that case, their embeddings may not be close. The geometry is learned from usage, not from lexical definitions.
+
+**Why B is wrong:** Character overlap has no role in how embedding vectors are positioned. "Cat" and "catch" share more letters than "cat" and "kitten," but "kitten" is semantically closer. Embeddings encode meaning, not surface-level orthographic similarity. A developer who conflates spelling similarity with semantic similarity will misunderstand retrieval failures.
+
+**Why D is wrong:** Word length has no systematic effect on embedding distance. Long and short words can be very close in embedding space if they appear in similar contexts (e.g., "use" and "utilize"). Embedding geometry is determined by meaning patterns, not by word length properties.
+
+---
+
+## MCQ-14 — High cosine similarity score interpretation
+
+**Difficulty:** intermediate
+**Topic:** embeddings_and_similarity
+
+**Question:**
+A RAG system returns a document with cosine similarity 0.91 to the query. The LLM's generated answer is still wrong. Which explanation is most architecturally precise?
+
+**Options:**
+A. A cosine similarity of 0.91 guarantees the retrieved document is the most relevant — the failure must be in the LLM generation stage
+B. Cosine similarity measures angular proximity in the embedding space, which is a proxy for semantic similarity. A high score means the document and query are geometrically close, but "geometrically close" does not guarantee the document contains the specific answer the query needs — the document may discuss the same general topic without addressing the precise question
+C. The cosine similarity computation contains floating-point rounding that degrades accuracy above 0.90, so 0.91 scores should be treated as unreliable
+D. A 0.91 score indicates the document was retrieved from a stale index — fresh re-indexing would return a different top result
+
+**Correct answer:** B
+
+**Explanation:**
+Cosine similarity measures directional proximity in an embedding space. Two texts can be geometrically close — discussing the same topic, using the same vocabulary — without one containing a specific answer to the other. A question about "how to reset a router password" and a document about "router security best practices" may embed near each other (both are about routers and security), but the document may never address the password reset procedure. High cosine similarity is a necessary but not sufficient condition for answering a query.
+
+**Why A is wrong:** Cosine similarity being high does not guarantee the document contains the answer. The score reflects topical proximity in embedding space, not content completeness. This option conflates "the retriever did its job well" with "the retrieved document answers the question" — two distinct conditions. A high retrieval score followed by a wrong answer can indicate a retrieval granularity mismatch or a coverage gap in the corpus.
+
+**Why C is wrong:** Floating-point rounding in cosine similarity does not degrade accuracy above any threshold. The calculation is numerically stable for values in [0, 1]. There is no known threshold above which cosine similarity scores become unreliable due to floating-point precision. This option invents a non-existent technical limitation.
+
+**Why D is wrong:** Index staleness would cause the retriever to miss recently added documents or return outdated ones, but it does not manifest as a high similarity score for the wrong document. A 0.91 score for a returned document means that document is genuinely close to the query in the current index's embedding space — freshness does not change the geometric relationship between query and document vectors.
+
+---
+
+## MCQ-15 — Magnitude and cosine similarity
+
+**Difficulty:** intermediate
+**Topic:** embeddings_and_similarity
+
+**Question:**
+An embedding model produces vectors where longer input texts tend to have higher L2 norms (larger magnitudes). A developer uses dot product (not cosine similarity) as the similarity metric in the vector database. What retrieval bias will this introduce?
+
+**Options:**
+A. No bias — dot product and cosine similarity always produce the same ranking for any set of vectors
+B. Long document chunks will score higher than short chunks for any query, even when the short chunks are more semantically relevant, because the dot product is sensitive to vector magnitude
+C. Short document chunks will score higher because the model normalizes output magnitude inversely to input length
+D. The bias will only appear when querying with very long queries; short queries are unaffected
+
+**Correct answer:** B
+
+**Explanation:**
+Dot product equals the product of the two vectors' magnitudes times the cosine of the angle between them: `dot(a, b) = |a| × |b| × cos(θ)`. When document vectors have varying magnitudes (larger for longer texts), the magnitude term inflates the dot product for longer documents regardless of their directional alignment with the query. A long, tangentially relevant chunk may out-score a short, precisely relevant chunk simply because its magnitude is larger. Cosine similarity removes this bias by normalizing by both magnitudes.
+
+**Why A is wrong:** Dot product and cosine similarity are only equivalent when all vectors are unit-normalized (L2 norm = 1). Without normalization, dot product rankings are affected by magnitude differences. This is one of the most commonly misunderstood properties of similarity metrics in vector search. A practitioner who assumes equivalence will introduce length bias without realizing it.
+
+**Why C is wrong:** The model does not inversely normalize output magnitude relative to input length. If the embedding model's training corpus contains longer texts embedded with higher norms on average, that pattern will persist in its outputs unless the model is explicitly trained or configured for unit-norm outputs. There is no automatic inverse normalization.
+
+**Why D is wrong:** The magnitude bias applies to any query, regardless of its length. The query vector's magnitude is also affected by its input length, but the bias is primarily driven by the document vectors' magnitudes, which systematically favor longer chunks in the retrieval ranking. This is not a query-length-dependent effect.
+
+---
+
+## MCQ-16 — Cross-model cosine similarity is not meaningful
+
+**Difficulty:** intermediate
+**Topic:** embeddings_and_similarity
+
+**Question:**
+A team builds a product catalog index using embedding model A. Six months later they migrate their query pipeline to embedding model B (higher benchmark scores). They forget to re-embed the catalog. A developer notices that cosine similarity scores for all queries are now in the 0.30–0.50 range rather than the previous 0.70–0.90 range, yet the system still returns results. What is the most precise explanation for this score range collapse?
+
+**Options:**
+A. Embedding model B produces shorter vectors than model A, reducing the maximum possible cosine similarity to 0.5 for any query
+B. Query vectors from model B and document vectors from model A occupy different learned coordinate spaces — the cosine similarity scores are geometrically meaningless across those spaces, and the observed score range is coincidental noise rather than a measure of semantic similarity
+C. The vector database applies a normalization correction when it detects dimension mismatches, compressing scores toward the 0.5 midpoint to avoid false positives
+D. Cosine similarity scores naturally compress over time as the index grows larger — more vectors means more competition per query, which mathematically reduces all scores toward the population mean
+
+**Correct answer:** B — Each embedding model learns its own coordinate system during training. Dimension N in model A encodes a different latent feature than dimension N in model B. Cosine similarity across the two spaces measures the angle between a point in one coordinate system and a point in a fundamentally different coordinate system. The resulting number is not a semantic signal — it is geometric noise. The narrower score range (0.30–0.50 vs. 0.70–0.90) is a symptom of the cross-space incoherence, not a measure of reduced relevance. The fix is always to re-embed the document corpus with model B before routing live queries through it.
+
+**Why each wrong answer is wrong:**
+- **A:** Cosine similarity is bounded between -1 and 1 regardless of vector length. The vector dimension (number of components) does not set an upper bound on cosine similarity — a model that produces 256-dimensional vectors can still return a cosine score of 1.0 for identical inputs. Dimension and cosine range are unrelated properties.
+- **B:** This is the correct answer.
+- **C:** Vector databases have no cross-model detection mechanism and apply no automatic score normalization. They store and compare float arrays; they have no knowledge of which model produced those arrays. This option invents a non-existent safeguard that practitioners sometimes wish existed.
+- **D:** Cosine similarity does not compress as index size grows. The score between a query vector and a specific document vector is a fixed geometric property of those two vectors — adding more vectors to the index does not change pairwise scores. ANN approximate search may return slightly different candidates at scale, but cosine similarity values do not drift toward a population mean by any mathematical property.
 

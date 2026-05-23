@@ -1,7 +1,7 @@
 # Question Bank: `chunking_strategies`
 # Phase: 2 — Core Components
 # Maintained by: Lara (RAG Curriculum Specialist)
-# Last updated: 2026-05-11 (Commit 22)
+# Last updated: 2026-05-23 (Commit 51)
 
 ---
 
@@ -414,3 +414,120 @@ retrieval or generation quality problems, and what are the limitations of each s
   (the question specifically asks for signals that avoid full re-indexing)
 - Cannot identify any metric that would indicate chunk size is suboptimal
 - Describes all signals as definitive rather than acknowledging their limitations
+
+---
+
+## Q12 — What chunking does in a RAG pipeline
+
+**Difficulty:** novice
+
+**Question:**
+What is the purpose of chunking a document before indexing it in a RAG system?
+Why can't the full document be used as a single unit?
+
+**Correct answer criteria:**
+- Chunking splits a document into smaller pieces so each piece can be embedded and
+  retrieved independently
+- Embedding models have a maximum token input — most accept 512 to 8192 tokens. A
+  100-page document exceeds this limit and cannot be embedded as a single unit
+- Even when the embedding model can handle a full document, the resulting embedding
+  represents an average of the entire document's content. That average vector cannot
+  represent any specific topic within the document well, so retrieval quality degrades
+- Smaller chunks allow retrieval to return the specific passage that answers the query,
+  rather than an entire document that happens to contain the answer somewhere
+
+**Partial credit criteria:**
+- Identifies the token limit constraint but does not explain why embedding a full
+  document produces poor retrieval even when the limit allows it
+- Identifies that chunking enables more targeted retrieval but cannot connect it to
+  how embeddings work
+
+**Incorrect / no-credit criteria:**
+- Believes chunking is only for storage or cost reasons, not a functional retrieval requirement
+- Claims full documents can be used as retrieval units with no quality impact
+- Cannot explain what an embedding represents
+
+---
+
+## Q13 — What a chunk boundary is
+
+**Difficulty:** novice
+
+**Question:**
+What is a chunk boundary in document chunking? Give one example of a natural chunk
+boundary and one example of an artificial chunk boundary.
+
+**Correct answer criteria:**
+- A chunk boundary is the point in a document where one chunk ends and the next begins
+- Natural chunk boundary: a point that corresponds to a meaningful content division —
+  a paragraph break, a section header, a sentence end, or a question-and-answer
+  separator. Splitting here preserves each chunk as a semantically complete unit
+- Artificial chunk boundary: a point determined by a fixed rule unrelated to content —
+  for example, splitting every 500 tokens regardless of where sentences or paragraphs
+  fall. This may cut mid-sentence or mid-argument, leaving both adjacent chunks
+  with incomplete meaning
+
+**Partial credit criteria:**
+- Correctly defines chunk boundary and gives one example type but not both
+- Gives both example types but cannot explain what makes one natural and one artificial
+
+**Incorrect / no-credit criteria:**
+- Describes a chunk boundary as the same as a file boundary or page break
+- Cannot distinguish natural from artificial boundaries
+- Claims all chunk boundaries are equivalent in quality
+
+---
+
+## Q14 — What chunking strategy to use for a simple FAQ document
+
+**Difficulty:** novice
+
+**Question:**
+You have a FAQ document where each question-and-answer pair is separated by a blank line.
+Each Q&A pair is between 50 and 150 tokens. What chunking strategy would you use, and why?
+
+**Correct answer criteria:**
+- Split at blank line boundaries — one chunk per Q&A pair. Each pair is already a
+  semantically complete unit: the question defines what the chunk is about and the answer
+  provides the retrievable information
+- This avoids splitting a question from its answer or merging two unrelated Q&A pairs into
+  one chunk
+- Fixed-size chunking would be inappropriate here because it would disrespect the natural
+  boundaries — it might split a 100-token Q&A pair in half or merge two pairs together
+
+**Partial credit criteria:**
+- Recommends splitting at natural boundaries but cannot explain why fixed-size is inappropriate
+  for this specific document structure
+- Correctly identifies the chunking strategy but does not justify it against the alternative
+
+**Incorrect / no-credit criteria:**
+- Recommends fixed-size chunking without acknowledging the natural Q&A pair structure
+- Recommends embedding the entire FAQ as one unit
+- Cannot identify that the blank-line boundary corresponds to a meaningful content boundary
+
+---
+
+## Q15 — High overlap and context recall degradation
+
+**Difficulty:** intermediate
+
+**Question:**
+You set chunk overlap to 60% of chunk size (300 tokens overlap on 500-token chunks) to ensure no content is lost at chunk boundaries. After re-indexing, RAGAS context_recall drops from 0.82 to 0.67 despite faithfulness remaining stable. Explain the mechanism causing the recall drop and describe what you would change.
+
+**Correct answer criteria:**
+- High overlap creates near-duplicate chunks: chunk N (tokens 1–500) and chunk N+1 (tokens 201–700) share 300 tokens. Their embedding vectors are very similar because they represent largely the same content
+- At retrieval time, top-K slots fill with near-identical chunks: if a query matches the shared 300-token region, both chunk N and chunk N+1 score high and both occupy retrieval slots. With top-5 retrieval, 2–3 slots may be consumed by near-duplicates of the same passage
+- Context recall drops because the top-5 result set is no longer diverse — it covers a narrow portion of the document rather than the 5 most distinct relevant passages. Information from other parts of the document that would have answered other sub-questions is crowded out
+- Fix: reduce overlap to 10–20% (50–100 tokens on 500-token chunks). Alternatively, add a post-retrieval deduplication step that removes chunks with cosine similarity above a threshold (e.g., 0.95) before passing context to the LLM
+
+**Partial credit criteria:**
+- Correctly identifies that high overlap creates near-duplicate chunks but does not connect this to how top-K retrieval fills result slots with redundant content
+- Identifies the recall mechanism but proposes only increasing top-K as the fix without recognizing that more slots would also fill with near-duplicates
+
+**Incorrect / no-credit criteria:**
+- Attributes the recall drop to the embedding model being confused by repeated content
+- Recommends increasing overlap further to "ensure more coverage"
+- Cannot explain the connection between chunk duplication and retrieval slot crowding
+
+**Follow-up probe:**
+"If you add post-retrieval deduplication, what threshold would you use to distinguish a near-duplicate chunk from a genuinely different chunk covering a related topic, and how would you set that threshold empirically?"

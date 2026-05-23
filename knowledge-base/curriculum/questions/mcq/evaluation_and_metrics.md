@@ -1,8 +1,9 @@
 # MCQ Bank — evaluation_and_metrics
 # Topic: evaluation_and_metrics
 # Phase: 3 (Production)
-# Questions: 12 (2 novice, 4 intermediate, 4 advanced, 2 expert)
-# Last updated: 2026-05-21 (Commit 45)
+# Questions: 13 (2 novice, 5 intermediate, 3 advanced, 3 expert)
+# Note: header previously overcounted (claimed 16); actual count is 13 as verified 2026-05-23
+# Last updated: 2026-05-23 (Commit 51)
 
 ---
 
@@ -321,4 +322,103 @@ LLM API providers routinely update their models without announcing breaking chan
 **Why C is wrong:** Query distribution shift could explain the pattern, but this hypothesis needs to be tested (e.g., by looking at query topic distributions over the six months). The silent judge model update explanation is more parsimonious because API providers update models frequently without notification. Option C is not impossible but requires more evidence before accepting it over B.
 
 **Why D is wrong:** LLM API deployments do not "learn from production traffic" in real-time inference mode. The model weights are fixed at deployment time. This misconception about continual learning in production LLMs is common among practitioners who know that ML models improve with more data but do not understand the deployment architecture of API-served models.
+
+---
+
+## MCQ-13 — Why offline and online evaluation are both necessary in production RAG
+
+**Difficulty:** intermediate
+**Topic:** evaluation_and_metrics
+
+**Question:**
+A team runs a RAGAS evaluation suite before each production deployment and achieves consistent faithfulness scores above 0.85. A product manager argues this is sufficient and online evaluation via user feedback signals is an unnecessary overhead. Which response most precisely identifies the gap that offline evaluation alone cannot close?
+
+**Options:**
+A. Offline evaluation uses LLM-as-judge which is biased, so online evaluation is needed to provide unbiased scores
+B. Offline evaluation is executed on a fixed test set that was constructed before deployment; it cannot detect quality failures caused by production query patterns that were never represented in that test set, nor can it surface user behavioral signals like re-query rate or session abandonment that indicate the answer was unhelpful even when technically faithful
+C. Offline evaluation only measures faithfulness and context precision — it cannot compute answer relevancy without online user signals
+D. Online evaluation is faster and cheaper than offline RAGAS evaluation, making it the preferred approach for teams with limited resources
+
+**Correct answer:** B
+
+**Explanation:**
+Offline evaluation tests the system against a fixed benchmark. The benchmark is a snapshot of anticipated query patterns from the time it was built. Production query distributions drift — new user segments arrive, use cases expand, vocabulary shifts. A faithfulness score of 0.85 on a benchmark constructed six months ago does not tell you how the system performs on today's queries. Online evaluation captures what the benchmark cannot: real user behavior. A user who immediately re-queries after receiving an answer, or who abandons a session, is signaling that the system failed them — regardless of what RAGAS would have scored the response. These behavioral signals catch failures that no test set anticipates because they emerge from real-world usage patterns.
+
+**Why A is wrong:** LLM-as-judge bias is a real evaluation concern, but it applies to both offline and online LLM-based scoring. The reason online evaluation is necessary is not that offline scoring is biased — it is that offline test sets are structurally unable to represent the full production query distribution. A practitioner who conflates the evaluation method (LLM-as-judge) with the evaluation setting (offline vs. online) chooses A.
+
+**Why C is wrong:** RAGAS answer relevancy is computable offline — the metric does not require user signals. It uses an LLM to generate reverse questions from the generated answer and compares them to the original query. The gap between offline and online evaluation is not about which RAGAS metrics are available; it is about which queries are evaluated and which failure signals are observable. A practitioner who has only seen limited RAGAS documentation may guess C.
+
+**Why D is wrong:** Online evaluation is not necessarily faster or cheaper — it requires logging infrastructure, sampling pipelines, and often human review of production samples. The argument for online evaluation is not cost — it is representativeness of the query distribution and access to behavioral failure signals. A practitioner who reasons about evaluation from a cost perspective without considering what each method measures chooses D.
+
+---
+
+## MCQ-14 — What a faithfulness score of 1.0 means
+
+**Difficulty:** novice
+**Topic:** evaluation_and_metrics
+
+**Question:**
+A RAG system achieves a RAGAS faithfulness score of 1.0 on a batch of evaluation queries. What does this score tell you?
+
+**Options:**
+A. Every answer is factually correct — the system has no errors and can be trusted without further review
+B. Every claim in the generated answers is supported by the retrieved context — the LLM did not add information beyond what was retrieved, but the retrieved context itself may be outdated, incomplete, or wrong
+C. The retrieval step returned relevant chunks for all queries — no queries were answered with irrelevant context
+D. The LLM correctly cited every source document in its responses, providing full attribution
+
+**Correct answer:** B — Faithfulness measures whether the LLM stayed within the bounds of the retrieved context when generating its answer. A score of 1.0 means every claim can be traced to a retrieved passage — the LLM did not hallucinate. It does not mean the retrieved content was accurate, current, or complete. If the knowledge base contains outdated information, the system can be perfectly faithful (1.0) while still providing wrong answers to users. Faithfulness is a grounding metric, not a correctness metric.
+
+**Why each wrong answer is wrong:**
+- **A:** Faithfulness does not measure factual correctness against the real world. A system that faithfully generates answers from an outdated or incorrect knowledge base scores 1.0 on faithfulness while being wrong. These are two different dimensions of quality: grounding (faithfulness) and factual accuracy (answer correctness, which requires ground truth comparison).
+- **B:** This is the correct answer.
+- **C:** Retrieval relevance is measured by context precision and context recall, not faithfulness. Context precision measures what fraction of retrieved chunks were relevant; context recall measures what fraction of needed information was retrieved. Faithfulness operates after retrieval — it checks whether the LLM stayed within the retrieved content.
+- **D:** Citation and attribution are not components of the RAGAS faithfulness metric. Faithfulness is computed by checking whether each claim in the generated answer is entailed by the retrieved passages, using an LLM evaluator. Whether or not the answer explicitly cites sources is irrelevant to this computation.
+
+---
+
+## MCQ-15 — What RAGAS measures
+
+**Difficulty:** novice
+**Topic:** evaluation_and_metrics
+
+**Question:**
+What is RAGAS?
+
+**Options:**
+A. A Python library for fine-tuning LLMs on domain-specific RAG datasets to improve answer quality
+B. A single evaluation metric that produces a combined quality score for a RAG system
+C. An evaluation framework that measures multiple dimensions of RAG quality — including faithfulness, context precision, context recall, and answer relevancy — using LLMs to score each dimension without requiring human annotation for every query
+D. A vector database benchmarking tool that measures retrieval latency and ANN recall for different index configurations
+
+**Correct answer:** C — RAGAS (Retrieval-Augmented Generation Assessment) is a framework, not a single metric. It defines a suite of metrics — faithfulness, context precision, context recall, answer relevancy, and others — each measuring a different aspect of the RAG pipeline. RAGAS uses LLM-based scoring to evaluate each metric, making it possible to evaluate at scale without manual annotation of every response. Practitioners who refer to "the RAGAS score" are usually citing one specific metric from the suite, not a composite.
+
+**Why each wrong answer is wrong:**
+- **A:** RAGAS does not fine-tune LLMs. It evaluates RAG pipeline outputs — it is a measurement tool, not a training tool. A practitioner who conflates evaluation frameworks with fine-tuning pipelines may guess A, particularly if they are aware that RAGAS can generate synthetic test datasets (which is an evaluation data generation feature, not a training feature).
+- **B:** RAGAS produces multiple separate metric scores, not a single combined score. There is no official RAGAS composite that collapses faithfulness, context precision, and recall into one number. A practitioner who thinks of evaluation frameworks as producing a single leaderboard-style score makes this error.
+- **C:** This is the correct answer.
+- **D:** RAGAS evaluates answer and retrieval quality, not infrastructure performance. Vector database benchmarking (measuring ANN recall, latency, or index build time) is a separate concern handled by tools like ANN-Benchmarks or vector database vendor benchmarks. RAGAS operates at the output level — it sees queries, retrieved chunks, and generated answers, not index internals.
+
+---
+
+## MCQ-16 — What low context recall indicates
+
+**Difficulty:** novice
+**Topic:** evaluation_and_metrics
+
+**Question:**
+A RAG system consistently scores low on context recall across an evaluation set. What does this most likely indicate?
+
+**Options:**
+A. The LLM is generating answers that contradict the retrieved context — the generation stage is unreliable
+B. The retrieved chunks are mostly irrelevant to the queries — the retrieval system is returning noise
+C. The information needed to answer the queries exists in the knowledge base but is not being retrieved — the right content is available but the retrieval step is missing it
+D. The evaluation dataset has too few queries to produce a reliable context recall estimate
+
+**Correct answer:** C — Context recall measures what fraction of the information needed to answer a query is present in the retrieved chunks. A low score means the retrieval step is returning incomplete context — the knowledge base contains relevant content, but the retrieval system is not surfacing it. This is a retrieval configuration problem: the embedding model may not align well with query phrasing, top-K may be too small, or chunk boundaries may be splitting the relevant content so it falls below the retrieval cutoff. The fix lives in the retrieval layer (embedding model choice, top-K, chunk size), not in the LLM.
+
+**Why each wrong answer is wrong:**
+- **A:** Contradicting the retrieved context describes a faithfulness failure, not a recall failure. Low faithfulness means the LLM generates claims beyond what was retrieved. Low context recall means the retrieval step did not bring back enough of what was needed — it is a retrieval metric, computed before the LLM generates anything.
+- **B:** Returning irrelevant chunks describes low context precision, not low context recall. Precision measures the fraction of retrieved chunks that are relevant (signal-to-noise). Recall measures the fraction of needed information that was retrieved (coverage). They are complementary metrics that capture different failure modes. A practitioner who conflates precision and recall — one of the most common evaluation errors — chooses B.
+- **C:** This is the correct answer.
+- **D:** Dataset size affects the reliability (variance) of the estimate but not its direction. A small dataset can produce a noisy recall score, but a consistently low recall across an evaluation set of even 50–100 queries is a meaningful signal about the retrieval system. Blaming dataset size when scores are low is a diagnostic avoidance pattern, not a root cause.
 

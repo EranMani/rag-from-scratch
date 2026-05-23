@@ -1,8 +1,8 @@
 # MCQ Bank — chunking_strategies
 # Topic: chunking_strategies
 # Phase: 2 (Core Components)
-# Questions: 15 (2 novice, 3 intermediate, 5 advanced, 3 expert)
-# Last updated: 2026-05-21 (Commit 45)
+# Questions: 20 (5 novice, 5 intermediate, 5 advanced, 3 expert)
+# Last updated: 2026-05-23 (Commit 51)
 
 ---
 
@@ -30,6 +30,142 @@ Embedding models have a fixed maximum context window (often 512 or 8192 tokens d
 **Why C is wrong:** Cosine similarity quality is affected by how well the embedding captures the chunk's meaning, which is related to chunking strategy. But this is not why chunking is necessary in the first place — it does not become necessary until documents exceed the model's token limit.
 
 **Why D is wrong:** LLM context window limits are a constraint on the generation step (what context the LLM can process) and do relate to chunking strategy decisions, but they are separate from why embedding-time chunking is necessary. Embedding happens at indexing time, before the LLM is involved.
+
+---
+
+## MCQ-11 — What chunk size controls
+
+**Difficulty:** novice
+**Topic:** chunking_strategies
+
+**Question:**
+A developer sets chunk size to 512 tokens when building a RAG index. What does this number directly control?
+
+**Options:**
+A. The number of chunks returned per query
+B. The maximum number of tokens in each individual piece of text stored in the vector database
+C. The minimum length of the LLM's generated response
+D. The number of dimensions in each embedding vector
+
+**Correct answer:** B
+
+**Explanation:**
+Chunk size determines the maximum length of each text segment that is embedded and stored as a single unit in the vector database. When documents are split, each resulting chunk will contain at most 512 tokens of text. Smaller chunks mean more chunks per document; larger chunks mean fewer but longer segments. Chunk size does not control retrieval count (top-K), response length, or embedding dimensions — those are separate parameters.
+
+**Why A is wrong:** The number of chunks returned per query is controlled by the top-K retrieval parameter, not the chunk size. A developer can retrieve top-5 chunks regardless of whether each chunk is 128 or 1024 tokens. Confusing chunk size with retrieval count is common in beginners who have not separated the indexing configuration from the retrieval configuration.
+
+**Why C is wrong:** LLM response length is controlled by generation parameters (max_tokens) and the grounding instruction in the prompt, not by how the documents were chunked. A chunk size of 512 says nothing about how long the LLM will make its answer.
+
+**Why D is wrong:** Embedding dimensions are fixed by the embedding model's architecture, not by the chunk size. A 512-dimension model produces 512-dimensional vectors regardless of whether the input chunk is 100 tokens or 512 tokens. Chunk size is about the length of the text input, not the length of the vector output.
+
+---
+
+## MCQ-12 — Chunk overlap direction
+
+**Difficulty:** novice
+**Topic:** chunking_strategies
+
+**Question:**
+A document is chunked with chunk_size=400 tokens and overlap=100 tokens. Which statement correctly describes what this overlap does?
+
+**Options:**
+A. Every chunk is padded to exactly 500 tokens by repeating content from the beginning of the document
+B. The last 100 tokens of each chunk are repeated at the start of the following chunk
+C. Every other chunk is skipped, producing half the total number of chunks
+D. The first 100 tokens of each chunk are removed to reduce redundancy
+
+**Correct answer:** B
+
+**Explanation:**
+Chunk overlap means consecutive chunks share tokens at their boundary. Chunk N contains tokens 1–400; the next chunk contains tokens 301–700 (the last 100 tokens of chunk N, 301–400, are repeated at the start of the next chunk). This ensures that content spanning the boundary between two chunks appears fully in at least one retrievable unit. Overlap increases the total chunk count — it does not reduce it or pad chunks with unrelated content.
+
+**Why A is wrong:** Overlap does not pad chunks with content from elsewhere in the document. The overlapping tokens always come from the immediately preceding chunk — they are the tail end of the previous chunk carried forward into the beginning of the current chunk. Padding from the document beginning would corrupt the semantic content of later chunks.
+
+**Why C is wrong:** Overlap causes chunks to partially repeat content, not skip chunks. An overlap of 100 tokens on 400-token chunks produces more chunks than no overlap would, not fewer. Skipping every other chunk would produce severe coverage gaps — the opposite of what overlap is designed to do.
+
+**Why D is wrong:** Removing the first 100 tokens of each chunk would reduce coverage and create gaps at chunk boundaries — the exact problem overlap is designed to prevent. This option inverts the mechanism: overlap adds content at the start of each chunk (from the previous chunk's tail); it does not remove content.
+
+---
+
+## MCQ-13 — Identifying a chunking failure from a symptom
+
+**Difficulty:** novice
+**Topic:** chunking_strategies
+
+**Question:**
+A user asks "What is the maximum file size limit for uploads?" The RAG system retrieves a chunk that says: "This limit was increased in the 2023 update to better support enterprise workflows." The LLM cannot answer the question. What is the most likely chunking problem?
+
+**Options:**
+A. The chunk is too short — it needs more tokens to be embedded correctly
+B. The chunk lacks its antecedent — "this limit" refers to something in a preceding chunk that was not included, making the chunk uninterpretable in isolation
+C. The embedding model failed to encode the chunk because it contains a year (2023)
+D. The chunk should have been stored in a separate index from the rest of the document
+
+**Correct answer:** B
+
+**Explanation:**
+The phrase "this limit" is a pronoun reference (anaphora) pointing to something introduced earlier in the document. When the chunker split the document at a boundary before this sentence, the referent ("maximum file size limit" or whatever was named) ended up in a different chunk. The retrieved chunk is semantically incomplete — it cannot stand alone as a retrievable unit. This is the "orphaned chunk" problem: a chunk that contains a reference to context it was separated from by the chunk boundary.
+
+**Why A is wrong:** The problem is not chunk length — adding more tokens to this chunk would not help if those tokens come from later in the document rather than the earlier part that explains what "this limit" refers to. The issue is the direction of context: the missing reference comes before the retrieved chunk, not after it.
+
+**Why C is wrong:** Embedding models handle years, numbers, and all standard text without any issue. There is no category of token that causes an embedding call to fail. The chunk would be embedded normally; the failure is that the resulting embedding and retrieved chunk are useless because the pronoun has no referent.
+
+**Why D is wrong:** Putting the chunk in a separate index would not restore the missing antecedent. The problem is within the document's chunk boundary decision, not the indexing structure. Separate indexes organize retrieval; they do not repair chunks that lack self-contained meaning.
+
+---
+
+## MCQ-14 — Chunk size and LLM context interaction
+
+**Difficulty:** intermediate
+**Topic:** chunking_strategies
+
+**Question:**
+A developer uses chunk_size=1000 tokens and retrieves top-10 chunks per query. The LLM has a 12,000-token context window and the system prompt uses 500 tokens. What is the most immediate operational risk?
+
+**Options:**
+A. The embedding model will fail to embed 1000-token chunks because they exceed its maximum input
+B. The total context (10 chunks × 1000 tokens + 500 system prompt) is 10,500 tokens, leaving only 1,500 tokens for the query and LLM response. Under this pressure, the system will silently truncate lower-ranked chunks or fail on long queries
+C. The vector database will reject queries that request more than 5 chunks
+D. LLMs cannot process more than 5,000 tokens of retrieved context regardless of the stated context window
+
+**Correct answer:** B
+
+**Explanation:**
+10 chunks × 1000 tokens = 10,000 context tokens, plus 500 system prompt tokens = 10,500 tokens consumed before the user query or LLM response is even counted. With a 12,000-token context window, only 1,500 tokens remain. A user query of 50–200 tokens leaves 1,300–1,450 tokens for the LLM response. If the user asks a longer question, the system approaches the context limit. Many frameworks silently truncate lower-ranked chunks rather than raising an error, which drops potentially relevant content from the prompt without alerting the engineer.
+
+**Why A is wrong:** Most modern embedding models (text-embedding-3, OpenAI ada-002 successor, sentence-transformers variants) support context windows from 512 to 8192 tokens. A 1000-token chunk may exceed some embedding models' limits, but that is a separate constraint to check. The question asks about the "most immediate operational risk," which is the LLM context window exhaustion — a risk that exists regardless of whether the embedding model handles 1000 tokens.
+
+**Why C is wrong:** Vector databases have no built-in limit on top-K result count. They return however many results are requested, limited only by the number of vectors stored. A request for top-10 on a database with millions of vectors will return 10 results without issue.
+
+**Why D is wrong:** LLMs process up to their stated context window limit — 12,000 tokens in this case. The 5,000-token claim is fabricated. Modern LLMs can process their full stated context window. The constraint is the window size itself, not an imaginary sub-limit on retrieved context.
+
+---
+
+## MCQ-15 — Semantic chunking vs. fixed-size for a specific document type
+
+**Difficulty:** intermediate
+**Topic:** chunking_strategies
+
+**Question:**
+A corpus contains FAQ pages. Each FAQ entry has a question heading and a 2–5 sentence answer beneath it. Which chunking strategy most directly preserves the retrievable semantic unit?
+
+**Options:**
+A. Fixed-size 512-token chunks with 50-token overlap — ensures uniform chunk length for consistent embedding quality
+B. One chunk per FAQ entry (question heading + answer body) — preserves the natural semantic unit: a complete Q&A pair that stands alone as a retrievable answer
+C. Sentence-level chunking — each sentence becomes its own chunk for maximum granularity
+D. Paragraph-level chunking across the entire page — treats all FAQ entries on a page as a single chunk
+
+**Correct answer:** B
+
+**Explanation:**
+An FAQ entry is a self-contained semantic unit: the question defines the topic and the answer provides the grounding. Chunking one Q&A pair per chunk means a retrieval hit returns a complete, interpretable unit. A user querying about a topic will retrieve the exact FAQ entry that addresses it, including the question context that disambiguates similar topics. Fixed-size chunking may split a question from its answer; sentence-level chunks make answers too granular; page-level chunks combine unrelated FAQ entries.
+
+**Why A is wrong:** Uniform chunk length does not improve embedding quality — embeddings encode semantic content, not length properties. For FAQ pages, a fixed 512-token chunk may include the end of one FAQ entry and the beginning of another, producing a chunk that represents two unrelated Q&A topics. The embedding of that mixed chunk will be less focused than a single Q&A pair.
+
+**Why C is wrong:** A 2–5 sentence answer split into individual sentence chunks loses the coherence of the answer and the contextual relationship to the question heading. A sentence like "This feature is available in enterprise plans" is meaningless without the preceding question that establishes what "this feature" refers to. Sentence-level granularity produces orphaned chunks for conversational Q&A content.
+
+**Why D is wrong:** A page containing 15 FAQ entries has 15 distinct topics. Embedding all of them as a single chunk produces an embedding that represents an average of 15 topics — the embedding is diluted and will not match precisely against any specific user query. Retrieval precision collapses when chunks contain unrelated content.
+
 
 ---
 
@@ -267,4 +403,28 @@ Context_precision measures how much of the retrieved context is relevant to answ
 **Why C is wrong:** RAGAS context_precision is computed as the fraction of retrieved chunks that are relevant to the ground-truth answer — it is a ratio, not penalized by absolute chunk count. More chunks in the index does not directly change the score. This misunderstanding of how RAGAS metrics are computed is a common source of incorrect diagnosis.
 
 **Why D is wrong:** Vector databases store every vector that is explicitly inserted. They do not apply automatic deduplication based on embedding similarity — that would require computing pairwise distances across the entire index on every insert, which is prohibitively expensive. Deduplication must be built explicitly in the ingestion pipeline, not assumed from the database layer.
+
+---
+
+## MCQ-16 — Large chunk size relative to query length
+
+**Difficulty:** intermediate
+**Topic:** chunking_strategies
+
+**Question:**
+A RAG system is indexed with 1024-token chunks. Most user queries are 10–20 tokens. The system retrieves top-5 chunks per query. RAGAS shows context_recall = 0.88 but faithfulness = 0.61. What is the most precise explanation for the faithfulness degradation?
+
+**Options:**
+A. The embedding model cannot handle queries shorter than 50 tokens, so the query vectors are low-quality and retrieve the wrong chunks, injecting irrelevant context that the LLM uses to hallucinate
+B. Large chunks contain many topics per chunk. Each retrieved chunk is genuinely related to the query topic (hence high recall), but also contains substantial off-topic content. The LLM receives five 1024-token chunks — up to 5120 tokens of context — where only a small fraction is relevant to the 15-token query. The LLM generates using all available context including the noise, producing claims not supported by the query-relevant portion of the retrieved text, which RAGAS scores as unfaithful
+C. A 1024-token chunk exceeds most embedding models' maximum input length, so chunks are silently truncated during indexing, causing the second half of each chunk to be invisible to retrieval
+D. The top-5 retrieval setting is too low for large chunks — increasing top-K to top-20 would give the LLM enough context to generate faithful answers
+
+**Correct answer:** B — Retrieval still works (recall is high) because a 1024-token chunk about a topic will embed near any query about that topic. But the same chunk also contains sub-topics, caveats, examples, and tangential discussion that have nothing to do with the specific 15-token query. The LLM treats the entire retrieved context as relevant grounding. Claims generated from the off-topic portions of the chunks are not supported by the query-relevant content — faithfulness drops. The fix is smaller chunks (256–400 tokens) so each retrieved unit is more focused, or parent-child chunking where a small child chunk drives retrieval and a moderately-sized parent provides generation context.
+
+**Why each wrong answer is wrong:**
+- **A:** Embedding models handle short queries normally. Short queries produce valid embedding vectors that retrieve semantically relevant documents — the mechanism is robust to query length. Low-quality short-query embeddings are not a documented failure mode of general-purpose embedding models trained on mixed-length corpora.
+- **B:** This is the correct answer.
+- **C:** Many production embedding models support 512–8192 token inputs, and 1024 tokens is within range for models like text-embedding-3 (8191 token limit). Even when truncation occurs, it is a chunk coverage problem that would reduce recall, not faithfulness. This option describes a different failure mode — and one that would be caught by monitoring the embedding API's tokenization.
+- **D:** Increasing top-K from 5 to 20 with 1024-token chunks injects up to 20,480 tokens of context — far exceeding most LLM context windows. More context here makes faithfulness worse, not better, by amplifying the noise-to-signal ratio. The problem is chunk content quality, not retrieval quantity.
 

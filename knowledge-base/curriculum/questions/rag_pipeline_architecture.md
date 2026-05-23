@@ -1,7 +1,7 @@
 # Question Bank: `rag_pipeline_architecture`
 # Phase: 1 — Foundations
 # Maintained by: Lara (RAG Curriculum Specialist)
-# Last updated: 2026-05-11 (Commit 22)
+# Last updated: 2026-05-23 (Commit 51)
 
 ---
 
@@ -427,3 +427,93 @@ of checks you would run to isolate which change caused the faithfulness drop.
 - Cannot describe how to distinguish a retrieval failure from a generation failure using
   available data
 - Does not identify the need to log retrieved context as the prerequisite for any diagnosis
+
+---
+
+## Q12 — What the vector store does in a RAG pipeline
+
+**Difficulty:** novice
+
+**Question:**
+What is the role of the vector store in a RAG pipeline? What goes in, and what comes out?
+
+**Correct answer criteria:**
+- The vector store stores the embedding vectors produced during indexing, paired with the
+  original chunk text (and optional metadata such as source document, page number, timestamp)
+- At query time: a query embedding vector goes in, and the top-K most similar chunk texts
+  come out (along with their similarity scores)
+- The vector store is responsible for the approximate nearest neighbor (ANN) search that
+  finds the most relevant chunks without comparing every stored vector
+
+**Partial credit criteria:**
+- Correctly describes the storage role but cannot describe the query-time operation
+  (retrieval by similarity)
+- Describes the query-time operation correctly but does not mention that text and metadata
+  are stored alongside the vectors
+
+**Incorrect / no-credit criteria:**
+- Describes the vector store as storing raw documents (it stores vectors and chunk text,
+  not full documents)
+- Claims the LLM directly searches the vector store
+- Cannot explain what "nearest neighbor" means in this context
+
+---
+
+## Q13 — What happens if the LLM never sees the retrieved context
+
+**Difficulty:** novice
+
+**Question:**
+What would happen if you removed the context injection step from a RAG pipeline — meaning
+the LLM receives only the user's question, without the retrieved document chunks?
+
+**Correct answer criteria:**
+- The LLM would generate its answer solely from its parametric knowledge — information
+  baked into its weights during training
+- This defeats the purpose of RAG: the LLM cannot answer questions about private documents,
+  recent events, or domain-specific information it was never trained on
+- Without grounding in retrieved context, the LLM is more likely to hallucinate — producing
+  answers that sound confident but are not backed by the organization's actual documents
+
+**Partial credit criteria:**
+- Correctly identifies that the LLM would use its training knowledge instead of retrieved
+  documents but does not explain why this defeats the purpose of RAG
+- States the system would hallucinate without explaining the mechanism
+
+**Incorrect / no-credit criteria:**
+- Believes the LLM would refuse to answer if no context is provided
+- Claims the LLM would automatically search for context on its own
+- Cannot identify any difference between RAG with and without context injection
+
+---
+
+## Q14 — The difference between top-K and the chunk size
+
+**Difficulty:** intermediate
+
+**Question:**
+In RAG retrieval configuration, what is the difference between "top-K" and "chunk size"?
+How does increasing each one independently affect the amount of context the LLM receives?
+
+**Correct answer criteria:**
+- Top-K is the number of chunks retrieved — how many distinct pieces of text are returned
+  by the vector store and injected into the prompt. Increasing K increases the number of
+  chunks, which increases context diversity but also increases prompt token count and
+  retrieval noise.
+- Chunk size is the length of each individual chunk (measured in tokens or characters),
+  set during the indexing phase. Increasing chunk size makes each chunk longer, which means
+  more context per chunk but also a higher risk of each chunk containing irrelevant material
+  alongside the relevant content.
+- Increasing top-K by 5 and increasing chunk size by 100 tokens both add context to the
+  prompt, but through different mechanisms with different quality implications.
+
+**Partial credit criteria:**
+- Correctly distinguishes the two parameters but cannot explain the independent quality
+  implications of increasing each
+- Explains the token count impact correctly but conflates the two parameters' effect on
+  retrieval quality
+
+**Incorrect / no-credit criteria:**
+- Believes top-K and chunk size are the same parameter
+- Cannot explain how changing either parameter affects the LLM's prompt
+- States that larger K and larger chunk size always produce better answers with no tradeoffs

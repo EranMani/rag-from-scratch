@@ -439,3 +439,140 @@ would notice. For each scenario, explain why faithfulness does not capture the p
 - Claims a faithfulness score of 0.9 always indicates high system quality
 - Cannot describe any scenario where high faithfulness coexists with a user-visible failure
 - Confuses faithfulness with answer_relevancy or context_recall
+
+---
+
+## Q12 — What faithfulness measures in RAG evaluation
+
+**Difficulty:** novice
+
+**Question:**
+What does the faithfulness metric measure in a RAG evaluation? What does a faithfulness
+score of 1.0 tell you, and what does a score of 0.0 tell you?
+
+**Correct answer criteria:**
+- Faithfulness measures whether the generated answer is supported by the retrieved context —
+  specifically, whether each claim in the answer can be found in or directly inferred from
+  the retrieved chunks
+- A score of 1.0 means every claim in the answer is grounded in the retrieved context;
+  the LLM did not introduce any information from outside the provided passages
+- A score of 0.0 means none of the claims in the answer are supported by the retrieved
+  context — the LLM generated an answer entirely from its parametric knowledge or hallucinated
+- Faithfulness does not measure whether the answer is factually correct in the real world —
+  a faithfully wrong answer (one that accurately reports incorrect information from the context)
+  still scores 1.0
+
+**Partial credit criteria:**
+- Correctly describes what faithfulness measures but conflates it with factual accuracy
+  against ground truth
+- Correctly explains the 1.0 and 0.0 extremes but does not articulate that faithfulness is
+  about context grounding, not real-world correctness
+
+**Incorrect / no-credit criteria:**
+- Describes faithfulness as measuring whether the answer matches the user's question
+  (that is answer_relevancy)
+- Believes faithfulness = 1.0 proves the answer is factually correct
+- Cannot explain what a faithfulness score represents
+
+---
+
+## Q13 — What context_recall measures
+
+**Difficulty:** novice
+
+**Question:**
+What does the context_recall metric measure in RAGAS? Give a concrete example of a
+retrieval result that would produce a low context_recall score.
+
+**Correct answer criteria:**
+- Context_recall measures how much of the information needed to answer the question is
+  present in the retrieved chunks — it is a coverage metric for the retrieval stage
+- High context_recall means the retrieval step found most or all of the passages needed
+  to construct a correct answer; low context_recall means key information was not retrieved
+- Concrete example of low context_recall: a user asks about the three eligibility criteria
+  for a program. The correct answer requires chunks covering all three criteria. The
+  retrieval step returns chunks covering only one criterion — context_recall would be
+  approximately 0.33 (one of three required pieces of information was retrieved)
+
+**Partial credit criteria:**
+- Correctly defines context_recall as a coverage metric but cannot give a concrete example
+- Gives a valid example of low recall but confuses context_recall with context_precision
+
+**Incorrect / no-credit criteria:**
+- Describes context_recall as measuring whether the answer is relevant to the question
+  (that is answer_relevancy)
+- Confuses context_recall with faithfulness
+- Cannot describe what "coverage" means in the context of retrieval
+
+---
+
+## Q14 — What answer_relevancy measures
+
+**Difficulty:** novice
+
+**Question:**
+What does the answer_relevancy metric measure in RAGAS? Describe a scenario where a RAG
+system produces a high faithfulness score but a low answer_relevancy score.
+
+**Correct answer criteria:**
+- Answer_relevancy measures whether the generated answer addresses the user's actual
+  question — it evaluates whether the response is on-topic and responsive to what was asked,
+  not whether it is factually correct or grounded
+- A high faithfulness, low answer_relevancy scenario: a user asks "What is the refund
+  policy for orders over $100?" The retrieved chunks contain accurate information about
+  the refund policy. The LLM generates a faithful, accurate response — but instead of
+  stating the policy directly, it provides a long explanation of the company's customer
+  service philosophy. Every claim is grounded in the retrieved context (high faithfulness),
+  but the answer does not directly answer the user's question (low answer_relevancy)
+
+**Partial credit criteria:**
+- Correctly defines answer_relevancy but cannot construct a scenario where it diverges
+  from faithfulness
+- Gives a valid scenario but incorrectly describes it as a faithfulness problem rather
+  than an answer_relevancy problem
+
+**Incorrect / no-credit criteria:**
+- Describes answer_relevancy as measuring factual accuracy
+- Confuses answer_relevancy with faithfulness (they measure different things)
+- Cannot describe any scenario where an answer is faithful but not relevant
+
+---
+
+## Q15 — Why faithfulness and context_precision can diverge
+
+**Difficulty:** intermediate
+
+**Question:**
+A RAG evaluation shows context_precision = 0.88 but faithfulness = 0.52. Explain how
+a system can retrieve highly relevant chunks (high precision) while simultaneously
+generating answers with many unsupported claims (low faithfulness). What does this
+divergence tell you about where the problem lives?
+
+**Correct answer criteria:**
+- Context_precision measures the fraction of retrieved chunks that are relevant to the
+  query — 0.88 means most retrieved passages are on-topic and useful
+- Faithfulness measures whether the claims in the generated answer are supported by the
+  retrieved context — 0.52 means roughly half the answer's claims are not grounded in
+  what was retrieved
+- These metrics measure different stages: context_precision evaluates the retrieval stage;
+  faithfulness evaluates the generation stage
+- A system can have high precision and low faithfulness when: the retrieval step correctly
+  selects relevant chunks, but the LLM ignores or underweights those chunks during
+  generation — instead introducing information from its parametric knowledge. This can
+  happen when the retrieved context is present but the prompt does not sufficiently
+  constrain the LLM to "answer only from context"
+- The divergence diagnoses the problem as a generation failure, not a retrieval failure.
+  The correct fix is in the prompt (strengthen the grounding instruction) or in the LLM
+  behavior, not in the retrieval configuration
+
+**Partial credit criteria:**
+- Correctly identifies that the problem is in the generation stage but cannot explain
+  the mechanism by which a well-retrieving system produces unfaithful answers
+- Correctly identifies the prompt as the likely fix but cannot articulate why high
+  precision does not prevent low faithfulness
+
+**Incorrect / no-credit criteria:**
+- Recommends improving retrieval (changing embedding model, reranker, or K) based on
+  this metric pattern — the retrieval is working well
+- Claims that high context_precision should automatically produce high faithfulness
+- Cannot distinguish which pipeline stage each metric evaluates

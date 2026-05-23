@@ -472,3 +472,177 @@ model update, and how would you detect each in production?
 - Cannot distinguish faithfulness-stable drift (the system works as designed but the
   design is no longer correct for the environment) from faithfulness-unstable drift
   (the system is generating ungrounded content)
+
+---
+
+## Q12 — What a circuit breaker does in a RAG system
+
+**Difficulty:** novice
+
+**Question:**
+What is a circuit breaker in a RAG system, and what problem does it prevent?
+
+**Correct answer criteria:**
+- A circuit breaker is a component that monitors repeated failures from a dependency —
+  such as the vector database or the LLM API — and stops sending requests to that
+  dependency when failures exceed a threshold
+- When the circuit is "open" (tripped), the system serves a fallback response immediately
+  instead of waiting for each request to time out or fail
+- The problem it prevents: cascade failure. Without a circuit breaker, if the vector
+  database is down, every query waits for the full timeout before failing. Under high
+  traffic, these pending requests pile up, consuming threads and memory until the entire
+  application becomes unresponsive
+- With a circuit breaker, the first N failures open the circuit; subsequent requests
+  are short-circuited to a fallback without hitting the failing service
+
+**Partial credit criteria:**
+- Correctly explains what a circuit breaker does mechanically but does not explain the
+  cascade failure it prevents
+- Correctly identifies the cascade failure problem but cannot describe how a circuit
+  breaker stops new requests from reaching the failed service
+
+**Incorrect / no-credit criteria:**
+- Describes a circuit breaker as a retry mechanism (retries send more requests to a
+  failing service; circuit breakers stop sending requests)
+- Believes a circuit breaker repairs the failed dependency
+- Cannot identify cascade failure as the problem being prevented
+
+---
+
+## Q13 — What caching stores in a RAG system
+
+**Difficulty:** novice
+
+**Question:**
+A RAG system implements caching for the retrieval step. What exactly is stored in the
+cache, and what benefit does this provide?
+
+**Correct answer criteria:**
+- The cache stores the retrieval results for a query — the top-K chunks returned by the
+  vector store for that query — keyed by the query (or the query's embedding vector in
+  a semantic cache)
+- When the same or a semantically similar query arrives again, the cache returns the
+  stored chunks directly without issuing a new similarity search against the vector database
+- Benefits: reduced latency (vector store round-trip is eliminated), reduced cost (fewer
+  vector store API calls or compute operations), and reduced load on the vector database
+  at peak traffic
+
+**Partial credit criteria:**
+- Correctly identifies that retrieval results are cached but cannot explain what benefit
+  this provides
+- Identifies the latency and cost benefits but confuses the cache as storing final LLM
+  responses rather than retrieval results
+
+**Incorrect / no-credit criteria:**
+- Believes the cache stores the vector embeddings of document chunks (that is the index)
+- Cannot distinguish retrieval caching from general HTTP response caching
+- Claims caching eliminates the need for a vector database
+
+---
+
+## Q14 — What a fallback response is in a RAG system
+
+**Difficulty:** novice
+
+**Question:**
+What is a fallback response in a RAG system? Give one example of a condition that would
+trigger it, and one example of what it might say.
+
+**Correct answer criteria:**
+- A fallback response is a pre-written or pre-configured response that the system returns
+  when it cannot complete the normal retrieval-and-generation flow — either because
+  retrieval failed, no relevant context was found, or a downstream service is unavailable
+- Example condition that triggers it: the vector database is unavailable (circuit breaker
+  is open), or retrieval returns chunks with similarity scores below a minimum threshold
+  indicating no relevant documents were found
+- Example fallback response: "I'm unable to find relevant information in our knowledge
+  base to answer your question right now. Please try again later or contact support."
+- Fallback responses prevent the system from hallucinating an answer when it has no
+  reliable context to ground the response
+
+**Partial credit criteria:**
+- Correctly defines a fallback response and gives a triggering condition but cannot
+  give a concrete example of what it says
+- Gives a valid example but cannot explain why fallbacks prevent hallucination
+
+**Incorrect / no-credit criteria:**
+- Describes a fallback response as the LLM's best guess using parametric knowledge
+  (this is LLM-without-context serving, which may be appropriate in some degradation
+  tiers but is distinct from a defined fallback response)
+- Cannot identify any condition that would trigger a fallback
+- Believes fallback responses are a sign of system failure rather than intentional
+  graceful degradation
+
+---
+
+## Q15 — What rate limiting does in a RAG API
+
+**Difficulty:** novice
+
+**Question:**
+A production RAG API applies rate limiting to incoming requests. What does rate limiting
+do, and what component of the RAG pipeline is it primarily protecting?
+
+**Correct answer criteria:**
+- Rate limiting restricts how many requests a user or client can make within a time window
+  — for example, no more than 10 requests per second per API key
+- Requests that exceed the limit are rejected immediately (with a 429 Too Many Requests
+  response) rather than being queued indefinitely
+- Rate limiting primarily protects the vector store and the LLM inference service — both
+  are high-cost operations that can become overloaded if a single client sends unbounded
+  traffic. A single misbehaving client or a traffic spike can degrade quality for all users
+  without rate limiting
+- It also limits exposure in the event of a denial-of-service attack or a runaway
+  client that is making requests in a tight loop
+
+**Partial credit criteria:**
+- Correctly explains what rate limiting does mechanically but cannot identify which
+  RAG pipeline components it protects
+- Correctly identifies the protected components but describes rate limiting as a
+  caching mechanism rather than a request volume control
+
+**Incorrect / no-credit criteria:**
+- Describes rate limiting as limiting the size of each request (that is payload size
+  limiting or token budget enforcement, not rate limiting)
+- Cannot identify any component of the RAG pipeline that benefits from rate limiting
+- Believes rate limiting only applies to unauthenticated users
+
+---
+
+## Q16 — When caching creates a correctness problem
+
+**Difficulty:** intermediate
+
+**Question:**
+A RAG system uses semantic caching for retrieval results. The team updates 200 documents
+in the knowledge base and re-indexes them. Three hours later, users report receiving
+outdated answers to questions that were recently updated. Explain what is happening and
+how to prevent it.
+
+**Correct answer criteria:**
+- The cache is serving stale retrieval results: when users ask queries that previously
+  hit the cache, the cached chunks are returned instead of running a new vector search
+  against the updated index. The cache contains the old chunks from before the re-indexing,
+  so the LLM generates answers from outdated content
+- This is the cache invalidation problem: the index was updated but the cache was not
+  cleared. The cache has no knowledge of which of its stored retrieval results are now
+  stale because the underlying documents changed
+- How to prevent it: (1) invalidate (clear) the semantic cache whenever a re-indexing
+  event occurs — a full cache flush is the simplest approach, accepting that cache miss
+  rate will spike temporarily after each index update; (2) implement document-level cache
+  tagging — tag each cached result with the document IDs of the chunks it contains; when
+  a document is updated, invalidate only cache entries that reference that document's ID;
+  (3) set a short TTL (time-to-live) on cache entries so they expire quickly enough that
+  stale content is not served long after an index update
+
+**Partial credit criteria:**
+- Correctly identifies that the cache is serving stale results but cannot describe
+  a prevention mechanism beyond "clear the cache"
+- Describes document-level invalidation correctly but does not identify TTL as a simpler
+  alternative for environments with frequent updates
+
+**Incorrect / no-credit criteria:**
+- Believes the re-indexing step automatically invalidates the cache
+- Recommends disabling caching entirely as the only solution (does not explore
+  invalidation strategies)
+- Cannot explain why the cache continues serving old results after the index is updated

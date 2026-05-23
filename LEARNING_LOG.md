@@ -1519,3 +1519,9 @@ Registered `langgraph_fundamentals` in the five src/ slug registries that govern
 ## Commit 50 — `langgraph-questions` · RAG Specialist · 2026-05-23 · `content`
 
 > **In one sentence:** Added the full question bank for the `langgraph_fundamentals` Phase 3 topic — 20 MCQs across all four difficulty tiers and 19 open-ended questions, covering directed graphs, state flow, conditional routing, graph compilation, checkpointing, agentic behavior, and the distinction between graph topology and LLM behavior — all concepts-only with zero Python API references.
+
+---
+
+## Commit 51 — `bank-expansion` · RAG Specialist · 2026-05-23 · `content`
+
+Expanded novice and intermediate question tiers to ≥5 each across all 8 original topics (embeddings_and_similarity, rag_pipeline_architecture, chunking_strategies, vector_databases, retrieval_methods, context_and_prompting, evaluation_and_metrics, production_patterns) — both MCQ and open-ended banks — eliminating guaranteed question repetition within 2–3 sessions at novice/intermediate level. Zero gate wave (pure knowledge-base content). 5 agent passes due to tool-cap splits; final counts verified by script.

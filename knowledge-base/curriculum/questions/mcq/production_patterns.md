@@ -1,8 +1,8 @@
 # MCQ Bank — production_patterns
 # Topic: production_patterns
 # Phase: 3 (Production)
-# Questions: 11 (2 novice, 4 intermediate, 3 advanced, 2 expert)
-# Last updated: 2026-05-21 (Commit 45)
+# Questions: 14 (5 novice, 4 intermediate, 3 advanced, 2 expert)
+# Last updated: 2026-05-23 (Commit 51)
 
 ---
 
@@ -300,4 +300,109 @@ Retry amplification is a well-documented distributed systems failure mode. When 
 **Why C is wrong:** Idempotency ensures that multiple identical requests produce the same outcome at the server side — relevant for preventing duplicate side effects (like charging a credit card twice). For LLM generation, the concern is output variance (non-deterministic generation), not idempotency in the distributed systems sense. This distractor catches practitioners familiar with idempotency from payment systems who apply it outside its domain.
 
 **Why D is wrong:** Exponential backoff with asyncio.sleep is non-blocking in an async event loop — the coroutine suspends while the event loop continues processing other requests. The statement that "exponential backoff is incompatible with async event loops" is false for correct async implementations. The actual danger is synchronous time.sleep called from within an async context, but this is a code correctness issue, not an inherent incompatibility. A practitioner who has debugged async Python code may have seen blocking-sleep bugs and overgeneralized.
+
+---
+
+## MCQ-12 — What a circuit breaker does in a RAG system
+
+**Difficulty:** novice
+**Topic:** production_patterns
+
+**Question:**
+What is the primary purpose of a circuit breaker pattern in a production RAG system?
+
+**Options:**
+A. It limits the number of tokens sent to the LLM to prevent exceeding the context window
+B. It stops sending requests to a failing downstream dependency (such as the LLM API or vector database) when failures reach a threshold, returning a pre-defined fallback response instead of allowing failures to cascade
+C. It splits user traffic between two versions of the RAG system for A/B testing
+D. It encrypts requests to external APIs to prevent data leakage
+
+**Correct answer:** B
+
+**Explanation:**
+A circuit breaker is a stability pattern that detects when a downstream dependency is failing repeatedly, "trips" to an open state, and stops forwarding new requests to that dependency. Instead of each incoming request timing out individually (occupying threads and exhausting resources), the circuit breaker immediately returns a fallback response. After a recovery interval, it sends a probe request; if the probe succeeds, it closes and resumes normal operation. In a RAG system, this is most commonly applied to the LLM API or vector database — the two high-latency, externally-owned dependencies that are most likely to degrade.
+
+**Why A is wrong:** Token limits are managed by the prompt assembly step or by the LLM API itself via a maximum token parameter. A context window limit is a capacity constraint, not a failure-handling pattern. A practitioner who knows LLMs have token limits but is unfamiliar with distributed systems patterns may associate "circuit" with "limit" and choose A.
+
+**Why C is wrong:** Traffic splitting between system versions describes A/B testing or canary deployment — a release engineering pattern, not a failure handling pattern. A circuit breaker has nothing to do with routing traffic to different versions of the system. A practitioner familiar with deployment practices but not reliability patterns may confuse these.
+
+**Why D is wrong:** Encryption of API requests is a security concern handled by TLS at the transport layer, not a runtime stability pattern. A practitioner who associates "protection" with security rather than reliability may guess D. Circuit breakers protect system availability, not data confidentiality.
+
+---
+
+## MCQ-13 — What caching stores in a RAG system vs. what it bypasses
+
+**Difficulty:** novice
+**Topic:** production_patterns
+
+**Question:**
+A RAG system implements query-level caching. When a cache hit occurs, what does the system skip?
+
+**Options:**
+A. It skips document ingestion — the source documents are not re-read from the file system
+B. It skips both vector similarity search and LLM generation — the stored response is returned directly without calling either external dependency
+C. It skips only the LLM generation step — retrieval still runs to ensure the context is current
+D. It skips re-embedding the user query but still performs the vector similarity search with a default vector
+
+**Correct answer:** B
+
+**Explanation:**
+Query-level caching (also called response caching or semantic caching) stores the full response for a query. On a cache hit, the system bypasses both the retrieval stage (vector similarity search) and the generation stage (LLM API call) entirely — returning the stored answer immediately. This is where the cost and latency savings come from: vector search and LLM inference are the two most expensive operations per query, and caching eliminates both for repeated or similar queries.
+
+**Why A is wrong:** Document ingestion is the indexing pipeline — loading raw source files, chunking them, embedding them, and storing vectors. This happens at index build time, not at query serving time. A practitioner who conflates the indexing pipeline with the query pipeline may choose A. Query-level caching applies at serving time, not at ingestion time.
+
+**Why C is wrong:** Running retrieval on every request (even a cache hit) would defeat most of the latency and cost benefit of caching — vector search is itself an expensive, network-bound operation. Some architectures implement "retrieval validation" on cached responses when documents change, but this is a cache invalidation strategy, not normal cache serving behavior. A practitioner who assumes retrieval must always run to ensure freshness may choose C.
+
+**Why D is wrong:** There is no "default vector" concept in standard retrieval — every query requires an embedding of the actual query text to find semantically relevant documents. Skipping embedding but still running vector search with an arbitrary vector would return meaningless results. This distractor catches practitioners who think of caching as "skipping only the first step" rather than skipping the dependent chain.
+
+---
+
+## MCQ-14 — What a fallback response is in a RAG system
+
+**Difficulty:** novice
+**Topic:** production_patterns
+
+**Question:**
+In a production RAG system, what is a "fallback response"?
+
+**Options:**
+A. The system's second attempt to answer after the first LLM generation fails quality checks
+B. A pre-written response served when the system cannot retrieve relevant context — for example, when all retrieved chunks fall below a similarity threshold or when a downstream dependency is unavailable
+C. The response generated when the user's query exceeds the LLM's maximum token limit
+D. An answer retrieved directly from the LLM's training data when the vector database is empty
+
+**Correct answer:** B
+
+**Explanation:**
+A fallback response is a pre-defined, pre-written response that the system returns when it cannot produce a reliable generated answer — either because retrieval found no relevant context (similarity scores too low), a downstream service is unavailable (circuit breaker is open), or a safety/quality threshold was not met. The fallback is static and pre-written, not generated — it tells the user honestly that the system cannot answer this query with confidence, and often prompts them toward an alternative channel. This is preferable to serving a hallucinated or low-confidence generated answer.
+
+**Why A is wrong:** A "second attempt" after a failed quality check describes a retry or re-generation strategy — running the pipeline again with different parameters. A fallback response is not a retry — it does not invoke the LLM at all. A practitioner who thinks of fallbacks as recovery attempts rather than graceful exits may choose A.
+
+**Why C is wrong:** A token limit overflow causes a different type of failure — the prompt is too long for the model. This may trigger a specific handling strategy (truncation, query decomposition), but the term "fallback response" refers to the response delivered when retrieval fails or quality is insufficient, not to a token budget issue. A practitioner who conflates token management with retrieval failure handling may choose C.
+
+**Why D is wrong:** Serving the LLM's parametric knowledge (training data) when the vector database has no results is the opposite of a fallback response — it is allowing ungrounded LLM generation to proceed, which is the failure mode that fallback responses are designed to prevent. This describes a poorly designed system that removes the grounding guarantee of RAG. A practitioner who does not understand why RAG exists may see "LLM knows the answer anyway" as a reasonable approach.
+
+---
+
+## MCQ-15 — Cache staleness after index update
+
+**Difficulty:** intermediate
+**Topic:** production_patterns
+
+**Question:**
+A production RAG system caches retrieval results by query text. The team ingests a batch of new documents and re-chunks several existing documents, updating the vector index. After the index update, a developer notices that queries which previously retrieved outdated chunks are still returning the same outdated results. What is the root cause and the correct fix?
+
+**Options:**
+A. The vector database requires a full restart after any index update to reload new vectors into memory — the new documents are not visible until the service restarts
+B. The query cache is serving retrieval results that were computed before the index update. The cache has no awareness that the underlying index changed, so it continues returning pre-update chunks even though the index now contains different and newer content. The fix is cache invalidation on index update — not TTL-based expiry alone, but explicit invalidation triggered whenever the index is modified
+C. The embedding model must be re-deployed after new documents are ingested, because its internal vocabulary index becomes stale when new terminology is added to the corpus
+D. The cache TTL is set too high — reducing TTL to 60 seconds will ensure stale results expire quickly enough that users see fresh content within one minute of any index update
+
+**Correct answer:** B — Query caches in RAG systems store the output of the retrieval step: given this query text, return these chunks. That mapping was correct when it was stored, but it becomes incorrect the moment the index changes. A new document may be the correct answer to a cached query; a re-chunked document may have split a previously cached chunk differently. TTL-based expiry (option D) addresses this partially but imprecisely — a 1-hour TTL means users see stale results for up to an hour after every index update, and a 60-second TTL (option D's suggestion) would make the cache nearly useless for reducing load. The correct pattern is event-driven invalidation: when an index update event fires, the cache is cleared or selectively invalidated for affected query patterns.
+
+**Why each wrong answer is wrong:**
+- **A:** Managed vector databases (Pinecone, Weaviate, Qdrant, pgvector) serve newly inserted vectors immediately without requiring a restart. Vectors are committed to the index during the insert operation, and ANN queries return new vectors on the next query. A practitioner who has worked with traditional relational databases that require explicit reloads may incorrectly transfer that mental model to vector stores.
+- **B:** This is the correct answer.
+- **C:** Embedding models do not have an internal vocabulary index that updates based on corpus content. The model weights are fixed at training time. New documents are embedded using the existing model — the model does not learn new vocabulary from ingested content. This confusion arises from mixing up fine-tuning (updating model weights) with inference (using the model to embed new text).
+- **D:** Reducing TTL from a longer value to 60 seconds partially improves freshness but does not fix the architectural problem. A 60-second TTL means every query result expires every minute, eliminating the cost and latency benefits of caching for anything but burst traffic scenarios. The correct fix is event-driven invalidation triggered by index updates, not shorter expiry intervals that make caching economically ineffective.
 

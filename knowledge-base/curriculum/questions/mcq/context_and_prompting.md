@@ -1,8 +1,8 @@
 # MCQ Bank — context_and_prompting
 # Topic: context_and_prompting
 # Phase: 2 (Core Components)
-# Questions: 10 (2 novice, 3 intermediate, 4 advanced, 2 expert)
-# Last updated: 2026-05-21 (Commit 45)
+# Questions: 15 (5 novice, 5 intermediate, 3 advanced, 2 expert)
+# Last updated: 2026-05-23 (Commit 51)
 
 ---
 
@@ -267,4 +267,140 @@ RAGAS faithfulness evaluates grounding: does the LLM's response trace back to th
 **Why C is wrong:** Upstream data quality improvement (removing stale documents) is the correct long-term remediation, but the question asks about evaluation-time detection. The claim that this failure mode "cannot be detected at evaluation time" is incorrect — answer correctness metrics exist specifically for this purpose. A team that concludes "evaluation can't help us here" will not add the answer correctness metric and will have no signal that their deployment is producing wrong answers at scale. The failure is detectable; the practitioner just needs the right metric.
 
 **Why D is wrong:** Increasing the number of retrieved chunks increases the probability of retrieving a correct document alongside the incorrect one, but it does not guarantee the LLM will prefer the correct source when both are present. In practice, when conflicting information appears in the context, the LLM may quote either source depending on positioning, temperature, and prompt construction — or it may synthesize a hybrid answer that is partially wrong. More chunks also increases the risk of context window pressure and lost-in-the-middle attention failures. This approach treats a corpus quality problem as a retrieval volume problem and does not provide a detection mechanism at evaluation time.
+
+---
+
+## MCQ-11 — What the LLM receives in a RAG prompt
+
+**Difficulty:** novice
+**Topic:** context_and_prompting
+
+**Question:**
+In a standard RAG pipeline, what does the LLM receive as its input?
+
+**Options:**
+A. The user's question only — the LLM searches its training data to find relevant information
+B. A structured prompt containing the system instruction, the retrieved context chunks, and the user's question
+C. The full contents of the document corpus, appended to the user's question
+D. Only the top-1 most similar chunk and the user's question — additional chunks would confuse the model
+
+**Correct answer:** B
+
+**Explanation:**
+The LLM's input in RAG is a constructed prompt that brings together three elements: a system instruction (telling the LLM to answer from context, what to do when the answer is absent), the retrieved context chunks (text passages selected by the retriever), and the user's original question. The LLM does not search its training data at inference time (A) — it only processes what is in its context window. It does not receive the full corpus (C) — retrieval exists to select a small relevant subset. Multiple chunks (typically 3–10) are injected, not just one (D) — the LLM synthesizes across them.
+
+**Why A is wrong:** LLMs do not "search" their training data at inference time. Their parametric knowledge is baked into weights during training and cannot be selectively queried at runtime. A developer who thinks of the LLM as a database that can look things up on demand has a fundamental misconception about how transformer inference works. The entire point of RAG is to supplement the LLM's fixed parametric knowledge with dynamically retrieved context.
+
+**Why C is wrong:** Injecting the full document corpus would far exceed any practical context window — typical production corpora have millions of tokens. More importantly, it would produce incoherent, expensive prompts where the relevant passages are lost among thousands of irrelevant ones. This would fail on both cost and quality grounds. Retrieval exists precisely to solve the problem of selecting the relevant subset.
+
+**Why D is wrong:** Standard production RAG systems inject multiple chunks (typically top-3 to top-20) because a single query may require information from more than one passage to produce a complete answer. Single-chunk injection was an early, simple approach that was abandoned in practice because it limits recall. The risk of "confusing" the model comes from injecting irrelevant chunks, not from injecting multiple relevant ones.
+
+---
+
+## MCQ-12 — System instruction purpose in a RAG prompt
+
+**Difficulty:** novice
+**Topic:** context_and_prompting
+
+**Question:**
+A RAG system prompt begins with: "You are a helpful assistant. Answer questions using only the information in the provided context. If the context does not contain the answer, respond: 'I don't have information about that.'" What does this system instruction primarily accomplish?
+
+**Options:**
+A. It prevents the LLM from accessing the internet during generation
+B. It grounds the LLM's response in the retrieved context and provides a safe fallback for unanswerable questions
+C. It increases the LLM's response length by giving it more rules to follow
+D. It tells the retrieval system which documents to search
+
+**Correct answer:** B
+
+**Explanation:**
+The system instruction serves two grounding functions: (1) it restricts the LLM to answer from the retrieved context rather than drawing on parametric knowledge, which reduces hallucination of facts not present in the corpus; and (2) it defines a graceful fallback — when the retrieved context does not contain the answer, the LLM should signal this explicitly rather than fabricating a plausible-sounding answer. Neither of these functions involves internet access (A), response length (C), or retrieval configuration (D) — those are separate systems operating independently.
+
+**Why A is wrong:** LLMs served via API do not have internet access during inference — they generate responses from their parametric knowledge and the provided context window. The system instruction has no technical ability to "prevent internet access" because there is no internet access to prevent. A developer who confuses LLM inference with browser-based AI assistants (which may have web search tools) makes this error.
+
+**Why C is wrong:** Response length is controlled by generation parameters (max_tokens), the length of the retrieved context, and the complexity of the question — not by the number of rules in the system instruction. Adding more rules to the system prompt does not mechanically increase output length. This distractor catches developers who associate "more instructions = more output."
+
+**Why D is wrong:** The system instruction is processed at generation time — after retrieval has already completed. It is not visible to the retrieval system (the embedding model and vector database), which operates independently before the LLM is ever invoked. The retrieval configuration is controlled by the retriever's top-K parameter, index selection, and metadata filters — none of which are affected by the LLM's system prompt.
+
+---
+
+## MCQ-13 — Context delimitation and its purpose
+
+**Difficulty:** novice
+**Topic:** context_and_prompting
+
+**Question:**
+A RAG prompt wraps retrieved chunks in XML-style tags: `<context>...</context>`. What is the primary purpose of these delimiters?
+
+**Options:**
+A. They are required by the LLM API to mark which content is user-provided vs. system-generated
+B. They help the LLM structurally distinguish retrieved context (untrusted source content) from system instructions and the user question, reducing the risk that the LLM treats context content as instructions
+C. They compress the context tokens by using a more efficient encoding format
+D. They allow the vector database to identify which portions of the prompt to index for future retrieval
+
+**Correct answer:** B
+
+**Explanation:**
+Explicit delimiters create structural boundaries in the prompt that help the LLM identify what each section of the input represents. When context is wrapped in `<context>` tags and the system instruction references "the content between context tags," the LLM has a clearer structural cue that the tagged content is source material to answer from — not instructions to follow. This is also the primary defense mechanism against prompt injection: a malicious chunk containing "ignore previous instructions" is structurally inside the context tags, and a system instruction can tell the LLM to treat everything inside those tags as data, not commands. XML tags are a prompt engineering convention — they are not required by the API (A), do not affect token encoding (C), and have no interaction with the vector database (D).
+
+**Why A is wrong:** LLM APIs (OpenAI, Anthropic, etc.) use structured message roles (system, user, assistant) to organize multi-turn prompts — not XML tags within messages. XML tags are an optional prompt engineering technique, not an API requirement. A developer who has seen XML-structured prompts in examples may assume they are mandatory, but they are a design choice.
+
+**Why C is wrong:** XML tags are plain text characters that consume tokens — they slightly increase prompt length, not decrease it. There is no compression mechanism associated with XML-style delimiters in LLM prompts. A developer who confuses structured data formats (where schemas can enable compression) with prompt structure makes this error.
+
+**Why D is wrong:** The vector database is invoked before the LLM prompt is assembled — it has already completed its search and returned the retrieved chunks by the time the prompt is constructed. The vector database does not read or process the final assembled prompt. The tags are invisible to the retrieval layer.
+
+---
+
+## MCQ-14 — Fallback instruction when context is insufficient
+
+**Difficulty:** intermediate
+**Topic:** context_and_prompting
+
+**Question:**
+A RAG system's system prompt contains: "Answer only from the provided context." A user asks a question whose answer is not in the retrieved documents. The system does not include a fallback instruction. What is the most likely LLM behavior?
+
+**Options:**
+A. The LLM returns an empty string because it has no context to answer from
+B. The LLM generates a plausible-sounding answer drawn from its parametric knowledge, appearing to answer the question while technically violating the grounding instruction
+C. The LLM raises a ContextNotFoundError that the application must handle
+D. The LLM outputs the retrieved chunks verbatim because it cannot synthesize without sufficient context
+
+**Correct answer:** B
+
+**Explanation:**
+LLMs are trained to be helpful and produce coherent responses. When a grounding instruction is present but no explicit fallback is provided, the LLM faces a conflict: be grounded (which would mean saying "I can't answer") vs. be helpful (which means providing an answer). In practice, LLMs resolve this conflict in favor of helpfulness and generate plausible-sounding answers from parametric knowledge — often without flagging that the context did not contain the answer. This is why the fallback instruction ("If the context does not contain the answer, say 'I don't have information about that'") is critical: it gives the LLM an explicit, acceptable grounded behavior for the insufficient-context case.
+
+**Why A is wrong:** LLMs do not return empty strings when they cannot find relevant information — they are trained on objectives that reward producing coherent, helpful completions. An empty string completion is a reward-minimizing behavior that well-trained LLMs almost never produce. A developer who expects silent failure when context is absent will be surprised by confident, plausible-sounding hallucinations instead.
+
+**Why C is wrong:** LLMs do not raise exceptions — they are generative models that produce text outputs. Error handling at the application level requires explicit checks against the generated text (e.g., detecting the "I don't know" pattern) or external validation steps. The concept of a ContextNotFoundError is an application-layer construct, not something the LLM natively produces. A developer coming from a structured programming background may expect exception-based error handling where it does not exist.
+
+**Why D is wrong:** LLMs do not output retrieved chunks verbatim as a default fallback — they synthesize new text from the prompt input. Verbatim chunk reproduction would require explicit instructions ("repeat the most relevant passage word for word"). An LLM with insufficient context for synthesis is more likely to generalize from training knowledge than to perform mechanical chunk playback.
+
+---
+
+## MCQ-15 — Token budget arithmetic for a RAG prompt
+
+**Difficulty:** intermediate
+**Topic:** context_and_prompting
+
+**Question:**
+A RAG system uses an LLM with a 4,096-token context window. The system prompt uses 300 tokens. The user's question is typically 50 tokens. The system retrieves top-5 chunks of 400 tokens each. What is the approximate number of tokens available for the LLM's output, and what is the most immediate risk?
+
+**Options:**
+A. 4,096 − 300 − 50 − (5 × 400) = 1,746 output tokens available. No immediate risk — the budget is comfortable.
+B. 4,096 − 300 − 50 − (5 × 400) = 1,746 output tokens available. The risk is that prompt growth (longer questions, more context, or additional system instructions) will silently reduce or eliminate the output budget, causing truncated responses.
+C. The 5 chunks exceed the context window, so the LLM will refuse to process the prompt and return a context-length error.
+D. 4,096 tokens are reserved entirely for the input — the LLM generates output in a separate unlimited buffer, so output tokens are not constrained by the context window.
+
+**Correct answer:** B
+
+**Explanation:**
+300 (system) + 50 (question) + 2,000 (5 × 400 chunks) = 2,350 input tokens. 4,096 − 2,350 = 1,746 tokens available for output. This is currently sufficient but the risk is real: this configuration has only 42% of the context window left for output, and any growth in input components will eat into that budget. Longer user questions, an additional system instruction, or a sixth retrieved chunk each reduce the output space. Frameworks that do not explicitly check input token count before invoking the LLM will silently truncate either the context (producing low-quality retrieval) or the output (producing cut-off answers). Proactive token budget monitoring prevents this failure mode.
+
+**Why A is wrong:** The arithmetic is correct, but "no immediate risk" is wrong. The available output budget (1,746 tokens) seems comfortable, but the risk is dynamic — not static. The system prompt will likely grow over time (instructions are added), the corpus may return longer chunks, and user query length varies. A developer who checks the budget once at setup and declares "we're fine" will encounter silent truncation failures when those inputs shift.
+
+**Why C is wrong:** 2,350 input tokens is well under the 4,096-token limit. The system processes without error. This distractor catches developers who estimate token counts incorrectly or who confuse the input token count with the full context window capacity. LLMs do not "refuse" prompts that are under their context limit — they only truncate or error when the limit is exceeded.
+
+**Why D is wrong:** LLM context windows encompass both input and output tokens. The context window is the total number of tokens the model attends over — output tokens are appended to the input context as they are generated. There is no separate unlimited buffer. A developer who believes output generation is unconstrained by context limits will be surprised when long responses are truncated precisely when they matter most (complex, multi-part answers requiring space to elaborate).
+
 

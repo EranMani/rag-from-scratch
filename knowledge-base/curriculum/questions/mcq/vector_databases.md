@@ -1,8 +1,9 @@
 # MCQ Bank — vector_databases
 # Topic: vector_databases
 # Phase: 2 (Core Components)
-# Questions: 10 (2 novice, 4 intermediate, 2 advanced, 2 expert)
-# Last updated: 2026-05-21 (Commit 45)
+# Questions: 15 (5 novice, 5 intermediate, 3 advanced, 2 expert)
+# Last updated: 2026-05-23 (Commit 51)
+# Last updated: 2026-05-23 (Commit 51)
 
 ---
 
@@ -273,4 +274,140 @@ Many vector databases, particularly those optimized for write throughput, decoup
 **Why C is wrong:** A zero-norm vector would cause a division-by-zero in cosine similarity computation, typically producing either an error at embedding time, a NaN similarity score at query time, or a silent zero-score result that falls below any threshold. But the scenario specifies that no errors are raised and the result is zero results — not a score of 0 for the correct document. Additionally, embedding APIs do not return zero-norm vectors for valid text inputs; this would require a degenerate input or a severe model bug. The diagnostic for a zero-norm vector (check embedding magnitude) would be the wrong first step for a write-ordering problem.
 
 **Why D is wrong:** Single-node vector databases do not use eventual consistency internally in the same way distributed systems do — there is no network hop between a "write frontend" and a "search backend" that introduces propagation delay on a single node. The failure mode described is a write buffer / graph integration ordering issue, not a distributed consistency window. Adding a 500ms sleep would likely mask the symptom in a test environment but would not identify or fix the root cause, and would leave the production system exposed to the same condition under any write workload that outpaces graph integration.
+
+---
+
+## MCQ-11 — What a vector database stores alongside embeddings
+
+**Difficulty:** novice
+**Topic:** vector_databases
+
+**Question:**
+In a RAG system, a vector database stores an embedding vector for each document chunk. What else does it typically store alongside the vector?
+
+**Options:**
+A. The raw source file (PDF or Word document) that the chunk came from
+B. The chunk's original text and metadata fields such as document ID, source URL, and timestamps
+C. A second copy of the embedding vector in a compressed format for fast retrieval
+D. The LLM's generated answer for that chunk from previous queries
+
+**Correct answer:** B
+
+**Explanation:**
+A vector database stores the embedding vector for similarity search plus a payload — typically the chunk's raw text (so it can be returned to the LLM without a secondary lookup) and metadata fields (document ID, source URL, author, timestamp, category) for filtering and attribution. The raw source files (PDFs, Word documents) are stored separately in object storage, not in the vector database. A vector database does not store LLM-generated answers — those belong in a response cache, a separate system entirely.
+
+**Why A is wrong:** Raw source files are large binary objects stored in object storage (S3, Azure Blob) and linked to the vector database only by reference. Storing raw files in the vector database would be architecturally incorrect — it is purpose-built for vector similarity search, not binary file storage. A developer who has not yet built a full RAG indexing pipeline may assume the vector database holds "the documents," without understanding that the pipeline splits storage: raw files in object storage, embeddings and chunk text in the vector database.
+
+**Why C is wrong:** Vector databases store the embedding once. Some databases support quantized (compressed) index representations to reduce memory usage during ANN search, but this is an internal optimization of the index structure — not a second separately accessible copy of the vector. A developer who has read about product quantization may conflate the compressed index representation with a separate stored field.
+
+**Why D is wrong:** Cached LLM answers are a separate concern handled by a response cache (in-memory, Redis, or similar). The vector database's job is retrieval — finding the most semantically similar chunks to a query. It has no knowledge of what the LLM generated previously for any query. A developer who conflates the vector database with the full RAG system's state might guess D, not distinguishing between retrieval storage and generation caching.
+
+---
+
+## MCQ-12 — Vector database vs. traditional database for semantic search
+
+**Difficulty:** novice
+**Topic:** vector_databases
+
+**Question:**
+A developer asks: "Can I just store my embedding vectors in a PostgreSQL column and run similarity queries?" What is the key limitation of this approach at scale?
+
+**Options:**
+A. PostgreSQL cannot store floating-point arrays, so embedding vectors must be converted to text before storage
+B. PostgreSQL has no support for cosine similarity — only Euclidean distance is available in SQL
+C. PostgreSQL performs exact nearest-neighbor search, which requires a full table scan per query — at millions of vectors this becomes seconds per query, far too slow for interactive RAG
+D. PostgreSQL requires all vectors to be the same length, but different embedding models produce vectors of different lengths
+
+**Correct answer:** C
+
+**Explanation:**
+PostgreSQL can store float arrays and even supports vector similarity via extensions like pgvector. The fundamental limitation is not data type or distance metric support — it is query performance. Without a purpose-built ANN index, a similarity query computes the distance from the query vector to every stored vector (full table scan). At 1 million vectors × 768 dimensions, this is 768 million floating-point operations per query, taking seconds. A vector database maintains an HNSW or IVF index that skips the vast majority of vectors per query, returning results in milliseconds. Options A and B are factually incorrect (PostgreSQL handles floats and pgvector supports cosine similarity). Option D is partially true but not the key limitation.
+
+**Why A is wrong:** PostgreSQL natively handles floating-point arrays. Extensions like pgvector provide explicit vector types with similarity operators. A developer who has never worked with PostgreSQL array types might guess A, but this is not a real limitation. The limitation is computational, not a data type gap.
+
+**Why B is wrong:** pgvector and similar extensions support cosine similarity, inner product, and Euclidean distance. The SQL standard itself does not include vector operations, but database extensions fill this gap. This distractor catches developers who assume database capabilities are limited to standard SQL functions, without considering the extension ecosystem.
+
+**Why D is wrong:** PostgreSQL (and vector databases) require all vectors to have the same dimensionality within a collection, not across different collections. Within a single RAG system, all chunks are embedded with the same model and have the same dimension count. This is a real constraint but not a meaningful limitation in practice — you would not mix 768-dim and 1536-dim vectors in the same index regardless of the database technology.
+
+---
+
+## MCQ-13 — Similarity score threshold for retrieval gating
+
+**Difficulty:** novice
+**Topic:** vector_databases
+
+**Question:**
+A RAG system retrieves the top-5 most similar chunks for every query, regardless of how similar they actually are. A user asks about a topic that has no relevant documents in the corpus. What is the most likely failure mode?
+
+**Options:**
+A. The vector database raises a "no results found" error because no chunks meet the minimum similarity threshold
+B. The system retrieves the 5 least dissimilar chunks (even if they are very semantically distant from the query) and passes them to the LLM, which then generates an answer grounded in irrelevant context
+C. The embedding model returns a null vector for the query because it cannot find a semantic representation for an unknown topic
+D. The vector database times out because searching for a topic with no matches requires scanning the full index
+
+**Correct answer:** B
+
+**Explanation:**
+ANN search always returns the K most similar vectors in the index — it does not distinguish between "highly similar" and "least dissimilar." If a user asks about a topic with no relevant documents, the system still returns 5 chunks — just the 5 that happen to be least far away, even if none of them are genuinely relevant. The LLM then receives these irrelevant chunks and may generate a confidently wrong answer grounded in off-topic content. This is the core motivation for similarity threshold gating: before passing retrieved chunks to the LLM, check whether the top-1 similarity score exceeds a minimum threshold. If not, return "I cannot find relevant information" rather than hallucinating from noise.
+
+**Why A is wrong:** Vector databases do not raise errors when results are dissimilar — they return whatever the K nearest vectors are, regardless of similarity score. The concept of a minimum similarity threshold is an application-level gate, not a database-level feature. A developer who expects the database to self-detect irrelevance and return an empty result set will be surprised when the system confidently answers from irrelevant context.
+
+**Why C is wrong:** Embedding models produce a vector for any text input — they do not return null for unfamiliar topics. The model produces the best vector it can for the input, which for out-of-domain content may land in an unexpected region of the embedding space but is never null. A developer who thinks "the model doesn't know this topic so it can't embed it" conflates the model's knowledge (baked into weights) with its mechanical ability to produce a fixed-length output for any input.
+
+**Why D is wrong:** ANN search traverses the same graph/cluster structure regardless of whether a good match exists. It does not perform an exhaustive scan when no match is found — it still follows the index structure and terminates after exploring the configured number of candidates. Search latency is not affected by whether the query has a semantically close match. Timeout behavior is a function of index size and query parameters, not result quality.
+
+---
+
+## MCQ-14 — Index update after document deletion
+
+**Difficulty:** intermediate
+**Topic:** vector_databases
+
+**Question:**
+A RAG system must remove a document from the knowledge base (for a GDPR deletion request). The document has 20 chunks, each with a stored embedding. Which operation on the vector database is required?
+
+**Options:**
+A. Delete the source document file — the vector database automatically detects the file is gone and removes the corresponding vectors on the next query
+B. Delete all 20 chunk vectors from the vector database by their stored chunk IDs, and optionally rebuild the HNSW index afterward to compact tombstoned nodes
+C. Replace the 20 chunk vectors with zero-vectors to neutralize them — the LLM will not cite them if their similarity scores are zero
+D. Reduce the top-K retrieval parameter by 20 so the deleted document's chunks are never in the top results
+
+**Correct answer:** B
+
+**Explanation:**
+Vector databases do not have automatic awareness of source file systems — they store vectors and metadata independently. When a document must be deleted, the application must explicitly delete each chunk's vector from the database using its stored chunk ID. Most vector databases support soft deletion via tombstone markers (the vector is flagged as deleted but not physically removed from the graph until the next index compaction or rebuild). For a compliance-driven deletion, the team should also verify that the chunk text stored in the payload field is actually removed, not just flagged. A full index rebuild removes tombstoned nodes entirely; whether this is required depends on how the database handles tombstone memory usage.
+
+**Why A is wrong:** Vector databases are completely decoupled from the source file system. They store copies of the chunk text and the embedding vector — they have no mechanism to detect that a source file was deleted. A developer who believes "deleting the file deletes the vectors" will leave 20 orphaned, retrievable chunks in the database even after the source document is gone. This is a significant compliance failure for GDPR deletion requests.
+
+**Why C is wrong:** Replacing vectors with zero-vectors does not make them unretrievable — a zero-vector has a cosine similarity of 0 with every query, but the similarity is not negative. It does not prevent retrieval; it changes the ranking. For some distance metrics and query patterns, zero-vectors could even be returned. Compliance deletion requires actual removal of the data, not neutralization. This approach also leaves the chunk text payload (which may contain personal data) intact in the database.
+
+**Why D is wrong:** Reducing top-K by 20 is not correlated with whether any specific document's chunks are retrieved. The top-K parameter controls how many chunks are returned, not which specific chunks are included. The deleted document's chunks remain in the index and would be returned if they happen to score in the top-K for a query. This approach provides no deletion guarantee and would not satisfy a GDPR compliance requirement.
+
+---
+
+## MCQ-15 — Distance metric selection for a new deployment
+
+**Difficulty:** intermediate
+**Topic:** vector_databases
+
+**Question:**
+You are configuring a new vector database deployment. Your embedding model (text-embedding-3-small from OpenAI) produces unit-normalized vectors. Your vector database offers cosine similarity, dot product (inner product), and Euclidean (L2) distance. Which metric should you configure, and what is the primary reason?
+
+**Options:**
+A. Cosine similarity — it is the only metric that can handle text embeddings; dot product and L2 are for image and numeric data only
+B. Euclidean (L2) distance — it is the most interpretable metric because the distance value directly represents how "far apart" two documents are in meaning
+C. Dot product (inner product) — for unit-normalized vectors, dot product is mathematically equivalent to cosine similarity and is computationally cheaper, making it the preferred choice when vectors are guaranteed normalized
+D. All three are equivalent for unit-normalized vectors, so the choice is arbitrary and has no impact
+
+**Correct answer:** C
+
+**Explanation:**
+For unit-normalized vectors (magnitude = 1.0), the dot product of two vectors equals the cosine of the angle between them. This equivalence means dot product and cosine similarity produce identical rankings. However, dot product is computationally cheaper — it avoids the normalization divisions required in the cosine formula. When the embedding model guarantees unit-normalized outputs (as OpenAI's text-embedding models do), dot product is the correct choice: identical quality, lower compute cost. Option D is partially correct (the three metrics do converge for unit vectors) but the claim that "the choice is arbitrary" misses the performance implication. Options A and B are factually incorrect.
+
+**Why A is wrong:** All three distance metrics work for text embeddings — they are mathematical operations on floating-point vectors, not format-specific operations. The choice between them affects ranking quality and compute cost, not whether they function at all. The claim that L2 and dot product are "for image and numeric data" reflects a misconception about what these metrics compute.
+
+**Why B is wrong:** Euclidean distance does rank pairs identically to cosine similarity for unit-normalized vectors (because |a-b|^2 = 2 - 2*dot(a,b) for unit vectors), so L2 is not wrong. However, L2 is not more "interpretable" in any meaningful practical sense for semantic similarity — the absolute L2 distance value carries no semantic meaning without calibration. The cosine/dot product value (ranging from -1 to 1) is more naturally interpretable as a similarity score. Euclidean distance also requires computing a square root, adding compute overhead relative to dot product.
+
+**Why D is wrong:** The three metrics do converge for unit-normalized vectors in terms of ranking order, but the choice is not arbitrary — dot product is computationally cheaper because it avoids normalization divisions. In a system processing millions of queries, this difference is measurable. More importantly, if vector normalization is ever inadvertently disabled (during a model upgrade or configuration change), dot product and cosine similarity diverge immediately while the developer believes they are equivalent. Cosine similarity has built-in normalization as a safety guard; dot product depends on the guarantee holding.
+
 

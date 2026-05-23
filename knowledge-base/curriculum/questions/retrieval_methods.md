@@ -419,3 +419,128 @@ pattern tell you, and what is the most likely cause? Describe the corrective act
 - Recommends fixing the LLM prompt rather than adjusting the retrieval diversity parameter
 - Describes the problem as "MMR is broken" rather than "MMR is misconfigured for this
   query type"
+
+---
+
+## Q12 — What retrieval returns to the LLM
+
+**Difficulty:** novice
+
+**Question:**
+In a RAG system, what does the retrieval step return, and where does that result go next?
+
+**Correct answer criteria:**
+- The retrieval step returns the top-K chunks from the vector index that are most similar
+  to the user's query — the K document passages with the highest similarity scores
+- These retrieved chunks are then assembled into the prompt that is sent to the LLM,
+  providing the factual context the LLM uses to generate its answer
+- The retrieval step does not generate any text itself — it only selects existing chunks
+  from the indexed corpus
+
+**Partial credit criteria:**
+- Correctly describes what retrieval returns but does not explain where the result goes
+  (into the prompt)
+- Correctly describes the destination (prompt) but imprecisely describes what is returned
+  (e.g., "documents" instead of "chunks")
+
+**Incorrect / no-credit criteria:**
+- Describes retrieval as generating a summary of the relevant documents
+- Claims retrieval returns the LLM's answer
+- Cannot identify what top-K means
+
+---
+
+## Q13 — What "top-K" means in RAG retrieval
+
+**Difficulty:** novice
+
+**Question:**
+A RAG system is configured with K=5. What does this mean for each user query, and what
+is the effect of increasing K to 10?
+
+**Correct answer criteria:**
+- K=5 means the retrieval step returns the 5 chunks with the highest similarity score
+  to the query. These 5 chunks are passed to the LLM as context
+- Increasing K to 10 retrieves 10 chunks — more context is available to the LLM, which
+  increases the chance that the relevant information is present
+- The downside of a higher K: more chunks consume more of the LLM's context window
+  and may introduce chunks that are less relevant, adding noise that can reduce answer
+  quality
+
+**Partial credit criteria:**
+- Correctly explains K=5 but cannot describe the effect of increasing K
+- Correctly identifies that higher K adds more context but does not mention the noise
+  or context window cost
+
+**Incorrect / no-credit criteria:**
+- Describes K as the number of queries run
+- Believes higher K always produces better answers with no tradeoff
+- Cannot explain what similarity score ranking means in this context
+
+---
+
+## Q14 — Difference between retrieval and generation in a RAG system
+
+**Difficulty:** novice
+
+**Question:**
+In a RAG system, what is the difference between retrieval and generation? What does each
+component do, and which comes first?
+
+**Correct answer criteria:**
+- Retrieval comes first: it searches the vector index for the chunks most similar to the
+  user's query and returns those chunks as context
+- Generation comes second: the LLM receives the retrieved chunks (assembled into a prompt)
+  and produces the final answer text
+- Retrieval does not produce new text — it selects existing passages from the knowledge base
+- Generation produces new text — the LLM synthesizes an answer using the retrieved passages
+  as its source material
+- The two stages are sequential and distinct: retrieval quality determines what context
+  the LLM has; generation quality determines how well the LLM uses that context
+
+**Partial credit criteria:**
+- Correctly describes one stage but conflates it with the other
+- Correctly describes both stages but cannot explain why they are ordered retrieval-first
+
+**Incorrect / no-credit criteria:**
+- Describes generation as part of the retrieval step
+- Believes the LLM performs the retrieval itself by reading all documents
+- Cannot identify which stage produces the final answer text
+
+---
+
+## Q15 — Why increasing K does not always improve answer quality
+
+**Difficulty:** intermediate
+
+**Question:**
+A developer observes that retrieval with K=3 produces better faithfulness scores than K=10,
+even though K=10 retrieves more potentially relevant chunks. Explain why more retrieved
+context does not always improve answer quality.
+
+**Correct answer criteria:**
+- At K=3, the three returned chunks are the highest-scoring matches — they are very likely
+  to be directly relevant to the query. The LLM generates from a focused, high-signal
+  context
+- At K=10, chunks ranked 4–10 are progressively less similar to the query. They may be
+  topically adjacent but contain off-topic details, contradictory information, or content
+  that confuses the relationship between the question and the correct answer
+- This is context window pollution: lower-ranked chunks introduce noise that the LLM must
+  filter while generating. When the LLM attends to noisy chunks, it may incorporate
+  unsupported claims, reducing faithfulness
+- Additionally, with 10 chunks the prompt is longer, and the "lost in the middle" effect
+  means the LLM attends less uniformly to content in the middle of a large context block
+- The right K is the highest value where retrieved chunks remain predominantly relevant —
+  not the highest value the context window can hold
+
+**Partial credit criteria:**
+- Identifies that lower-ranked chunks are less relevant but cannot explain the mechanism
+  by which noise reduces faithfulness
+- Correctly identifies context pollution but does not mention lost-in-the-middle or the
+  relevance ranking falloff
+
+**Incorrect / no-credit criteria:**
+- Claims higher K always improves answer quality with no qualification
+- Attributes the faithfulness drop to the retrieval stage rather than to the effect of
+  noisy context on generation
+- Cannot explain what faithfulness measures

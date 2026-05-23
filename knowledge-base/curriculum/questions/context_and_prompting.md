@@ -295,6 +295,136 @@ identify when the choice may affect model behavior in a measurable way.
 
 ---
 
+## Q12 — What the LLM receives in a RAG system
+
+**Difficulty:** novice
+
+**Question:**
+In a RAG system, what does the LLM receive as its input for each user query?
+Name the two essential components.
+
+**Correct answer criteria:**
+- The LLM receives a prompt that contains two essential components: (1) the retrieved
+  context chunks — the passages from the knowledge base that the retrieval step identified
+  as most relevant to the query, and (2) the user's question — the original query text
+- These two components are assembled into a structured prompt, typically with the retrieved
+  chunks presented first and the question placed after, so the LLM can generate an answer
+  that is grounded in the provided context
+
+**Partial credit criteria:**
+- Names both components but cannot describe how they are combined into a single input
+- Names only one component (either context or question, not both)
+
+**Incorrect / no-credit criteria:**
+- Believes the LLM receives only the user's question with no context
+- Describes the LLM as directly accessing the vector database rather than receiving
+  pre-retrieved chunks in a prompt
+- Cannot identify that retrieved chunks are part of the LLM's input
+
+---
+
+## Q13 — What happens when retrieved context is not included in the prompt
+
+**Difficulty:** novice
+
+**Question:**
+A developer accidentally removes the context injection step from a RAG pipeline — the LLM
+receives only the user's question with no retrieved chunks. What happens to the LLM's
+responses, and why?
+
+**Correct answer criteria:**
+- Without retrieved context, the LLM falls back to its parametric knowledge — information
+  encoded in its weights during training
+- Parametric knowledge may be outdated (training cutoff), incomplete for domain-specific
+  topics, or simply wrong for questions requiring organization-specific information that
+  was never part of the training data
+- The LLM will still generate confident-sounding answers, but those answers will not be
+  grounded in the indexed knowledge base — defeating the purpose of the RAG system
+- This failure mode is silent: the system continues to function and return responses;
+  it does not throw errors
+
+**Partial credit criteria:**
+- Correctly identifies that the LLM uses parametric knowledge but cannot explain why
+  that produces worse results
+- Identifies the quality degradation but does not recognize that the failure is silent
+  (no error is thrown)
+
+**Incorrect / no-credit criteria:**
+- Believes the LLM will refuse to answer without retrieved context
+- Claims the LLM can always produce correct answers from parametric knowledge alone
+- Cannot explain what parametric knowledge is
+
+---
+
+## Q14 — What a system instruction does in a RAG prompt
+
+**Difficulty:** novice
+
+**Question:**
+What is the role of a system instruction in a RAG prompt? Give one example of a system
+instruction that is specific to RAG (not a general assistant instruction).
+
+**Correct answer criteria:**
+- The system instruction tells the LLM the rules it must follow when generating its answer
+  — it sets behavior before the user's question is seen
+- In a RAG system, system instructions typically: restrict the LLM to answering only from
+  the provided context, define the fallback behavior when the context is insufficient, and
+  may specify the output format
+- Example specific to RAG: "Answer only using information from the provided context passages.
+  If the provided context does not contain enough information to answer the question,
+  respond with: 'I don't have enough information in the provided documents to answer this.'"
+- This instruction prevents the LLM from blending retrieved context with parametric
+  knowledge, which would make answers harder to audit and trace to sources
+
+**Partial credit criteria:**
+- Correctly describes what a system instruction does in general but gives a generic
+  instruction not specific to RAG ("Be helpful and concise")
+- Gives a valid RAG-specific example but cannot explain the mechanism by which the
+  instruction constrains LLM behavior
+
+**Incorrect / no-credit criteria:**
+- Confuses the system instruction with the user's question
+- Claims system instructions are not necessary if the retrieved context is good quality
+- Cannot give any example of a system instruction
+
+---
+
+## Q15 — Why prompt position matters for long contexts
+
+**Difficulty:** intermediate
+
+**Question:**
+A RAG system injects 8 retrieved chunks into the prompt in relevance order — the most
+relevant chunk is at position 4 out of 8. A developer notices faithfulness is lower than
+expected. Explain how prompt position can cause this, and what the developer should change.
+
+**Correct answer criteria:**
+- The "lost in the middle" phenomenon: LLMs give non-uniform attention across long context
+  blocks. Content at the beginning and end of the context receives stronger attention than
+  content in the middle. A chunk at position 4 of 8 is in the middle of the context block
+  and may be underweighted by the LLM even when it is the most relevant passage
+- This means the LLM generates its answer while effectively giving less weight to the
+  highest-quality evidence — faithfulness drops because the LLM relies on middle-positioned
+  chunks less, potentially using lower-ranked context or falling back to parametric knowledge
+- What to change: place the most relevant chunk first (position 1) or last (position 8),
+  not in the middle. One effective ordering: put the top-1 most relevant chunk at position 1
+  and the top-2 and top-3 at positions 7 and 8, leaving less-relevant chunks in the middle
+- Reducing the total number of injected chunks also shrinks the "middle zone" and mitigates
+  the effect
+
+**Partial credit criteria:**
+- Correctly identifies the lost-in-the-middle phenomenon but cannot describe the reordering
+  fix
+- Recommends placing the most relevant chunk first but cannot explain the attention mechanism
+  that makes this necessary
+
+**Incorrect / no-credit criteria:**
+- Attributes the faithfulness drop to retrieval quality rather than prompt ordering
+- Claims the LLM attends uniformly to all positions in a long context
+- Recommends increasing the number of retrieved chunks as the fix
+
+---
+
 ## Q9 — Constraining synthesis without over-constraining fluency
 
 **Difficulty:** advanced

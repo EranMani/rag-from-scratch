@@ -1,7 +1,7 @@
 # Question Bank: `embeddings_and_similarity`
 # Phase: 1 — Foundations
 # Maintained by: Lara (RAG Curriculum Specialist)
-# Last updated: 2026-05-11 (Commit 22)
+# Last updated: 2026-05-23 (Commit 51)
 
 ---
 
@@ -415,3 +415,193 @@ like during cutover and when you would declare the migration complete.
   simultaneously (produces split-brain retrieval — query results are inconsistent depending
   on which index is hit)
 - Cannot identify the consistency window as a problem that requires dual-write
+
+---
+
+## Q12 — What an embedding model produces
+
+**Difficulty:** novice
+
+**Question:**
+When you pass a sentence through an embedding model, what does the model return?
+
+**Correct answer criteria:**
+- A fixed-length list of numbers (a vector or array of floating-point values)
+- The length of the list is determined by the model's architecture (e.g., 384 dimensions,
+  768 dimensions, 1536 dimensions) — it is the same length for every input, regardless
+  of how long or short the input text is
+- The numbers encode the meaning of the input text in a form that allows mathematical
+  comparison with other embeddings
+
+**Partial credit criteria:**
+- States that the model returns a list of numbers but believes the length varies with
+  input length
+- Correctly identifies the fixed-length property but describes the output as "keywords"
+  or "tokens" rather than floating-point values
+
+**Incorrect / no-credit criteria:**
+- Believes the model returns a summary or paraphrase of the text in natural language
+- Thinks the model returns a single score (e.g., a relevance score)
+- Confuses the embedding output with tokenization (which produces integers, not floats)
+
+---
+
+## Q13 — What "semantic similarity" means for embeddings
+
+**Difficulty:** novice
+
+**Question:**
+Two sentences have "high semantic similarity" as measured by their embeddings. What does
+this mean in plain terms, and give one example pair that would score high and one that
+would score low.
+
+**Correct answer criteria:**
+- High semantic similarity means the two sentences carry similar meaning — they could be
+  used to express the same idea or answer the same question
+- High similarity example: "The store closes at 9 PM" and "The shop shuts at nine in the
+  evening" — same meaning, different words
+- Low similarity example: "The store closes at 9 PM" and "Photosynthesis converts light
+  into energy" — unrelated topics, completely different meaning
+- The similarity is captured by how close the two embedding vectors are in the vector space
+
+**Partial credit criteria:**
+- Correctly defines semantic similarity but gives only one example (high or low, not both)
+- Gives appropriate examples but cannot connect them to what "close in vector space" means
+
+**Incorrect / no-credit criteria:**
+- Defines semantic similarity as "exact wording match" (that is lexical similarity, not
+  semantic similarity)
+- Cannot give any example pair
+- Believes only sentences with shared words can have high semantic similarity
+
+---
+
+## Q14 — Why embedding models are trained rather than hand-crafted
+
+**Difficulty:** novice
+
+**Question:**
+Why are embedding models trained on large text corpora rather than built by hand with
+rules about which words are similar?
+
+**Correct answer criteria:**
+- The number of possible word and phrase relationships is too large to define manually —
+  language has millions of words, idioms, and domain-specific terms
+- Training on large corpora allows the model to discover similarity patterns from actual
+  usage — words that appear in similar contexts are learned to have similar embeddings
+  automatically
+- Training captures relationships that no human could fully enumerate: synonyms, paraphrases,
+  domain-specific equivalences, and even stylistic similarity
+
+**Partial credit criteria:**
+- States that hand-crafting is impractical due to scale but cannot explain what the
+  training process captures instead
+- Explains the distributional learning correctly but cannot articulate why scale rules
+  out manual approaches
+
+**Incorrect / no-credit criteria:**
+- Believes a dictionary or thesaurus could substitute for a trained embedding model
+- Claims embedding models are trained because it is faster, not because hand-crafting
+  is infeasible at scale
+- Cannot identify what property of training produces useful embeddings
+
+---
+
+## Q15 — What happens to the embedding of a very long document
+
+**Difficulty:** novice
+
+**Question:**
+Most embedding models have a maximum input length (e.g., 512 tokens). What happens when
+you pass a 2,000-token document directly to such a model?
+
+**Correct answer criteria:**
+- The model truncates the input — only the first 512 tokens are embedded, and everything
+  after the cutoff is silently ignored
+- The resulting embedding represents only the beginning of the document, not its full content
+- This is why RAG systems split documents into smaller chunks before embedding — to ensure
+  each chunk fits within the model's input limit and is fully represented
+
+**Partial credit criteria:**
+- Correctly identifies that the model has a limit and the document will be truncated, but
+  does not explain that the embedding only represents the truncated portion
+- Explains the need for chunking without connecting it to the token limit
+
+**Incorrect / no-credit criteria:**
+- Believes the model automatically summarizes the document to fit the limit
+- Claims the model returns an error and refuses to process the long input
+- Does not identify any consequence of passing an oversized input
+
+**Follow-up probe:**
+"If you chunked the document into 400-token pieces, how many embeddings would you produce
+from the original 2,000-token document, and how would you store them?"
+
+---
+
+## Q16 — When cosine similarity score is misleading
+
+**Difficulty:** intermediate
+
+**Question:**
+You run cosine similarity between a user query and a document chunk and get a score of
+0.91 — very high. The document chunk is clearly irrelevant to the query when a human
+reads both. Describe two mechanisms that could produce a high cosine similarity score
+between two semantically unrelated texts.
+
+**Correct answer criteria:**
+- Mechanism 1: domain mismatch in the embedding model — if the embedding model was not
+  trained on text in this domain, it may cluster vocabulary in unexpected ways. Technical
+  terms from two unrelated domains may land near each other in the embedding space if both
+  are rare in the training corpus and the model treats "low-frequency" as a similarity signal
+- Mechanism 2: shared surface features without shared meaning — short texts that contain
+  common function words (articles, prepositions, connectives) without much content may
+  embed similarly because the embedding is dominated by structural rather than semantic
+  features. A very short query like "what is the limit?" and a short but unrelated chunk
+  may score highly because both have similar function-word patterns
+- Acceptable alternative mechanism: if vectors are not properly normalized and the embedding
+  model produces high-magnitude vectors for certain text types, inner product (if used
+  instead of true cosine similarity) can inflate scores for those texts regardless of meaning
+
+**Partial credit criteria:**
+- Identifies one valid mechanism with a concrete example but cannot identify a second
+- States that domain mismatch can cause false positives but does not explain the mechanism
+  (what the model does wrong)
+
+**Incorrect / no-credit criteria:**
+- Claims a high cosine similarity score always indicates semantic relevance
+- Attributes the false positive only to "the model being wrong" without explaining the
+  specific mechanism
+- Cannot describe any condition under which cosine similarity produces a misleading result
+
+---
+
+## Q17 — The difference between embedding a query and embedding a document chunk
+
+**Difficulty:** intermediate
+
+**Question:**
+Should you use the same embedding model to embed user queries and document chunks in a
+RAG system? What breaks if you embed queries with one model and document chunks with
+a different model?
+
+**Correct answer criteria:**
+- Yes — queries and document chunks must be embedded with the same model. They must share
+  the same vector space for cosine similarity to be meaningful
+- If different models are used: each model defines its own coordinate system with its own
+  learned dimensions. A query vector from Model A and a document vector from Model B exist
+  in different spaces. Cosine similarity between them produces a number that has no
+  relationship to semantic similarity — retrieval becomes effectively random
+- Some embedding models use asymmetric encoding (separate encoder weights for queries vs.
+  documents, as in Cohere's models or bi-encoder rerankers). These are designed for this
+  purpose — both encoders still map into the same shared vector space. This is not the
+  same as using two completely different models.
+
+**Partial credit criteria:**
+- Correctly states that the same model must be used for both but cannot explain why
+  (cannot explain the incompatible vector spaces concept)
+- Identifies the failure mode (retrieval becomes random) but does not explain the mechanism
+
+**Incorrect / no-credit criteria:**
+- Believes different models can be used as long as they have the same embedding dimension
+- Claims the problem can be solved by normalizing vectors from both models
+- Cannot identify any consequence of using mismatched embedding models

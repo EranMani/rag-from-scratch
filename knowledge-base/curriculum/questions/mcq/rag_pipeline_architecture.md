@@ -1,8 +1,8 @@
 # MCQ Bank — rag_pipeline_architecture
 # Topic: rag_pipeline_architecture
 # Phase: 1 (Foundations)
-# Questions: 10 (2 novice, 2 intermediate, 3 advanced, 3 expert)
-# Last updated: 2026-05-21 (Commit 45)
+# Questions: 16 (5 novice, 5 intermediate, 3 advanced, 3 expert)
+# Last updated: 2026-05-23 (Commit 51)
 
 ---
 
@@ -111,6 +111,169 @@ Chunking must happen before embedding because embedding models have a maximum to
 **Why C is wrong:** Storing raw documents in the vector database before chunking and embedding has the causal dependencies backward. The vector database requires a vector to store alongside each item. You cannot create that vector without embedding, and you cannot reliably embed without chunking first.
 
 **Why D is wrong:** Query-time chunking means the document would be chunked fresh for every query, which defeats the purpose of the indexing phase. The indexing phase exists to do this work once, offline, so query time only needs to perform retrieval — not parsing, chunking, and embedding from scratch.
+
+---
+
+## MCQ-11 — What the LLM receives in a RAG pipeline
+
+**Difficulty:** novice
+**Topic:** rag_pipeline_architecture
+
+**Question:**
+In a standard RAG pipeline, what does the LLM receive as input when generating an answer?
+
+**Options:**
+A. The user's raw query and direct access to the vector database to fetch documents as needed
+B. A prompt containing the user's question and the retrieved document chunks, constructed by a prompt template
+C. Only the user's raw query — the LLM generates answers from its training data alone
+D. The user's query and the entire document corpus in plaintext
+
+**Correct answer:** B
+
+**Explanation:**
+The LLM never directly accesses the vector database. After retrieval, the retrieved chunks are assembled by a prompt template into a structured prompt that includes a system instruction, the retrieved context, and the user's question. The LLM processes this structured prompt and generates a response grounded in the provided context. It only sees what the prompt template places in its input window.
+
+**Why A is wrong:** The LLM has no direct access to the vector database. It cannot issue queries or fetch additional documents during generation. All retrieval happens before the LLM call, by the retrieval layer. Believing the LLM can dynamically fetch documents conflates RAG architecture with an agent-style tool-use pattern.
+
+**Why C is wrong:** If the LLM generated from training data alone, that would be standard LLM inference with no retrieval — not RAG. The defining feature of RAG is that retrieved external context is injected into the prompt to ground the generation. Without context injection, the system is not a RAG system.
+
+**Why D is wrong:** Passing the entire document corpus to the LLM is computationally impossible for any non-trivial corpus — it would exceed any context window. RAG exists precisely to address this: rather than loading all documents, only the most relevant chunks for a specific query are retrieved and passed to the LLM.
+
+---
+
+## MCQ-12 — Purpose of the retrieval step
+
+**Difficulty:** novice
+**Topic:** rag_pipeline_architecture
+
+**Question:**
+What is the purpose of the retrieval step in a RAG pipeline's query phase?
+
+**Options:**
+A. To train the embedding model using the user's query as a new data point
+B. To identify and return the document chunks that are most semantically similar to the user's query
+C. To filter the user's query for inappropriate content before it reaches the LLM
+D. To translate the user's query into the language used by the document corpus
+
+**Correct answer:** B
+
+**Explanation:**
+The retrieval step takes the embedded user query and searches the vector index for the document chunks whose embeddings are most similar (highest cosine similarity or dot product) to the query embedding. These top-K chunks are the "context" that the LLM will use to generate a grounded answer. Retrieval is a read-only operation — it does not modify the index, the model, or the query.
+
+**Why A is wrong:** The embedding model's weights are frozen at deployment — it is not retrained during query serving. The query is embedded to produce a search vector, but that embedding is used only for the lookup; it does not update any model parameters. Retraining on user queries would require a separate, explicitly triggered fine-tuning process.
+
+**Why C is wrong:** Content filtering for inappropriate queries is a separate safety layer, not the retrieval step. Retrieval is a semantic search operation, not a safety gate. Some production systems do include content filtering, but it is a distinct component positioned before or after retrieval, not the retrieval step itself.
+
+**Why D is wrong:** RAG retrieval operates on embedding similarity — it does not perform language translation. The embedding model maps queries and documents from any language into the same vector space (for multilingual models), but the retrieval step itself does no linguistic transformation. Translation, if needed, is a separate pre-processing step.
+
+---
+
+## MCQ-13 — What index staleness means
+
+**Difficulty:** novice
+**Topic:** rag_pipeline_architecture
+
+**Question:**
+A company's internal RAG system was indexed over its product documentation two months ago. Last week, a major product update changed several features. Users are now receiving answers that describe the old behavior. What is this problem called?
+
+**Options:**
+A. Embedding drift — the embedding model has updated its representations over time
+B. Index staleness — the vector index contains outdated document versions that no longer reflect the current source documents
+C. Context truncation — the LLM is cutting off the relevant parts of retrieved chunks
+D. Retrieval collapse — the vector database has lost its graph structure
+
+**Correct answer:** B
+
+**Explanation:**
+Index staleness occurs when the vector index is built from a snapshot of the document corpus that has since changed. The old embeddings and chunk text remain in the index while the source documents have been updated. Retrieval returns the stale chunks, and the LLM generates answers based on outdated information. This is one of the most common and silent failure modes in production RAG systems.
+
+**Why A is wrong:** Embedding models do not update their representations on their own — the weights are frozen after training. "Embedding drift" in this context is a made-up term. If anything, a planned embedding model upgrade would require re-indexing, which is the opposite situation. The failure described is entirely about stale document content, not about the embedding model changing.
+
+**Why C is wrong:** Context truncation is a different failure mode where chunks are cut short before reaching the LLM, typically due to context window limits. It does not cause the LLM to describe old product behavior — it would more likely cause incomplete answers. The scenario specifically describes answers that match the old documentation, which is a staleness problem.
+
+**Why D is wrong:** Retrieval collapse is not a standard term. The vector database in this scenario is functioning correctly — it is faithfully returning the chunks that are in its index. The issue is that the indexed chunks describe the old product state, not that the database has malfunctioned.
+
+---
+
+## MCQ-14 — Query phase sequence
+
+**Difficulty:** intermediate
+**Topic:** rag_pipeline_architecture
+
+**Question:**
+A user submits the query "What is the refund policy?" to a RAG system. Place the following operations in the correct order: (1) Embed the query, (2) Retrieve top-K chunks, (3) Construct prompt from chunks and question, (4) Send prompt to LLM, (5) Return answer to user.
+
+**Options:**
+A. 2 → 1 → 3 → 4 → 5
+B. 1 → 2 → 3 → 4 → 5
+C. 1 → 3 → 2 → 4 → 5
+D. 3 → 1 → 2 → 4 → 5
+
+**Correct answer:** B
+
+**Explanation:**
+The query phase of RAG follows this strict sequence: first, the query text is converted to a vector by the embedding model (step 1); then, that vector is used to search the vector database for similar chunk vectors (step 2); the retrieved chunks are assembled into a structured prompt (step 3); that prompt is sent to the LLM for generation (step 4); the answer is returned to the user (step 5). Embedding must precede retrieval because retrieval requires a query vector. Retrieval must precede prompt construction because the prompt requires the retrieved chunks.
+
+**Why A is wrong:** Step 2 (retrieve) cannot precede step 1 (embed). The retrieval step requires a query embedding vector to perform similarity search. Without embedding the query first, there is no vector to compare against the indexed document embeddings. This ordering inverts a hard data dependency.
+
+**Why C is wrong:** Prompt construction (step 3) cannot precede retrieval (step 2). The prompt is assembled from retrieved chunks — it requires those chunks as input. Constructing the prompt before retrieving would produce a prompt with no context content, which is no longer a RAG prompt.
+
+**Why D is wrong:** Prompt construction (step 3) cannot precede both embedding and retrieval. The prompt template needs both the query text (which is available immediately) and the retrieved chunks (which require embedding then retrieval). Step 3 must come after steps 1 and 2.
+
+---
+
+## MCQ-15 — Why RAG does not replace fine-tuning
+
+**Difficulty:** intermediate
+**Topic:** rag_pipeline_architecture
+
+**Question:**
+A developer wants a RAG system that consistently formats its answers as numbered lists. They index 500 example Q&A pairs with numbered list answers, hoping retrieval will teach the LLM the format. Why will this approach fail?
+
+**Options:**
+A. The LLM cannot read numbered lists from the context block — all retrieved content must be in paragraph form
+B. RAG controls what information the LLM receives as context, not how the LLM generates its output format. Formatting behavior is a generation concern that requires either prompt engineering (output format directives) or fine-tuning — not retrieval
+C. The vector database will reorder the numbered list items by semantic similarity, corrupting the intended format
+D. Numbered lists cause the embedding model to produce degenerate vectors with zero magnitude
+
+**Correct answer:** B
+
+**Explanation:**
+RAG augments what the LLM "knows" by providing retrieved context — it influences the factual content of the answer. It does not directly control the generation format. The LLM may use examples in its retrieved context as a reference, but this is unreliable; example-based formatting via retrieval does not generalize consistently. Consistent output format requires: (1) explicit format directives in the system prompt ("Always respond with a numbered list"), or (2) fine-tuning, which updates the model's weights to prefer a specific output format. This is a canonical case where RAG and fine-tuning solve different problems.
+
+**Why A is wrong:** LLMs can read and understand numbered lists in their context window without any issue. They are trained on text in all formats including lists, tables, and prose. This option invents a technical limitation that does not exist. A developer who believes this will avoid using structured retrieved content, reducing its utility.
+
+**Why C is wrong:** Vector databases store and retrieve chunk text as-is. They do not reorder or modify the content of retrieved chunks. The similarity search determines which chunks are returned, not the internal order of text within a chunk. This option confuses the retrieval operation with content manipulation.
+
+**Why D is wrong:** Numbered lists are plain text and embed normally. There is no degenerate vector case for numbered list formatting. The embedding model processes token sequences and produces fixed-magnitude vectors regardless of whether the text is prose, lists, tables, or code. This option invents a non-existent technical failure mode.
+
+---
+
+## MCQ-16 — RAG pipeline component ownership
+
+**Difficulty:** intermediate
+**Topic:** rag_pipeline_architecture
+
+**Question:**
+In a RAG pipeline, which component is responsible for deciding how many chunks to pass to the LLM (top-K) and which chunks to include?
+
+**Options:**
+A. The LLM, which requests additional context from the vector database if it cannot answer from what it received
+B. The vector database, which automatically limits results to the number the LLM can handle
+C. The retriever configuration — top-K is set by the pipeline engineer as a parameter that controls how many ranked results the vector search returns
+D. The embedding model, which caps output at the number of tokens in its training sequences
+
+**Correct answer:** C
+
+**Explanation:**
+Top-K is a retrieval configuration parameter set explicitly by the pipeline engineer. It determines how many of the highest-similarity chunks the retriever returns from the vector database. This parameter is neither determined by the LLM (which has no feedback path into retrieval) nor automatically computed by the vector database. The engineer must balance retrieval recall (more chunks = more coverage) against context window budget and LLM attention quality (more chunks = more noise and potential lost-in-the-middle effects).
+
+**Why A is wrong:** In a standard RAG pipeline, the LLM does not request additional context — it receives one fixed prompt containing all retrieved chunks and generates a single response. The LLM has no mechanism to issue a follow-up retrieval request in a basic RAG setup (that is an agent pattern, not RAG). A developer who expects the LLM to self-correct for insufficient context will be surprised when it halluccinates instead.
+
+**Why B is wrong:** Vector databases return as many results as requested — they have no knowledge of the LLM's context window or generation quality. They do not automatically tune the result count to match the downstream model. The database returns the top-K vectors where K is whatever the retriever query specifies.
+
+**Why D is wrong:** The embedding model processes input text and produces output vectors. It has no role in determining how many results are returned at query time. The embedding model's token limit constrains chunk size at indexing time, not the number of chunks returned during retrieval.
+
 
 ---
 

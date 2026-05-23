@@ -58,3 +58,5 @@
 - **C47** curriculum-restructure — `document_ingestion` replaces `langchain_fundamentals` in Phase 2; LangChain archived (concept-first identity constraint); C47.1 (Nova) updates src/ slug registries (*full entry*)
 - **C48** document-ingestion-questions — 20 MCQs + 22 open-ended questions for document_ingestion Phase 2 topic; covers loaders, parsing failures, encoding, metadata, format gotchas.
 - **C49** langgraph-curriculum — `langgraph_fundamentals` added as Phase 3 concepts-only topic; Phase 3 gate updated to 3 required topics (≥0.75 each); topic-slugs.json grows to 9 slugs; C49.1 follows to register slug in src/.
+- **C50** langgraph-questions — 20 MCQs + 19 open-ended questions for langgraph_fundamentals Phase 3 topic; concepts-only (no Python API references); covers directed graphs, state flow, conditional routing, graph compilation, checkpointing, agentic behavior.
+- **C51** bank-expansion — expanded novice and intermediate tiers to ≥5 questions each across all 8 original topics (both MCQ + open); eliminates guaranteed question repetition within 2–3 sessions; verified by count script after 5 tool-cap passes.

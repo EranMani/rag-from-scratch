@@ -1,8 +1,8 @@
 # MCQ Bank — retrieval_methods
 # Topic: retrieval_methods
 # Phase: 2 (Core Components)
-# Questions: 10 (2 novice, 3 intermediate, 3 advanced, 2 expert)
-# Last updated: 2026-05-21 (Commit 45)
+# Questions: 15 (5 novice, 5 intermediate, 3 advanced, 2 expert)
+# Last updated: 2026-05-23 (Commit 51)
 
 ---
 
@@ -273,3 +273,138 @@ In MMR, `lambda` weights the tradeoff: `score = lambda * relevance - (1-lambda) 
 **Why C is wrong:** Context recall in RAGAS measures the fraction of relevant information present in the retrieved set. It is a per-query metric, not a corpus-level metric. MMR's lambda directly affects which documents are selected and therefore directly affects context recall. The 0.24 drop is a real metric degradation caused by MMR excluding relevant documents in favor of diverse ones.
 
 **Why D is wrong:** Lambda is a continuous weight parameter in the range [0, 1]. There is no threshold above which diversity is disabled. At lambda=1.0, MMR is mathematically equivalent to pure relevance ranking. At lambda=0.7, diversity still plays a role — it is simply weighted less heavily than at 0.3.
+
+---
+
+## MCQ-11 — What retrieval returns to the LLM
+
+**Difficulty:** novice
+**Topic:** retrieval_methods
+
+**Question:**
+In a RAG query pipeline, what does the retrieval step pass to the LLM?
+
+**Options:**
+A. The raw embedding vector of the user's query
+B. The full contents of every document in the knowledge base
+C. The text of the most semantically similar document chunks, along with the user's original question
+D. A ranked list of document titles that the LLM can then request to read
+
+**Correct answer:** C
+
+**Explanation:**
+The retrieval step finds the K most semantically similar chunks to the query and passes their raw text content to the prompt assembly step. The prompt then combines those chunk texts with the user's question and hands the full prompt to the LLM for generation. The LLM never sees the embedding vector (A) — it only processes text. It does not receive the full document corpus (B) — retrieval exists precisely to select the most relevant subset. It does not receive a list of titles to then request (D) — the LLM in a standard RAG pipeline receives context, not the ability to issue further retrieval requests.
+
+**Why A is wrong:** Embedding vectors are floating-point arrays used internally for similarity computation. LLMs process text tokens, not numeric vectors. The LLM never sees the embedding at any stage. A developer who has read about embeddings but not yet built a full RAG pipeline may confuse the intermediate representation (vector) with what the LLM ultimately receives (text).
+
+**Why B is wrong:** The reason RAG uses retrieval at all is precisely to avoid sending the entire corpus to the LLM — which would far exceed the context window and be prohibitively expensive. A developer who understands RAG at the surface level ("RAG gives the LLM your documents") might choose B without distinguishing what the retrieval step selects.
+
+**Why D is wrong:** Standard RAG pipelines inject the chunk text directly into the prompt rather than giving the LLM a list of titles to request. Agentic retrieval patterns (where the LLM can issue follow-up retrieval requests) are an advanced pattern beyond the standard pipeline, and even there, the LLM still receives text chunks, not just titles.
+
+---
+
+## MCQ-12 — The role of top-K in retrieval
+
+**Difficulty:** novice
+**Topic:** retrieval_methods
+
+**Question:**
+The top-K parameter in vector retrieval controls how many chunks are returned. If you increase K from 3 to 10, which of the following is most likely?
+
+**Options:**
+A. Retrieval latency doubles because the ANN index must scan twice as many vectors
+B. Context recall increases (more relevant information is included) but context precision decreases (more irrelevant chunks may be included)
+C. The embedding model must be re-run for each additional chunk, significantly increasing retrieval cost
+D. The LLM becomes more likely to hallucinate because it receives too many instructions
+
+**Correct answer:** B
+
+**Explanation:**
+Increasing K brings more chunks into the context. If the 4th through 10th most similar chunks include additional relevant content, context recall improves — more of the needed information is present. However, lower-ranked chunks are less similar to the query on average, so they are more likely to include off-topic content — reducing context precision. This recall-precision tradeoff is why top-K requires calibration rather than simply maximizing it. ANN search latency (A) is not proportional to K — it is proportional to the search beam width (ef parameter), not the number of results returned. Embedding is done once per query regardless of K (C). LLM hallucination is not caused by chunk count alone (D).
+
+**Why A is wrong:** ANN search terminates when it has found the K nearest neighbors within the configured exploration budget (ef). Increasing K slightly affects only the final result selection step, not the core graph traversal. Latency is not proportional to K in any simple way — it is primarily a function of ef and index connectivity. A developer who assumes "more results = more search" misunderstands how ANN indexes work.
+
+**Why C is wrong:** The embedding model runs once per query to produce the query vector. The K retrieved chunks were embedded at indexing time and stored. At query time, no additional embedding calls are needed regardless of how large K is. A developer who thinks "I retrieve 10 chunks so I need 10 embedding calls" has confused indexing-time embedding with query-time retrieval.
+
+**Why D is wrong:** Hallucination risk in RAG is driven by the quality and relevance of retrieved context, not the count of chunks. A larger K with relevant additional chunks reduces hallucination (more grounding). A larger K with many irrelevant chunks can increase noise and reduce faithfulness — but the mechanism is context noise, not "too many instructions." Framing chunk count as "instructions" reflects a misunderstanding of how the LLM processes its prompt.
+
+---
+
+## MCQ-13 — Reranker position in a pipeline
+
+**Difficulty:** novice
+**Topic:** retrieval_methods
+
+**Question:**
+Where does a reranker sit in a RAG pipeline?
+
+**Options:**
+A. Before retrieval — the reranker filters documents in the index before the ANN search runs
+B. Between the vector retriever and the LLM — it re-scores the retrieved candidates and reorders them before context injection
+C. Inside the LLM — modern LLMs have built-in reranking that scores each retrieved chunk as it processes them
+D. After the LLM generates its answer — the reranker scores each sentence in the answer for relevance
+
+**Correct answer:** B
+
+**Explanation:**
+A reranker sits between the first-stage retriever and the LLM. The retriever returns top-K candidates quickly using ANN search. The reranker then scores each candidate (query, chunk) pair with a more precise model (typically a cross-encoder) and reorders the list. Only the top-N reranked chunks (typically 3–5) are passed to the LLM. This two-stage design balances speed (fast ANN retrieval) with precision (accurate reranking over a small candidate set). Option A describes a pre-filter, which is a different concept. Options C and D describe non-existent pipeline positions.
+
+**Why A is wrong:** Pre-filtering restricts which vectors are eligible for ANN search using metadata predicates (e.g., department = "legal"). A reranker operates after ANN search has already completed and returned candidates — it never runs before retrieval. Confusing pre-filtering with reranking indicates a misunderstanding of both concepts: pre-filtering removes candidates before similarity search; reranking reorders candidates already retrieved by similarity search.
+
+**Why C is wrong:** Standard LLMs do not contain built-in reranking mechanisms for retrieved chunks. They process their entire context window through attention layers but do not score or reorder individual chunks within the prompt. Agentic frameworks may implement tool use that simulates this, but that is application-level orchestration, not a built-in LLM capability. A developer who believes "the LLM is smart enough to know which chunks matter" may choose C, overestimating what the model does internally.
+
+**Why D is wrong:** Post-generation scoring is an evaluation operation (like RAGAS faithfulness checking), not a reranking operation. A reranker operates on candidate chunks before they reach the LLM. Scoring sentences in the output after generation would be a different pattern — verifying the output, not selecting the input. This distractor catches developers who think of "reranking" as a quality control step at the end of the pipeline rather than a retrieval improvement step at the beginning.
+
+---
+
+## MCQ-14 — Why BM25 and dense retrieval complement each other
+
+**Difficulty:** intermediate
+**Topic:** retrieval_methods
+
+**Question:**
+A team uses only dense vector retrieval. On evaluation, they notice that queries containing rare product identifiers (part numbers, version strings) have significantly lower context_recall than general questions. Which statement best explains why and what the fix is?
+
+**Options:**
+A. Dense retrieval fails on rare identifiers because the ANN index cannot represent short strings — fix: use a character-level embedding model
+B. Dense retrieval fails on rare identifiers because the embedding model likely has not seen these identifiers frequently in training, so the learned vector does not discriminate between "XR-9912" and similar-sounding strings — fix: add BM25 as a parallel retrieval path and fuse results with RRF
+C. Dense retrieval fails because part numbers contain hyphens, which the tokenizer splits incorrectly — fix: preprocess part numbers to remove hyphens before embedding
+D. The ANN index degrades for queries with rare vocabulary because infrequent query vectors land in low-density graph regions — fix: increase ef_construction to improve coverage in sparse graph regions
+
+**Correct answer:** B
+
+**Explanation:**
+Dense embedding models learn representations from training data. Rare alphanumeric identifiers like part numbers appear infrequently in general training corpora and may not appear at all. The model cannot learn meaningful discriminative representations for them — "XR-9912" and "XR-9913" may produce nearly identical embeddings because the model has seen neither and cannot distinguish them. BM25 is immune to this: it operates on exact token frequency and scores documents containing "XR-9912" exactly higher than all others, regardless of how rare the identifier is. Hybrid retrieval (BM25 + dense with RRF fusion) captures both the semantic recall of dense retrieval and the exact-match precision of BM25.
+
+**Why A is wrong:** Dense retrieval works on strings of all lengths, including short identifiers. Character-level models do exist but are not the standard fix for rare-identifier recall failure. The core issue is not string length — it is embedding quality for low-frequency vocabulary. Switching to a character-level model would partially help but introduces new problems (character-level models are weaker for semantic similarity) and misses the simpler, more targeted fix of adding BM25.
+
+**Why C is wrong:** Tokenizers handle hyphens routinely — they split "XR-9912" into tokens such as ["XR", "-", "9912"] or similar. This tokenization does not cause the embedding to fail; the model has learned to incorporate punctuation-adjacent tokens. The failure is not tokenization but the absence of "XR-9912" as a meaningful unit in training data. Preprocessing by removing hyphens would actually make the problem worse by making similar-sounding identifiers more likely to collide in embedding space.
+
+**Why D is wrong:** ANN index graph density is a function of how closely spaced the stored vectors are in the high-dimensional space, not of query vocabulary frequency. A rare query landing in a low-density region of the graph would still find its nearest neighbor — just with potentially fewer graph connections to navigate through. The recall problem for rare identifiers is an embedding quality problem (poor discrimination in the vector space), not a graph navigation problem. Increasing ef_construction improves graph connectivity but does not fix the fundamental issue of uninformative embeddings for rare tokens.
+
+---
+
+## MCQ-15 — Sparse vs. dense retrieval index update cost
+
+**Difficulty:** intermediate
+**Topic:** retrieval_methods
+
+**Question:**
+A production RAG system adds 10,000 new documents per day. The team is choosing between a BM25 sparse index and an HNSW dense index for retrieval. Which statement correctly describes the incremental update cost difference between the two?
+
+**Options:**
+A. Both indexes require a full rebuild when new documents are added — neither supports incremental insertion
+B. BM25 index updates are more expensive than HNSW updates because recomputing IDF statistics across the corpus requires recalculating scores for all existing documents
+C. HNSW supports O(log N) incremental insertion per document; BM25 index updates require recalculating global IDF statistics, which involves touching the full corpus vocabulary — making BM25 updates more expensive at scale
+D. HNSW does not support incremental document insertion — new documents must accumulate in a separate flat index and merge in a nightly rebuild
+
+**Correct answer:** C
+
+**Explanation:**
+HNSW supports efficient incremental insertion: each new vector is inserted into the graph by finding its neighbors and adding bidirectional edges. This is O(log N) per document in terms of graph traversal. BM25 depends on corpus-wide statistics: IDF (inverse document frequency) is computed as log(N / df), where N is the total document count and df is the number of documents containing each term. Adding new documents can change IDF values for every term those documents contain, requiring recalculation across the corpus. In practice, production BM25 implementations often defer full IDF recalculation and use approximate or staged updates, but the fundamental statistical dependency on corpus size makes BM25 updates more costly to keep perfectly calibrated than HNSW insertions.
+
+**Why A is wrong:** HNSW supports incremental insertion natively — this is one of its key design properties. Adding a new vector connects it into the existing graph without rebuilding. BM25 indexes (implemented as inverted indexes) also support incremental document addition via posting list appends, though IDF recalculation remains a concern. Neither requires a full rebuild for every insertion, making A entirely incorrect.
+
+**Why B is wrong:** Option B states the correct conclusion (BM25 updates are more expensive) but overstates the mechanism. BM25 incremental updates do not necessarily "recalculate scores for all existing documents" — inverted index posting lists append new document entries without reprocessing old documents. The cost is IDF statistics becoming stale, not a per-document re-scoring. The actual mechanism of B is incorrect even though the directional conclusion matches C.
+
+**Why D is wrong:** HNSW does support incremental insertion — this is explicitly supported by major vector databases including Qdrant, Weaviate, and Milvus. The claim that HNSW requires a flat index accumulation layer and nightly rebuild is incorrect. This distractor captures developers who have read about HNSW's offline batch construction mode (used for initial index build from a large corpus) and incorrectly assumed it applies to all insertions.

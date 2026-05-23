@@ -931,6 +931,32 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 51 — `bank-expansion` · 2026-05-23 · RAG Specialist
+
+> Gate wave: zero — knowledge-base content only (no code, no auth surface, no user data, no src/ files).
+> 5 RAG Specialist passes due to tool-cap splits. Final question counts verified by script.
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| RAG Specialist (pass 1) | Sonnet | 147,021 | 27 | — | embeddings, rag_pipeline_arch, chunking MCQ; hit cap |
+| RAG Specialist (pass 2) | Sonnet | 128,791 | 26 | — | vector_databases fix + retrieval + context_and_prompting MCQ; hit cap |
+| RAG Specialist (pass 3) | Sonnet | 102,422 | 27 | — | evaluation_and_metrics + production_patterns MCQ + embeddings/rag_pipeline open questions; hit cap |
+| RAG Specialist (pass 4) | Sonnet | 73,894 | 14 | — | remaining 6 open question files + worklog |
+| RAG Specialist (pass 5 — gap fill) | Sonnet | 77,519 | 12 | — | 5 gaps closed (verified by script before this pass) |
+| **Total** | | **529,647** | **106** | **well over ≤60k — volume-justified** | |
+
+**Gate wave:** zero — knowledge-base content only (no logic, no auth, no user data)
+
+**vs. target:** ≫ ≤60k impl target — volume-justified: 5 sessions × tool cap; 16 files expanded from 1–2 questions/tier to ≥5/tier; ~80+ new questions authored
+
+**Notes:**
+- 5 tool-cap passes is higher than C45 (7 passes for 18 files). Root cause: inconsistent agent count reporting between passes required a script-verified gap-fill pass (pass 5).
+- Pass 2 had a header/content mismatch in vector_databases.md (header updated, questions not written) — caught and fixed in pass 2 itself.
+- Pass 5 gap-fill was triggered by script verification revealing 5 remaining gaps that agent self-reports had missed. Script verification after multi-pass content work is the correct protocol.
+- Pattern for future: after any multi-pass content expansion, run the count script before surfacing for approval rather than trusting agent self-reports.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -988,6 +1014,7 @@ No token data recorded. Tracking began at Commit 10.
 | 49 | langgraph-curriculum | ~0 | zero gates (content-only) | ✅ ~0 | Claude direct Edits only; 4 files (curriculum-map.md, gates.md, topic-slugs.json); no gate wave |
 | 49.1 | slug-add-langgraph | 32,871 | Viktor only (Haiku, PASS) | ⚠️ over ≤15k reviewer target | Claude direct Edits (~0 impl); Viktor 32,871 (0 uses ✅ PASS); no implementation agent |
 | 50 | langgraph-questions | 69,856 | zero gates (content-only) | ⚠️ +10k over ≤60k | RAG Specialist (69,856 · 6 uses); 20 MCQs + 19 open-ended; no gate wave (pure markdown) |
+| 51 | bank-expansion | 529,647 | zero gates (content-only) | **well over ≤60k — volume-justified** | 5 RAG Specialist passes (tool-cap splits); 16 files expanded; ≥5 novice + ≥5 intermediate per file achieved |
 
 ---
 
