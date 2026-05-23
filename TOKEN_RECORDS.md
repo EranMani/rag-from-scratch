@@ -955,6 +955,26 @@ No token data recorded. Tracking began at Commit 10.
 - Pass 5 gap-fill was triggered by script verification revealing 5 remaining gaps that agent self-reports had missed. Script verification after multi-pass content work is the correct protocol.
 - Pattern for future: after any multi-pass content expansion, run the count script before surfacing for approval rather than trusting agent self-reports.
 
+## Commit 52.1 — `state-mutation-refactor` · 2026-05-24 · Claude (direct Edits)
+
+> Gate wave: Viktor only (Haiku). Sage/Mira/Quinn skipped (gate triage: function signature + return type change, no auth/new routes/user-facing behavior).
+> Implementation: Claude direct Edits (exact file+line+content known from spec). No Nova subagent invoked.
+> Test update: 7 test call sites updated from 2-tuple to 3-tuple unpacking; `test_pool_populated_after_generation` pivoted to assert on returned pool (not state mutation).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Claude (impl, direct Edits) | — | ~0 | — | ✅ ~0 | 8 Edit calls across 3 files; no subagent spawn |
+| Viktor | Haiku | 34,339 | 0 | ⚠️ over ≤15k | PASS — all 4 checklist items confirmed; 0 tool uses (full context inline) ✅ |
+| **Total** | | **34,339** | **0** | ✅ well under ≤75k | Viktor-only gate; direct-Edit approach saves ~25k Nova overhead |
+
+**Notes:**
+- No Nova invocation: all 3 files had exact file+line+content derivable from spec. Saved ~25k vs. Nova Sonnet subagent overhead.
+- Viktor 0 tool uses: full diff + function body passed inline. Correct reviewer pattern.
+- 7 test sites updated to unpack 3-tuple. `test_pool_populated_after_generation` checks `updated_pool` (returned value) not `state["generated_question_pool"]` (no longer mutated).
+- Cache-hit path correctly returns existing `pool` (not None) — tests reflect this: cache-hit returns `updated_pool is not None` and `_CACHE_KEY in updated_pool`.
+
+---
+
 ## Commit 52 — `ai-question-generation` · 2026-05-24 · Nova
 
 > Gate wave: Viktor + Quinn (Haiku). Sage/Mira skipped (gate triage: new logic, no auth surface, no UI, no user-facing routes).

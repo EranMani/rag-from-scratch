@@ -13,7 +13,7 @@ LangGraph's MemorySaver checkpointer uses thread_id for cross-turn persistence.
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from langchain_core.documents import Document
 from langchain_core.messages import BaseMessage
@@ -152,7 +152,7 @@ class AgentState(TypedDict):
     additive capped formula instead of the SRS formula — preventing passive inference
     from reducing a score the user earned through active testing."""
 
-    generated_question_pool: dict[str, list] | None
+    generated_question_pool: dict[str, list[dict[str, Any]]] | None
     """Session cache of LLM-synthesized MCQ questions, keyed by 'slug:mastery_level'.
     None on session start. Populated on first delivery for a (slug, level) pair;
     reused for subsequent questions in the same session thread."""

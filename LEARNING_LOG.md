@@ -1541,3 +1541,9 @@ Structural validation in `_validate_question()` enforces: exactly 4 options labe
 Viktor raised one advisory (direct state mutation `state["generated_question_pool"] = pool` violates LangGraph's state-update-via-returned-dict contract) and one finding that turned out to be a false positive (concern about `random.choice([])` raising `IndexError` on an empty pool — impossible because `generate_questions()` cannot return `[]`). Team Lead chose Option B: commit C52 as functionally correct and address the mutation pattern in C52.1. The C52.1 refactor will convert `_deliver_mcq` to return a 3-tuple `(display_text, correct_answer, updated_pool)` and thread the pool update through `select_test_question` → `build_selection_result`, removing the direct mutation.
 
 **Files changed:** `src/agents/assessment/question_generation.py` (new), `src/agents/state.py` (new `generated_question_pool` field), `src/agents/assessment/test_delivery.py` (`_deliver_mcq` helper + integration in `select_test_question`), `src/agents/assessment/results.py` (`generated_question_pool` parameter in `build_selection_result`), `tests/test_question_generation.py` (28 new tests: validation unit tests, generation success path, `_deliver_mcq` generation path, fallback path, session cache, end-to-end).
+
+---
+
+## Commit 52.1 — `state-mutation-refactor` · Claude (direct Edits) · 2026-05-24
+
+Converted `_deliver_mcq` from 2-tuple to 3-tuple return `(display_text, correct_answer, updated_pool)`, removing the direct `state["generated_question_pool"] = pool` mutation. Pool now flows through `select_test_question` → `build_selection_result` → LangGraph return dict. Type annotation tightened from `dict[str, list] | None` to `dict[str, list[dict[str, Any]]] | None`. Bank fallback and total-failure branches return `None` as third element; generated-pool branch (both cache-hit and cache-miss) returns the full pool dict. No behavior change — deferred fix from C52 Viktor advisory.

@@ -58,7 +58,7 @@ async def select_test_question(state: AgentState) -> dict[str, Any]:
     slug, q_idx = selection
     mastery_level: str | None = state.get("user_level")
 
-    display_question_text, correct_answer = await _deliver_mcq(
+    display_question_text, correct_answer, updated_pool = await _deliver_mcq(
         state, slug, q_idx, mastery_level
     )
     if display_question_text is None:
@@ -82,7 +82,7 @@ async def select_test_question(state: AgentState) -> dict[str, Any]:
         is_mcq=True,
         pending_mcq_correct_answer=correct_answer,
         messages=messages,
-        generated_question_pool=state.get("generated_question_pool"),
+        generated_question_pool=updated_pool,
     )
 
 
@@ -91,8 +91,8 @@ async def _deliver_mcq(
     slug: str,
     q_idx: int,
     mastery_level: str | None,
-) -> tuple[str | None, str | None]:
-    """Return (display_text, correct_answer) from the generated pool or the bank.
+) -> tuple[str | None, str | None, dict[str, list[dict[str, Any]]] | None]:
+    """Return (display_text, correct_answer, updated_pool) from the generated pool or the bank.
 
     On first call for this (slug, mastery_level), attempts LLM synthesis and caches
     the pool in state. Falls back to the bank silently on any failure.
@@ -107,8 +107,6 @@ async def _deliver_mcq(
             bank_blocks = get_mcq_blocks_for_difficulty(slug, mastery_level)
             generated = await generate_questions(slug, mastery_level or "novice", bank_blocks)
             pool = {**pool, cache_key: generated}
-            # Write updated pool back into state via the returned dict (LangGraph merge)
-            state["generated_question_pool"] = pool  # type: ignore[index]
         except Exception as exc:
             logger.warning(
                 "_deliver_mcq: generation failed for slug='%s' level='%s' — falling back to bank: %s",
@@ -122,14 +120,15 @@ async def _deliver_mcq(
         stem = q["question"]
         opts_text = "\n".join(f"{k}. {v}" for k, v in sorted(q["options"].items()))
         display_text = f"Knowledge check: {stem}\n\n{opts_text}"
-        return display_text, q["correct"]
+        return display_text, q["correct"], pool
 
     # Fall back to bank
     try:
-        return load_mcq_question_for_difficulty(slug, q_idx, mastery_level)
+        text, answer = load_mcq_question_for_difficulty(slug, q_idx, mastery_level)
+        return text, answer, None
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("_deliver_mcq: bank fallback failed for slug='%s': %s", slug, exc)
-        return None, None
+        return None, None, None
 
 
 async def deliver_open_question(

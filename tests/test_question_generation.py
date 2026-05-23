@@ -274,7 +274,7 @@ class TestDeliverMcqGenerationPath:
             "agents.assessment.test_delivery.generate_questions",
             new=AsyncMock(return_value=[_VALID_GENERATED_Q]),
         ):
-            display_text, correct = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
+            display_text, correct, _ = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
 
         assert display_text is not None
         assert "Knowledge check:" in display_text
@@ -288,11 +288,11 @@ class TestDeliverMcqGenerationPath:
             "agents.assessment.test_delivery.generate_questions",
             new=AsyncMock(return_value=[_VALID_GENERATED_Q]),
         ):
-            await _deliver_mcq(state, _SLUG, 0, _LEVEL)
+            _, _, updated_pool = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
 
-        pool = state.get("generated_question_pool") or {}
-        assert _CACHE_KEY in pool
-        assert len(pool[_CACHE_KEY]) == 1
+        assert updated_pool is not None
+        assert _CACHE_KEY in updated_pool
+        assert len(updated_pool[_CACHE_KEY]) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -316,10 +316,11 @@ class TestDeliverMcqFallback:
                 return_value=("Bank question text", "A"),
             ) as mock_bank,
         ):
-            display_text, correct = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
+            display_text, correct, updated_pool = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
 
         assert display_text == "Bank question text"
         assert correct == "A"
+        assert updated_pool is None
         mock_bank.assert_called_once()
 
     @pytest.mark.asyncio
@@ -337,9 +338,10 @@ class TestDeliverMcqFallback:
             ),
         ):
             # Must not raise
-            display_text, correct = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
+            display_text, correct, updated_pool = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
 
         assert display_text is not None
+        assert updated_pool is None
 
     @pytest.mark.asyncio
     async def test_returns_none_when_bank_also_fails(self) -> None:
@@ -355,10 +357,11 @@ class TestDeliverMcqFallback:
                 side_effect=FileNotFoundError("no file"),
             ),
         ):
-            display_text, correct = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
+            display_text, correct, updated_pool = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
 
         assert display_text is None
         assert correct is None
+        assert updated_pool is None
 
 
 # ---------------------------------------------------------------------------
@@ -375,22 +378,26 @@ class TestSessionCache:
 
         mock_generate = AsyncMock(return_value=[_VALID_GENERATED_Q])
         with patch("agents.assessment.test_delivery.generate_questions", new=mock_generate):
-            display_text, correct = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
+            display_text, correct, updated_pool = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
 
         # LLM must NOT have been called
         mock_generate.assert_not_called()
         assert display_text is not None
+        assert updated_pool is not None
+        assert _CACHE_KEY in updated_pool
 
     @pytest.mark.asyncio
     async def test_cache_hit_serves_generated_question(self) -> None:
         state = _base_state(generated_question_pool={_CACHE_KEY: [_VALID_GENERATED_Q]})
 
         with patch("agents.assessment.test_delivery.generate_questions", new=AsyncMock()) as mock_gen:
-            display_text, correct = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
+            display_text, correct, updated_pool = await _deliver_mcq(state, _SLUG, 0, _LEVEL)
 
         mock_gen.assert_not_called()
         assert "Knowledge check:" in display_text
         assert correct == "B"
+        assert updated_pool is not None
+        assert _CACHE_KEY in updated_pool
 
     @pytest.mark.asyncio
     async def test_new_session_triggers_generation(self) -> None:
