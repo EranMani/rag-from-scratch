@@ -81,12 +81,12 @@
 - `vector_databases` — Phase 2: HNSW/IVF index types, ANN tradeoffs, metadata filtering
 - `retrieval_methods` — Phase 2: Sparse (BM25), dense, hybrid, reranking, MMR, HyDE
 - `context_and_prompting` — Phase 2: Context window management, prompt templates, hallucination mitigation
-- `langchain_fundamentals` — Phase 2: LangChain chains, LCEL, agents, tools, LangGraph basics
+- `document_ingestion` — Phase 2: Format parsing (PDF/HTML/DOCX/TXT/CSV), metadata extraction, encoding handling, structural impact on downstream chunking
 - `evaluation_and_metrics` — Phase 3: RAGAS, faithfulness, answer relevancy, context precision/recall
 - `production_patterns` — Phase 3: Caching, async pipelines, observability, cost control, failure modes
-**Note:** The prior 6-slug set (`rag_fundamentals`, `langchain`, etc.) is deprecated as of the 2026-05-11 replan. Commits 24–25 migrate the application to use the 8-slug set; Commit 40 adds the 9th slug.
-**Used in:** `knowledge-base/curriculum/topic-slugs.json` (canonical source); `src/app/profile/scoring.py`, `src/agents/state.py` (updated in Commits 24–25, 40–41)
-**Introduced in:** Commit 07 (original 6-slug set); Commit 22 (canonical 8-slug set); Commit 40 (9th slug `langchain_fundamentals`)
+**Note:** The prior 6-slug set (`rag_fundamentals`, `langchain`, etc.) is deprecated as of the 2026-05-11 replan. Commits 24–25 migrate to the 8-slug set; Commit 40 added `langchain_fundamentals` as the 9th slug; Commit 47 replaced it with `document_ingestion` (LangChain archived as concept-first identity conflict).
+**Used in:** `knowledge-base/curriculum/topic-slugs.json` (canonical source); `src/app/profile/scoring.py`, `src/agents/state.py` (updated in Commits 24–25, 41, 47.1)
+**Introduced in:** Commit 07 (original 6-slug set); Commit 22 (canonical 8-slug set); Commit 47 (replaced langchain_fundamentals with document_ingestion)
 
 ### asyncio.to_thread
 **Meaning on this project:** A Python stdlib function (`asyncio.to_thread(fn, *args)`) that runs a synchronous callable in a thread pool executor and returns an awaitable. Used throughout this project to prevent blocking I/O (ChromaDB, SQLite, LLM calls) from stalling the async event loop. Called as `await asyncio.to_thread(fn, arg1, arg2)` — not wrapped in a lambda.

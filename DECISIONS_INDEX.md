@@ -29,7 +29,10 @@
 89. **`_PROGRESS_PHASES` inline (not `_PHASE_TOPICS`)** — display phase uses hardcoded slug lists; selection phase uses mastery-keyed dict; two concerns, same slugs, different semantics — independence explicit
 90. **First-time path: `interaction_count == 0 AND mastery_level == "novice"`** — non-novice first-timers get returning-user format (handles 0/N gracefully); first-time path for users who genuinely don't know where to start
 
-*Last updated: 2026-05-23 — Commit 45.6*
+## Curriculum Restructure (C47)
+91. **`document_ingestion` replaces `langchain_fundamentals` in Phase 2** — LangChain API slot conflicts with concept-first "from scratch" identity; document ingestion is the missing practical entry point; LangChain files archived (not deleted)
+
+*Last updated: 2026-05-23 — Commit 47*
 
 ---
 
@@ -174,3 +177,6 @@
 ## Welcome Message UX (C45.6)
 89. **`_PROGRESS_PHASES` inline (not `_PHASE_TOPICS`)** — display phase uses hardcoded slug lists; selection phase uses mastery-keyed dict; two concerns, same slugs, different semantics — independence explicit
 90. **First-time path: `interaction_count == 0 AND mastery_level == "novice"`** — non-novice first-timers get returning-user format (handles 0/N gracefully); first-time path for users who genuinely don't know where to start
+
+## Curriculum Restructure (C47)
+91. **`document_ingestion` replaces `langchain_fundamentals` in Phase 2** — LangChain API slot conflicts with concept-first "from scratch" identity; document ingestion is the missing practical entry point; LangChain files archived (not deleted)

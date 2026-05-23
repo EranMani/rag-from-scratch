@@ -1072,3 +1072,16 @@
 - **Alternatives considered:** Keeping the conditional rule but making it louder; post-processing responses to inject a heading if none is found; adding a second LLM call to format the output.
 - **Reason:** LLMs treat conditional formatting rules as a permission question they answer per-response. "Required when 2+ concepts" means the model decides on every turn whether that condition is met — and for follow-up questions it consistently decided it wasn't, producing plain prose. An unconditional rule removes the decision entirely. The escape hatch ("single-sentence answers may use plain prose") prevents forced structure on trivially short answers while ensuring every substantive response has at least one visible heading.
 - **Consequences:** Responses that would previously have been one short paragraph may now open with a `##` heading. Mira flagged this as worth monitoring for over-formatting; the rule can be relaxed per-level-prompt if users report it as noisy.
+
+---
+
+## Curriculum Restructure (C47)
+
+### `document_ingestion` replaces `langchain_fundamentals` as Phase 2 Core topic (Commit 47)
+- **Date:** 2026-05-23
+- **Commit:** 47
+- **Decided by:** Team Lead (replan 2026-05-23)
+- **Decision:** `langchain_fundamentals` is removed from the Phase 2 curriculum and replaced with `document_ingestion`. The LangChain question files are archived to `knowledge-base/curriculum/questions/archive/`, not deleted.
+- **Alternatives considered:** Keeping `langchain_fundamentals` alongside `document_ingestion` (10-slug curriculum); deleting the LangChain files entirely.
+- **Reason:** The app is named "RAG from scratch" — a dedicated topic slot for LangChain API specifics conflicts with the concept-first identity. LangChain is a convenience layer, not a RAG concept; teaching it as a required Core topic implies the curriculum is about a framework rather than the underlying principles. `document_ingestion` is the actual "from scratch" starting point that was absent: a learner who cannot explain how raw documents flow into a RAG pipeline is missing the first practical step. Files are archived (not deleted) so the content is recoverable if a follow-on "frameworks" track is added later.
+- **Consequences:** Phase 2 now covers: `chunking_strategies`, `vector_databases`, `retrieval_methods`, `context_and_prompting`, `document_ingestion`. A parallel C47.1 (Nova) updates the five src/ slug registries (`VALID_MODULE_SLUGS`, `PHASE_2_TOPICS`, `_ORDERED_SLUGS`, Core topics list in ui.py, assessment prompt) to match. `langchain_fundamentals` is orphaned in the archive and will not appear in any user's learning path or scoring calculation after C47.1.

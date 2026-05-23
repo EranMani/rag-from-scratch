@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Commit 40 · 2026-05-20*
+*Last updated: Commit 47 · 2026-05-23*
 
-**Last completed:** Commit 40 `langchain-curriculum` (complete)
+**Last completed:** Commit 47 `curriculum-restructure` (complete)
 **Currently active:** none
 **Blocked by:** none
 
@@ -21,14 +21,19 @@
   `rag_pipeline_architecture` MCQ files can source onboarding diagnostics (3 questions each,
   mixed difficulty). Onboarding questions are read-only references — do not modify MCQ banks
   for onboarding.
-- Nova (Commit 41 `gate-remediation`): `langchain_fundamentals` has been added as a Phase 2
-  topic. Nova must add this slug to three files in src/:
-  (1) `VALID_MODULE_SLUGS` in `src/agents/state.py`
-  (2) `PHASE_2_TOPICS` in `src/app/profile/scoring.py`
-  (3) `_ORDERED_SLUGS` in `src/agents/nodes/assess.py` — insert after `context_and_prompting`
-      and before the Phase 3 slugs (`evaluation_and_metrics`, `production_patterns`).
-  The slug must appear in Phase 2 position in all three lists. This is mandatory for the gate
-  logic to recognize `langchain_fundamentals` as a required Phase 2 topic.
+- Nova (Commit 47.1 `src-slug-swap`): `langchain_fundamentals` has been REMOVED from the
+  active Phase 2 curriculum and replaced with `document_ingestion`. Nova must update three
+  files in src/ to reflect this:
+  (1) `VALID_MODULE_SLUGS` in `src/agents/state.py` — replace `"langchain_fundamentals"` with
+      `"document_ingestion"`
+  (2) `PHASE_2_TOPICS` in `src/app/profile/scoring.py` — replace `"langchain_fundamentals"` with
+      `"document_ingestion"`
+  (3) `_ORDERED_SLUGS` in `src/agents/nodes/assess.py` — replace `"langchain_fundamentals"` with
+      `"document_ingestion"` (preserving its position: after `context_and_prompting`, before the
+      Phase 3 slugs).
+  The curriculum-map.md `document_ingestion` entry is complete. topic-slugs.json already
+  contains `"document_ingestion"` (not `"langchain_fundamentals"`). The old langchain question
+  files are archived at `knowledge-base/curriculum/questions/archive/`.
 
 **Open Handoffs — Inbound:**
 - (none)

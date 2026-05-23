@@ -1457,3 +1457,35 @@ def get_mcq_blocks_for_difficulty(slug: str, difficulty: str | None) -> list[str
 **What the old functions still do:** `select_mcq_question` and `load_mcq_question` were not removed — they still serve `test_assess_node.py` test helpers and `onboarding.py` respectively. The mastery-aware versions are the new production path; the old functions remain for callers that don't need tier filtering.
 
 **Files touched:** `src/agents/mcq_utils.py`, `src/agents/assessment/question_selection.py`, `src/agents/assessment/test_delivery.py`, `tests/test_mastery_routing.py` (new — 17 tests, 5 classes)
+
+---
+
+## Commit 47 — `curriculum-restructure` · Lara · 2026-05-23 · `curriculum design | product decision`
+
+> **In one sentence:** Replaced `langchain_fundamentals` with `document_ingestion` as the fifth Phase 2 Core topic, archived the LangChain question files, and updated `topic-slugs.json`, `curriculum-map.md`, and `gates.md` — keeping the "RAG from scratch" curriculum true to its concept-first identity.
+
+**Interview talking point:**
+> **Q:** Why did you remove LangChain from the curriculum for an app that uses LangChain under the hood?
+>
+> **A:** The app is named "RAG from scratch" — it's about understanding how RAG works at the concept level, not about using a particular framework. LangChain is a convenience layer; teaching it as a required Phase 2 Core topic implied the curriculum was about a framework rather than the underlying ideas. What was missing was document ingestion — the actual first step in building any RAG pipeline from raw source files. A learner who doesn't know how documents get loaded, parsed, and pre-processed before chunking has a real gap, regardless of which framework they use. The LangChain content isn't deleted — it's archived. If a "frameworks" track is ever added, it's recoverable.
+
+**What happened and why:**
+- `curriculum-map.md` Phase 2 entry replaced: `langchain_fundamentals` (LangChain chains/LCEL/agents) → `document_ingestion` (format parsing, metadata extraction, encoding handling, structural impact on downstream chunking)
+- `gates.md` Phase 2 gate updated: all three locations (human-readable, pseudocode block, machine-readable JSON) now require `document_ingestion` as one of the five passing topics
+- `topic-slugs.json` updated: `"langchain_fundamentals"` replaced with `"document_ingestion"` at position 7
+- Two archive files created: `knowledge-base/curriculum/questions/archive/langchain_fundamentals.md` and `.../archive/mcq/langchain_fundamentals.md` — full copies of both question banks with ARCHIVED headers noting the date and reason
+- C47.1 (Nova, separate micro-commit) follows: updates five src/ files to match — `VALID_MODULE_SLUGS`, `PHASE_2_TOPICS`, `_ORDERED_SLUGS`, Core topics list in `ui.py`, and the assessment prompt
+
+**The design principle — concept-first beats framework-first:**
+
+The curriculum identity of "RAG from scratch" carries a constraint: every Phase 2 topic must be a transferable concept, not a framework tutorial. Document ingestion satisfies this — the principles apply whether you use LangChain, LlamaIndex, raw Python, or a custom pipeline. LangChain API details do not — they're tool-specific and version-limited.
+
+**Why archive, not delete:**
+Question banks represent significant authoring effort and real pedagogical value. Archiving preserves them for a potential future "Frameworks" or "Tooling" phase without cluttering the active curriculum. The archive path (`knowledge-base/curriculum/questions/archive/`) is a known, documented location.
+
+**Files touched (knowledge-base/ only — no src/ in this commit):**
+- `knowledge-base/curriculum/curriculum-map.md` — replaced full `langchain_fundamentals` topic block with `document_ingestion` spec
+- `knowledge-base/curriculum/gates.md` — replaced slug in 3 locations (text, pseudocode, JSON)
+- `knowledge-base/curriculum/topic-slugs.json` — slug replaced at position 7
+- `knowledge-base/curriculum/questions/archive/langchain_fundamentals.md` (new)
+- `knowledge-base/curriculum/questions/archive/mcq/langchain_fundamentals.md` (new)

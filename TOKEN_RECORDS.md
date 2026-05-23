@@ -845,6 +845,25 @@ No token data recorded. Tracking began at Commit 10.
 
 ---
 
+## Commit 47 — `curriculum-restructure` · 2026-05-23 · Lara
+
+> Gate wave: zero — pure Markdown edits in knowledge-base/ only (no logic, no auth, no user data). Gate triage: nothing Viktor, Sage, or Quinn can flag.
+> Ryan: full entry (DECISIONS.md + GLOSSARY.md updated; new topic slug introduced).
+
+| Agent | Model | Tokens | Tool Uses | vs. Target | Notes |
+|---|---|---|---|---|---|
+| Lara (implementation) | Sonnet | 67,412 | 21 | **+7k** over ≤60k | 5 files: curriculum-map.md, gates.md, topic-slugs.json, 2 archive files |
+| Ryan (cap hit — no write) | Haiku | 45,378 | 7 | **+30k** over ≤15k | read both files, hit 7-use cap before any Edit; orchestrator applied both Edits directly (~0 tokens) |
+| **Total** | | **112,790** | **28** | over ≤75k | Lara +7k over impl target; Ryan cap hit (pattern); orchestrator direct Edits = ~0 |
+
+**Notes:**
+- Lara: 67,412 tokens / 21 tool uses. Marginally over ≤60k target for a 5-file knowledge-base expansion with archive writes.
+- Gate wave: zero — pure Markdown, no code, no auth surface, no user data. First zero-gate Lara commit.
+- Ryan: 45,378 tokens / 7 tool uses — hit cap before writing. LEARNING_LOG.md and LEARNING_LOG_SUMMARY.md written directly by orchestrator via Edit (same pattern as C41 Ryan invocation).
+- C47.1 (Nova, micro-commit) follows immediately to update five src/ slug registries.
+
+---
+
 ## Running Summary
 
 | Commit | Name | Total Tokens | Gate Wave | vs. Target | Key Driver |
@@ -896,6 +915,7 @@ No token data recorded. Tracking began at Commit 10.
 | 45.5 | rag-prompt-quality | ~118,005 | Mira only (Haiku) | over ≤75k | Nova ✅ (71k · 18 uses); Mira 26k (0 uses ✅); Ryan ~22k (shared invocation); Viktor/Sage/Quinn skipped |
 | 45.6 | welcome-message-ux | ~136,421 | Sage+Mira (Haiku) | over ≤90k | Aria ✅ (60k · 15 uses); Sage 28k (0 uses ✅); Mira 26k (0 uses ✅); Ryan ~23k (shared invocation); Viktor/Quinn skipped |
 | 46 | mastery-matched-routing | 86,766 (excl. Ryan) | Viktor only (Haiku) | over ≤75k | Nova 52k (27 uses, +2 over cap); Viktor 35k (1 use ✅ PASS WITH COMMENTS); Sage/Quinn/Mira skipped; orchestrator fixed 2 test patches (no agent) |
+| 47 | curriculum-restructure | 112,790 | zero gates | over ≤75k | Lara 67k (21 uses); Ryan 45k (cap hit, 7 uses); orchestrator direct Edits (~0); no gate wave |
 
 ---
 

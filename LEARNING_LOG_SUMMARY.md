@@ -55,3 +55,4 @@
 - **C45.5** rag-prompt-quality — permissive "only if" RESPONSE FORMAT → mandatory floor in all 5 prompts; `_NOVICE_SYSTEM` audience description → explicit persona + negative constraints; LLM treats permission as withheld, not granted (*full entry*)
 - **C45.6** welcome-message-ux — first-time Novice: app description + 4 starter paths; returning user: progress-first (`Foundations ✓ · Core 1/5`) + last topic + resume action; `_PROGRESS_PHASES` inline (different concern from `_PHASE_TOPICS`) (*full entry*)
 - **C46** mastery-matched-routing — `_DIFFICULTY_FALLBACK` fallback chain filters MCQ pool by `user_level`; lower-tier-before-higher preserves pedagogic intent when target tier is absent; `None` mastery falls through to unrestricted (*full entry*)
+- **C47** curriculum-restructure — `document_ingestion` replaces `langchain_fundamentals` in Phase 2; LangChain archived (concept-first identity constraint); C47.1 (Nova) updates src/ slug registries (*full entry*)

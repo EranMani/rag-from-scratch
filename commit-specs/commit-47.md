@@ -16,6 +16,7 @@ Requested by Eran Mani, our team lead: `langchain_fundamentals` is removed from 
 **Files touched:**
 - `knowledge-base/curriculum/curriculum-map.md` — replace langchain_fundamentals entry with document_ingestion in Phase 2
 - `knowledge-base/curriculum/gates.md` — replace langchain_fundamentals with document_ingestion in Phase 2 gate requirements
+- `knowledge-base/curriculum/topic-slugs.json` — replace `"langchain_fundamentals"` with `"document_ingestion"`
 - `knowledge-base/curriculum/questions/archive/langchain_fundamentals.md` (new — archived)
 - `knowledge-base/curriculum/questions/archive/mcq/langchain_fundamentals.md` (new — archived)
 
@@ -40,5 +41,6 @@ Requested by Eran Mani, our team lead: `langchain_fundamentals` is removed from 
 - [ ] `curriculum-map.md` no longer references `langchain_fundamentals` in Phase 2
 - [ ] `curriculum-map.md` contains a complete `document_ingestion` entry with all required sections
 - [ ] `gates.md` Phase 2 gate references `document_ingestion` (not `langchain_fundamentals`)
+- [ ] `topic-slugs.json` contains `"document_ingestion"` and does not contain `"langchain_fundamentals"`
 - [ ] Archived langchain question files exist at `knowledge-base/curriculum/questions/archive/`
 - [ ] No `src/` files touched

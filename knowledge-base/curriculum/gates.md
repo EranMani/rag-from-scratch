@@ -1,7 +1,7 @@
 # Phase Gates — RAG Curriculum
 # Project: rag-from-scratch
 # Maintained by: Lara (RAG Curriculum Specialist)
-# Last updated: 2026-05-20 (Commit 40)
+# Last updated: 2026-05-23 (Commit 47)
 
 ---
 
@@ -56,7 +56,7 @@ Phase 2 topics (`chunking_strategies`, `vector_databases`, `retrieval_methods`,
 
 ### Phase 2 Gate
 
-**Topics required:** `chunking_strategies`, `vector_databases`, `retrieval_methods`, `context_and_prompting`, `langchain_fundamentals`
+**Topics required:** `chunking_strategies`, `vector_databases`, `retrieval_methods`, `context_and_prompting`, `document_ingestion`
 
 **Advancement threshold:** Each topic must reach a minimum score of **0.70**.
 Additionally, the mean score across all five Phase 2 topics must be at least **0.75**.
@@ -68,7 +68,7 @@ phase_2_individual_pass = (
     AND score["vector_databases"] >= 0.70
     AND score["retrieval_methods"] >= 0.70
     AND score["context_and_prompting"] >= 0.70
-    AND score["langchain_fundamentals"] >= 0.70
+    AND score["document_ingestion"] >= 0.70
 )
 
 phase_2_mean = mean([
@@ -76,7 +76,7 @@ phase_2_mean = mean([
     score["vector_databases"],
     score["retrieval_methods"],
     score["context_and_prompting"],
-    score["langchain_fundamentals"]
+    score["document_ingestion"]
 ])
 
 phase_2_passed = phase_2_individual_pass AND phase_2_mean >= 0.75
@@ -93,7 +93,7 @@ session drawing from all Phase 2 topics, weighted by distance from 0.75.
 
 **Hard gate enforcement:**
 Phase 3 topics (`evaluation_and_metrics`, `production_patterns`) are not accessible
-until `phase_2_passed = true`. Additionally, `langchain_fundamentals` (a Phase 2 topic)
+until `phase_2_passed = true`. Additionally, `document_ingestion` (a Phase 2 topic)
 is not accessible until `phase_1_passed = true`.
 
 ---
@@ -178,7 +178,7 @@ being "skipped" from accidentally passing a gate.
       "mean_minimum": null
     },
     "phase_2": {
-      "required_topics": ["chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting", "langchain_fundamentals"],
+      "required_topics": ["chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting", "document_ingestion"],
       "per_topic_minimum": 0.70,
       "mean_minimum": 0.75
     },

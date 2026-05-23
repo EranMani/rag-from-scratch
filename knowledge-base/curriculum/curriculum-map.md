@@ -1,7 +1,7 @@
 # RAG Curriculum Map
 # Project: rag-from-scratch
 # Maintained by: Lara (RAG Curriculum Specialist)
-# Last updated: 2026-05-20 (Commit 40)
+# Last updated: 2026-05-23 (Commit 47)
 
 ---
 
@@ -24,7 +24,7 @@ Phase 2 — Core Components
   ├── vector_databases             (entry: Phase 1 gate)
   ├── retrieval_methods            (entry: Phase 1 gate + vector_databases recommended first)
   ├── context_and_prompting        (entry: Phase 1 gate + rag_pipeline_architecture required)
-  └── langchain_fundamentals       (entry: Phase 1 gate + all other Phase 2 topics recommended first)
+  └── document_ingestion           (entry: Phase 1 gate + rag_pipeline_architecture required)
       ↓ Phase 2 Gate
 Phase 3 — Production
   ├── evaluation_and_metrics       (entry: Phase 2 gate)
@@ -252,40 +252,38 @@ design prompt templates that produce consistent, grounded responses.
 
 ---
 
-### Topic: `langchain_fundamentals`
+### Topic: `document_ingestion`
 
 **Phase:** 2
-**Description:** Understand how LangChain connects the RAG components from Phase 2 into an
-operational pipeline. Covers the chain abstraction, LCEL, retriever interfaces, memory
-management, and composing a production RAG pipeline from components the learner already
-understands conceptually.
+**Description:** Understand how raw documents flow into a RAG pipeline — format parsing
+(PDF, HTML, DOCX, TXT, CSV), metadata extraction, encoding handling, and how document
+structure affects downstream chunking quality. This topic is the practical entry point
+for building any real RAG system.
 
 **Prerequisites:**
 - Phase 1 gate passed
-- All other Phase 2 topics recommended first (`chunking_strategies`, `vector_databases`,
-  `retrieval_methods`, `context_and_prompting`)
+- `rag_pipeline_architecture` (document loading occurs in the indexing phase)
 
 **Learning Objectives:**
-1. Describe the LangChain chain abstraction and LCEL pipe syntax — what `|` composes and
-   what types are compatible in a chain.
-2. Explain how LangChain's retriever interface wraps a vector store — what `.as_retriever()`
-   returns, what parameters it accepts, and how it connects to a chain.
-3. Trace a `create_retrieval_chain` call from query to response: which components are called
-   in which order and what each passes to the next.
-4. Explain ConversationBufferMemory and ConversationSummaryMemory — what each stores, when
-   each is appropriate, and what happens when the buffer exceeds the context limit.
-5. Identify at least three places where a LangChain pipeline can fail silently (e.g., retriever
-   returning empty results, chain swallowing exceptions, prompt template variable mismatch)
-   and describe how to surface those failures.
+1. Identify the components of a document loader and explain what each extracts (text,
+   metadata, structure).
+2. Describe at least three format-specific parsing challenges (e.g., PDF table extraction,
+   HTML tag noise, DOCX embedded images) and their mitigations.
+3. Explain how encoding issues (UTF-8 vs. Latin-1, BOM markers) cause silent data loss in
+   ingestion pipelines.
+4. Trace how a document's structural elements (headers, tables, page breaks) affect chunking
+   quality downstream.
+5. Describe two loader failure modes — silent data loss vs. hard error — and how to detect
+   each in a production pipeline.
 
 **Typical Misconceptions:**
-- "LangChain is a RAG framework." (LangChain is a general LLM orchestration library.
-  Understanding the concepts independently of LangChain makes you a stronger practitioner.)
-- "LCEL is just Python pipes." (LCEL is a lazy evaluation graph — chains are not executed
-  when composed, only when invoked. This has implications for streaming, async, and error
-  handling.)
-- "LangChain handles memory automatically." (Memory components must be explicitly wired —
-  without them, each query has no conversation history.)
+- "Any text extracted from a PDF is correct." (PDF text extraction is lossy — tables,
+  multi-column layouts, and scanned pages require special handling.)
+- "Metadata doesn't matter for retrieval." (Source, page number, and timestamp metadata
+  are critical for filtering, citation, and index freshness tracking.)
+- "A document loader and a text splitter do the same job." (The loader extracts raw content;
+  the splitter decides how to partition it — they are separate pipeline stages with different
+  failure modes.)
 
 ---
 
@@ -373,6 +371,6 @@ modes at scale.
 | `vector_databases` | 2 | Core | HNSW, IVF, ANN tradeoffs, metadata filtering |
 | `retrieval_methods` | 2 | Core | BM25, hybrid, reranking, MMR, HyDE |
 | `context_and_prompting` | 2 | Core | Prompt anatomy, window management, grounding |
-| `langchain_fundamentals` | 2 | Core | LCEL, retriever interface, memory, silent failures |
+| `document_ingestion` | 2 | Core | Format parsing, metadata, encoding, structure |
 | `evaluation_and_metrics` | 3 | Production | RAGAS, faithfulness, precision, recall |
 | `production_patterns` | 3 | Production | Caching, async, observability, cost |
