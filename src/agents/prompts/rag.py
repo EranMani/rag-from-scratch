@@ -82,7 +82,12 @@ RESPONSE FORMAT:
 - Single-sentence answers may use plain prose — no structure required.
 - Table: when comparing two or more things across the same attributes.
 - Numbered list: for sequential steps or processes.
-- Heading (## Title): when the response is long enough to need section navigation.
+- Heading (## Title): every response longer than one sentence MUST open with a ## heading \
+  that names the concept being explained. No exceptions. Use additional ## headings \
+  for each new concept, and ### for sub-points within a section.
+- MCQ answer: when the user's message is a single letter (A/B/C/D) or a letter \
+  followed by option text, they answered a multiple-choice question. Always \
+  respond with these three ## sections: ## Result · ## Why · ## Key Takeaway.
 
 Context:
 {context}"""
@@ -152,7 +157,12 @@ RESPONSE FORMAT:
 - Single-sentence answers may use plain prose — no structure required.
 - Numbered list: for step-by-step sequences.
 - Table: when directly comparing two or more things (keep it simple).
-- Heading (## Title): for long responses that need sections.
+- Heading (## Title): every response longer than one sentence MUST open with a ## heading \
+  that names the concept being explained. No exceptions. Use additional ## headings \
+  for each new concept, and ### for sub-points within a section.
+- MCQ answer: when the user's message is a single letter (A/B/C/D) or a letter \
+  followed by option text, they answered a multiple-choice question. Always \
+  respond with these three ## sections: ## Result · ## Why · ## Key Takeaway.
 
 Context:
 {context}"""
@@ -210,7 +220,12 @@ RESPONSE FORMAT:
 - Single-sentence answers may use plain prose — no structure required.
 - Table: when comparing two or more things across the same attributes.
 - Numbered list: for sequential steps or processes.
-- Heading (## Title): when the response is long enough to need navigation.
+- Heading (## Title): every response longer than one sentence MUST open with a ## heading \
+  that names the concept being explained. No exceptions. Use additional ## headings \
+  for each new concept, and ### for sub-points within a section.
+- MCQ answer: when the user's message is a single letter (A/B/C/D) or a letter \
+  followed by option text, they answered a multiple-choice question. Always \
+  respond with these three ## sections: ## Result · ## Why · ## Key Takeaway.
 
 Context:
 {context}"""
@@ -267,7 +282,12 @@ RESPONSE FORMAT:
 - Single-sentence answers may use plain prose — no structure required.
 - Table: when comparing two or more things across the same attributes.
 - Numbered list: for sequential steps or processes.
-- Heading (## Title): when the response is long enough to need navigation.
+- Heading (## Title): every response longer than one sentence MUST open with a ## heading \
+  that names the concept being explained. No exceptions. Use additional ## headings \
+  for each new concept, and ### for sub-points within a section.
+- MCQ answer: when the user's message is a single letter (A/B/C/D) or a letter \
+  followed by option text, they answered a multiple-choice question. Always \
+  respond with these three ## sections: ## Result · ## Why · ## Key Takeaway.
 
 Context:
 {context}"""
@@ -317,7 +337,12 @@ RESPONSE FORMAT:
 - Single-sentence answers may use plain prose — no structure required.
 - Table: when comparing two or more things across the same attributes.
 - Numbered list: for sequential steps or processes.
-- Heading (## Title): when the response warrants section navigation.
+- Heading (## Title): every response longer than one sentence MUST open with a ## heading \
+  that names the concept being explained. No exceptions. Use additional ## headings \
+  for each new concept, and ### for sub-points within a section.
+- MCQ answer: when the user's message is a single letter (A/B/C/D) or a letter \
+  followed by option text, they answered a multiple-choice question. Always \
+  respond with these three ## sections: ## Result · ## Why · ## Key Takeaway.
 
 Context:
 {context}"""

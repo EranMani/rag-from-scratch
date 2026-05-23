@@ -1407,9 +1407,12 @@ document.addEventListener("click", function(e) {
   --r-pill:        999px;
 }
 .nicegui-markdown h1,.nicegui-markdown h2,.nicegui-markdown h3{
-  background:linear-gradient(135deg,#f97316,#ec4899);-webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;background-clip:text;
-  font-weight:700;margin-top:1rem;margin-bottom:0.4rem}
+  background:linear-gradient(135deg,#f97316,#ec4899) !important;
+  -webkit-background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;
+  background-clip:text !important;
+  color:transparent !important;
+  font-weight:700 !important;margin-top:1rem;margin-bottom:0.4rem}
 .nicegui-markdown h1{font-size:1.4em}
 .nicegui-markdown h2{font-size:1.2em}
 .nicegui-markdown h3{font-size:1.05em}
@@ -2013,15 +2016,15 @@ html, body {
                             # --- Mastery section (always shown) ---
                             with ui.column().style("gap:10px; margin-bottom:16px"):
                                 ui.html(f'<span class="mastery-chip mc-{mastery}"><span class="dot"></span>{mastery.capitalize()}</span>')
-                                _mastery_copy = {
-                                    "novice":       "Just getting started — great time to build foundations.",
-                                    "intermediate": "You've got the core. Time to go deeper.",
-                                    "advanced":     "Strong foundations. Let's tackle production complexity.",
-                                    "expert":       "You're in the top tier. Ask me anything.",
-                                }
-                                ui.label(_mastery_copy.get(mastery, _mastery_copy["novice"])).style(
-                                    "font-family:'Inter',system-ui; font-size:12.5px; color:#94a3b8; line-height:1.5"
-                                )
+                                # _mastery_copy = {
+                                #     "novice":       "Just getting started — great time to build foundations.",
+                                #     "intermediate": "You've got the core. Time to go deeper.",
+                                #     "advanced":     "Strong foundations. Let's tackle production complexity.",
+                                #     "expert":       "You're in the top tier. Ask me anything.",
+                                # }
+                                # ui.label(_mastery_copy.get(mastery, _mastery_copy["novice"])).style(
+                                #     "font-family:'Inter',system-ui; font-size:12.5px; color:#94a3b8; line-height:1.5"
+                                # )
 
                             # --- Tab bar ---
                             active_tab = _tab_state[0]
