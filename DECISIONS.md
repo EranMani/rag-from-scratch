@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Every non-obvious design choice made during this project
 > is logged here with the reason it was made.
-> Last updated: 2026-05-21
+> Last updated: 2026-05-23
 
 ---
 
@@ -995,3 +995,13 @@
 - **Alternatives considered:** Introducing a new `reveal_mode` flag; calling `retrieve_node` directly from `evaluate_answer`; adding a new graph edge for the reveal path.
 - **Reason:** The system already has a well-tested path where `pending_test_question=None` causes `generate_node` to run the standard RAG pipeline. Reusing this invariant keeps the degradation path free of new infrastructure — no new AgentState fields for the reveal, no additional LangGraph edges. The slug in `identified_gaps` ensures the profile update node records it as a knowledge gap regardless of how the question was resolved.
 - **Consequences:** The RAG reveal uses the user's original question text (from `question` in state) as the retrieval query. This is appropriate — the user's question is what they were trying to understand. If the topic has poor knowledge base coverage, the reveal may be less helpful; this is a curriculum quality issue, not a system design issue.
+
+## Mastery Level Simplification (2026-05-23)
+
+### Remove `beginner` level — merge into `novice` (2026-05-23)
+- **Date:** 2026-05-23
+- **Decided by:** Team Lead
+- **Decision:** The `beginner` mastery level is removed. The four remaining levels are `novice`, `intermediate`, `advanced`, `expert`. Users who were `beginner` (Phase 1 in progress) are now `novice` (Phase 1 not yet passed).
+- **Alternatives considered:** Keeping both and adding a badge design for `beginner`; renaming `beginner` to something other than `novice`.
+- **Reason:** `beginner` and `novice` were semantically identical from a user perspective — both represented Phase 1 in-progress work — and `beginner` had no badge design. Maintaining two levels for the same curriculum phase added complexity with no user-facing payoff: distinct prompt templates, separate dict entries across 10+ files, and a self-report option that was confusing rather than clarifying. `novice` already captured the intent; `beginner` was dead weight.
+- **Consequences:** `get_mastery_level()` now returns `novice` for any user who has not passed Phase 1, regardless of whether any Phase 1 topics have been scored. `_LEVEL_ORDER` is renumbered (0–3). `_GATE_THRESHOLDS` adjusted accordingly (phase_1 threshold = 1). The onboarding self-report now offers Novice / Intermediate / Expert. Question difficulty labels in the knowledge base are renamed `novice` (previously `beginner`).

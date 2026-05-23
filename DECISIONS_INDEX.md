@@ -139,7 +139,7 @@
 74. **Passive signals excluded from session_history** — passive deltas update topic_score directly but never append to history; prevents weak inference from contaminating `best_prior` used in the MCQ spaced-rep formula
 
 ## Gate Remediation (C41)
-75. **Phase 1 remediation scoped to `intermediate` only** — beginner/novice already get Phase 1; advanced/expert Phase 1 gaps are likely LLM false positives at high score levels; routing back would be incorrect
+75. **Phase 1 remediation scoped to `intermediate` only** — novice already gets Phase 1; advanced/expert Phase 1 gaps are likely LLM false positives at high score levels; routing back would be incorrect
 76. **`session_question_counts` as AgentState field** — MemorySaver checkpoints it cross-turn; no Redis/API coupling needed; `.get() or {}` guard handles first-turn absence
 77. **Proximity hint reads DB in `generate_node`** — `topic_scores_delta` is a per-turn sparse delta, not absolute scores; targeted async DB read is minimal-coupling; silently skipped on lookup failure
 
@@ -153,5 +153,8 @@
 ## Interactive UX — Navigation Chips & Formatting (2026-05-21)
 81. **Semantic similarity for nav-intent detection** — `all-MiniLM-L6-v2` embedder (already used for retrieval) reused to classify navigation questions via cosine similarity against 14 anchor phrases; keyword matching rejected because paraphrases like "I'm not sure where to begin" share zero keywords with "what should I learn?"
 82. **Navigation chips scoped to nav-intent responses only** — generalizing chips to all lists rejected; explanatory lists form arguments not menus; chips only make sense when the list is a navigation target
-83. **Level-filtered chips by mastery_level** — novice/beginner: 2 chips (Foundation); intermediate: 6; advanced/expert: 8; sliced server-side where `user_level` is already in scope; prevents curriculum-skipping
+83. **Level-filtered chips by mastery_level** — novice: 2 chips (Foundation); intermediate: 6; advanced/expert: 8; sliced server-side where `user_level` is already in scope; prevents curriculum-skipping
 84. **MCQ options moved inline into chat bubble** — removed pre-built bottom-panel MCQ construct; options created on-demand inside `response_inner_col`; full option text sent as user message (not just letter); `async def` handlers preserve NiceGUI slot context
+
+## Mastery Level Simplification (2026-05-23)
+85. **Remove `beginner` level, merge into `novice`** — both mapped to Phase 1 in-progress with no user-facing distinction; beginner had no badge design; four-level ladder (novice/intermediate/advanced/expert) is simpler and complete
