@@ -1,14 +1,14 @@
 # MCQ Bank — langchain_fundamentals
 # Topic: langchain_fundamentals
 # Phase: 2 (Core Components)
-# Questions: 11 (2 beginner, 4 intermediate, 3 advanced, 2 expert)
+# Questions: 11 (2 novice, 4 intermediate, 3 advanced, 2 expert)
 # Last updated: 2026-05-21 (Commit 45)
 
 ---
 
 ## MCQ-1 — LCEL lazy evaluation
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** langchain_fundamentals
 
 **Question:**
@@ -35,7 +35,7 @@ LCEL (LangChain Expression Language) uses lazy evaluation — the `|` operator c
 
 ## MCQ-2 — The retriever interface
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** langchain_fundamentals
 
 **Question:**

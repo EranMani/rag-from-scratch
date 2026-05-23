@@ -7,7 +7,7 @@
 
 ## Q1 — Semantic caching fundamentals
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 Explain semantic caching in the context of a RAG system. How does it differ from

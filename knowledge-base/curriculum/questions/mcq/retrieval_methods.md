@@ -1,14 +1,14 @@
 # MCQ Bank — retrieval_methods
 # Topic: retrieval_methods
 # Phase: 2 (Core Components)
-# Questions: 10 (2 beginner, 3 intermediate, 3 advanced, 2 expert)
+# Questions: 10 (2 novice, 3 intermediate, 3 advanced, 2 expert)
 # Last updated: 2026-05-21 (Commit 45)
 
 ---
 
 ## MCQ-1 — Dense vs. sparse retrieval
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** retrieval_methods
 
 **Question:**
@@ -35,7 +35,7 @@ Dense retrieval embeds both queries and documents into continuous vector spaces 
 
 ## MCQ-2 — When BM25 outperforms dense retrieval
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** retrieval_methods
 
 **Question:**

@@ -7,7 +7,7 @@
 
 ## Q1 — The two phases of RAG
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 RAG architectures are commonly described as having two distinct phases. Name them, briefly
@@ -35,7 +35,7 @@ describe what happens in each, and explain why they are kept separate.
 
 ## Q2 — Drawing the pipeline
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 List every component in a minimal RAG pipeline in order, for both the indexing phase and
@@ -69,7 +69,7 @@ framework names.
 
 ## Q3 — What context injection actually means
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 In RAG, what does "context injection" mean? Where in the pipeline does it happen, and

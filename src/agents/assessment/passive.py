@@ -9,7 +9,7 @@ from .constants import _PASSIVE_CONFIDENCE_THRESHOLD, _PASSIVE_LEVEL_SCORE
 logger = logging.getLogger(__name__)
 
 _LEVEL_ORDER: dict[str, int] = {
-    "novice": 0, "beginner": 1, "intermediate": 2, "advanced": 3, "expert": 4
+    "novice": 0, "intermediate": 1, "advanced": 2, "expert": 3
 }
 
 

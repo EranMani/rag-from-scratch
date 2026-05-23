@@ -7,7 +7,7 @@
 
 ## Q1 — What is a vector embedding?
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 In your own words, explain what a vector embedding is. What does it represent, and why

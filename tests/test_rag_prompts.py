@@ -35,21 +35,18 @@ from agents.prompts import PROMPT_TEMPLATES, DEFAULT_PROMPT  # noqa: E402
 # Gate 1 — all 5 mastery level keys present
 # ---------------------------------------------------------------------------
 
-EXPECTED_LEVELS = {"novice", "beginner", "intermediate", "advanced", "expert"}
+EXPECTED_LEVELS = {"novice", "intermediate", "advanced", "expert"}
 
 
 class TestGate1AllLevelKeysPresent:
     def test_prompt_templates_is_dict(self) -> None:
         assert isinstance(PROMPT_TEMPLATES, dict)
 
-    def test_all_five_keys_present(self) -> None:
+    def test_all_four_keys_present(self) -> None:
         assert set(PROMPT_TEMPLATES.keys()) == EXPECTED_LEVELS
 
     def test_novice_key_present(self) -> None:
         assert "novice" in PROMPT_TEMPLATES
-
-    def test_beginner_key_present(self) -> None:
-        assert "beginner" in PROMPT_TEMPLATES
 
     def test_intermediate_key_present(self) -> None:
         assert "intermediate" in PROMPT_TEMPLATES

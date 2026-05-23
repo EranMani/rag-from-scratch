@@ -42,7 +42,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 def _make_state(
     messages: list,
     docs: list[Document] | None = None,
-    user_level: str = "beginner",
+    user_level: str = "novice",
 ) -> dict[str, Any]:
     """Construct a minimal AgentState dict for generate_node testing."""
     return {
@@ -400,12 +400,12 @@ class TestGate5GetProviderUsed:
     async def test_proximity_hint_injected_into_context_when_topic_near_threshold(self) -> None:
         """When a Phase 1/2 topic score is 0.60–0.69, a hint appears in the system message."""
         from unittest.mock import patch as up
-        state = _make_state([HumanMessage("Tell me about embeddings.")], user_level="beginner")
+        state = _make_state([HumanMessage("Tell me about embeddings.")], user_level="novice")
         state["user_id"] = "user-hint-test"
 
         near_profile = {
             "topic_scores": {"embeddings_and_similarity": 0.65},
-            "mastery_level": "beginner",
+            "mastery_level": "novice",
         }
 
         captured_messages: list = []
@@ -648,5 +648,5 @@ class TestGate5GetProviderUsed:
 
         from langchain_core.messages import SystemMessage
         assert isinstance(captured_messages[0], SystemMessage)
-        assert "complete beginner" in captured_messages[0].content
+        assert "no technical background" in captured_messages[0].content
         assert result["answer"] == "Answer."

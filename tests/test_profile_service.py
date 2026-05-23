@@ -294,7 +294,7 @@ class TestUpdateProfile:
         profile_db.create_profile(user_id)
         before = profile_db.get_profile_by_user_id(user_id)
 
-        profile_db.update_profile(user_id, mastery_level="beginner")
+        profile_db.update_profile(user_id, mastery_level="novice")
         after = profile_db.get_profile_by_user_id(user_id)
 
         # updated_at must be a newer timestamp (or at minimum equal — same-second edge case)

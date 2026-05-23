@@ -523,7 +523,7 @@ class TestSessionQuestionCountWiring:
                     "session_history": {},
                     "strengths": [],
                     "gaps": [],
-                    "mastery_level": "beginner",
+                    "mastery_level": "novice",
                 },
             ) as mock_compute,
         ):
@@ -659,24 +659,6 @@ def _compute_stub(new_level: str):
 class TestGateDetection:
     """Gate crossing detection — update_profile_node emits gate_just_passed on level advance."""
 
-    def test_beginner_to_intermediate_emits_phase_1(self) -> None:
-        """beginner → intermediate crosses phase_1 gate."""
-        profile = _fake_profile_with_level("beginner")
-
-        with (
-            patch("agents.nodes.update_profile.get_profile_by_user_id", return_value=profile),
-            patch("agents.nodes.update_profile.update_profile"),
-            patch(
-                "agents.nodes.update_profile.compute_topic_scores",
-                return_value=_compute_stub("intermediate"),
-            ),
-        ):
-            result = update_profile_node(_base_state(user_id="user-gate"))  # type: ignore[arg-type]
-
-        assert result == {"gate_just_passed": "phase_1"}, (
-            f"beginner→intermediate must emit phase_1, got {result!r}"
-        )
-
     def test_novice_to_intermediate_emits_phase_1(self) -> None:
         """novice → intermediate also crosses phase_1 gate."""
         profile = _fake_profile_with_level("novice")
@@ -755,15 +737,15 @@ class TestGateDetection:
         assert result == {}
 
     def test_no_gate_when_level_unchanged(self) -> None:
-        """beginner → beginner: no gate emitted."""
-        profile = _fake_profile_with_level("beginner")
+        """novice → novice: no gate emitted."""
+        profile = _fake_profile_with_level("novice")
 
         with (
             patch("agents.nodes.update_profile.get_profile_by_user_id", return_value=profile),
             patch("agents.nodes.update_profile.update_profile"),
             patch(
                 "agents.nodes.update_profile.compute_topic_scores",
-                return_value=_compute_stub("beginner"),
+                return_value=_compute_stub("novice"),
             ),
         ):
             result = update_profile_node(_base_state(user_id="user-gate"))  # type: ignore[arg-type]

@@ -1,14 +1,14 @@
 # MCQ Bank — context_and_prompting
 # Topic: context_and_prompting
 # Phase: 2 (Core Components)
-# Questions: 10 (2 beginner, 3 intermediate, 4 advanced, 2 expert)
+# Questions: 10 (2 novice, 3 intermediate, 4 advanced, 2 expert)
 # Last updated: 2026-05-21 (Commit 45)
 
 ---
 
 ## MCQ-1 — Grounding instruction purpose
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** context_and_prompting
 
 **Question:**
@@ -35,7 +35,7 @@ The grounding instruction constrains the LLM to answer from the provided context
 
 ## MCQ-2 — Context placement in the prompt
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** context_and_prompting
 
 **Question:**

@@ -25,7 +25,7 @@ Every MCQ must follow this exact structure:
 ```markdown
 ## MCQ-[N] — [Short title]
 
-**Difficulty:** beginner | intermediate | advanced
+**Difficulty:** novice | intermediate | advanced
 **Topic:** [slug]
 
 **Question:**
@@ -51,7 +51,7 @@ D. [Option text]
 |---|---|
 | `MCQ-[N]` | Sequential number within the topic file, starting at 1 |
 | Short title | 3–6 words identifying the concept tested |
-| `Difficulty` | Exactly one of: `beginner`, `intermediate`, `advanced` |
+| `Difficulty` | Exactly one of: `novice`, `intermediate`, `advanced` |
 | `Topic` | Exactly one canonical slug from `topic-slugs.json` |
 | `Question` | Single clear question. No compound questions ("X and Y?"). No trick framing. |
 | `Options` | Exactly 4 options labeled A, B, C, D. No more, no fewer. |
@@ -87,7 +87,7 @@ Every topic file must contain exactly 5 questions with this distribution:
 
 | Difficulty | Count |
 |---|---|
-| beginner | 2 |
+| novice | 2 |
 | intermediate | 2 |
 | advanced | 1 |
 

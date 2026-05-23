@@ -7,7 +7,7 @@
 
 ## Q1 — RAGAS framework overview
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 Name the four core metrics in the RAGAS evaluation framework. For each, state in one
@@ -43,7 +43,7 @@ sentence what it measures and which pipeline stage it evaluates.
 
 ## Q2 — Faithfulness in depth
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 Explain faithfulness as a RAGAS metric. How is it computed, and give a concrete example

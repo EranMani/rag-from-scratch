@@ -52,7 +52,7 @@ class TopicScoreUpdate(TypedDict):
     session_history: dict[str, list[float]]     # slug → list of prior session scores
     strengths: list[str]                        # slugs scoring >= 0.7
     gaps: list[str]                             # slugs scoring <= 0.3
-    mastery_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
+    mastery_level: Literal["novice", "intermediate", "advanced", "expert"]
 
 
 def _phase_1_passed(scores: dict[str, float | None]) -> bool:
@@ -92,7 +92,7 @@ def _phase_3_passed(scores: dict[str, float | None]) -> bool:
 
 def get_mastery_level(
     topic_scores: dict[str, float | None],
-) -> Literal["novice", "beginner", "intermediate", "advanced", "expert"]:
+) -> Literal["novice", "intermediate", "advanced", "expert"]:
     """Translate raw topic scores into a single mastery label for the agent.
 
     This label is the behavioral anchor that adaptive-prompting reads to select
@@ -110,9 +110,6 @@ def get_mastery_level(
         return "advanced"
     if p1:
         return "intermediate"
-    # beginner: at least one Phase 1 topic has a non-null score, phase_1 not passed
-    if any(topic_scores.get(slug) is not None for slug in PHASE_1_TOPICS):
-        return "beginner"
     return "novice"
 
 

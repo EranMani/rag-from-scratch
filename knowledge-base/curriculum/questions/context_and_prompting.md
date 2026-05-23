@@ -7,7 +7,7 @@
 
 ## Q1 — Anatomy of a RAG prompt
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 Describe the four standard elements of a well-structured RAG prompt template. For each
@@ -41,7 +41,7 @@ element, explain what it contains and why it must be present.
 
 ## Q2 — The "answer only from context" instruction
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 Why does a RAG prompt typically include an instruction like "Answer only from the

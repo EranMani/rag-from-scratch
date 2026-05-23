@@ -46,7 +46,7 @@ def _make_state(question: str) -> dict[str, Any]:
         "docs": [],
         "retrieval_source": "",
         "answer": "",
-        "user_level": "beginner",
+        "user_level": "novice",
         "topic_scores_delta": {},
         "identified_gaps": [],
         "assessment_error": False,

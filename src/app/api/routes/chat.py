@@ -98,7 +98,7 @@ def _nav_anchor_embeddings() -> "np.ndarray":
 
 def _chips_for_level(level: str) -> list[dict]:
     """Return the subset of chips the user has unlocked based on their mastery level."""
-    if level in ("novice", "beginner"):
+    if level == "novice":
         return _NAV_CHIPS[:2]   # Phase 1: Embeddings & Similarity, RAG Pipeline Architecture
     if level == "intermediate":
         return _NAV_CHIPS[:6]   # Phase 1 + Phase 2
@@ -167,7 +167,7 @@ async def current_user_optional(
 
 def get_user_level(
     user_id: str | None,
-) -> Literal["novice", "beginner", "intermediate", "advanced", "expert"]:
+) -> Literal["novice", "intermediate", "advanced", "expert"]:
     """Return the persisted mastery_level for user_id, or 'novice' for anonymous.
 
     This is a synchronous DB call — callers must wrap it with asyncio.to_thread.
@@ -181,7 +181,7 @@ def get_user_level(
         return "novice"
     level = profile.get("mastery_level", "novice")
     # Guard: coerce any unexpected DB value to the Literal set.
-    valid: set[str] = {"novice", "beginner", "intermediate", "advanced", "expert"}
+    valid: set[str] = {"novice", "intermediate", "advanced", "expert"}
     if level not in valid:
         logger.warning(
             "get_user_level: unexpected mastery_level %r for user_id=%r — coercing to novice",

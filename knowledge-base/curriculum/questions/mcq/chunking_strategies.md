@@ -1,14 +1,14 @@
 # MCQ Bank — chunking_strategies
 # Topic: chunking_strategies
 # Phase: 2 (Core Components)
-# Questions: 15 (2 beginner, 3 intermediate, 5 advanced, 3 expert)
+# Questions: 15 (2 novice, 3 intermediate, 5 advanced, 3 expert)
 # Last updated: 2026-05-21 (Commit 45)
 
 ---
 
 ## MCQ-1 — Why chunking is necessary
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** chunking_strategies
 
 **Question:**
@@ -35,7 +35,7 @@ Embedding models have a fixed maximum context window (often 512 or 8192 tokens d
 
 ## MCQ-2 — Chunk overlap purpose
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** chunking_strategies
 
 **Question:**

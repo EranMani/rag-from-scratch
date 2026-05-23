@@ -9,7 +9,7 @@ Coverage gates (spec):
   - Unauthenticated              → 401
 
 /api/onboarding/diagnostic:
-  - Returns 3 questions for each valid self-report level (beginner/intermediate/expert)
+  - Returns 3 questions for each valid self-report level (novice/intermediate/expert)
   - Each question text contains "Knowledge check:" and A–D options
   - Invalid level value          → 422
   - Unauthenticated              → 401
@@ -18,7 +18,7 @@ Coverage gates (spec):
   - 3/3 correct  → confirmed at self-report level
   - 1/3 correct  → one level below self-report
   - 0/3 correct  → two levels below self-report
-  - "beginner" + 0/3 → "novice" (floor enforcement)
+  - "novice" + 0/3 → "novice" (floor enforcement)
   - skipped=true → confirmed_level="novice", profile written
   - Unauthenticated  → 401
 
@@ -177,13 +177,13 @@ class TestOnboardingStatus:
 # ---------------------------------------------------------------------------
 
 class TestOnboardingDiagnostic:
-    def test_beginner_returns_3_questions(self, api_setup):
-        """beginner level → 3 questions returned."""
+    def test_novice_returns_3_questions(self, api_setup):
+        """novice level → 3 questions returned."""
         client = api_setup["client"]
         _, token = _insert_user_with_profile(api_setup["db_path"])
         resp = client.post(
             "/api/onboarding/diagnostic",
-            json={"level": "beginner"},
+            json={"level": "novice"},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200, resp.text
@@ -219,7 +219,7 @@ class TestOnboardingDiagnostic:
         _, token = _insert_user_with_profile(api_setup["db_path"])
         resp = client.post(
             "/api/onboarding/diagnostic",
-            json={"level": "beginner"},
+            json={"level": "novice"},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200, resp.text
@@ -258,7 +258,7 @@ class TestOnboardingDiagnostic:
 
     def test_diagnostic_unauthenticated_returns_401(self, api_setup):
         """No token → 401."""
-        resp = api_setup["client"].post("/api/onboarding/diagnostic", json={"level": "beginner"})
+        resp = api_setup["client"].post("/api/onboarding/diagnostic", json={"level": "novice"})
         assert resp.status_code == 401
 
 
@@ -296,7 +296,7 @@ class TestOnboardingComplete:
         assert body["correct_count"] == 3
 
     def test_one_correct_drops_one_level(self, api_setup):
-        """1/3 correct → one level below self-report (intermediate → beginner)."""
+        """1/3 correct → one level below self-report (intermediate → novice)."""
         client = api_setup["client"]
         _, token = _insert_user_with_profile(api_setup["db_path"])
         with patch("app.api.routes.onboarding.load_mcq_question", side_effect=_stub_load_mcq):
@@ -307,7 +307,7 @@ class TestOnboardingComplete:
             )
         assert resp.status_code == 200, resp.text
         body = resp.json()
-        assert body["confirmed_level"] == "beginner"
+        assert body["confirmed_level"] == "novice"
         assert body["correct_count"] == 1
 
     def test_zero_correct_drops_two_levels(self, api_setup):
@@ -325,20 +325,20 @@ class TestOnboardingComplete:
         assert body["confirmed_level"] == "intermediate"
         assert body["correct_count"] == 0
 
-    def test_beginner_zero_correct_floors_at_novice(self, api_setup):
-        """beginner + 0/3 correct → novice (floor, cannot drop below)."""
+    def test_novice_zero_correct_floors_at_novice(self, api_setup):
+        """novice + 0/3 correct → novice (floor, cannot drop below)."""
         client = api_setup["client"]
         _, token = _insert_user_with_profile(api_setup["db_path"])
         with patch("app.api.routes.onboarding.load_mcq_question", side_effect=_stub_load_mcq):
             resp = client.post(
                 "/api/onboarding/complete",
-                json={"level": "beginner", "answers": ["A", "A", "A"], "skipped": False},
+                json={"level": "novice", "answers": ["A", "A", "A"], "skipped": False},
                 headers={"Authorization": f"Bearer {token}"},
             )
         assert resp.status_code == 200, resp.text
         body = resp.json()
         assert body["confirmed_level"] == "novice", (
-            f"beginner + 0/3 must floor at novice, got {body['confirmed_level']!r}"
+            f"novice + 0/3 must floor at novice, got {body['confirmed_level']!r}"
         )
 
     def test_skipped_writes_novice_and_returns_novice(self, api_setup):
@@ -347,7 +347,7 @@ class TestOnboardingComplete:
         user_id, token = _insert_user_with_profile(api_setup["db_path"])
         resp = client.post(
             "/api/onboarding/complete",
-            json={"level": "beginner", "answers": [], "skipped": True},
+            json={"level": "novice", "answers": [], "skipped": True},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200, resp.text
@@ -366,6 +366,6 @@ class TestOnboardingComplete:
         """No token → 401."""
         resp = api_setup["client"].post(
             "/api/onboarding/complete",
-            json={"level": "beginner", "answers": ["A", "B", "C"], "skipped": False},
+            json={"level": "novice", "answers": ["A", "B", "C"], "skipped": False},
         )
         assert resp.status_code == 401

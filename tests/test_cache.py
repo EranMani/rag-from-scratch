@@ -35,9 +35,9 @@ class TestMakeKeyCacheIsolation:
         key_expert = _make_key("query", f"What is RAG?\x00expert")
         assert key_novice != key_expert
 
-    def test_all_five_levels_produce_distinct_keys(self) -> None:
+    def test_all_four_levels_produce_distinct_keys(self) -> None:
         """Every valid mastery level produces a unique cache key for the same question."""
-        levels = ["novice", "beginner", "intermediate", "advanced", "expert"]
+        levels = ["novice", "intermediate", "advanced", "expert"]
         question = "Explain chunking."
         keys = [_make_key("query", f"{question}\x00{level}") for level in levels]
         assert len(set(keys)) == len(levels), (

@@ -177,7 +177,7 @@ _SAMPLE_CURRICULUM_MD = """\
 
 ## Q1 — What is a vector embedding?
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 In your own words, explain what a vector embedding is. What does it represent, and why
@@ -200,7 +200,7 @@ def _make_eval_output(verdict: str = "partial") -> EvaluationOutput:
         verdict=verdict,  # type: ignore[arg-type]
         confidence=0.85,
         identified_gaps=["embeddings_and_similarity"],
-        user_level="beginner",
+        user_level="novice",
     )
 
 
@@ -315,7 +315,7 @@ class TestGate1TestMode:
         from agents.state import PassiveAssessmentOutput
         passive_out = PassiveAssessmentOutput(
             relevant_slug="embeddings_and_similarity",
-            inferred_level="beginner",
+            inferred_level="novice",
             confidence=0.8,
         )
         mock_chain = MagicMock()
@@ -846,15 +846,6 @@ class TestPhaseGateSlugSelection:
             f"novice must get a Phase 1 slug, got {result!r}"
         )
 
-    def test_beginner_returns_only_phase_1_slug(self) -> None:
-        """beginner level: selected slug must be a Phase 1 topic."""
-        state = _base_state(user_level="beginner", identified_gaps=[])
-        selection = select_mcq_question(state)  # type: ignore[arg-type]
-        result = selection[0] if selection else None
-        assert result in self._PHASE_1_SLUGS, (
-            f"beginner must get a Phase 1 slug, got {result!r}"
-        )
-
     def test_intermediate_returns_only_phase_2_slug(self) -> None:
         """intermediate level: selected slug must be a Phase 2 topic."""
         state = _base_state(user_level="intermediate", identified_gaps=[])
@@ -897,13 +888,13 @@ class TestPhaseGateSlugSelection:
     def test_gap_outside_eligible_phase_is_skipped(self) -> None:
         """Gap from a non-eligible phase is skipped; canonical phase slug is returned instead."""
         state = _base_state(
-            user_level="beginner",
-            identified_gaps=["evaluation_and_metrics"],  # Phase 3 — not eligible for beginner
+            user_level="novice",
+            identified_gaps=["evaluation_and_metrics"],  # Phase 3 — not eligible for novice
         )
         selection = select_mcq_question(state)  # type: ignore[arg-type]
         result = selection[0] if selection else None
         assert result in self._PHASE_1_SLUGS, (
-            f"Phase 3 gap must be skipped for beginner; expected Phase 1 slug, got {result!r}"
+            f"Phase 3 gap must be skipped for novice; expected Phase 1 slug, got {result!r}"
         )
 
     def test_returns_none_when_valid_slugs_empty(self) -> None:
@@ -1010,7 +1001,7 @@ class TestMcqLoader:
         """MCQ file missing **Question:** field raises ValueError."""
         bad_mcq = tmp_path / "bad_topic.md"
         bad_mcq.write_text(
-            "## MCQ-1 — Broken question\n\n**Difficulty:** beginner\n\n"
+            "## MCQ-1 — Broken question\n\n**Difficulty:** novice\n\n"
             "**Options:**\nA. Opt1\nB. Opt2\nC. Opt3\nD. Opt4\n\n"
             "**Correct answer:** A\n",
             encoding="utf-8",

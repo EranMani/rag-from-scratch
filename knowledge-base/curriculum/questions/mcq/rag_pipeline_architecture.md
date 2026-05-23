@@ -1,14 +1,14 @@
 # MCQ Bank — rag_pipeline_architecture
 # Topic: rag_pipeline_architecture
 # Phase: 1 (Foundations)
-# Questions: 10 (2 beginner, 2 intermediate, 3 advanced, 3 expert)
+# Questions: 10 (2 novice, 2 intermediate, 3 advanced, 3 expert)
 # Last updated: 2026-05-21 (Commit 45)
 
 ---
 
 ## MCQ-1 — RAG pipeline stages
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** rag_pipeline_architecture
 
 **Question:**
@@ -35,7 +35,7 @@ A RAG pipeline has an indexing phase (documents are chunked, embedded, and store
 
 ## MCQ-2 — Role of the vector database
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** rag_pipeline_architecture
 
 **Question:**

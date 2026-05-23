@@ -104,7 +104,7 @@ class AgentState(TypedDict):
     """Phase name just crossed ("phase_1", "phase_2", "phase_3") or None."""
 
     # --- User context ---
-    user_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
+    user_level: Literal["novice", "intermediate", "advanced", "expert"]
     """Learner mastery level loaded from the user profile before graph entry."""
 
     # --- Assessment ---
@@ -181,7 +181,7 @@ class EvaluationOutput(BaseModel):
     identified_gaps: list[str]
     """Topic slugs where the answer reveals gaps; values not in VALID_MODULE_SLUGS are dropped."""
 
-    user_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
+    user_level: Literal["novice", "intermediate", "advanced", "expert"]
     """Assessed mastery level for this turn."""
 
     @field_validator("identified_gaps", mode="before")
@@ -216,7 +216,7 @@ class PassiveAssessmentOutput(BaseModel):
     relevant_slug: str | None
     """primary topic from the question, or null if off-topic/unclear."""
 
-    inferred_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
+    inferred_level: Literal["novice", "intermediate", "advanced", "expert"]
     """ mastery implied by vocabulary and specificity in the question"""
 
     confidence: float
@@ -258,7 +258,7 @@ class AssessmentOutput(BaseModel):
     """Module slugs where understanding is judged to be low this turn.
     Values not in VALID_MODULE_SLUGS are silently dropped."""
 
-    user_level: Literal["novice", "beginner", "intermediate", "advanced", "expert"]
+    user_level: Literal["novice", "intermediate", "advanced", "expert"]
     """Assessed user mastery level for this turn."""
 
     @field_validator("identified_gaps", mode="before")

@@ -254,9 +254,9 @@ class TestNullVsZeroDistinction:
             "rag_pipeline_architecture": 0.75,
         }
         result = get_mastery_level(scores)
-        # Phase 1 not passed; Phase 1 topic has non-null score → beginner
-        assert result == "beginner", (
-            f"0.0 score on embeddings_and_similarity must produce 'beginner', got {result!r}"
+        # Phase 1 not passed → novice
+        assert result == "novice", (
+            f"0.0 score on embeddings_and_similarity must produce 'novice', got {result!r}"
         )
 
     def test_unassessed_topic_is_novice(self) -> None:
@@ -315,23 +315,23 @@ class TestGetMasteryLevel:
             f"Phase 1 all None (only Phase 2 scored) must be novice, got {result!r}"
         )
 
-    def test_beginner_one_phase1_topic_scored(self) -> None:
-        """One Phase 1 topic scored (non-null), phase_1 not passed → beginner."""
+    def test_novice_one_phase1_topic_scored(self) -> None:
+        """One Phase 1 topic scored (non-null), phase_1 not passed → novice."""
         scores: dict = {"embeddings_and_similarity": 0.5}
         result = get_mastery_level(scores)
-        assert result == "beginner", (
-            f"One Phase 1 topic scored below threshold must be 'beginner', got {result!r}"
+        assert result == "novice", (
+            f"One Phase 1 topic scored below threshold must be 'novice', got {result!r}"
         )
 
-    def test_beginner_phase1_partially_failing(self) -> None:
-        """Both Phase 1 topics scored but one below 0.70 → beginner."""
+    def test_novice_phase1_partially_failing(self) -> None:
+        """Both Phase 1 topics scored but one below 0.70 → novice."""
         scores: dict = {
             "embeddings_and_similarity": 0.8,
             "rag_pipeline_architecture": 0.60,
         }
         result = get_mastery_level(scores)
-        assert result == "beginner", (
-            f"Phase 1 partially failing must be 'beginner', got {result!r}"
+        assert result == "novice", (
+            f"Phase 1 partially failing must be 'novice', got {result!r}"
         )
 
     def test_intermediate_phase1_passed_phase2_not(self) -> None:

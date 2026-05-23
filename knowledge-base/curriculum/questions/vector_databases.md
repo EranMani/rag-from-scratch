@@ -7,7 +7,7 @@
 
 ## Q1 — Why ANN instead of exact nearest neighbor?
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 Vector databases use approximate nearest neighbor (ANN) search rather than exact nearest

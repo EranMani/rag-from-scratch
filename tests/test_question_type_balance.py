@@ -2,7 +2,7 @@
 Tests for Commit 45.3 (question-type-balance).
 
 Gates:
-1. novice and beginner always return 'mcq' from select_question_type
+1. novice always returns 'mcq' from select_question_type
 2. intermediate, advanced, expert can return both 'mcq' and 'open'
 3. Ratio distribution is approximately correct over many draws
 4. select_test_question routes to open delivery for non-novice levels (via mock)
@@ -47,18 +47,14 @@ def _base_state(**overrides: Any) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Gate 1 — novice and beginner always MCQ (deterministic)
+# Gate 1 — novice always MCQ (deterministic)
 # ---------------------------------------------------------------------------
 
 class TestDeterministicLevels:
-    """novice and beginner never draw open questions."""
+    """novice never draws open questions."""
 
     def test_novice_always_mcq(self) -> None:
         results = {select_question_type("novice") for _ in range(50)}
-        assert results == {"mcq"}
-
-    def test_beginner_always_mcq(self) -> None:
-        results = {select_question_type("beginner") for _ in range(50)}
         assert results == {"mcq"}
 
     def test_unknown_level_defaults_to_mcq(self) -> None:

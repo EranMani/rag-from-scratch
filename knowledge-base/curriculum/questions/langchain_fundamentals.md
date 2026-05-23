@@ -7,7 +7,7 @@
 
 ## Q1 — LCEL pipe syntax and chain composition
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 Explain what the `|` operator does in LangChain Expression Language (LCEL). What types
@@ -42,7 +42,7 @@ Has the LLM been called? Has any token been consumed?"
 
 ## Q2 — The retriever interface and `.as_retriever()`
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 What does `.as_retriever()` return when called on a LangChain vector store, and what

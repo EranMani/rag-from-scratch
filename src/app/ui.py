@@ -51,7 +51,6 @@ _MODULE_LABELS: dict[str, str] = {
 
 _PHASE_LABELS: dict[str, tuple[str, str]] = {
     "novice":        ("Phase 1", "Foundation"),
-    "beginner":      ("Phase 1", "Foundation"),
     "intermediate":  ("Phase 2", "Core RAG"),
     "advanced":      ("Phase 3", "Advanced"),
     "expert":        ("Complete", "All phases"),
@@ -59,7 +58,6 @@ _PHASE_LABELS: dict[str, tuple[str, str]] = {
 
 _PHASE_TOPICS: dict[str, list[str]] = {
     "novice":        ["embeddings_and_similarity", "rag_pipeline_architecture"],
-    "beginner":      ["embeddings_and_similarity", "rag_pipeline_architecture"],
     "intermediate":  ["chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting"],
     "advanced":      ["evaluation_and_metrics", "production_patterns"],
     "expert":        [],
@@ -67,7 +65,6 @@ _PHASE_TOPICS: dict[str, list[str]] = {
 
 _ADVANCE_MSG: dict[str, str] = {
     "novice":        "Each Phase 1 topic ≥ 0.70 to reach Phase 2",
-    "beginner":      "Each Phase 1 topic ≥ 0.70 to reach Phase 2",
     "intermediate":  "Each Phase 2 topic ≥ 0.70 and average ≥ 0.75 to reach Phase 3",
     "advanced":      "Each Phase 3 topic ≥ 0.75 to become an expert",
     "expert":        "All phases complete — keep sharpening your skills",
@@ -80,7 +77,7 @@ _ALL_MODULES: list[dict] = [
 ]
 
 _ACTIVE_MODULE_IDX: dict[str, int] = {
-    "novice": 0, "beginner": 0, "intermediate": 1, "advanced": 2, "expert": 2,
+    "novice": 0, "intermediate": 1, "advanced": 2, "expert": 2,
 }
 
 _CURRICULUM_SEQUENCE: list[str] = [
@@ -139,7 +136,7 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
     def _starter(slug: str) -> str:
         return _TOPIC_STARTER.get(slug, "What would you like to explore today?")
 
-    if interaction_count == 0 and mastery_level in ("novice", "beginner"):
+    if interaction_count == 0 and mastery_level == "novice":
         return (
             f"Ready to start, **{name}**? I'll build a picture of where you are as we go.\n\n"
             "Best first move: **What is retrieval-augmented generation?**"
@@ -1642,7 +1639,7 @@ html, body {
 
         # ---- Onboarding wizard ----
         _ob_step = [1]            # 1=self-report, 2=mcq, 3=result
-        _ob_self_level = ["beginner"]
+        _ob_self_level = ["novice"]
         _ob_answers: list = [[]]  # accumulates answers
         _ob_questions: list = [[]]
         _ob_placement: list = [{}]
@@ -1718,7 +1715,7 @@ html, body {
                             "font-size:0.9rem; color:#94a3b8; margin-bottom:20px"
                         )
                         _levels = [
-                            ("beginner",     "Beginner",     "Just starting out"),
+                            ("novice",       "Novice",       "Just starting out"),
                             ("intermediate", "Intermediate", "Some experience"),
                             ("expert",       "Expert",       "I've built RAG systems"),
                         ]
@@ -1950,7 +1947,7 @@ html, body {
                                 return
 
                             mastery_raw = profile.get("mastery_level") or "novice"
-                            mastery = mastery_raw if mastery_raw in {"novice", "beginner", "intermediate", "advanced", "expert"} else "novice"
+                            mastery = mastery_raw if mastery_raw in {"novice", "intermediate", "advanced", "expert"} else "novice"
                             _gate_crossed = _prev_mastery[0] is not None and mastery != _prev_mastery[0]
                             _prev_mastery[0] = mastery
                             topic_scores: dict = profile.get("topic_scores") or {}
@@ -1986,7 +1983,6 @@ html, body {
                                 ui.html(f'<span class="mastery-chip mc-{mastery}"><span class="dot"></span>{mastery.capitalize()}</span>')
                                 _mastery_copy = {
                                     "novice":       "Just getting started — great time to build foundations.",
-                                    "beginner":     "Just getting started — great time to build foundations.",
                                     "intermediate": "You've got the core. Time to go deeper.",
                                     "advanced":     "Strong foundations. Let's tackle production complexity.",
                                     "expert":       "You're in the top tier. Ask me anything.",

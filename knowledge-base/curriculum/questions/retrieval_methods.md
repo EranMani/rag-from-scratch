@@ -7,7 +7,7 @@
 
 ## Q1 — BM25 sparse retrieval fundamentals
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 Explain how BM25 retrieval works. What does it score, and give one concrete scenario
@@ -38,7 +38,7 @@ where BM25 outperforms dense vector retrieval.
 
 ## Q2 — Dense retrieval and its failure modes
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 Dense retrieval uses embedding vectors for search. Describe two scenarios where dense

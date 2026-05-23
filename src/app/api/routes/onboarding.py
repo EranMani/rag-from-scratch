@@ -13,7 +13,7 @@ Placement rules:
   Floor              → novice (cannot drop below)
 
 Diagnostic slug by self-report level:
-  beginner     → embeddings_and_similarity     (Phase 1, mixed difficulty)
+  novice       → embeddings_and_similarity     (Phase 1, mixed difficulty)
   intermediate → chunking_strategies           (Phase 2, mixed difficulty)
   expert       → evaluation_and_metrics        (Phase 3, mixed difficulty)
 """
@@ -37,16 +37,16 @@ router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 # Constants
 # ---------------------------------------------------------------------------
 
-_SELF_REPORT_LEVELS = ("beginner", "intermediate", "expert")
+_SELF_REPORT_LEVELS = ("novice", "intermediate", "expert")
 
 _DIAGNOSTIC_SLUG: dict[str, str] = {
-    "beginner": "embeddings_and_similarity",
+    "novice": "embeddings_and_similarity",
     "intermediate": "chunking_strategies",
     "expert": "evaluation_and_metrics",
 }
 
 # Ordered sequence for level drops (floor = novice)
-_LEVEL_ORDER: list[str] = ["novice", "beginner", "intermediate", "advanced", "expert"]
+_LEVEL_ORDER: list[str] = ["novice", "intermediate", "advanced", "expert"]
 
 _NUM_DIAGNOSTIC_QUESTIONS = 3
 
@@ -54,7 +54,7 @@ _NUM_DIAGNOSTIC_QUESTIONS = 3
 # Schemas
 # ---------------------------------------------------------------------------
 
-SelfReportLevel = Literal["beginner", "intermediate", "expert"]
+SelfReportLevel = Literal["novice", "intermediate", "expert"]
 
 
 class DiagnosticRequest(BaseModel):

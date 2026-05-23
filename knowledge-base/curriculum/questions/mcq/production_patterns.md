@@ -1,14 +1,14 @@
 # MCQ Bank — production_patterns
 # Topic: production_patterns
 # Phase: 3 (Production)
-# Questions: 11 (2 beginner, 4 intermediate, 3 advanced, 2 expert)
+# Questions: 11 (2 novice, 4 intermediate, 3 advanced, 2 expert)
 # Last updated: 2026-05-21 (Commit 45)
 
 ---
 
 ## MCQ-1 — Caching in RAG pipelines
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** production_patterns
 
 **Question:**
@@ -35,7 +35,7 @@ LLM inference is the most expensive step in a RAG pipeline. Caching complete que
 
 ## MCQ-2 — Index staleness
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** production_patterns
 
 **Question:**

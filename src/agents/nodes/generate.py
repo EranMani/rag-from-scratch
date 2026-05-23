@@ -4,7 +4,7 @@ generate_node — LangGraph node that generates an answer from retrieved context
 Node contract:
     Input:  AgentState.docs (list[Document])
             AgentState.messages (Annotated[list[BaseMessage], add_messages])
-            AgentState.user_level (Literal["novice","beginner","intermediate","advanced","expert"])
+            AgentState.user_level (Literal["novice","intermediate","advanced","expert"])
     Output: {"messages": [AIMessage], "answer": str}
 
 Design notes:

@@ -1,14 +1,14 @@
 # MCQ Bank — embeddings_and_similarity
 # Topic: embeddings_and_similarity
 # Phase: 1 (Foundations)
-# Questions: 10 (2 beginner, 3 intermediate, 3 advanced, 2 expert)
+# Questions: 10 (2 novice, 3 intermediate, 3 advanced, 2 expert)
 # Last updated: 2026-05-21 (Commit 45)
 
 ---
 
 ## MCQ-1 — What an embedding represents
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** embeddings_and_similarity
 
 **Question:**
@@ -35,7 +35,7 @@ An embedding is a dense vector of floating-point numbers in a high-dimensional s
 
 ## MCQ-2 — Cosine similarity meaning
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** embeddings_and_similarity
 
 **Question:**

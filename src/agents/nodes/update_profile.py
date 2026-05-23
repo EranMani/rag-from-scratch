@@ -73,8 +73,8 @@ from app.profile.scoring import TopicScoreUpdate, compute_topic_scores
 
 logger = logging.getLogger(__name__)
 
-_LEVEL_ORDER: dict[str, int] = {"novice": 0, "beginner": 1, "intermediate": 2, "advanced": 3, "expert": 4}
-_GATE_THRESHOLDS: dict[str, int] = {"phase_1": 2, "phase_2": 3, "phase_3": 4}
+_LEVEL_ORDER: dict[str, int] = {"novice": 0, "intermediate": 1, "advanced": 2, "expert": 3}
+_GATE_THRESHOLDS: dict[str, int] = {"phase_1": 1, "phase_2": 2, "phase_3": 3}
 
 
 def update_profile_node(state: AgentState) -> dict[str, Any]:

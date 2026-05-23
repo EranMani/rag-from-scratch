@@ -46,7 +46,7 @@ CONSTRAINTS:
   vector_databases, retrieval_methods, context_and_prompting, evaluation_and_metrics,
   production_patterns. Use only these exact values.
 - user_level is your overall assessment of the learner's mastery level for this turn.
-  Must be exactly one of: novice, beginner, intermediate, advanced, expert.
+  Must be exactly one of: novice, intermediate, advanced, expert.
 - Do NOT include commentary outside the structured output fields.
 - Do NOT be lenient. Partial answers deserve partial, not correct. Empty or off-topic
   answers are incorrect.
@@ -93,7 +93,7 @@ chunking_strategies, vector_databases, retrieval_methods, context_and_prompting,
 langchain_fundamentals, evaluation_and_metrics, production_patterns.
 
 Return relevant_slug (the single most relevant slug, or null if unclear),
-inferred_level (novice/beginner/intermediate/advanced/expert), and
+inferred_level (novice/intermediate/advanced/expert), and
 confidence (0.0-1.0). Base level on vocabulary and specificity in the question.\
 """
 

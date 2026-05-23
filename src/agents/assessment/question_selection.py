@@ -8,7 +8,6 @@ _ALL_TOPICS: frozenset[str] = PHASE_1_TOPICS | PHASE_2_TOPICS | PHASE_3_TOPICS
 
 _LEVEL_TO_PHASE: dict[str, frozenset[str]] = {
     "novice":       PHASE_1_TOPICS,
-    "beginner":     PHASE_1_TOPICS,
     "intermediate": PHASE_2_TOPICS,
     "advanced":     PHASE_3_TOPICS,
     "expert":       _ALL_TOPICS,
@@ -28,10 +27,9 @@ _ORDERED_SLUGS: list[str] = [
 ]
 
 
-# Open-question probability by level: novice/beginner=0%, intermediate=20%, advanced=40%, expert=70%
+# Open-question probability by level: novice=0%, intermediate=20%, advanced=40%, expert=70%
 _OPEN_PROB: dict[str, float] = {
     "novice":       0.0,
-    "beginner":     0.0,
     "intermediate": 0.2,
     "advanced":     0.4,
     "expert":       0.7,

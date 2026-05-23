@@ -1,14 +1,14 @@
 # MCQ Bank — vector_databases
 # Topic: vector_databases
 # Phase: 2 (Core Components)
-# Questions: 10 (2 beginner, 4 intermediate, 2 advanced, 2 expert)
+# Questions: 10 (2 novice, 4 intermediate, 2 advanced, 2 expert)
 # Last updated: 2026-05-21 (Commit 45)
 
 ---
 
 ## MCQ-1 — Vector database primary function
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** vector_databases
 
 **Question:**
@@ -35,7 +35,7 @@ Vector databases are purpose-built for nearest-neighbor search in high-dimension
 
 ## MCQ-2 — ANN vs. exact nearest neighbor
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** vector_databases
 
 **Question:**

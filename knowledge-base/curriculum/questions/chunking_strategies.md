@@ -7,7 +7,7 @@
 
 ## Q1 — Fixed-size vs. semantic chunking
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 Explain the difference between fixed-size chunking and semantic chunking. Give one
@@ -38,7 +38,7 @@ concrete example of a document type where each approach is more appropriate.
 
 ## Q2 — Chunk overlap mechanics
 
-**Difficulty:** beginner
+**Difficulty:** novice
 
 **Question:**
 What is chunk overlap in a RAG chunking strategy? Why does it exist, and what is the

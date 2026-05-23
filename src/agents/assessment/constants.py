@@ -17,7 +17,6 @@ _VERDICT_SCORE: dict[str, float] = {
 # Score added to a topic when the user engages at their current mastery level
 _PASSIVE_LEVEL_SCORE: dict[str, float] = {
     "novice": _PASSIVE_SCORE_BASE,
-    "beginner": _PASSIVE_SCORE_BASE,
     "intermediate": _PASSIVE_SCORE_MID,
     "advanced": _PASSIVE_SCORE_MID,
     "expert": _PASSIVE_SCORE_EXPERT,

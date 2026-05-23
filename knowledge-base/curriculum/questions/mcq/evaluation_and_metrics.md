@@ -1,14 +1,14 @@
 # MCQ Bank — evaluation_and_metrics
 # Topic: evaluation_and_metrics
 # Phase: 3 (Production)
-# Questions: 12 (2 beginner, 4 intermediate, 4 advanced, 2 expert)
+# Questions: 12 (2 novice, 4 intermediate, 4 advanced, 2 expert)
 # Last updated: 2026-05-21 (Commit 45)
 
 ---
 
 ## MCQ-1 — RAGAS faithfulness definition
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** evaluation_and_metrics
 
 **Question:**
@@ -35,7 +35,7 @@ Faithfulness measures whether the claims the LLM makes in its answer are attribu
 
 ## MCQ-2 — Context precision definition
 
-**Difficulty:** beginner
+**Difficulty:** novice
 **Topic:** evaluation_and_metrics
 
 **Question:**
