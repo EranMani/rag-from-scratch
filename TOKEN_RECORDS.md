@@ -4,7 +4,7 @@
 > Quality signal: tests pass · no Viktor hard blocks · learning log entry written.
 >
 > Companion file: TOKEN_OPTIMIZATION.md — the methods behind the numbers.
-> Last updated: 2026-05-23 (Commit 49)
+> Last updated: 2026-05-23 (Commit 50)
 
 ---
 
@@ -987,6 +987,7 @@ No token data recorded. Tracking began at Commit 10.
 | 48 | document-ingestion-questions | 49,547 | zero gates (content-only) | ✅ well under ≤60k | RAG Specialist ✅ (49,547 · 8 uses); no gate wave (pure markdown, no code, no auth surface) |
 | 49 | langgraph-curriculum | ~0 | zero gates (content-only) | ✅ ~0 | Claude direct Edits only; 4 files (curriculum-map.md, gates.md, topic-slugs.json); no gate wave |
 | 49.1 | slug-add-langgraph | 32,871 | Viktor only (Haiku, PASS) | ⚠️ over ≤15k reviewer target | Claude direct Edits (~0 impl); Viktor 32,871 (0 uses ✅ PASS); no implementation agent |
+| 50 | langgraph-questions | 69,856 | zero gates (content-only) | ⚠️ +10k over ≤60k | RAG Specialist (69,856 · 6 uses); 20 MCQs + 19 open-ended; no gate wave (pure markdown) |
 
 ---
 

@@ -1513,3 +1513,9 @@ Added `langgraph_fundamentals` as a Phase 3 topic in `curriculum-map.md` and `ga
 ## Commit 49.1 — `slug-add-langgraph` · Claude (direct Edit) · 2026-05-23 · `schema`
 
 Registered `langgraph_fundamentals` in the five src/ slug registries that govern the assessment engine: `VALID_MODULE_SLUGS`, `TopicScoresDelta`, `PHASE_3_TOPICS`, `_ORDERED_SLUGS` (question selection), and `_PROGRESS_PHASES` (UI progress display); assessment prompt updated to include the slug in the valid-topics list. Phase 3 gate now evaluates all three topics (`evaluation_and_metrics`, `production_patterns`, `langgraph_fundamentals`). Test suite updated from 9-slug to 10-slug counts.
+
+---
+
+## Commit 50 — `langgraph-questions` · RAG Specialist · 2026-05-23 · `content`
+
+> **In one sentence:** Added the full question bank for the `langgraph_fundamentals` Phase 3 topic — 20 MCQs across all four difficulty tiers and 19 open-ended questions, covering directed graphs, state flow, conditional routing, graph compilation, checkpointing, agentic behavior, and the distinction between graph topology and LLM behavior — all concepts-only with zero Python API references.

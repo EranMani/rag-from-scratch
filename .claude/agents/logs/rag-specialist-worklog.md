@@ -1,5 +1,37 @@
 # RAG Specialist Worklog
 
+## Current State Header — Session 8 (Commit 50 complete)
+
+**Commit:** 50 — langgraph-questions
+**Status:** Complete — both question banks written for langgraph_fundamentals topic
+**Session count:** 8
+
+**Files created:**
+- `knowledge-base/curriculum/questions/mcq/langgraph_fundamentals.md` — 20 MCQs (5 novice, 5 intermediate, 5 advanced, 5 expert)
+- `knowledge-base/curriculum/questions/langgraph_fundamentals.md` — 19 open-ended questions (5 novice, 5 intermediate, 5 advanced, 4 expert)
+
+**Content coverage:**
+- Nodes (discrete operations that read and write shared state), edges (directed connections defining execution flow), state (shared data structure passed between all nodes)
+- Acyclic vs. cyclic graphs: what cycles enable (loops, self-correction, iterative refinement) vs. what sequential chains can express
+- Graph compilation: structural validation (entry/exit points, node reachability, edge integrity), produces an executable artifact, does not run behavioral tests
+- Conditional routing: routing functions inspect state and return the next node identifier; why this differs from in-node if-statements (visibility, separation of computation from control flow)
+- Checkpointing and multi-turn memory: state persistence per thread identifier, resume from saved state on restart, frequency/granularity tradeoffs, side effect idempotency requirements
+- Graph topology as capability boundary: the LLM is one node; topology determines what execution paths exist; structural enforcement vs. probabilistic prompt-based enforcement
+- Fan-out and fan-in for parallel execution: both retrieval nodes connected from a common predecessor; state accumulates both results before synthesis node executes
+- State schema as interface contract: field name mismatches cause silent quality degradation (None default, no exception); compile-time validation does not catch data flow gaps
+- Cycle termination: iteration counter in state, hard cap in routing function, detection of non-updating state between iterations
+- Expert scenarios: diagnosing always-one-branch routing (state write gap vs. routing function bug), multi-agent coordination (planner/executor patterns with separate compiled graphs), graph versioning and checkpoint migration under schema evolution, self-correction loop design with faithfulness checks
+
+**Curriculum gap noted (flag for Lara if relevant):**
+LangSmith / graph observability tooling — tracing which nodes executed, what state looked like at each step, and which routing decisions were made is referenced across multiple diagnostic questions but has no dedicated topic. Graph execution traces are the primary debugging surface for graph agents and may warrant a standalone observability topic in a future curriculum expansion.
+
+**Format decisions:**
+Followed Lara's format exactly. Zero Python syntax anywhere in either file — all questions are framed in terms of graph concepts (nodes, edges, state, routing, compilation) without any API references. Every MCQ distractor targets a named practitioner misconception. File headers include tier count summaries.
+
+**No open blockers.**
+
+---
+
 ## Current State Header — Session 7 (Commit 48 complete)
 
 **Commit:** 48 — document-ingestion-questions
