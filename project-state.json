@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (C49.1 slug-add-langgraph done; next: 50 langgraph-questions)",
+  "last_updated": "2026-05-23 (C50 langgraph-questions done; next: 51 bank-expansion)",
   "status": "active",
   "current_commit": {
-    "number": "50",
-    "name": "langgraph-questions",
+    "number": "51",
+    "name": "bank-expansion",
     "status": "pending",
     "assignee": "rag-specialist"
   },
@@ -69,10 +69,10 @@
     "47.1",
     "48",
     "49",
-    "49.1"
+    "49.1",
+    "50"
   ],
   "commits_pending": [
-    "50",
     "51",
     "52",
     "53",
@@ -80,7 +80,7 @@
     "55",
     "56"
   ],
-  "next_commit": "50",
+  "next_commit": "51",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
