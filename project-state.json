@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (Commit 45.4.1 is-mcq-fix done — fix committed directly by EranMani; Wave H next: 45.5 rag-prompt-quality ∥ 45.6 welcome-message-ux)",
+  "last_updated": "2026-05-23 (Wave H complete — 45.5 rag-prompt-quality ∥ 45.6 welcome-message-ux both done; infra phase next: 46 nginx-config)",
   "status": "active",
   "current_commit": {
-    "number": "45.5",
-    "name": "rag-prompt-quality",
+    "number": "46",
+    "name": "nginx-config",
     "status": "pending",
-    "assignee": "ai-engineer"
+    "assignee": "devops"
   },
   "commits_done": [
     "01",
@@ -61,17 +61,17 @@
     "45.2",
     "45.3",
     "45.4",
-    "45.4.1"
+    "45.4.1",
+    "45.5",
+    "45.6"
   ],
   "commits_pending": [
-    "45.5",
-    "45.6",
     "46",
     "47",
     "48",
     "49"
   ],
-  "next_commit": "45.5",
+  "next_commit": "46",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {

@@ -63,8 +63,8 @@
 | 45.3 | question-type-balance | ai-engineer | ✅ done · 2026-05-22 |
 | 45.4 | question-difficulty-degradation | ai-engineer | ✅ done · 2026-05-23 |
 | 45.4.1 | is-mcq-fix | ai-engineer | ✅ done · 2026-05-23 |
-| 45.5 | rag-prompt-quality | ai-engineer | pending |
-| 45.6 | welcome-message-ux | frontend | pending |
+| 45.5 | rag-prompt-quality | ai-engineer | ✅ done · 2026-05-23 |
+| 45.6 | welcome-message-ux | frontend | ✅ done · 2026-05-23 |
 | 46 | nginx-config | devops | pending |
 | 47 | aws-ec2-deployment | devops | pending |
 | 48 | integration-tests | backend + ai-engineer | pending |
