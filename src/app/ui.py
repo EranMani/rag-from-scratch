@@ -150,7 +150,7 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
     # Build cross-phase progress summary for returning users.
     _PROGRESS_PHASES: list[tuple[str, list[str]]] = [
         ("Foundations", ["embeddings_and_similarity", "rag_pipeline_architecture"]),
-        ("Core",        ["chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting", "langchain_fundamentals"]),
+        ("Core",        ["chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting", "document_ingestion"]),
         ("Production",  ["evaluation_and_metrics", "production_patterns"]),
     ]
     _DONE_THRESHOLD = 0.70

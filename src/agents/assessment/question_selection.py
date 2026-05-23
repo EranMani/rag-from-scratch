@@ -21,7 +21,7 @@ _ORDERED_SLUGS: list[str] = [
     "vector_databases",
     "retrieval_methods",
     "context_and_prompting",
-    "langchain_fundamentals",
+    "document_ingestion",
     "evaluation_and_metrics",
     "production_patterns",
 ]

@@ -52,7 +52,7 @@ class TestSchemaGates:
             "vector_databases",
             "retrieval_methods",
             "context_and_prompting",
-            "langchain_fundamentals",
+            "document_ingestion",
             "evaluation_and_metrics",
             "production_patterns",
         }
@@ -297,7 +297,7 @@ class TestGetMasteryLevel:
             "vector_databases": 0.80,
             "retrieval_methods": 0.80,
             "context_and_prompting": 0.80,
-            "langchain_fundamentals": 0.80,
+            "document_ingestion": 0.80,
             "evaluation_and_metrics": 0.80,
             "production_patterns": 0.80,
         }
@@ -366,7 +366,7 @@ class TestGetMasteryLevel:
             "vector_databases": 0.80,
             "retrieval_methods": 0.80,
             "context_and_prompting": 0.80,
-            "langchain_fundamentals": 0.80,
+            "document_ingestion": 0.80,
             "evaluation_and_metrics": 0.60,  # below Phase 3 threshold
             "production_patterns": 0.80,
         }

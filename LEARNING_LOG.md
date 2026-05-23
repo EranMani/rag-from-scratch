@@ -1460,6 +1460,12 @@ def get_mcq_blocks_for_difficulty(slug: str, difficulty: str | None) -> list[str
 
 ---
 
+## Commit 47.1 — `slug-swap-document-ingestion` · Claude (direct Edit) · 2026-05-23 · `refactor`
+
+> **In one sentence:** Replaced every `langchain_fundamentals` reference in src/ with `document_ingestion` across five files and matching test updates, completing the curriculum rename from C47 and restoring Phase 2 advancement.
+
+---
+
 ## Commit 47 — `curriculum-restructure` · Lara · 2026-05-23 · `curriculum design | product decision`
 
 > **In one sentence:** Replaced `langchain_fundamentals` with `document_ingestion` as the fifth Phase 2 Core topic, archived the LangChain question files, and updated `topic-slugs.json`, `curriculum-map.md`, and `gates.md` — keeping the "RAG from scratch" curriculum true to its concept-first identity.

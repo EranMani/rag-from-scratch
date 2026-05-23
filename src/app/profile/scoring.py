@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # frozenset: immutable + O(1) membership lookup — safe and fast when the agent
 # checks user progress multiple times per turn.
 PHASE_1_TOPICS: frozenset[str] = frozenset({"embeddings_and_similarity", "rag_pipeline_architecture"})
-PHASE_2_TOPICS: frozenset[str] = frozenset({"chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting", "langchain_fundamentals"})
+PHASE_2_TOPICS: frozenset[str] = frozenset({"chunking_strategies", "vector_databases", "retrieval_methods", "context_and_prompting", "document_ingestion"})
 PHASE_3_TOPICS: frozenset[str] = frozenset({"evaluation_and_metrics", "production_patterns"})
 
 # Academic standards — the score a user must demonstrate to advance.

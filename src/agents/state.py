@@ -40,7 +40,7 @@ class TopicScoresDelta(BaseModel):
     vector_databases: float = 0.0
     retrieval_methods: float = 0.0
     context_and_prompting: float = 0.0
-    langchain_fundamentals: float = 0.0
+    document_ingestion: float = 0.0
     evaluation_and_metrics: float = 0.0
     production_patterns: float = 0.0
 
@@ -56,7 +56,7 @@ VALID_MODULE_SLUGS: frozenset[str] = frozenset({
     "vector_databases",
     "retrieval_methods",
     "context_and_prompting",
-    "langchain_fundamentals",
+    "document_ingestion",
     "evaluation_and_metrics",
     "production_patterns",
 })

@@ -90,7 +90,7 @@ You analyze a learner's question to infer their RAG knowledge level.
 
 Valid topic slugs: embeddings_and_similarity, rag_pipeline_architecture,
 chunking_strategies, vector_databases, retrieval_methods, context_and_prompting,
-langchain_fundamentals, evaluation_and_metrics, production_patterns.
+document_ingestion, evaluation_and_metrics, production_patterns.
 
 Return relevant_slug (the single most relevant slug, or null if unclear),
 inferred_level (novice/intermediate/advanced/expert), and
