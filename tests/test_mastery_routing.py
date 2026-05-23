@@ -257,12 +257,16 @@ class TestSelectTestQuestionMasteryIntegration:
                 return_value=(_REAL_SLUG, 0),
             ),
             patch(
+                "agents.assessment.test_delivery.generate_questions",
+                new=AsyncMock(side_effect=RuntimeError("LLM unavailable")),
+            ),
+            patch(
                 "agents.assessment.test_delivery.load_mcq_question_for_difficulty",
                 return_value=("Novice question text", "A"),
             ) as mock_loader,
         ):
             result = await select_test_question(state)  # type: ignore[arg-type]
-            # verify loader was called with mastery level="novice"
+            # verify loader was called with mastery level="novice" (via generation fallback)
             mock_loader.assert_called_once_with(_REAL_SLUG, 0, "novice")
             assert result["is_mcq"] is True
 
@@ -282,6 +286,10 @@ class TestSelectTestQuestionMasteryIntegration:
             patch(
                 "agents.assessment.test_delivery.select_mcq_question_for_level",
                 return_value=(_REAL_SLUG, 0),
+            ),
+            patch(
+                "agents.assessment.test_delivery.generate_questions",
+                new=AsyncMock(side_effect=RuntimeError("LLM unavailable")),
             ),
             patch(
                 "agents.assessment.test_delivery.load_mcq_question_for_difficulty",

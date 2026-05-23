@@ -152,6 +152,11 @@ class AgentState(TypedDict):
     additive capped formula instead of the SRS formula — preventing passive inference
     from reducing a score the user earned through active testing."""
 
+    generated_question_pool: dict[str, list] | None
+    """Session cache of LLM-synthesized MCQ questions, keyed by 'slug:mastery_level'.
+    None on session start. Populated on first delivery for a (slug, level) pair;
+    reused for subsequent questions in the same session thread."""
+
     # --- Observability ---
     trace_id: str
     """Unique identifier for this request trace; set before graph entry."""

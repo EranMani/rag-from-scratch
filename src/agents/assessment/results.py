@@ -11,11 +11,12 @@ def build_selection_result(
     is_mcq: bool = False,
     pending_mcq_correct_answer: str | None = None,
     messages: list[Any] | None = None,
+    generated_question_pool: dict[str, list] | None = None,
 ) -> dict[str, Any]:
     """Pack the output of select_test_question into a state update dict.
 
-    Always sets ``is_passive_delta=True``. ``messages`` is only included in the
-    returned dict when it is not ``None`` — callers must not assume the key exists.
+    Always sets ``is_passive_delta=True``. ``messages`` and
+    ``generated_question_pool`` are only included when not ``None``.
     """
     result: dict[str, Any] = {
         "topic_scores_delta": topic_scores_delta,
@@ -30,6 +31,8 @@ def build_selection_result(
     }
     if messages is not None:
         result["messages"] = messages
+    if generated_question_pool is not None:
+        result["generated_question_pool"] = generated_question_pool
     return result
 
 
