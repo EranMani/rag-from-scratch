@@ -1,10 +1,10 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-23 (C51 bank-expansion done; next: 52 ai-question-generation)",
+  "last_updated": "2026-05-24 (C52 ai-question-generation done; next: 52.1 state-mutation-refactor)",
   "status": "active",
   "current_commit": {
-    "number": "52",
-    "name": "ai-question-generation",
+    "number": "52.1",
+    "name": "state-mutation-refactor",
     "status": "pending",
     "assignee": "ai-engineer"
   },
@@ -71,28 +71,29 @@
     "49",
     "49.1",
     "50",
-    "51"
+    "51",
+    "52"
   ],
   "commits_pending": [
-    "52",
+    "52.1",
     "53",
     "54",
     "55",
     "56"
   ],
-  "next_commit": "52",
+  "next_commit": "52.1",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "45.4",
-      "tests": "PASS — 34 new tests (test_question_difficulty_degradation.py); pre-existing test_assess_node.py import fixed (+25 unblocked). Net +59 tests passing.",
-      "viktor": "HARD BLOCK — step 2 partial return missing `\"is_mcq\": False`. If original question was MCQ, user's answer to simplified open question routes to MCQ evaluator. Deferred to C45.4.1 per no-gate-fix-passes rule.",
-      "sage": "not triggered — gate triage: new logic function, no auth/secrets/user input trust boundary",
-      "quinn": "not triggered — gate triage: behavior change (new code path), no new routes or services",
+      "number": "52",
+      "tests": "PASS — 28 new tests (test_question_generation.py); 2 regressions in test_mastery_routing.py fixed by orchestrator (direct Edit). All tests passing.",
+      "viktor": "PASS WITH ADVISORY — 1 advisory: state mutation pattern in _deliver_mcq; 1 false positive: empty-list risk (generate_questions cannot return [] per contract). Deferred to C52.1.",
+      "sage": "not triggered — gate triage: new LLM integration, no auth surface, no user input trust boundary",
+      "quinn": "PASS — coverage adequate for new logic paths",
       "mira": "not triggered — no user-facing behavior change visible to non-technical reviewer",
-      "gate_wave": "Viktor only (new logic path in assess_node routing)",
-      "note": "C45.4: two-step difficulty degradation added. Viktor Hard Block scheduled as C45.4.1. Pre-existing test debt in test_assess_node.py cleaned up."
+      "gate_wave": "Viktor + Quinn (Haiku); Sage/Mira skipped",
+      "note": "C52: LLM synthesis layer integrated into _deliver_mcq. State mutation pattern deferred to C52.1. Viktor advisory is a design issue, not a correctness bug."
     },
     "commit_26": {
       "number": "26",
