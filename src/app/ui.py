@@ -2469,7 +2469,8 @@ html, body {
                             # Persistent topic exploration strip — visible after 2nd user message
                             with ui.column().style(
                                 "width:100%; max-width:760px; margin:0 auto; padding:4px 0; gap:4px"
-                            ).set_visibility(False) as _ts:
+                            ) as _ts:
+                                _ts.set_visibility(False)
                                 _topic_strip_ref[0] = _ts
                                 _active_topic: list[str | None] = [None]
 
