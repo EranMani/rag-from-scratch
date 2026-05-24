@@ -142,6 +142,79 @@ _WELCOME_CHIPS: dict[str, list[str]] = {
     ],
 }
 
+_TOPIC_SUBTOPICS: dict[str, list[str]] = {
+    "embeddings_and_similarity": [
+        "What exactly is a vector embedding — explain it without using math or code",
+        "Why does RAG use cosine similarity instead of just measuring straight-line distance between vectors?",
+        "How do two sentences with totally different words end up close together in vector space?",
+        "What goes wrong when you use a general-purpose embedding model on legal or medical text?",
+        "Does using a higher-dimension embedding model always give better search results?",
+    ],
+    "rag_pipeline_architecture": [
+        "Walk me through what actually happens from the moment a document enters a RAG system to when it's searchable",
+        "What's the difference between the indexing phase and the query phase, and why does that separation matter?",
+        "If my RAG system gives a wrong answer, how do I figure out whether retrieval or the LLM is at fault?",
+        "What does the prompt template actually do in a RAG pipeline — can't I just paste the documents in?",
+        "When does RAG make more sense than fine-tuning, and when is it the wrong tool?",
+    ],
+    "chunking_strategies": [
+        "What's the difference between fixed-size chunking and semantic chunking, and when would I choose each?",
+        "Why does chunk overlap exist — isn't it just wasted storage?",
+        "How do I know if my chunks are too small or too large for good retrieval?",
+        "What happens when a table or a code block gets split across two chunks?",
+        "How should I chunk a Markdown document differently from a scanned PDF?",
+    ],
+    "vector_databases": [
+        "Why doesn't a vector database just do an exact search — what's the point of approximate nearest neighbor?",
+        "How does HNSW actually find similar vectors quickly, and what are its blind spots?",
+        "How does metadata filtering interact with vector search, and can it hurt recall?",
+        "What's the difference between pre-filtering and post-filtering in a vector database query?",
+        "How do I decide between HNSW and IVF for my use case?",
+    ],
+    "retrieval_methods": [
+        "When would BM25 outperform a dense vector search, even though BM25 doesn't understand meaning?",
+        "What is hybrid search actually combining, and what does RRF do in that process?",
+        "What does a reranker add that first-stage retrieval can't do — and what does it cost?",
+        "Why would I want diverse results instead of the most relevant ones — what is MMR solving?",
+        "What can go wrong with HyDE if the LLM generates a bad hypothetical answer?",
+    ],
+    "context_and_prompting": [
+        "What are the required parts of a RAG prompt and why does each one need to be there?",
+        "What actually happens when my retrieved chunks are too long to fit in the context window?",
+        "What prompt patterns reduce the chance of the LLM making things up beyond what the context says?",
+        "Why does the LLM pay less attention to content in the middle of a very long context?",
+        "How do I write a prompt that works consistently across different LLMs?",
+    ],
+    "document_ingestion": [
+        "What does a document loader actually extract from a PDF — is the text always accurate?",
+        "What specific problems come up when ingesting PDFs with tables, multi-column layouts, or scanned pages?",
+        "How can encoding issues like UTF-8 vs. Latin-1 cause data to silently disappear in my pipeline?",
+        "How does the structure of a document — headers, tables, page breaks — affect chunking quality later?",
+        "What's the difference between a document loader failing loudly versus silently losing data?",
+    ],
+    "evaluation_and_metrics": [
+        "What does a low RAGAS faithfulness score actually tell me about where my pipeline is breaking?",
+        "What's the difference between faithfulness and answer relevancy — aren't they measuring the same thing?",
+        "What do context precision and context recall each catch — and what does it mean when one is high and the other is low?",
+        "How do I build a proper evaluation dataset for a RAG system — what does a good test triple look like?",
+        "What's the difference between testing RAG offline against labeled data versus watching what happens in production?",
+    ],
+    "production_patterns": [
+        "How does semantic caching work, and what breaks when the underlying documents change?",
+        "Where in a RAG pipeline should async boundaries go, and what operations should never be on the hot path?",
+        "What's the minimum set of things I should be logging and tracing in a production RAG system?",
+        "What are the three biggest cost drivers in a RAG system and what can I actually do about each?",
+        "What production failure modes never show up in development — index staleness, embedding drift, context overflow?",
+    ],
+    "langgraph_fundamentals": [
+        "How is a LangGraph graph different from a LangChain chain — what does a graph give me that a chain can't do?",
+        "What does 'state' mean in a graph agent, and how is it different from just using a global variable?",
+        "How does conditional routing work in a graph — where does the branching logic live?",
+        "What actually happens when you compile a LangGraph graph, and why can't you skip it?",
+        "What does checkpointing give you that a regular in-memory variable doesn't?",
+    ],
+}
+
 
 def _build_welcome_message(display_name: str | None, profile: dict | None) -> str:
     name = display_name or "there"
@@ -1693,6 +1766,8 @@ html, body {
         # ---- Onboarding wizard ----
         _ob_step = [1]            # 1=self-report, 2=mcq, 3=result
         _ob_self_level = ["novice"]
+        _user_msg_count: list[int] = [0]
+        _topic_strip_ref: list = [None]
         _ob_answers: list = [[]]  # accumulates answers
         _ob_questions: list = [[]]
         _ob_placement: list = [{}]
@@ -2308,6 +2383,61 @@ html, body {
                             "padding:12px 24px 16px; "
                             "background:linear-gradient(0deg, #120e28 60%, transparent)"
                         ) as composer_wrap:
+                            # Persistent topic exploration strip — visible after 2nd user message
+                            with ui.column().style(
+                                "width:100%; max-width:760px; margin:0 auto; padding:4px 0; gap:4px"
+                            ).set_visibility(False) as _ts:
+                                _topic_strip_ref[0] = _ts
+                                _active_topic: list[str | None] = [None]
+
+                                @ui.refreshable
+                                def topic_chip_row():
+                                    with ui.row().style("flex-wrap:wrap; gap:6px; align-items:center"):
+                                        ui.label("Explore:").style(
+                                            "font-size:0.72rem; color:#64748b; font-weight:500; letter-spacing:0.04em; margin-right:2px"
+                                        )
+                                        for _mod_label, _mod_topic_names in _CHIP_MODULE_GROUPS:
+                                            for _topic_name in _mod_topic_names:
+                                                _slug = next(
+                                                    (s for s, lbl in _MODULE_LABELS.items() if lbl == _topic_name), None
+                                                )
+                                                if _slug is None:
+                                                    continue
+                                                _is_active = _active_topic[0] == _slug
+                                                _b = ui.button(_topic_name).props("no-caps unelevated").style(
+                                                    "font-size:0.78rem; border-radius:20px; padding:0.2rem 0.75rem; "
+                                                    "font-family:Inter,system-ui; min-height:unset; box-shadow:none; letter-spacing:0; "
+                                                    + (
+                                                        "background:rgba(249,115,22,0.22); border:1px solid rgba(249,115,22,0.7); color:#fb923c; "
+                                                        if _is_active else
+                                                        "background:rgba(249,115,22,0.10); border:1px solid rgba(249,115,22,0.45); color:#fb923c; "
+                                                    )
+                                                )
+                                                async def _topic_click(_e, _s=_slug):
+                                                    _active_topic[0] = None if _active_topic[0] == _s else _s
+                                                    topic_chip_row.refresh()
+                                                _b.on("click", _topic_click)
+                                    if _active_topic[0] and _active_topic[0] in _TOPIC_SUBTOPICS:
+                                        with ui.row().style(
+                                            "flex-wrap:wrap; gap:6px; padding-left:10px; "
+                                            "border-left:2px solid rgba(249,115,22,0.3); margin-left:6px; margin-top:2px"
+                                        ):
+                                            for _sub in _TOPIC_SUBTOPICS[_active_topic[0]]:
+                                                _display = (_sub[:52] + "…") if len(_sub) > 55 else _sub
+                                                _sb = ui.button(_display).props("no-caps unelevated").style(
+                                                    "font-size:0.75rem; background:rgba(249,115,22,0.07); "
+                                                    "border:1px solid rgba(249,115,22,0.3); color:#fdba74; "
+                                                    "border-radius:20px; padding:0.15rem 0.65rem; "
+                                                    "font-family:Inter,system-ui; min-height:unset; box-shadow:none"
+                                                )
+                                                async def _sub_click(_e, _prompt=_sub):
+                                                    _active_topic[0] = None
+                                                    topic_chip_row.refresh()
+                                                    await send_message(_prompt)
+                                                _sb.on("click", _sub_click)
+
+                                topic_chip_row()
+
                             with ui.row().style(
                                 "background:#231848; border:1px solid #241d4a; border-radius:16px; "
                                 "padding:8px 8px 8px 16px; gap:10px; align-items:center; "
@@ -2530,6 +2660,10 @@ html, body {
             if not question:
                 return
 
+            _user_msg_count[0] += 1
+            if _user_msg_count[0] == 2 and _topic_strip_ref[0] is not None:
+                _topic_strip_ref[0].set_visibility(True)
+
             send_btn.disable()
 
             with chat_area:
@@ -2743,47 +2877,6 @@ html, body {
                                     _col.set_visibility(False)
                                     await send_message(_t)
                                 _orow.on("click", _opt_click)
-
-                nav_chips = done_data.get("chips")
-                if nav_chips:
-                    _chip_names = {c["name"]: c for c in nav_chips}
-                    with ui.column().style("gap:0.6rem; margin-top:0.75rem"):
-                        ui.label("Choose a topic to explore:").style(
-                            "font-size:0.72rem; color:#64748b; font-weight:500; letter-spacing:0.04em"
-                        )
-                        first_group = True
-                        for _mod_label, _mod_topics in _CHIP_MODULE_GROUPS:
-                            _group_chips = [_chip_names[t] for t in _mod_topics if t in _chip_names]
-                            if not _group_chips:
-                                continue
-                            with ui.column().style(
-                                f"gap:0.35rem; {'margin-top:0.25rem' if not first_group else ''}"
-                            ):
-                                ui.label(_mod_label).style(
-                                    "font-size:0.65rem; font-weight:600; color:#475569; "
-                                    "text-transform:uppercase; letter-spacing:0.1em; "
-                                    "font-family:ui-monospace,monospace"
-                                )
-                                with ui.row().style("gap:0.5rem; flex-wrap:wrap"):
-                                    for _chip in _group_chips:
-                                        _cn = _chip["name"]
-                                        _cd = _chip.get("description", "")
-                                        _b = ui.button(_cn).props("no-caps unelevated").style(
-                                            "font-size:0.78rem; background:rgba(139,92,246,0.1); "
-                                            "color:#a78bfa; border:1px solid rgba(139,92,246,0.35); "
-                                            "border-radius:999px; padding:0.25rem 0.85rem; "
-                                            "font-family:Inter,system-ui; min-height:unset; box-shadow:none"
-                                        )
-                                        if _cd:
-                                            _b.tooltip(_cd)
-                                        async def _chip_click(_e, _t=_cn):
-                                            await send_message(f"Tell me about {_t}")
-                                        _b.on("click", _chip_click)
-                            first_group = False
-                        if len(nav_chips) < 8:
-                            ui.label("You'll unlock more topics as you progress.").style(
-                                "font-size:0.72rem; color:#475569; font-style:italic; margin-top:0.1rem"
-                            )
 
             profile_panel.refresh()
             send_btn.enable()
