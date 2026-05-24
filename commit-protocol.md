@@ -65,16 +65,16 @@
 | 45.4.1 | is-mcq-fix | ai-engineer | ✅ done · 2026-05-23 |
 | 45.5 | rag-prompt-quality | ai-engineer | ✅ done · 2026-05-23 |
 | 45.6 | welcome-message-ux | frontend | ✅ done · 2026-05-23 |
-| 46 | mastery-matched-routing | ai-engineer | done |
-| 47 | curriculum-restructure | curriculum-specialist | done |
-| 47.1 | slug-swap-document-ingestion | ai-engineer | done |
+| 46 | mastery-matched-routing | ai-engineer | ✅ done · 2026-05-23 |
+| 47 | curriculum-restructure | curriculum-specialist | ✅ done · 2026-05-23 |
+| 47.1 | slug-swap-document-ingestion | ai-engineer | ✅ done · 2026-05-23 |
 | 48 | document-ingestion-questions | rag-specialist | ✅ done · 2026-05-23 |
 | 49 | langgraph-curriculum | curriculum-specialist | ✅ done · 2026-05-23 |
 | 49.1 | slug-add-langgraph | ai-engineer | ✅ done · 2026-05-23 |
 | 50 | langgraph-questions | rag-specialist | ✅ done · 2026-05-23 |
 | 51 | bank-expansion | rag-specialist | ✅ done · 2026-05-23 |
 | 52 | ai-question-generation | ai-engineer | ✅ done · 2026-05-24 |
-| 52.1 | state-mutation-refactor | ai-engineer | pending |
+| 52.1 | state-mutation-refactor | ai-engineer | ✅ done · 2026-05-24 |
 | 53 | nginx-config | devops | pending |
 | 54 | aws-ec2-deployment | devops | pending |
 | 55 | integration-tests | backend + ai-engineer | pending |
