@@ -2283,6 +2283,40 @@ html, body {
                                 ):
                                     _dn = app.storage.user.get("display_name") or None
                                     _welcome_msg = _build_welcome_message(_dn, _welcome_profile)
+                                    _is_first_time = not any(
+                                        (v or 0.0) > 0.0
+                                        for v in (_welcome_profile or {}).get("topic_scores", {}).values()
+                                    )
+                                    if _is_first_time:
+                                        with ui.row().style("gap:12px; flex-wrap:wrap; margin-bottom:20px"):
+                                            _intro_cards = [
+                                                (
+                                                    "What is RAG?",
+                                                    "Retrieval-Augmented Generation (RAG) combines a knowledge base with an AI "
+                                                    "language model — giving it accurate, grounded answers instead of hallucinations.",
+                                                ),
+                                                (
+                                                    "How this app works",
+                                                    "We ask adaptive questions, track what you understand, and adjust difficulty "
+                                                    "as you improve. The more you engage, the more personal your path becomes.",
+                                                ),
+                                                (
+                                                    "What you'll cover",
+                                                    "Core RAG concepts · Chunking & Embeddings · Retrieval Methods · "
+                                                    "LangChain · LangGraph · Production Patterns",
+                                                ),
+                                            ]
+                                            for _title, _body in _intro_cards:
+                                                with ui.card().style(
+                                                    "background:rgba(109,40,217,0.08); border:1px solid rgba(109,40,217,0.3); "
+                                                    "border-radius:12px; padding:16px 20px; min-width:180px; flex:1"
+                                                ):
+                                                    ui.label(_title).style(
+                                                        "font-weight:700; color:#a78bfa; font-size:0.9rem; margin-bottom:6px"
+                                                    )
+                                                    ui.label(_body).style(
+                                                        "color:#c4b5fd; font-size:0.8rem; line-height:1.5"
+                                                    )
                                     ui.markdown(_welcome_msg).style(
                                         "font-size:0.9rem; color:#cbd5e1; line-height:1.6"
                                     )
@@ -2793,8 +2827,60 @@ html, body {
             question_input.value = ""
             await send_message(question)
 
+        async def _seed_session():
+            try:
+                with chat_area:
+                    with ui.row().style("align-self:flex-start; gap:12px; align-items:flex-start") as seed_col:
+                        ui.label("RT").style(
+                            "width:30px; height:30px; min-width:30px; border-radius:9px; flex-shrink:0; "
+                            "background:linear-gradient(135deg,#f97316,#ec4899); "
+                            "color:#fff; font-family:ui-monospace,monospace; font-size:11px; font-weight:700; "
+                            "display:flex; align-items:center; justify-content:center; "
+                            "box-shadow:0 0 14px rgba(236,72,153,0.32)"
+                        )
+                        with ui.column().style("gap:6px; min-width:0; max-width:680px"):
+                            with ui.card().classes("rag-bubble-card").style(
+                                "background:var(--c-card,#1e163c); border:1px solid rgba(236,72,153,0.22); "
+                                "border-radius:14px; word-break:break-word; overflow-wrap:break-word; overflow:hidden; "
+                                "box-shadow:0 4px 22px rgba(236,72,153,0.08); padding:12px 16px"
+                            ):
+                                ui.label("RAG TUTOR").style(
+                                    "font-family:ui-monospace,monospace; font-size:10px; color:#64748b; "
+                                    "text-transform:uppercase; letter-spacing:0.08em; margin-bottom:2px"
+                                )
+                                seed_md = ui.markdown("").style("width:100%; word-break:break-word; overflow-wrap:break-word")
+                seed_col.set_visibility(False)
+                ui.update()
+                await asyncio.sleep(0)
+
+                seed_tokens: list[str] = []
+                first_seed_token = [False]
+                async with http().stream("POST", "/api/chat/seed", headers=auth_headers()) as resp:
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        raw = line[len("data: "):]
+                        try:
+                            event = json.loads(raw)
+                        except json.JSONDecodeError:
+                            continue
+                        if event.get("type") == "token":
+                            if not first_seed_token[0]:
+                                first_seed_token[0] = True
+                                seed_col.set_visibility(True)
+                            seed_tokens.append(event.get("content", ""))
+                            seed_md.content = "".join(seed_tokens)
+                            ui.update()
+                        elif event.get("type") == "done":
+                            pass
+            except Exception:
+                pass
+
         send_btn.on_click(send)
         question_input.on("keydown.enter", send)
+
+        if bearer_ok:
+            asyncio.ensure_future(_seed_session())
 
         if app.storage.user.get("user_id") and not app.storage.user.get("email"):
             await fetch_profile_email()

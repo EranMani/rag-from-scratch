@@ -293,3 +293,158 @@ async def chat(
 
     # StreamingResponse handles responses that are too large or built incrementally (token by token)
     return StreamingResponse(generate_stream(), media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# Seed endpoint — auto-initiated intro, authenticated only
+# ---------------------------------------------------------------------------
+
+# Curriculum order for returning-user "next topic" recommendation
+_CURRICULUM_ORDER = [
+    "chunking_strategies",
+    "embeddings_and_similarity",
+    "retrieval_methods",
+    "vector_databases",
+    "context_and_prompting",
+    "evaluation_and_metrics",
+    "rag_pipeline_architecture",
+    "document_ingestion",
+    "langchain_fundamentals",
+    "langgraph_fundamentals",
+    "production_patterns",
+]
+
+
+def _build_seed_prompt(mastery_level: str, topic_scores: dict) -> str:
+    """Build the seed prompt string for first-time or returning users.
+
+    topic_scores values may be None — use (v or 0.0) throughout.
+    """
+    is_first_time = not topic_scores or all(
+        (v or 0.0) == 0.0 for v in topic_scores.values()
+    )
+
+    if is_first_time:
+        return (
+            f"You are a RAG learning coach. A brand-new student (level: {mastery_level}) has just opened\n"
+            "this app for the first time. Give them a short, exciting introduction that:\n"
+            "1. Opens with a surprising, real-world use case where RAG solves something impressively\n"
+            "   (e.g., a company's internal knowledge base that actually answers correctly)\n"
+            "2. Explains in plain terms what RAG is — no jargon, analogy preferred for novice level\n"
+            "3. Lists 2–3 things they'll understand by the end of this course\n"
+            "4. Ends with an inviting question or \"pick a topic below to get started\"\n"
+            "Keep it under 150 words. Sound like a coach who genuinely cares, not a textbook.\n"
+            "Do not say \"I am an AI\"."
+        )
+
+    # Classify scores
+    strengths: list[str] = []
+    gaps: list[str] = []
+    uncovered: list[str] = []
+
+    for slug in _CURRICULUM_ORDER:
+        score = topic_scores.get(slug)
+        numeric = score or 0.0
+        if numeric >= 0.7:
+            strengths.append(slug)
+        elif numeric > 0.0:
+            gaps.append(slug)
+        else:
+            uncovered.append(slug)
+
+    # Highest-priority next focus: biggest gap first; if no gaps, first uncovered in order
+    if gaps:
+        next_topic = gaps[0]
+    elif uncovered:
+        next_topic = uncovered[0]
+    else:
+        next_topic = strengths[-1] if strengths else _CURRICULUM_ORDER[0]
+
+    strengths_list = ", ".join(strengths) if strengths else "none yet"
+    gaps_list = ", ".join(gaps) if gaps else "none"
+    uncovered_list = ", ".join(uncovered) if uncovered else "none"
+
+    return (
+        f"You are a RAG learning coach welcoming back a student. Their level: {mastery_level}.\n"
+        "Topic progress:\n"
+        f"  Strengths (score ≥ 0.7): {strengths_list}\n"
+        f"  In progress (score < 0.7): {gaps_list}\n"
+        f"  Not yet covered: {uncovered_list}\n\n"
+        "Write a warm, specific welcome-back message (2–3 sentences max) that:\n"
+        "1. Acknowledges one specific strength by name\n"
+        f"2. Identifies the single highest-priority next focus area: {next_topic}\n"
+        "3. Ends with an invitation to continue\n\n"
+        "Be specific — name actual topics. Do not be generic.\n"
+        "Sound like a coach who has been tracking their journey.\n"
+        "Do not say \"I am an AI\"."
+    )
+
+
+def _get_profile_for_seed(user_id: str) -> tuple[str, dict]:
+    """Return (mastery_level, topic_scores) for user_id. Synchronous — call via to_thread."""
+    profile = get_profile_by_user_id(user_id) or {}
+    level = profile.get("mastery_level", "novice")
+    valid: set[str] = {"novice", "intermediate", "advanced", "expert"}
+    if level not in valid:
+        level = "novice"
+    topic_scores: dict = profile.get("topic_scores") or {}
+    return level, topic_scores
+
+
+@router.post("/chat/seed")
+async def chat_seed(
+    request: Request,
+    current_user: dict | None = Depends(current_user_optional),
+) -> StreamingResponse:
+    """Stream an auto-initiated intro message as Server-Sent Events.
+
+    Always requires JWT auth — no anonymous access.
+    Builds a seed prompt from the user's profile and invokes the graph identically
+    to /api/chat. No nav-intent check — seed responses never include chips.
+    """
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="login required",
+        )
+
+    rag_graph = request.app.state.rag_graph
+    user_id: str = current_user["id"]
+
+    mastery_level, topic_scores = await asyncio.to_thread(_get_profile_for_seed, user_id)
+    seed_prompt = _build_seed_prompt(mastery_level, topic_scores)
+
+    initial_state: dict = {
+        "messages": [HumanMessage(content=seed_prompt)],
+        "question": seed_prompt,
+        "user_id": user_id,
+        "user_level": mastery_level,
+        "docs": [],
+        "answer": "",
+        "topic_scores_delta": {},
+        "identified_gaps": [],
+        "assessment_error": False,
+        "trace_id": str(uuid.uuid4()),
+        "latency_ms": 0,
+        "cache_hit": "miss",
+    }
+    config: dict = {"configurable": {"thread_id": user_id}}
+
+    async def generate_seed_stream():
+        final_state: dict = {}
+        async for event in rag_graph.astream_events(initial_state, config=config, version="v2"):
+            if (
+                event["event"] == "on_chat_model_stream"
+                and event.get("metadata", {}).get("langgraph_node") == "generate"
+            ):
+                chunk = event["data"]["chunk"]
+                if chunk.content:
+                    yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
+            elif event["event"] == "on_chain_end" and event.get("name") == "LangGraph":
+                final_state = event["data"].get("output", {})
+
+        chat_response: ChatResponse = build_chat_response(final_state)
+        done_payload: dict = {"type": "done", **chat_response.model_dump()}
+        yield f"data: {json.dumps(done_payload)}\n\n"
+
+    return StreamingResponse(generate_seed_stream(), media_type="text/event-stream")
