@@ -32,7 +32,13 @@
 ## Curriculum Restructure (C47)
 91. **`document_ingestion` replaces `langchain_fundamentals` in Phase 2** — LangChain API slot conflicts with concept-first "from scratch" identity; document ingestion is the missing practical entry point; LangChain files archived (not deleted)
 
-*Last updated: 2026-05-23 — Commit 47*
+## Auto-Initiated Intro (C52.3)
+92. **Seed routes through real LangGraph graph** — no hardcoded text; personalized via full graph execution; `thread_id = user_id` persists seed turn in learning history
+93. **`asyncio.ensure_future()` for fire-and-forget seed** — non-blocking page render; `bearer_ok` gate prevents anonymous trigger; failure silently swallowed
+94. **`current_user_optional` + explicit 401 for seed** — consistent with chat.py optional-auth pattern; intent explicit at call site; no anonymous use case
+95. **`set_visibility` reveal on first token** — bubble pre-built hidden; `first_seed_token = [False]` mutable list one-shot guard; clean invisible failure if seed never responds
+
+*Last updated: 2026-05-24 — Commit 52.3*
 
 ---
 

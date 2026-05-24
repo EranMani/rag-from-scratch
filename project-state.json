@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-24 (replan: 2 new UX commits added — 52.2 welcome-ux-quick-wins, 52.3 auto-initiated-intro; next: 52.2)",
+  "last_updated": "2026-05-24 (C52.3 done — auto-initiated-intro; next: 53 nginx-config)",
   "status": "active",
   "current_commit": {
-    "number": "52.3",
-    "name": "auto-initiated-intro",
+    "number": "53",
+    "name": "nginx-config",
     "status": "pending",
-    "assignee": "ai-engineer + frontend"
+    "assignee": "devops"
   },
   "commits_done": [
     "01",
@@ -74,28 +74,29 @@
     "51",
     "52",
     "52.1",
-    "52.2"
+    "52.2",
+    "52.3"
   ],
   "commits_pending": [
-    "52.3",
     "53",
     "54",
     "55",
     "56"
   ],
-  "next_commit": "52.3",
+  "next_commit": "53",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "52.2",
-      "tests": "PASS — 45/45 (test_question_generation.py 28 + test_mastery_routing.py 17).",
-      "viktor": "PASS — closure correctness confirmed (default-arg capture correct), forward reference safe, no user data in chip labels, scope verified; 1 tool use",
-      "sage": "not triggered — gate triage: all chip content hardcoded constants, no user data, no trust boundary",
-      "quinn": "not triggered — UI behavior, no business logic coverage gap",
+      "number": "52.3",
+      "tests": "PASS — 45/45 (test_question_generation.py 28 + test_mastery_routing.py 17); pre-existing 82 failures confirmed unrelated.",
+      "viktor_nova": "PASS — endpoint invocation pattern correct, error handling correct; no blockers",
+      "sage_nova": "PASS — mastery_level validated against allowlist; topic slugs filtered against _CURRICULUM_ORDER; no raw user-controlled strings in prompt",
+      "viktor_aria": "PASS WITH ADVISORY — silent except Exception: pass should have comment explaining intentional design; non-blocking",
+      "sage_aria": "PASS — card text hardcoded literals, no user data, no ui.html()",
+      "quinn": "not triggered — seed is page-load side effect, no measurable coverage gap",
       "mira": "not triggered — tech delivery of approved replan requirement, no new product decisions",
-      "gate_wave": "Viktor only (Haiku); Sage/Quinn/Mira skipped",
-      "note": "C52.2: welcome chips + None-safe fix. Bug found pre-commit: topic_scores.get(s, 0.0) >= threshold blew up when DB stores None for unscored topics. Root cause C45.6 (Aria). Fixed to (topic_scores.get(s) or 0.0). Debug print also removed. Lessons added to frontend.md and CLAUDE.md agents."
+      "gate_wave": "Viktor×2 + Sage×2 (all Haiku); Quinn/Mira skipped"
     },
     "commit_26": {
       "number": "26",

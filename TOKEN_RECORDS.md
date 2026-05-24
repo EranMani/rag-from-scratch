@@ -1063,6 +1063,7 @@ No token data recorded. Tracking began at Commit 10.
 | 52 | ai-question-generation | 132,592 | Viktor+Quinn (Haiku) | **over ≤75k** | Nova 61,300 (26 uses, cap hit); Viktor 36,985 (0 uses, PASS WITH ADVISORY); Quinn 34,307 (0 uses, PASS); orchestrator fixed 2 test regressions (direct Edit); Sage/Mira skipped |
 | 52.1 | state-mutation-refactor | ~0 | Viktor (Haiku) | ✅ ~0 | Claude direct Edits only (~0 impl); Viktor 33,820 (0 uses ✅ PASS); Sage/Quinn/Mira skipped (gate triage: pure structural refactor) |
 | 52.2 | welcome-ux-quick-wins | 103,060 | Viktor (Haiku) | **over ≤75k** | Aria 68,989 (26 uses, cap hit); Viktor 34,071 (1 use ✅ PASS); Sage/Quinn/Mira skipped (gate triage: hardcoded chip strings, no user data) |
+| 52.3 | auto-initiated-intro | 238,561 | Viktor×2+Sage×2 (Haiku) | **well over ≤90k** | Nova 61,971 (6 uses); Aria 38,757 (15 uses); Viktor(Nova) 35,816 (2 uses ✅ PASS); Sage(Nova) 34,419 (1 use ✅ PASS); Viktor(Aria) 34,007 (2 uses ✅ PASS WITH ADVISORY); Sage(Aria) 33,591 (1 use ✅ PASS); Quinn/Mira skipped |
 
 ---
 

@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Updated before every Team Lead approval prompt when a commit
 > introduces a new component, pattern, or data flow.
-> Last updated: 2026-05-21 (Commit 43 — phase-unlock-agent)
+> Last updated: 2026-05-24 (Commit 52.3 — auto-initiated-intro)
 
 ---
 
@@ -76,6 +76,8 @@ responsive to who they are, not a static Q&A tool.
 - **Layout:** `ui.row` with 280px profile sidebar (left) and `flex:1` chat column (right), introduced Commit 19
 - **Profile panel:** `@ui.refreshable async def profile_panel()` nested inside `index()`; fetches `GET /api/profile/me` on load; handles anonymous / API failure / empty / active user states; `profile_panel.refresh()` called from `send()` after each completed turn (Commit 20)
 - **send() flow** (Commit 20): `ui.timer(2.5, _advance)` cycles stage labels ("Retrieving context..." → "Personalizing your answer..." → "Generating response...") while SSE stream runs; `stage_active = [True]` mutable flag guards `_advance` against use-after-delete; `finally` block sets `stage_active[0] = False` → `cancel()` → `delete()` in that order; adaptation badge added from `done_data["user_level"]`; `profile_panel.refresh()` called before re-enabling send button
+- **Auto-initiation (C52.3):** `index()` calls `asyncio.ensure_future(_seed_session())` after all UI elements are defined — fire-and-forget, only when `bearer_ok` is True. `_seed_session()` hits `POST /api/chat/seed`, parses the SSE stream, renders the response as an AI bubble in `chat_area` (no user bubble). Bubble is created hidden (`set_visibility(False)`) and revealed on the first token via `first_seed_token = [False]` mutable list. Failure is silent (`except Exception: pass`) — chat remains fully functional if seed fails.
+- **First-time intro cards (C52.3):** `_is_first_time` computed from `_welcome_profile.topic_scores` with `(v or 0.0) > 0.0` None-safe guard. When `True`, 3 hardcoded `ui.card()` info cards are rendered above `ui.markdown(_welcome_msg)` — all strings literal, no user data, no `ui.html()`.
 - **CSS isolation:** all landing page styles namespaced `rag-landing-*`; injected per-page via `ui.add_head_html()`; NiceGUI container constraints (`.nicegui-content`, `.q-page`, `.q-page-container`) overridden in landing page only for full-bleed layout
 - **Depends on:** FastAPI app (mounted via ui.run_with())
 - **Introduced in:** existing codebase
@@ -168,6 +170,21 @@ responsive to who they are, not a static Q&A tool.
 - **Depends on:** `agents.mcq_utils` (MCQ loader), `app.profile.db` (get_or_create_profile, update_profile), `app.auth.deps` (JWT)
 - **Introduced in:** Commit 36
 
+### Chat Seed API
+- **Type:** REST API endpoint
+- **Owner:** Nova
+- **Purpose:** Auto-initiate the AI's first message on page load. Reads the user's profile, classifies as first-time or returning, builds a mastery-level-appropriate seed prompt, and streams the LangGraph response as SSE — identical format to `POST /api/chat`.
+- **Location:** `src/app/api/routes/chat.py`
+- **Endpoints:**
+  - `POST /api/chat/seed` — JWT required (`current_user_optional` + explicit 401 guard); returns `StreamingResponse(media_type="text/event-stream")`
+- **SSE schema:** identical to `POST /api/chat` — `{"type":"token","content":"..."}` per token; `{"type":"done","answer":"...","user_level":"...","assessed_topics":{}}` as final event
+- **User classification:** first-time = `topic_scores` empty or all values `0.0`; returning = at least one score `> 0.0`
+- **Curriculum order** for next-focus recommendation: `chunking_strategies → embeddings_and_similarity → retrieval_methods → vector_databases → context_and_prompting → evaluation_and_metrics → rag_pipeline_architecture → document_ingestion → langchain_fundamentals → langgraph_fundamentals → production_patterns`
+- **Profile read:** `_get_profile_for_seed()` synchronous helper, called via `asyncio.to_thread()`; validates `mastery_level` against `{"novice","intermediate","advanced","expert"}`, defaults to `"novice"` on invalid/missing
+- **Graph invocation:** `app.state.rag_graph.astream_events(initial_state, config, version="v2")` — `thread_id` is always `user_id` (seed is per-user, not per-tab)
+- **Depends on:** `agents.graph` (`rag_graph`), `app.profile.db` (`get_profile_by_user_id`), `app.auth.deps` (`current_user_optional`)
+- **Introduced in:** Commit 52.3
+
 ### MCQ Utilities (`mcq_utils`)
 - **Type:** shared utility module
 - **Owner:** Nova
@@ -255,6 +272,22 @@ responsive to who they are, not a static Q&A tool.
 
 Note: `SessionMemory` class deleted in Commit 10. Conversation history is managed entirely
 by LangGraph's `MemorySaver` checkpointer — no explicit history-string injection.
+
+### Session auto-initiation (C52.3)
+
+```
+1. index() page load — asyncio.ensure_future(_seed_session()) if bearer_ok
+2. _seed_session() calls POST /api/chat/seed with JWT bearer token
+3. chat_seed() verifies JWT → 401 if anonymous
+4. asyncio.to_thread(_get_profile_for_seed, user_id) → mastery_level, topic_scores
+5. _build_seed_prompt(mastery_level, topic_scores) → seed_prompt string
+   (first-time: intro prompt; returning: progress recap + next-focus recommendation)
+6. Build initial AgentState; config = {"configurable": {"thread_id": user_id}}
+7. rag_graph.astream_events(initial_state, config, version="v2") → SSE stream
+8. _seed_session() receives SSE tokens → renders AI bubble in chat_area (no user bubble)
+9. Bubble hidden until first token arrives (set_visibility pattern)
+10. Seed failure → silent except; chat and chips remain functional
+```
 
 ### User profile progression
 

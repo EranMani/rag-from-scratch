@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Session 24 — Commit 52.2 welcome-ux-quick-wins · 2026-05-24*
+*Last updated: Session 25 — Commit 52.3 auto-initiated-intro · 2026-05-24*
 
-**Last completed:** Session 24 — Commit 52.2 welcome-ux-quick-wins: Added `_WELCOME_CHIPS` module-level constant (4 mastery levels × 4 chip strings). Removed all "Try:" plain-text lines and bullet lists from every `_build_welcome_message()` branch (novice first-time, gaps, strengths-with-next, strengths-terminal, phase-fallback, profile-forming). Added chip row inside the welcome card in `index()` after `ui.markdown(_welcome_msg)` — mastery-level-aware, default-argument closure capture (`_t=_ct`), NiceGUI `ui.button().props("flat dense no-caps").on("click", _chip_click)` pattern matching nav chips. No `ui.html()` with user data. No new API calls. Function signature unchanged.
+**Last completed:** Session 25 — Commit 52.3 auto-initiated-intro: Added first-time static intro cards (3 hardcoded `ui.label()` cards inside a `ui.row()` above `ui.markdown(_welcome_msg)`, gated on `_is_first_time` — no topic_scores > 0). Added `_seed_session()` inner async function in `index()` after `send_message`, mirroring the SSE parse loop (`data: ` strip + `json.loads` + `type` dispatch). Seed response renders as a bare RT bubble (no user bubble, no debug block), revealed on first token via `set_visibility(True)`. Failure is fully silent (`try/except Exception: pass`). Auto-trigger added after `question_input.on("keydown.enter", send)` — fires only when `bearer_ok` is True via `asyncio.ensure_future(_seed_session())`. No `ui.html()` used anywhere. `send_message()` not modified.
 **Currently active:** none
 **Blocked by:** none
 
@@ -37,10 +37,28 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 25 | 52.3 | ✅ Done | _seed_session() as inner function after send_message; SSE parse identical to send_message pattern; bare RT bubble, no debug block; ensure_future only when bearer_ok; silent failure; intro cards gated on zero topic_scores |
 | 24 | 52.2 | ✅ Done | _WELCOME_CHIPS at module level; default-arg closure capture (_t=_ct) in for-loop; chips render only hardcoded strings — no user data path; "Try:" lines removed from all 5 returning-user branches |
 | 23 | 45.6 | ✅ Done | Cross-phase progress summary from topic_scores; _PROGRESS_PHASES hardcoded inside function (not module-level) to co-locate with usage; last_active_slug derives from gaps first, strengths second |
 | 22 | 44 | ✅ Done | Phase-grouped Overview (locked/unlocked); _prev_mastery mutable list closure for gate detection; unlock animation CSS injected once via add_head_html; all user-sourced values through ui.label() |
 | 21 | 38.5 | ✅ Done | Tab state via mutable list closure; SVG gradient defs injected once in index() via add_head_html, referenced as url(#tg) in static ui.html() SVG strings; all user data through ui.label() |
+
+### Session 25 — Commit 52.3 `auto-initiated-intro` · 2026-05-24
+
+**Approach:** The two pieces here had different placement constraints that had to be resolved before any writing began. The intro cards live inside the welcome card context manager in `index()` — they need to be above `ui.markdown(_welcome_msg)` but still inside the `with ui.card()` block, which means the `_is_first_time` check had to be computed right there from `_welcome_profile`, not passed in. The seed function needed `chat_area`, `auth_headers()`, `http()`, and `json` all in scope — placing it after `send_message` (which already uses all four) gave me that for free without any closure threading. I considered whether to share the bubble creation code between `send_message` and `_seed_session()`, but the spec's "do not modify send_message" constraint made that a non-starter, and the duplication is justified: the seed bubble is simpler (no thinking indicator, no debug block, no knowledge-check widget), so a shared helper would need a flag-heavy interface that's worse than two clear, independent blocks. The `asyncio.ensure_future` placement was the trickiest part: it had to fire after all UI elements are constructed (so `chat_area` exists as a context target), but before the profile-email fetch, which is an unrelated background task. The final sequence — `send_btn.on_click`, `question_input.on("keydown.enter", send)`, seed trigger, then profile-email check — satisfies that ordering. Silent failure (`except Exception: pass`) is the right contract here: if the seed endpoint is down or slow, the page should still be fully usable.
+
+**Date:** 2026-05-24
+**Status:** ✅ Done
+
+### Changes
+
+| File | Change |
+|---|---|
+| `src/app/ui.py` welcome card | `_is_first_time` check + 3 hardcoded intro cards added above `ui.markdown(_welcome_msg)` |
+| `src/app/ui.py` `index()` | `_seed_session()` inner async function added after `send_message`; SSE parse loop; bare RT bubble; silent failure |
+| `src/app/ui.py` `index()` end | `asyncio.ensure_future(_seed_session())` gated on `bearer_ok`, after `question_input.on("keydown.enter", send)` |
+
+---
 
 ### Session 24 — Commit 52.2 `welcome-ux-quick-wins` · 2026-05-24
 

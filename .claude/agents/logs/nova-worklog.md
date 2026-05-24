@@ -5,14 +5,24 @@
 ---
 
 ## Current State
-*Last updated: Commit 52 — ai-question-generation · 2026-05-24*
+*Last updated: Commit 52.3 (Nova part) — auto-initiated-intro · 2026-05-24*
 
-**Last completed:** Commit 52 — ai-question-generation ✅
+**Last completed:** Commit 52.3 (Nova part) — auto-initiated-intro ✅
 **Currently active:** none
 **Blocked by:** none
-**Up next:** Commit 52.1 — state mutation refactor in `_deliver_mcq` (return 3-tuple) + tighten type annotation `dict[str,list]` → `dict[str,list[dict[str,Any]]]`
+**Up next:** Aria's Commit 52.3 (frontend trigger) depends on seed endpoint below; Nova has no further work this commit
 
 **Open Handoffs — Outbound:**
+- → Aria (Commit 52.3 `auto-initiated-intro`): `POST /api/chat/seed` is live.
+  Contract:
+  - Auth: Bearer JWT required. No anonymous access. Returns 401 if token missing.
+  - Request body: none required.
+  - Response: `text/event-stream` SSE, same format as `/api/chat`:
+      `{"type": "token", "content": "..."}` per LLM token
+      `{"type": "done", "answer": "...", "user_level": "...", "assessed_topics": {}}` final event
+  - No `chips` key in done payload (nav-intent check is skipped for seed).
+  - Call once on welcome screen mount for authenticated users. Stream tokens into the welcome area.
+  - Consumed by Aria in C52.3.
 - → Nova (Commit 45.4.1 `is-mcq-fix`): `src/agents/assessment/evaluation.py` step 2 return
   dict is missing `"is_mcq": False`. LangGraph partial merge keeps prior `is_mcq` value; if
   original question was MCQ (`is_mcq=True`), the user's next-turn answer to the simplified

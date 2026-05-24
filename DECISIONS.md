@@ -2,7 +2,7 @@
 
 > Maintained by Claude. Every non-obvious design choice made during this project
 > is logged here with the reason it was made.
-> Last updated: 2026-05-23
+> Last updated: 2026-05-24
 
 ---
 
@@ -1115,3 +1115,43 @@
 - **Decision:** `_deliver_mcq` directly mutates `state["generated_question_pool"]` to make the updated pool visible to `select_test_question` for inclusion in the returned dict. This is a deliberate temporary pattern — the C52.1 refactor will make `_deliver_mcq` return a 3-tuple `(display_text, correct_answer, updated_pool)`, removing the mutation.
 - **Reason:** Viktor flagged the mutation as a fragile LangGraph pattern — state updates must flow through returned dicts, not in-place mutation. The mutation is currently safe because `generate_questions()` either returns a non-empty list or raises, so no exception can occur between mutation and return. However, the pattern violates the LangGraph state contract and obscures the data flow. Team Lead chose to commit C52 as functionally correct and defer the structural fix to a named follow-up to preserve the gate result and avoid another review cycle on unchanged behavior.
 - **Consequences:** C52.1 converts `_deliver_mcq` to return `(str | None, str | None, dict | None)` and threads the pool update through `select_test_question` → `build_selection_result`. Type annotation also tightened: `dict[str, list]` → `dict[str, list[dict[str, Any]]]`.
+
+---
+
+## Auto-Initiated Intro (C52.3)
+
+### Seed prompt routes through the real LangGraph graph — no hardcoded response text (Commit 52.3)
+- **Date:** 2026-05-24
+- **Commit:** 52.3
+- **Decided by:** commit spec (Claude)
+- **Decision:** `POST /api/chat/seed` builds a prompt string and feeds it into `rag_graph.astream_events()` — the same graph invocation path as regular `/api/chat`. No hardcoded AI text anywhere in the seed endpoint.
+- **Alternatives considered:** Static hardcoded intro text per mastery level (no LLM call); a separate simpler LLM call outside the graph.
+- **Reason:** Routing through the real graph ensures the seed response is personalized, mastery-level-adaptive, and subject to the same assessment pipeline. Hardcoded text would drift out of sync with the rest of the app; a separate LLM call would bypass retrieval and assessment. The spec explicitly required "routes through the real LangGraph graph."
+- **Consequences:** The seed response undergoes full graph execution including retrieval and assessment. `thread_id` is set to `user_id` (not a per-tab value) so the seed turn persists in the user's thread and can influence their learning history. The initial `AgentState` uses the seed prompt as both `messages[0].content` and `state["question"]`.
+
+### `asyncio.ensure_future()` for fire-and-forget page-load trigger (Commit 52.3)
+- **Date:** 2026-05-24
+- **Commit:** 52.3
+- **Decided by:** Aria + commit spec
+- **Decision:** `index()` calls `asyncio.ensure_future(_seed_session())` after all UI elements are defined, gated behind `if bearer_ok`.
+- **Alternatives considered:** `await _seed_session()` inline (blocks page render); `ui.timer(0, ..., once=True)` (NiceGUI pattern but adds timer lifecycle management overhead).
+- **Reason:** `ensure_future` schedules the coroutine on the running event loop without blocking page render — the page is fully interactive before the seed response arrives. `ui.timer(0, once=True)` works similarly but requires a cancellation guard; `ensure_future` is idiomatic for fire-and-forget coroutines. The `bearer_ok` gate ensures anonymous users never trigger a seed call.
+- **Consequences:** Seed runs asynchronously after `index()` returns. If the server is slow, the user sees the page UI first, then the AI bubble appears. Seed failure is silently swallowed (`except Exception: pass`) — chat input, chips, and profile panel remain functional.
+
+### `current_user_optional` + explicit 401 guard for seed endpoint (Commit 52.3)
+- **Date:** 2026-05-24
+- **Commit:** 52.3
+- **Decided by:** Nova
+- **Decision:** The seed endpoint uses `Depends(current_user_optional)` and raises `HTTPException(401)` when `current_user is None`, rather than using `Depends(get_current_user)` directly.
+- **Alternatives considered:** `Depends(get_current_user)` which auto-raises 401 on missing/invalid token.
+- **Reason:** The pattern is consistent with how other endpoints in `chat.py` handle optional auth — `current_user_optional` is the project-wide pattern when the 401 behavior needs to be explicit and controllable at the call site. The seed endpoint has no anonymous use case (Aria's trigger is already gated by `bearer_ok`), but the explicit guard makes the contract clear: seed is always authenticated-only.
+- **Consequences:** No behavior difference at runtime — anonymous requests to `/api/chat/seed` always get 401. The explicit guard documents intent more clearly than relying on the dependency auto-raise.
+
+### Seed bubble hidden until first token — `set_visibility` reveal pattern (Commit 52.3)
+- **Date:** 2026-05-24
+- **Commit:** 52.3
+- **Decided by:** Aria
+- **Decision:** The AI bubble container is created with `set_visibility(False)` immediately after construction, then `set_visibility(True)` is called on the first SSE token, using a `first_seed_token = [False]` mutable list as the one-shot guard.
+- **Alternatives considered:** Creating the bubble element only on the first token (requires partial UI construction); always showing an empty bubble (visible loading flash with no content).
+- **Reason:** Pre-building the bubble avoids DOM insertion jitter during streaming. Hiding it until the first real content arrives prevents an empty/skeleton bubble from flashing before the AI starts responding. The mutable list `[False]` pattern is the established NiceGUI closure mutation idiom (same as `stage_active` in `send()`).
+- **Consequences:** The `seed_col` element exists in the DOM from page load but is invisible. If the seed call fails before the first token, it stays invisible — clean failure. If the seed call succeeds, it becomes visible exactly when the first word arrives.

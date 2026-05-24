@@ -1553,3 +1553,58 @@ Converted `_deliver_mcq` from 2-tuple to 3-tuple return `(display_text, correct_
 ## Commit 52.2 — `welcome-ux-quick-wins` · Aria · 2026-05-24
 
 Added `_WELCOME_CHIPS` dict (novice/intermediate/advanced/expert → 4 hardcoded suggestion strings); chip row rendered in welcome card after `ui.markdown()` using per-iteration `async def _chip_click(_e, _t=_ct)` with default-arg capture to freeze loop variable; `send_message` forward reference safe (Python closure resolves names at call time); `_build_welcome_message()` strips all "Try:" lines — chips replace them.
+
+---
+
+## Commit 52.3 — `auto-initiated-intro` · Nova + Aria · 2026-05-24
+
+### What was built
+
+On every authenticated page load, the AI now sends the first message without waiting for user input. Two agents collaborated sequentially: Nova built the backend seed endpoint; Aria built the frontend trigger and intro cards.
+
+**Backend — `POST /api/chat/seed` (Nova):**
+
+The endpoint reads the user's learning profile from the database, classifies them as first-time (no topic scores, or all scores 0.0) or returning (at least one score > 0.0), and builds a mastery-level-appropriate seed prompt. That prompt runs through the full LangGraph graph — the same `astream_events()` path as regular `/api/chat`. The response streams back as SSE, identical format to a normal chat turn.
+
+For returning users, the prompt uses the user's actual topic scores: slugs scored ≥ 0.7 become "strengths," slugs scored > 0.0 but < 0.7 become "in progress," unscored slugs become "not yet covered." The highest-priority next focus follows curriculum order (`chunking_strategies → embeddings_and_similarity → ...`) — gaps first, then uncovered topics, then a strength if no gaps exist. The LLM receives specific topic names and writes a concrete recommendation, not a generic "keep going."
+
+```python
+# First-time vs. returning classification (None-safe)
+is_first_time = not topic_scores or all(
+    (v or 0.0) == 0.0 for v in topic_scores.values()
+)
+```
+
+**Frontend — auto-trigger + intro cards (Aria):**
+
+`index()` calls `asyncio.ensure_future(_seed_session())` after all UI elements are built, gated behind `if bearer_ok`. The coroutine creates an AI bubble (hidden at construction), hits `POST /api/chat/seed`, and reveals the bubble on the first SSE token:
+
+```python
+first_seed_token = [False]
+...
+if event.get("type") == "token":
+    if not first_seed_token[0]:
+        first_seed_token[0] = True
+        seed_col.set_visibility(True)
+    seed_tokens.append(event.get("content", ""))
+    seed_md.content = "".join(seed_tokens)
+```
+
+This is the same `[False]` mutable list pattern used in `send()` for `stage_active` — the NiceGUI-idiomatic way to mutate state from inside a nested closure. No user bubble appears above the seed response; the AI speaks first.
+
+For first-time users (no scores), three static info cards appear above the welcome message: "What is RAG?", "How this app works", "What you'll cover." All card text is hardcoded — no user data, no `ui.html()`.
+
+### Design decisions
+
+**Seed routes through the real graph.** The alternative — hardcoded response strings or a direct LLM call outside the graph — would produce responses decoupled from the assessment pipeline and prompt templates. Routing through the graph means the seed turn is subject to the same retrieval, assessment, and mastery-level adaptation as any other turn. The seed turn also persists in the user's `MemorySaver` thread (under `thread_id = user_id`), so it exists as context for the first real question.
+
+**`asyncio.ensure_future` for fire-and-forget.** `await _seed_session()` inline would block `index()` from returning until the LLM finishes — the page would be blank for several seconds. `ensure_future` schedules the coroutine on the running event loop without blocking render. The page is fully interactive before the AI starts typing.
+
+**`set_visibility(False)` pre-build + reveal.** The bubble container is inserted into the DOM at page load but invisible. When the first token arrives, `set_visibility(True)` makes it appear with content already in it. The alternative — building the bubble DOM on the first token — causes a layout shift mid-stream. Pre-building + hiding produces a clean, instant reveal.
+
+**Silent seed failure.** `_seed_session()` wraps all its logic in `except Exception: pass`. If the seed call fails (network, 401, graph error), the page is indistinguishable from a normal page load — the user still has the welcome message, chips, and full chat input. The seed is a retention enhancement, not core functionality; surfacing an error would degrade first impressions without providing actionable information to the user.
+
+### Files changed
+
+- `src/app/api/routes/chat.py` — `_CURRICULUM_ORDER` list, `_get_profile_for_seed()`, `_build_seed_prompt()`, `@router.post("/chat/seed")` endpoint
+- `src/app/ui.py` — `_is_first_time` detection, 3 intro cards, `_seed_session()` inner function, `asyncio.ensure_future()` trigger
