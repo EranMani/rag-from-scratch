@@ -75,6 +75,8 @@
 | 51 | bank-expansion | rag-specialist | ✅ done · 2026-05-23 |
 | 52 | ai-question-generation | ai-engineer | ✅ done · 2026-05-24 |
 | 52.1 | state-mutation-refactor | ai-engineer | ✅ done · 2026-05-24 |
+| 52.2 | welcome-ux-quick-wins | frontend | ✅ done · 2026-05-24 |
+| 52.3 | auto-initiated-intro | ai-engineer + frontend | pending |
 | 53 | nginx-config | devops | pending |
 | 54 | aws-ec2-deployment | devops | pending |
 | 55 | integration-tests | backend + ai-engineer | pending |

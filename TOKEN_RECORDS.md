@@ -1061,6 +1061,8 @@ No token data recorded. Tracking began at Commit 10.
 | 50 | langgraph-questions | 69,856 | zero gates (content-only) | ⚠️ +10k over ≤60k | RAG Specialist (69,856 · 6 uses); 20 MCQs + 19 open-ended; no gate wave (pure markdown) |
 | 51 | bank-expansion | 529,647 | zero gates (content-only) | **well over ≤60k — volume-justified** | 5 RAG Specialist passes (tool-cap splits); 16 files expanded; ≥5 novice + ≥5 intermediate per file achieved |
 | 52 | ai-question-generation | 132,592 | Viktor+Quinn (Haiku) | **over ≤75k** | Nova 61,300 (26 uses, cap hit); Viktor 36,985 (0 uses, PASS WITH ADVISORY); Quinn 34,307 (0 uses, PASS); orchestrator fixed 2 test regressions (direct Edit); Sage/Mira skipped |
+| 52.1 | state-mutation-refactor | ~0 | Viktor (Haiku) | ✅ ~0 | Claude direct Edits only (~0 impl); Viktor 33,820 (0 uses ✅ PASS); Sage/Quinn/Mira skipped (gate triage: pure structural refactor) |
+| 52.2 | welcome-ux-quick-wins | 103,060 | Viktor (Haiku) | **over ≤75k** | Aria 68,989 (26 uses, cap hit); Viktor 34,071 (1 use ✅ PASS); Sage/Quinn/Mira skipped (gate triage: hardcoded chip strings, no user data) |
 
 ---
 

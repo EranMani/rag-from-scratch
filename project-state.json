@@ -1,12 +1,12 @@
 {
   "project": "rag-from-scratch",
-  "last_updated": "2026-05-24 (C52.1 state-mutation-refactor done; next: 53 nginx-config)",
+  "last_updated": "2026-05-24 (replan: 2 new UX commits added — 52.2 welcome-ux-quick-wins, 52.3 auto-initiated-intro; next: 52.2)",
   "status": "active",
   "current_commit": {
-    "number": "53",
-    "name": "nginx-config",
+    "number": "52.3",
+    "name": "auto-initiated-intro",
     "status": "pending",
-    "assignee": "devops"
+    "assignee": "ai-engineer + frontend"
   },
   "commits_done": [
     "01",
@@ -73,27 +73,29 @@
     "50",
     "51",
     "52",
-    "52.1"
+    "52.1",
+    "52.2"
   ],
   "commits_pending": [
+    "52.3",
     "53",
     "54",
     "55",
     "56"
   ],
-  "next_commit": "53",
+  "next_commit": "52.3",
   "open_handoffs": [],
   "blockers": [],
   "quality_gate_results": {
     "last_commit": {
-      "number": "52.1",
-      "tests": "PASS — 45/45 (test_question_generation.py 28 + test_mastery_routing.py 17). 7 test sites updated from 2-tuple to 3-tuple unpacking.",
-      "viktor": "PASS — all 4 checklist items confirmed; 0 tool uses (full context inline); no findings",
-      "sage": "not triggered — gate triage: function signature refactor, no auth surface, no trust boundary",
-      "quinn": "not triggered — no new behavior, same code paths",
-      "mira": "not triggered — no user-facing change",
+      "number": "52.2",
+      "tests": "PASS — 45/45 (test_question_generation.py 28 + test_mastery_routing.py 17).",
+      "viktor": "PASS — closure correctness confirmed (default-arg capture correct), forward reference safe, no user data in chip labels, scope verified; 1 tool use",
+      "sage": "not triggered — gate triage: all chip content hardcoded constants, no user data, no trust boundary",
+      "quinn": "not triggered — UI behavior, no business logic coverage gap",
+      "mira": "not triggered — tech delivery of approved replan requirement, no new product decisions",
       "gate_wave": "Viktor only (Haiku); Sage/Quinn/Mira skipped",
-      "note": "C52.1: pure structural refactor. _deliver_mcq → 3-tuple return. state mutation removed. Viktor advisory from C52 resolved. No behavior change."
+      "note": "C52.2: welcome chips + None-safe fix. Bug found pre-commit: topic_scores.get(s, 0.0) >= threshold blew up when DB stores None for unscored topics. Root cause C45.6 (Aria). Fixed to (topic_scores.get(s) or 0.0). Debug print also removed. Lessons added to frontend.md and CLAUDE.md agents."
     },
     "commit_26": {
       "number": "26",
@@ -264,6 +266,17 @@
       "key_decisions": "45.5 and 45.6 are parallel-eligible (different files: rag.py vs ui.py) — Wave H. Both insert before infra phase (46). Nova diagnosed no code bug in user_level routing — root cause is prompt quality only.",
       "consulted": "Mira (product review) + Nova (technical diagnosis). Both consulted before replan drafted.",
       "approved_by": "Team Lead · 2026-05-23"
+    },
+    {
+      "date": "2026-05-24",
+      "trigger": "Requirement changed — first-time Novice user (Eran) registered and identified 4 critical onboarding UX gaps: prompt suggestions are plain text (not clickable), AI waits passively on session start, welcome message ignores stated mastery level, RAG context absent before any question appears. Panel consultation (Mira, Nova, Aria) confirmed these as day-1 retention risks requiring two new commits before deployment.",
+      "commits_added": ["52.2 welcome-ux-quick-wins", "52.3 auto-initiated-intro"],
+      "commits_reordered": [],
+      "commits_removed": [],
+      "new_agent": "none — Aria and Nova already active",
+      "key_decisions": "52.2 and 52.3 are sequential (52.3 depends on chip/UI layer from 52.2); carousel in 52.3 is hardcoded static content (AI-generated per level deferred to future request); auto-seed routes through real LangGraph graph with novice context — no fake/hardcoded response; all chips, prompts, and generated text must be mastery-level-aware; context (what RAG is) must appear before any MCQ or diagnostic question",
+      "consulted": "Mira (product), Nova (AI feasibility), Aria (frontend patterns) — all three consulted before replan drafted.",
+      "approved_by": "Team Lead · 2026-05-24"
     },
     {
       "date": "2026-05-20",

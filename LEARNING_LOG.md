@@ -1547,3 +1547,9 @@ Viktor raised one advisory (direct state mutation `state["generated_question_poo
 ## Commit 52.1 — `state-mutation-refactor` · Claude (direct Edits) · 2026-05-24
 
 Converted `_deliver_mcq` from 2-tuple to 3-tuple return `(display_text, correct_answer, updated_pool)`, removing the direct `state["generated_question_pool"] = pool` mutation. Pool now flows through `select_test_question` → `build_selection_result` → LangGraph return dict. Type annotation tightened from `dict[str, list] | None` to `dict[str, list[dict[str, Any]]] | None`. Bank fallback and total-failure branches return `None` as third element; generated-pool branch (both cache-hit and cache-miss) returns the full pool dict. No behavior change — deferred fix from C52 Viktor advisory.
+
+---
+
+## Commit 52.2 — `welcome-ux-quick-wins` · Aria · 2026-05-24
+
+Added `_WELCOME_CHIPS` dict (novice/intermediate/advanced/expert → 4 hardcoded suggestion strings); chip row rendered in welcome card after `ui.markdown()` using per-iteration `async def _chip_click(_e, _t=_ct)` with default-arg capture to freeze loop variable; `send_message` forward reference safe (Python closure resolves names at call time); `_build_welcome_message()` strips all "Try:" lines — chips replace them.

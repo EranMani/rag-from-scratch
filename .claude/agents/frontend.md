@@ -118,5 +118,12 @@ A lesson with both is experience.
 
 ---
 
-*No lessons yet — this agent has not completed a project.*
-*Lessons will be written here by Claude at the end of each project.*
+**rag-from-scratch · 2026-05-24 — None-safe dict comparisons**
+Trigger: Any function that calls `dict.get(key, default)` and then compares the result with a numeric operator (`>=`, `>`, `<`, `<=`).
+Pattern: `dict.get(key, default)` only uses the default when the key is **absent**. If the key exists with value `None` (e.g., an unscored topic stored as `None` in the DB), it returns `None` — and `None >= 0.70` raises `TypeError` at runtime. Always use `(dict.get(key) or default)` when the dict may contain `None` values. This applies everywhere profile/score data flows: `topic_scores`, `interaction_count`, any field that could be null in the DB.
+Why it matters: C45.6 wrote `topic_scores.get(s, 0.0) >= _DONE_THRESHOLD` — looked defensive, wasn't. Blew up for any returning user with unscored topics stored as `None`. Not caught until C52.2 testing because Viktor was correctly skipped for C45.6 (gate triage called it "string building") and the unit tests didn't cover None-valued dicts.
+
+**rag-from-scratch · 2026-05-24 — Debug prints before commit**
+Trigger: Before writing the worklog and signalling task complete.
+Pattern: Grep the files you touched for `print(`, `console.log(`, `debugger`, or any other debug instrumentation. Remove every one before marking done. Debug output is not a reviewer concern — it is your responsibility to clean before handoff.
+Why it matters: C45.6 left `print("****************: topic_scores", topic_scores)` inside a hot path in `_build_welcome_message()`. It survived C52.2 review and was only caught by the orchestrator reading the raw grep output before commit.
