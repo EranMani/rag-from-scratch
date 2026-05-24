@@ -5,9 +5,10 @@
 ---
 
 ## Current State
-*Last updated: Session 26 — Commit 52.4 inline-onboarding · 2026-05-24*
+*Last updated: Session 28 — Commit 52.6 expandable-subtopic-labels · 2026-05-24*
 
-**Last completed:** Session 26 — Commit 52.4 inline-onboarding: Replaced the `ui.dialog` onboarding popup with an inline `@ui.refreshable` `welcome_card_content()` function inside the welcome card. Removed all `onboarding_dialog` / `ob_step_content` code (lines 1700–1892). Onboarding state (`_ob_needed`, `_onboarding_done`) gates whether the card shows level-selection or the welcome message+chips. Novice fast-path skips MCQs and calls `/api/onboarding/complete` directly. `_ob_finish_inline(confirmed_level)` updates `_welcome_profile["mastery_level"]` before refreshing so welcome message reflects correct level. `_seed_session()` now fires from `_ob_finish_inline` for new users; page-load call is conditioned on `not _ob_needed`.
+**Last completed:** Session 28 — Commit 52.6 expandable-subtopic-labels: Added `_TOPIC_SUBLABELS` module-level constant (typed `dict[str, list[str]]`, 10 topics × 5 display labels each). In `profile_panel()` Current tab topic loop: replaced bare `with ui.element("div")` row with `ui.expansion(t["name"], group="subtopics")` accordion. Existing icon, label, and score badge moved inside the expansion body as a nested div. Sub-topic labels rendered inside the expansion with color gated on `score > 0` (`#94a3b8` readable / `#64748b` muted). `score` derived via `or 0.0` to guard against `None` from DB. Syntax check: clean, no debug prints.
+**Previously completed:** Session 27 — Commit 52.5 persistent-topic-strip
 **Currently active:** none
 **Blocked by:** none
 
@@ -42,6 +43,22 @@
 | 23 | 45.6 | ✅ Done | Cross-phase progress summary from topic_scores; _PROGRESS_PHASES hardcoded inside function (not module-level) to co-locate with usage; last_active_slug derives from gaps first, strengths second |
 | 22 | 44 | ✅ Done | Phase-grouped Overview (locked/unlocked); _prev_mastery mutable list closure for gate detection; unlock animation CSS injected once via add_head_html; all user-sourced values through ui.label() |
 | 21 | 38.5 | ✅ Done | Tab state via mutable list closure; SVG gradient defs injected once in index() via add_head_html, referenced as url(#tg) in static ui.html() SVG strings; all user data through ui.label() |
+
+### Session 28 — Commit 52.6 `expandable-subtopic-labels` · 2026-05-24
+
+**Approach:** The core question was how to attach accordion behavior to topic rows that were already rendered as raw `ui.element("div")` containers — no NiceGUI-managed state, no named refs, just inline style strings. The option of wrapping each row in `ui.expansion()` from the outside meant the expansion header would be blank (NiceGUI's `ui.expansion(label)` renders the label string as a static text header, not as arbitrary markup). I considered using a Quasar `q-expansion-item` with a custom header slot via `ui.html()`, but that would force user-controlled `t["name"]` values through an f-string into `ui.html()` — a Sage-blocking XSS vector. The cleanest resolution: let the expansion's built-in `label` parameter carry the topic name (a known constant from `_MODULE_LABELS`, not user input), and render the existing row content (icon + label + score badge) inside the expansion body as its first child. This keeps the existing markup intact and preserves the visual hierarchy — the expansion header shows the topic name, clicking it reveals the icon+score row followed by sub-topic labels. The `score or 0.0` pattern over `score_val is not None` was deliberate: `topic_scores` can hold `None` values for unscored topics (see Lesson: None-safe dict comparisons), so the `or 0.0` guard is the right idiom for the color comparison while keeping `score_val` separate for the display text.
+
+**Date:** 2026-05-24
+**Status:** ✅ Done
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `src/app/ui.py` | Add `_TOPIC_SUBLABELS` constant after `_TOPIC_SUBTOPICS`; wrap topic rows in `ui.expansion()` with `group="subtopics"`; add sub-topic label list in expansion body |
+| `.claude/agents/logs/aria-worklog.md` | Session 28 entry |
+
+---
 
 ### Session 25 — Commit 52.3 `auto-initiated-intro` · 2026-05-24
 

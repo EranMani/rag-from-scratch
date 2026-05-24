@@ -215,6 +215,79 @@ _TOPIC_SUBTOPICS: dict[str, list[str]] = {
     ],
 }
 
+_TOPIC_SUBLABELS: dict[str, list[str]] = {
+    "embeddings_and_similarity": [
+        "Embedding vectors explained",
+        "Cosine vs. Euclidean distance",
+        "Semantic clustering in vector space",
+        "Domain shift and embedding limits",
+        "Embedding model choice and dimensionality",
+    ],
+    "rag_pipeline_architecture": [
+        "Indexing phase vs. query phase",
+        "Full pipeline component map",
+        "Retrieval failure tracing",
+        "Prompt template role in generation",
+        "RAG vs. fine-tuning tradeoffs",
+    ],
+    "chunking_strategies": [
+        "Fixed-size vs. semantic chunking",
+        "Chunk overlap and why it matters",
+        "Token budget constraints",
+        "Chunking failures at document boundaries",
+        "Domain-specific splitting strategies",
+    ],
+    "vector_databases": [
+        "Approximate vs. exact nearest neighbor",
+        "HNSW index mechanics",
+        "IVF index and clustering",
+        "Metadata filtering and recall tradeoffs",
+        "Collection schema design",
+    ],
+    "retrieval_methods": [
+        "BM25 sparse retrieval",
+        "Hybrid search and score fusion",
+        "Cross-encoder reranking",
+        "Maximal Marginal Relevance (MMR)",
+        "Multi-query expansion and HyDE",
+    ],
+    "context_and_prompting": [
+        "RAG prompt anatomy",
+        "Context window management",
+        "Hallucination-reducing prompt patterns",
+        "Template consistency for evaluation",
+        "Cross-model prompt portability",
+    ],
+    "document_ingestion": [
+        "Document loader components",
+        "Format-specific parsing challenges",
+        "Encoding issues and silent data loss",
+        "Document structure impact on chunking",
+        "Loader failure modes: silent vs. loud",
+    ],
+    "evaluation_and_metrics": [
+        "RAGAS faithfulness metric",
+        "Answer relevancy metric",
+        "Context precision and recall",
+        "Evaluation dataset construction",
+        "Offline vs. online evaluation",
+    ],
+    "production_patterns": [
+        "Semantic caching",
+        "Async pipeline design",
+        "RAG observability instrumentation",
+        "Cost drivers and mitigations",
+        "Production-only failure modes",
+    ],
+    "langgraph_fundamentals": [
+        "Nodes, edges, and directed graphs",
+        "State flow and state updates",
+        "Conditional routing on edges",
+        "Graph compilation",
+        "Checkpointing for multi-turn memory",
+    ],
+}
+
 
 def _build_welcome_message(display_name: str | None, profile: dict | None) -> str:
     name = display_name or "there"
@@ -2061,32 +2134,42 @@ html, body {
                                     _any_score = any(topic_scores.get(t["slug"]) is not None for t in active_module["topics"])
                                     with ui.element("div").style("display:flex; flex-direction:column; gap:9px; width:100%"):
                                         for t in active_module["topics"]:
-                                            score = topic_scores.get(t["slug"])
-                                            score_text = f"{score:.0%}" if score is not None else "—"
-                                            score_color = "#86efac" if t["done"] else ("#94a3b8" if score is not None else "#475569")
+                                            score = topic_scores.get(t["slug"]) or 0.0
+                                            score_val = topic_scores.get(t["slug"])
+                                            score_text = f"{score_val:.0%}" if score_val is not None else "—"
+                                            score_color = "#86efac" if t["done"] else ("#94a3b8" if score_val is not None else "#475569")
                                             name_color = "#e2e8f0" if t["done"] else "#94a3b8"
-                                            with ui.element("div").style(
-                                                "display:flex; align-items:center; gap:10px; "
-                                                "font-family:'Inter',system-ui; font-size:12.5px; line-height:1.4"
+                                            sub_labels = _TOPIC_SUBLABELS.get(t["slug"], [])
+                                            sub_color = "#94a3b8" if score > 0 else "#64748b"
+                                            with ui.expansion(t["name"], group="subtopics").props("dense").style(
+                                                "border:none; background:transparent; padding:0; margin:0; width:100%"
                                             ):
-                                                if t["done"]:
-                                                    ui.html(
-                                                        '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="flex:0 0 14px">'
-                                                        '<circle cx="8" cy="8" r="7" fill="url(#tg)"/>'
-                                                        '<path d="M4.5 8.2 L7 10.6 L11.5 5.8" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
-                                                        '</svg>'
+                                                with ui.element("div").style(
+                                                    "display:flex; align-items:center; gap:10px; "
+                                                    "font-family:'Inter',system-ui; font-size:12.5px; line-height:1.4; width:100%"
+                                                ):
+                                                    if t["done"]:
+                                                        ui.html(
+                                                            '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="flex:0 0 14px">'
+                                                            '<circle cx="8" cy="8" r="7" fill="url(#tg)"/>'
+                                                            '<path d="M4.5 8.2 L7 10.6 L11.5 5.8" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
+                                                            '</svg>'
+                                                        )
+                                                    else:
+                                                        ui.html(
+                                                            '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="flex:0 0 14px;color:#475569">'
+                                                            '<circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.2"/>'
+                                                            '<circle cx="8" cy="8" r="2" fill="currentColor"/>'
+                                                            '</svg>'
+                                                        )
+                                                    ui.label(t["name"]).style(f"color:{name_color}; flex:1")
+                                                    ui.label(score_text).style(
+                                                        f"font-family:ui-monospace,monospace; font-size:11px; color:{score_color}"
                                                     )
-                                                else:
-                                                    ui.html(
-                                                        '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="flex:0 0 14px;color:#475569">'
-                                                        '<circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.2"/>'
-                                                        '<circle cx="8" cy="8" r="2" fill="currentColor"/>'
-                                                        '</svg>'
+                                                for sub in sub_labels:
+                                                    ui.label(f"· {sub}").style(
+                                                        f"font-size:0.75rem; color:{sub_color}; padding:2px 0 2px 12px; line-height:1.4"
                                                     )
-                                                ui.label(t["name"]).style(f"color:{name_color}; flex:1")
-                                                ui.label(score_text).style(
-                                                    f"font-family:ui-monospace,monospace; font-size:11px; color:{score_color}"
-                                                )
                                     if not _any_score:
                                         ui.label("Ask a question to start tracking your progress on this module.").style(
                                             "font-family:'Inter',system-ui; font-size:11px; color:#64748b; "
