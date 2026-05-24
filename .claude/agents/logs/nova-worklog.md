@@ -1994,3 +1994,25 @@ users get Phase 3 topics, not Phase 1); (2) updated mock patch targets in
 - `src/agents/assessment/test_delivery.py` — wired to mastery-aware path
 - `tests/test_mastery_routing.py` — new (17 tests, 5 classes)
 - `tests/test_question_type_balance.py` — 2 mock patch targets updated (orchestrator)
+
+## 📋 Replan Notice — 2026-05-24
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was added:**
+- Commit 52.3 `auto-initiated-intro` — shared with Aria (cross-domain). You own the graph-layer auto-seed; Aria owns carousel and chip rendering in `ui.py`. On `interaction_count == 0`, inject a seed message as a `HumanMessage` and run it through the real LangGraph graph (retrieve → generate → assess), streaming the response via the existing SSE path. No new nodes needed.
+
+**What was removed:** nothing
+
+**What changed in your sequence:** C52.3 inserts before C53 nginx-config. Your infra work (if any in C55 integration-tests) is unchanged.
+
+**Your next commit is now: Commit 52.3 `auto-initiated-intro`** (after Aria completes C52.2)
+
+**Key constraints for 52.3 (your portion):**
+- Seed message routes through the real graph with the user's actual `mastery_level` context — no hardcoded/fake response
+- Inject as `HumanMessage` on session init; the session-init trigger point is `interaction_count == 0` (already tracked in AgentState)
+- SSE stream the response exactly as user-typed messages — no special casing in the stream consumer
+- Do NOT add new LangGraph nodes — the existing retrieve → generate chain handles this
+- If desired: add a `seeded` flag to suppress the seed message from interaction_count metrics, but this is optional
+- Coordinate with Aria: Nova fires the graph call; Aria renders the SSE stream in the chat bubble and removes the static welcome markdown bubble when auto-seed fires
+- Context (what RAG is) must precede any MCQ or diagnostic question — ensure the generate node receives novice-appropriate system context so the opening response is explanatory, not a quiz
