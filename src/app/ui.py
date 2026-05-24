@@ -115,6 +115,33 @@ _CHIP_MODULE_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Advanced",   ("Evaluation & Metrics", "Production Patterns")),
 ]
 
+_WELCOME_CHIPS: dict[str, list[str]] = {
+    "novice": [
+        "Explain RAG like I'm 14 — no jargon",
+        "What problem does RAG solve?",
+        "How is RAG different from a regular chatbot?",
+        "What is an embedding and why does it matter?",
+    ],
+    "intermediate": [
+        "Walk me through chunking strategies and their trade-offs",
+        "When should I use dense vs sparse retrieval?",
+        "How does LangChain simplify RAG pipelines?",
+        "What's the difference between MMR and similarity search?",
+    ],
+    "advanced": [
+        "How do I evaluate retrieval quality in production?",
+        "What are the trade-offs between different vector databases at scale?",
+        "How do I optimize RAG for latency without sacrificing accuracy?",
+        "What production failure modes should I design for in RAG systems?",
+    ],
+    "expert": [
+        "How do I evaluate retrieval quality in production?",
+        "What are the trade-offs between different vector databases at scale?",
+        "How do I optimize RAG for latency without sacrificing accuracy?",
+        "What production failure modes should I design for in RAG systems?",
+    ],
+}
+
 
 def _build_welcome_message(display_name: str | None, profile: dict | None) -> str:
     name = display_name or "there"
@@ -140,11 +167,7 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
     if interaction_count == 0 and mastery_level == "novice":
         return (
             f"Welcome, **{name}**! I'm RAG Tutor — your AI-powered guide to Retrieval-Augmented Generation.\n\n"
-            "Not sure where to start? Try one of these:\n"
-            '- "Explain RAG like I\'m 14 — no jargon"\n'
-            '- "I know some ML — how does RAG differ from fine-tuning?"\n'
-            '- "I\'m building a chatbot — what RAG pattern should I use?"\n'
-            '- "Give me the 5-minute overview of why RAG matters"'
+            "Not sure where to start? Pick one of the prompts below to begin."
         )
 
     # Build cross-phase progress summary for returning users.
@@ -158,7 +181,7 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
     phase_parts: list[str] = []
     for phase_name, slugs in _PROGRESS_PHASES:
         total = len(slugs)
-        done = sum(1 for s in slugs if topic_scores.get(s, 0.0) >= _DONE_THRESHOLD)
+        done = sum(1 for s in slugs if (topic_scores.get(s) or 0.0) >= _DONE_THRESHOLD)
         if done == total:
             phase_parts.append(f"{phase_name} ✓")
         else:
@@ -174,8 +197,7 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
         return (
             f"Welcome back, **{name}**.\n\n"
             f"**Your progress:** {progress_line}\n\n"
-            f"Last time you worked on {last_area} — ready to keep building?\n"
-            f"Try: **{_starter(top_gap)}**"
+            f"Last time you worked on {last_area} — ready to keep building?"
         )
 
     if strengths:
@@ -186,14 +208,12 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
             return (
                 f"Welcome back, **{name}**.\n\n"
                 f"**Your progress:** {progress_line}\n\n"
-                f"Last time you worked on {last_area} — up next is **{_label(next_slug)}**.\n"
-                f"Try: **{_starter(next_slug)}**"
+                f"Last time you worked on {last_area} — up next is **{_label(next_slug)}**."
             )
         return (
             f"Welcome back, **{name}**.\n\n"
             f"**Your progress:** {progress_line}\n\n"
-            f"You've worked through the full curriculum — sharpening the edges is what's left.\n"
-            f"Try: **{_starter(top_strength)}**"
+            "You've worked through the full curriculum — sharpening the edges is what's left."
         )
 
     # Fallback: mastery is known but gaps/strengths not yet populated.
@@ -204,15 +224,13 @@ def _build_welcome_message(display_name: str | None, profile: dict | None) -> st
         return (
             f"Welcome back, **{name}**.\n\n"
             f"**Your progress:** {progress_line}\n\n"
-            f"You're in **{phase_label}** — that's where the real leverage is.\n"
-            f"Try: **{_starter(rec_slug)}**"
+            f"You're in **{phase_label}** — that's where the real leverage is."
         )
 
     return (
         f"Welcome back, **{name}**.\n\n"
         f"**Your progress:** {progress_line}\n\n"
-        "Your profile is still forming — the fastest way to build it is to start a conversation.\n"
-        "Try: **What is retrieval-augmented generation?**"
+        "Your profile is still forming — the fastest way to build it is to start a conversation."
     )
 
 
@@ -2268,6 +2286,17 @@ html, body {
                                     ui.markdown(_welcome_msg).style(
                                         "font-size:0.9rem; color:#cbd5e1; line-height:1.6"
                                     )
+                                    _ml = (_welcome_profile or {}).get("mastery_level", "novice")
+                                    _chip_list = _WELCOME_CHIPS.get(_ml, _WELCOME_CHIPS["novice"])
+                                    with ui.row().style("flex-wrap:wrap; gap:8px; margin-top:14px"):
+                                        for _ct in _chip_list:
+                                            async def _chip_click(_e, _t=_ct):
+                                                await send_message(_t)
+                                            ui.button(_ct).props("flat dense no-caps").style(
+                                                "background:rgba(109,40,217,0.12); border:1px solid rgba(109,40,217,0.4); "
+                                                "color:#a78bfa; border-radius:20px; padding:4px 14px; "
+                                                "font-size:0.82rem; letter-spacing:0"
+                                            ).on("click", _chip_click)
 
                         # Composer — pinned to bottom, height ~108px
                         with ui.column().style(

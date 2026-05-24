@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Session 23 — Commit 45.6 welcome-message-ux · 2026-05-23*
+*Last updated: Session 24 — Commit 52.2 welcome-ux-quick-wins · 2026-05-24*
 
-**Last completed:** Session 23 — Commit 45.6 welcome-message-ux: Rewrote `_build_welcome_message()` in `src/app/ui.py`. (1) First-time Novice path (`interaction_count == 0 AND mastery_level == "novice"`): replaced sparse two-liner with warm app introduction + 4 concrete starter paths spanning total beginner, ML-aware, builder, and overview entry points. (2) All returning-user paths: added a cross-phase progress summary line computed from `topic_scores` (done = score >= 0.70) covering Foundations (2 topics), Core (5 topics including `langchain_fundamentals`), and Production (2 topics); added last-active area surfacing from gaps/strengths; kept existing gap/strength recommendation logic for the resume action. (3) No-profile fallback unchanged. Function signature unchanged. No new API calls. No `ui.html()` — function returns a plain markdown string.
+**Last completed:** Session 24 — Commit 52.2 welcome-ux-quick-wins: Added `_WELCOME_CHIPS` module-level constant (4 mastery levels × 4 chip strings). Removed all "Try:" plain-text lines and bullet lists from every `_build_welcome_message()` branch (novice first-time, gaps, strengths-with-next, strengths-terminal, phase-fallback, profile-forming). Added chip row inside the welcome card in `index()` after `ui.markdown(_welcome_msg)` — mastery-level-aware, default-argument closure capture (`_t=_ct`), NiceGUI `ui.button().props("flat dense no-caps").on("click", _chip_click)` pattern matching nav chips. No `ui.html()` with user data. No new API calls. Function signature unchanged.
 **Currently active:** none
 **Blocked by:** none
 
@@ -37,9 +37,25 @@
 ## Session Index
 | # | Commit | Status | Key Decision |
 |---|--------|--------|--------------|
+| 24 | 52.2 | ✅ Done | _WELCOME_CHIPS at module level; default-arg closure capture (_t=_ct) in for-loop; chips render only hardcoded strings — no user data path; "Try:" lines removed from all 5 returning-user branches |
 | 23 | 45.6 | ✅ Done | Cross-phase progress summary from topic_scores; _PROGRESS_PHASES hardcoded inside function (not module-level) to co-locate with usage; last_active_slug derives from gaps first, strengths second |
 | 22 | 44 | ✅ Done | Phase-grouped Overview (locked/unlocked); _prev_mastery mutable list closure for gate detection; unlock animation CSS injected once via add_head_html; all user-sourced values through ui.label() |
 | 21 | 38.5 | ✅ Done | Tab state via mutable list closure; SVG gradient defs injected once in index() via add_head_html, referenced as url(#tg) in static ui.html() SVG strings; all user data through ui.label() |
+
+### Session 24 — Commit 52.2 `welcome-ux-quick-wins` · 2026-05-24
+
+**Approach:** The spec was clear about what to replace (plain-text "Try:" lines) and what to add (clickable chip buttons), but the interesting problem was the interaction between `_build_welcome_message()` and the chip render site. The function returns a markdown string — chips are NiceGUI components — so there was never a question of embedding chips in the string. The split is: prose lives in the string, interaction layer lives in `index()`. I considered whether to pass the mastery level back from `_build_welcome_message()` rather than reading it separately from `_welcome_profile` at the render site, but that would break the function signature contract (`-> str`) and add unnecessary coupling. Reading `_welcome_profile.get("mastery_level")` directly in `index()` is one line and keeps the function pure. For the closure pattern: the nav chip pattern in the codebase already uses `async def _chip_click(_e, _t=_cn): await send_message(...)` with default-arg capture — I used the identical pattern. Without `_t=_ct`, all four buttons would call `send_message` with the last chip text after the loop completes (classic Python late-binding). The `send_message` forward reference is safe: it is defined later in the same page function scope, and Python closures resolve names at call time, not definition time — no chip can be clicked before the page function has fully executed. The novice first-time path required a deliberate word choice: the original had "Try one of these:" followed by a bullet list that became chips. I rewrote the lead-in to "Not sure where to start? Pick one of the prompts below to begin." — this reads as a natural introduction to the chips below without implying text-only interaction. All returning-user branches lost their trailing "Try:" line cleanly; the prose stands on its own without the coda. No XSS risk: chip text comes exclusively from the hardcoded `_WELCOME_CHIPS` dict, never from user-controlled data.
+
+**Date:** 2026-05-24
+**Status:** ✅ Done
+
+### Changes
+
+| File | Change |
+|---|---|
+| `src/app/ui.py` module level | `_WELCOME_CHIPS` constant added after `_CHIP_MODULE_GROUPS` — 4 mastery levels, 4 chips each |
+| `src/app/ui.py` `_build_welcome_message()` | Novice first-time: replaced bullet list with single lead-in sentence. All returning-user branches: removed trailing "Try: **...**" line. No signature change. |
+| `src/app/ui.py` `index()` welcome card | Chip row added after `ui.markdown(_welcome_msg)`: mastery-level lookup, `ui.row` with `flex-wrap`, `ui.button.props("flat dense no-caps").on("click", _chip_click)` per chip, default-arg capture |
 
 ### Session 23 — Commit 45.6 `welcome-message-ux` · 2026-05-23
 
@@ -1104,3 +1120,31 @@ Phase data already in ui.py: `_PHASE_TOPICS`, `_PHASE_LABELS`, `_MODULE_LABELS`,
 **What changed in your sequence:** your next Aria commit after 45.4.1 resolves is now 45.6. It can run in parallel with Commit 45.5 (`rag-prompt-quality`, assigned to Nova) — Wave H, different files.
 
 **Your next commit is now: Commit 44 `phase-unlock-ui`** (after Nova's Commit 43 `phase-unlock-agent` is complete)
+
+## 📋 Replan Notice — 2026-05-24
+
+The commit plan has been updated. Here is what changed for you:
+
+**What was added:**
+- Commit 52.2 `welcome-ux-quick-wins` — assigned to you (Aria). Replace bullet-text prompt suggestions with clickable level-aware chip buttons; add input placeholder text; rewrite welcome message to explicitly acknowledge the user's mastery level. Files: `src/app/ui.py` only.
+- Commit 52.3 `auto-initiated-intro` — shared with Nova (cross-domain). You own the carousel and chip rendering in `ui.py`; Nova owns the graph-layer auto-seed. Adds a hardcoded 3-card "RAG in 60 seconds" carousel shown on first session, and ensures all chips/prompts are mastery-level-aware.
+
+**What was removed:** nothing
+
+**What changed in your sequence:** two new commits (52.2 → 52.3) insert before C53 nginx-config. All infra commits unchanged.
+
+**Your next commit is now: Commit 52.2 `welcome-ux-quick-wins`**
+
+**Key constraints for 52.2:**
+- Touch only `src/app/ui.py`
+- Chips must be clickable (populate input + auto-submit on click)
+- Chips must be level-differentiated (Novice sees beginner chips, not the same as Intermediate)
+- Input placeholder: "Ask anything about RAG — or pick a suggestion above"
+- Welcome text must reference the user's mastery level explicitly
+- 3 chips per level (not 4 — reduces choice paralysis)
+
+**Key constraints for 52.3 (your portion):**
+- Hardcoded 3-card carousel (static content — AI-generated version is a future request)
+- Carousel appears before chips on `interaction_count == 0`
+- Coordinate with Nova on the auto-seed trigger: Nova fires the LangGraph call, you render the SSE stream in the chat bubble
+- Context (what RAG is) must appear before any MCQ or diagnostic question
