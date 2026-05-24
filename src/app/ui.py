@@ -1697,22 +1697,45 @@ html, body {
         _ob_questions: list = [[]]
         _ob_placement: list = [{}]
 
-        onboarding_dialog = ui.dialog().props("persistent")
+        # Check onboarding status — no dialog; inline flow gates the welcome card
+        _ob_needed: bool = False
+        if bearer_ok:
+            try:
+                _ob_status = await http().get("/api/onboarding/status", headers=auth_headers())
+                if _ob_status.status_code == 200:
+                    _ob_needed = bool(_ob_status.json().get("needed", False))
+            except Exception:
+                pass
 
-        async def _ob_skip():
+        _onboarding_done: list[bool] = [not _ob_needed]
+
+        async def _ob_skip_inline():
             try:
                 await http().post(
                     "/api/onboarding/complete",
-                    json={"level": _ob_self_level[0], "answers": [], "skipped": True},
+                    json={"level": "novice", "answers": [], "skipped": True},
                     headers=auth_headers(),
                 )
             except Exception:
                 pass
-            onboarding_dialog.close()
+            await _ob_finish_inline("novice")
 
-        async def _ob_select_level(level: str):
+        async def _ob_select_level_inline(level: str):
             _ob_self_level[0] = level
             _ob_answers[0] = []
+            if level == "novice":
+                # Novice fast-path: no MCQs
+                try:
+                    await http().post(
+                        "/api/onboarding/complete",
+                        json={"level": "novice", "answers": [], "skipped": False},
+                        headers=auth_headers(),
+                    )
+                except Exception:
+                    pass
+                await _ob_finish_inline("novice")
+                return
+            # Intermediate / Expert: fetch diagnostic questions
             try:
                 r = await http().post(
                     "/api/onboarding/diagnostic",
@@ -1724,9 +1747,9 @@ html, body {
                 data = {}
             _ob_questions[0] = data.get("questions", [])
             _ob_step[0] = 2
-            ob_step_content.refresh()
+            welcome_card_content.refresh()
 
-        async def _ob_select_answer(letter: str):
+        async def _ob_select_answer_inline(letter: str):
             _ob_answers[0].append(letter)
             n_questions = len(_ob_questions[0])
             if len(_ob_answers[0]) >= n_questions or len(_ob_answers[0]) >= 3:
@@ -1743,153 +1766,18 @@ html, body {
                     _ob_placement[0] = r.json() if r.status_code == 200 else {}
                 except Exception:
                     _ob_placement[0] = {}
-                _ob_step[0] = 3
-            ob_step_content.refresh()
+                confirmed_level = _ob_placement[0].get("confirmed_level", _ob_self_level[0])
+                await _ob_finish_inline(confirmed_level)
+                return
+            welcome_card_content.refresh()
 
-        def _ob_finish():
-            onboarding_dialog.close()
+        async def _ob_finish_inline(confirmed_level: str):
+            if _welcome_profile is not None:
+                _welcome_profile["mastery_level"] = confirmed_level
+            _onboarding_done[0] = True
+            welcome_card_content.refresh()
             profile_panel.refresh()
-
-        with onboarding_dialog:
-            with ui.card().style(
-                "background:linear-gradient(160deg,#1e163c,#16103a); "
-                "border:1px solid rgba(139,92,246,0.3); border-top:3px solid #f97316; "
-                "border-radius:16px; padding:28px 28px 24px; width:480px; max-width:94vw; "
-                "box-shadow:0 8px 48px rgba(139,92,246,0.25); gap:0"
-            ):
-                @ui.refreshable
-                def ob_step_content():
-                    if _ob_step[0] == 1:
-                        # Step 1: self-report
-                        ui.label("Welcome to RAG Tutor!").style(
-                            "font-size:1.2rem; font-weight:700; color:#f97316; margin-bottom:6px"
-                        )
-                        ui.label("How familiar are you with RAG systems?").style(
-                            "font-size:0.9rem; color:#94a3b8; margin-bottom:20px"
-                        )
-                        _levels = [
-                            ("novice",       "Novice",       "Just starting out"),
-                            ("intermediate", "Intermediate", "Some experience"),
-                            ("expert",       "Expert",       "I've built RAG systems"),
-                        ]
-                        for _lv, _lv_label, _lv_sub in _levels:
-                            with ui.row().style(
-                                "align-items:center; gap:12px; width:100%; "
-                                "background:#231848; border:1px solid rgba(139,92,246,0.2); "
-                                "border-radius:10px; padding:12px 14px; cursor:pointer; margin-bottom:8px"
-                            ).classes("rag-ob-level-row").on(
-                                "click",
-                                lambda _e, _l=_lv: asyncio.ensure_future(_ob_select_level(_l))
-                            ):
-                                with ui.column().style("gap:2px; flex:1"):
-                                    ui.label(_lv_label).style("font-size:0.9rem; font-weight:600; color:#f8fafc")
-                                    ui.label(_lv_sub).style("font-size:0.78rem; color:#64748b")
-                        ui.label("Skip for now").style(
-                            "font-size:0.82rem; color:#64748b; text-align:right; "
-                            "cursor:pointer; margin-top:8px; width:100%"
-                        ).on("click", lambda: asyncio.ensure_future(_ob_skip()))
-
-                    elif _ob_step[0] == 2:
-                        # Step 2: diagnostic MCQ
-                        questions = _ob_questions[0]
-                        qi = len(_ob_answers[0])
-                        total = min(len(questions), 3)
-
-                        ui.label(f"Question {qi + 1} of {total}").style(
-                            "font-size:0.72rem; font-weight:600; text-transform:uppercase; "
-                            "letter-spacing:0.1em; color:#94a3b8; margin-bottom:12px"
-                        )
-
-                        if qi < len(questions):
-                            raw_q = questions[qi]
-                            raw_text = raw_q["text"] if isinstance(raw_q, dict) else raw_q
-                            lines = raw_text.strip().splitlines()
-                            q_text = lines[0] if lines else ""
-                            opt_lines = [l for l in lines[1:] if len(l) >= 3 and l[0] in "ABCD" and l[1] == "."]
-
-                            ui.label(q_text).style(
-                                "font-size:0.9rem; color:#e2e8f0; line-height:1.5; margin-bottom:16px"
-                            )
-
-                            _letters = ["A", "B", "C", "D"]
-                            for _li, _letter in enumerate(_letters):
-                                _opt_text = opt_lines[_li][3:].strip() if _li < len(opt_lines) else ""
-                                with ui.row().style(
-                                    "align-items:center; gap:0; width:100%; margin-bottom:6px; "
-                                    "background:#1a1238; border:1px solid rgba(139,92,246,0.2); "
-                                    "border-radius:10px; overflow:hidden; cursor:pointer"
-                                ).classes("rag-mcq-row").on(
-                                    "click",
-                                    lambda _e, _l=_letter: asyncio.ensure_future(_ob_select_answer(_l))
-                                ):
-                                    ui.label(_letter).style(
-                                        "width:36px; min-width:36px; height:100%; min-height:42px; "
-                                        "display:flex; align-items:center; justify-content:center; "
-                                        "font-family:ui-monospace,monospace; font-size:11px; font-weight:700; "
-                                        "color:#fff; flex-shrink:0; "
-                                        "background:linear-gradient(135deg,#f97316,#ec4899,#8b5cf6)"
-                                    )
-                                    ui.label(_opt_text).style(
-                                        "flex:1; padding:10px 14px; font-size:0.875rem; "
-                                        "color:#e2e8f0; line-height:1.45"
-                                    )
-
-                        ui.label("Skip for now").style(
-                            "font-size:0.82rem; color:#64748b; text-align:right; "
-                            "cursor:pointer; margin-top:8px; width:100%"
-                        ).on("click", lambda: asyncio.ensure_future(_ob_skip()))
-
-                    else:
-                        # Step 3: result
-                        placement = _ob_placement[0]
-                        confirmed = placement.get("confirmed_level", _ob_self_level[0])
-                        correct = placement.get("correct_count", 0)
-                        msg = placement.get("message", "")
-                        phase_num, phase_name = _PHASE_LABELS.get(confirmed, ("Phase 1", "Foundation"))
-                        phase_topics = _PHASE_TOPICS.get(confirmed, [])
-
-                        with ui.row().style("align-items:center; gap:8px; margin-bottom:14px"):
-                            ui.html(rag_icon("check-circuit", 20, "#22c55e"))
-                            ui.label(f"You're placed at: {confirmed.capitalize()}").style(
-                                "font-size:1.05rem; font-weight:700; color:#22c55e"
-                            )
-
-                        ui.label(f"You got {correct} out of 3 questions right.").style(
-                            "font-size:0.875rem; color:#94a3b8; margin-bottom:4px"
-                        )
-                        if msg:
-                            ui.label(msg).style("font-size:0.875rem; color:#94a3b8; margin-bottom:14px")
-
-                        if phase_topics:
-                            ui.label(f"You'll start with {phase_num} topics:").style(
-                                "font-size:0.82rem; font-weight:600; color:#e2e8f0; margin-bottom:6px"
-                            )
-                            for _slug in phase_topics:
-                                ui.label(f"· {_MODULE_LABELS.get(_slug, _slug.replace('_', ' ').title())}").style(
-                                    "font-size:0.82rem; color:#94a3b8; margin-left:6px"
-                                )
-                        else:
-                            ui.label("All phases complete — keep sharpening your skills.").style(
-                                "font-size:0.82rem; color:#94a3b8; margin-bottom:6px"
-                            )
-
-                        ui.button("Start learning", on_click=_ob_finish).props("unelevated no-caps").style(
-                            "background:linear-gradient(135deg,#f97316,#ec4899,#8b5cf6) !important; "
-                            "color:white !important; width:100%; border-radius:999px; font-weight:600; "
-                            "min-height:44px; font-size:0.95rem; box-shadow:0 4px 24px rgba(236,72,153,0.4); "
-                            "margin-top:20px"
-                        )
-
-                ob_step_content()
-
-        # Check onboarding status and open dialog if needed
-        if bearer_ok:
-            try:
-                _ob_status = await http().get("/api/onboarding/status", headers=auth_headers())
-                if _ob_status.status_code == 200 and _ob_status.json().get("needed"):
-                    onboarding_dialog.open()
-            except Exception:
-                pass
+            await _seed_session()
 
         def logout():
             app.storage.user.clear()
@@ -2281,56 +2169,138 @@ html, body {
                                     "border-radius:12px; box-shadow:0 4px 28px rgba(139,92,246,0.12); "
                                     "backdrop-filter:blur(6px); padding:22px 24px"
                                 ):
-                                    _dn = app.storage.user.get("display_name") or None
-                                    _welcome_msg = _build_welcome_message(_dn, _welcome_profile)
-                                    _is_first_time = not any(
-                                        (v or 0.0) > 0.0
-                                        for v in (_welcome_profile or {}).get("topic_scores", {}).values()
-                                    )
-                                    if _is_first_time:
-                                        with ui.row().style("gap:12px; flex-wrap:wrap; margin-bottom:20px"):
-                                            _intro_cards = [
-                                                (
-                                                    "What is RAG?",
-                                                    "Retrieval-Augmented Generation (RAG) combines a knowledge base with an AI "
-                                                    "language model — giving it accurate, grounded answers instead of hallucinations.",
-                                                ),
-                                                (
-                                                    "How this app works",
-                                                    "We ask adaptive questions, track what you understand, and adjust difficulty "
-                                                    "as you improve. The more you engage, the more personal your path becomes.",
-                                                ),
-                                                (
-                                                    "What you'll cover",
-                                                    "Core RAG concepts · Chunking & Embeddings · Retrieval Methods · "
-                                                    "LangChain · LangGraph · Production Patterns",
-                                                ),
-                                            ]
-                                            for _title, _body in _intro_cards:
-                                                with ui.card().style(
-                                                    "background:rgba(109,40,217,0.08); border:1px solid rgba(109,40,217,0.3); "
-                                                    "border-radius:12px; padding:16px 20px; min-width:180px; flex:1"
-                                                ):
-                                                    ui.label(_title).style(
-                                                        "font-weight:700; color:#a78bfa; font-size:0.9rem; margin-bottom:6px"
+                                    @ui.refreshable
+                                    def welcome_card_content():
+                                        if not _onboarding_done[0]:
+                                            # Inline onboarding — level selection or MCQ
+                                            ui.label("Welcome to RAG Tutor!").style(
+                                                "font-size:1.2rem; font-weight:700; color:#f97316; margin-bottom:6px"
+                                            )
+                                            if _ob_step[0] == 1:
+                                                ui.label("How familiar are you with RAG systems?").style(
+                                                    "font-size:0.9rem; color:#94a3b8; margin-bottom:20px"
+                                                )
+                                                _levels: list[tuple[str, str, str]] = [
+                                                    ("novice",       "Novice",       "Just starting out"),
+                                                    ("intermediate", "Intermediate", "Some experience"),
+                                                    ("expert",       "Expert",       "I've built RAG systems"),
+                                                ]
+                                                for _lv, _lv_label, _lv_sub in _levels:
+                                                    with ui.row().style(
+                                                        "align-items:center; gap:12px; width:100%; "
+                                                        "background:#231848; border:1px solid rgba(139,92,246,0.2); "
+                                                        "border-radius:10px; padding:12px 14px; cursor:pointer; margin-bottom:8px"
+                                                    ).classes("rag-ob-level-row").on(
+                                                        "click",
+                                                        lambda _e, _l=_lv: asyncio.ensure_future(_ob_select_level_inline(_l))
+                                                    ):
+                                                        with ui.column().style("gap:2px; flex:1"):
+                                                            ui.label(_lv_label).style("font-size:0.9rem; font-weight:600; color:#f8fafc")
+                                                            ui.label(_lv_sub).style("font-size:0.78rem; color:#64748b")
+                                                ui.label("Skip for now").style(
+                                                    "font-size:0.82rem; color:#64748b; text-align:right; "
+                                                    "cursor:pointer; margin-top:8px; width:100%"
+                                                ).on("click", lambda: asyncio.ensure_future(_ob_skip_inline()))
+                                            else:
+                                                # Step 2: diagnostic MCQ inline
+                                                questions: list = _ob_questions[0]
+                                                qi: int = len(_ob_answers[0])
+                                                total: int = min(len(questions), 3)
+                                                ui.label(f"Question {qi + 1} of {total}").style(
+                                                    "font-size:0.72rem; font-weight:600; text-transform:uppercase; "
+                                                    "letter-spacing:0.1em; color:#94a3b8; margin-bottom:12px"
+                                                )
+                                                if qi < len(questions):
+                                                    raw_q = questions[qi]
+                                                    raw_text = raw_q["text"] if isinstance(raw_q, dict) else raw_q
+                                                    _lines = raw_text.strip().splitlines()
+                                                    q_text = _lines[0] if _lines else ""
+                                                    opt_lines: list[str] = [
+                                                        l for l in _lines[1:]
+                                                        if len(l) >= 3 and l[0] in "ABCD" and l[1] == "."
+                                                    ]
+                                                    ui.label(q_text).style(
+                                                        "font-size:0.9rem; color:#e2e8f0; line-height:1.5; margin-bottom:16px"
                                                     )
-                                                    ui.label(_body).style(
-                                                        "color:#c4b5fd; font-size:0.8rem; line-height:1.5"
-                                                    )
-                                    ui.markdown(_welcome_msg).style(
-                                        "font-size:0.9rem; color:#cbd5e1; line-height:1.6"
-                                    )
-                                    _ml = (_welcome_profile or {}).get("mastery_level", "novice")
-                                    _chip_list = _WELCOME_CHIPS.get(_ml, _WELCOME_CHIPS["novice"])
-                                    with ui.row().style("flex-wrap:wrap; gap:8px; margin-top:14px"):
-                                        for _ct in _chip_list:
-                                            async def _chip_click(_e, _t=_ct):
-                                                await send_message(_t)
-                                            ui.button(_ct).props("flat dense no-caps").style(
-                                                "background:rgba(109,40,217,0.12); border:1px solid rgba(109,40,217,0.4); "
-                                                "color:#a78bfa; border-radius:20px; padding:4px 14px; "
-                                                "font-size:0.82rem; letter-spacing:0"
-                                            ).on("click", _chip_click)
+                                                    _letters: list[str] = ["A", "B", "C", "D"]
+                                                    for _li, _letter in enumerate(_letters):
+                                                        _opt_text = opt_lines[_li][3:].strip() if _li < len(opt_lines) else ""
+                                                        with ui.row().style(
+                                                            "align-items:center; gap:0; width:100%; margin-bottom:6px; "
+                                                            "background:#1a1238; border:1px solid rgba(139,92,246,0.2); "
+                                                            "border-radius:10px; overflow:hidden; cursor:pointer"
+                                                        ).classes("rag-mcq-row").on(
+                                                            "click",
+                                                            lambda _e, _l=_letter: asyncio.ensure_future(_ob_select_answer_inline(_l))
+                                                        ):
+                                                            ui.label(_letter).style(
+                                                                "width:36px; min-width:36px; height:100%; min-height:42px; "
+                                                                "display:flex; align-items:center; justify-content:center; "
+                                                                "font-family:ui-monospace,monospace; font-size:11px; font-weight:700; "
+                                                                "color:#fff; flex-shrink:0; "
+                                                                "background:linear-gradient(135deg,#f97316,#ec4899,#8b5cf6)"
+                                                            )
+                                                            ui.label(_opt_text).style(
+                                                                "flex:1; padding:10px 14px; font-size:0.875rem; "
+                                                                "color:#e2e8f0; line-height:1.45"
+                                                            )
+                                                ui.label("Skip for now").style(
+                                                    "font-size:0.82rem; color:#64748b; text-align:right; "
+                                                    "cursor:pointer; margin-top:8px; width:100%"
+                                                ).on("click", lambda: asyncio.ensure_future(_ob_skip_inline()))
+                                        else:
+                                            # Welcome message + chips — rendered after level confirmed
+                                            _dn = app.storage.user.get("display_name") or None
+                                            _welcome_msg = _build_welcome_message(_dn, _welcome_profile)
+                                            _is_first_time = not any(
+                                                (v or 0.0) > 0.0
+                                                for v in (_welcome_profile or {}).get("topic_scores", {}).values()
+                                            )
+                                            if _is_first_time:
+                                                with ui.row().style("gap:12px; flex-wrap:wrap; margin-bottom:20px"):
+                                                    _intro_cards: list[tuple[str, str]] = [
+                                                        (
+                                                            "What is RAG?",
+                                                            "Retrieval-Augmented Generation (RAG) combines a knowledge base with an AI "
+                                                            "language model — giving it accurate, grounded answers instead of hallucinations.",
+                                                        ),
+                                                        (
+                                                            "How this app works",
+                                                            "We ask adaptive questions, track what you understand, and adjust difficulty "
+                                                            "as you improve. The more you engage, the more personal your path becomes.",
+                                                        ),
+                                                        (
+                                                            "What you'll cover",
+                                                            "Core RAG concepts · Chunking & Embeddings · Retrieval Methods · "
+                                                            "LangChain · LangGraph · Production Patterns",
+                                                        ),
+                                                    ]
+                                                    for _title, _body in _intro_cards:
+                                                        with ui.card().style(
+                                                            "background:rgba(109,40,217,0.08); border:1px solid rgba(109,40,217,0.3); "
+                                                            "border-radius:12px; padding:16px 20px; min-width:180px; flex:1"
+                                                        ):
+                                                            ui.label(_title).style(
+                                                                "font-weight:700; color:#a78bfa; font-size:0.9rem; margin-bottom:6px"
+                                                            )
+                                                            ui.label(_body).style(
+                                                                "color:#c4b5fd; font-size:0.8rem; line-height:1.5"
+                                                            )
+                                            ui.markdown(_welcome_msg).style(
+                                                "font-size:0.9rem; color:#cbd5e1; line-height:1.6"
+                                            )
+                                            _ml = (_welcome_profile or {}).get("mastery_level", "novice")
+                                            _chip_list = _WELCOME_CHIPS.get(_ml, _WELCOME_CHIPS["novice"])
+                                            with ui.row().style("flex-wrap:wrap; gap:8px; margin-top:14px"):
+                                                for _ct in _chip_list:
+                                                    async def _chip_click(_e, _t=_ct):
+                                                        await send_message(_t)
+                                                    ui.button(_ct).props("flat dense no-caps").style(
+                                                        "background:rgba(109,40,217,0.12); border:1px solid rgba(109,40,217,0.4); "
+                                                        "color:#a78bfa; border-radius:20px; padding:4px 14px; "
+                                                        "font-size:0.82rem; letter-spacing:0"
+                                                    ).on("click", _chip_click)
+                                    welcome_card_content()
 
                         # Composer — pinned to bottom, height ~108px
                         with ui.column().style(
@@ -2879,7 +2849,8 @@ html, body {
         send_btn.on_click(send)
         question_input.on("keydown.enter", send)
 
-        if bearer_ok:
+        # Fire seed only for returning users; new users trigger it from _ob_finish_inline
+        if bearer_ok and not _ob_needed:
             asyncio.ensure_future(_seed_session())
 
         if app.storage.user.get("user_id") and not app.storage.user.get("email"):

@@ -5,9 +5,9 @@
 ---
 
 ## Current State
-*Last updated: Session 25 — Commit 52.3 auto-initiated-intro · 2026-05-24*
+*Last updated: Session 26 — Commit 52.4 inline-onboarding · 2026-05-24*
 
-**Last completed:** Session 25 — Commit 52.3 auto-initiated-intro: Added first-time static intro cards (3 hardcoded `ui.label()` cards inside a `ui.row()` above `ui.markdown(_welcome_msg)`, gated on `_is_first_time` — no topic_scores > 0). Added `_seed_session()` inner async function in `index()` after `send_message`, mirroring the SSE parse loop (`data: ` strip + `json.loads` + `type` dispatch). Seed response renders as a bare RT bubble (no user bubble, no debug block), revealed on first token via `set_visibility(True)`. Failure is fully silent (`try/except Exception: pass`). Auto-trigger added after `question_input.on("keydown.enter", send)` — fires only when `bearer_ok` is True via `asyncio.ensure_future(_seed_session())`. No `ui.html()` used anywhere. `send_message()` not modified.
+**Last completed:** Session 26 — Commit 52.4 inline-onboarding: Replaced the `ui.dialog` onboarding popup with an inline `@ui.refreshable` `welcome_card_content()` function inside the welcome card. Removed all `onboarding_dialog` / `ob_step_content` code (lines 1700–1892). Onboarding state (`_ob_needed`, `_onboarding_done`) gates whether the card shows level-selection or the welcome message+chips. Novice fast-path skips MCQs and calls `/api/onboarding/complete` directly. `_ob_finish_inline(confirmed_level)` updates `_welcome_profile["mastery_level"]` before refreshing so welcome message reflects correct level. `_seed_session()` now fires from `_ob_finish_inline` for new users; page-load call is conditioned on `not _ob_needed`.
 **Currently active:** none
 **Blocked by:** none
 
