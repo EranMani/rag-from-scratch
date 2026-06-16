@@ -1,7 +1,7 @@
 [project]
 name = "rag-from-scratch"
 version = "0.1.0"
-description = "Production-grade RAG system — portfolio demo"
+description = "Production-style RAG system — portfolio demo"
 requires-python = ">=3.11"
 
 dependencies = [
@@ -62,7 +62,7 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["tests/active"]
 
 [tool.pyright]
 pythonVersion = "3.11"

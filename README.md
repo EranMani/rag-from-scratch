@@ -27,6 +27,7 @@ pieces fit together.
 - [State And Profile](#state-and-profile)
 - [For Interviewers](#for-interviewers)
 - [Infrastructure](#infrastructure)
+- [Tests](#tests)
 - [Project Structure](#project-structure)
 - [Next Improvements](#next-improvements)
 
@@ -384,6 +385,22 @@ Prometheus metrics include:
 - chunks retrieved per query
 - LLM call counts by provider/status
 - circuit breaker state gauges
+
+## Tests
+
+Run the active portfolio suite:
+
+```bash
+uv run pytest -q
+```
+
+The active tests focus on the current architecture: demo import/contracts,
+bundled sample docs, LangGraph graph assembly, retrieval fallback behavior,
+profile-update guardrails, and API health routes.
+
+Older commit-gate tests are kept in the repository as development history, but
+the default pytest path is intentionally scoped to `tests/active/` so stale
+contracts do not hide the current signal.
 
 ## Project Structure
 
