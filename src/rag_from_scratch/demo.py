@@ -19,6 +19,8 @@ import re
 import shutil
 import textwrap
 from typing import Any
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
@@ -30,6 +32,7 @@ from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from openai import AuthenticationError
 from pydantic import BaseModel, Field
 
 
@@ -67,7 +70,78 @@ def run_demo() -> None:
     print(f"Embedding model:     {backend['embedding_model']}")
     print("Flow: Chroma retrieval -> LLM generation -> profile update -> profile reuse")
 
-    vectorstore = _build_demo_vectorstore(backend["embeddings"])
+    try:
+        _run_demo_with_backend(backend)
+    except AuthenticationError as exc:
+        if backend["provider"] != "openai":
+            raise
+        print()
+        print("OpenAI authentication failed. Demo circuit breaker: OPEN -> routing to Ollama.")
+        print(f"Reason: {exc}")
+        backend = _select_ollama_backend(reason="openai_auth_failed")
+        _print_backend(backend)
+        _run_demo_with_backend(backend)
+
+
+def _select_backend() -> dict[str, Any]:
+    force_ollama = os.getenv("DEMO_FORCE_OLLAMA", "").lower() in {"1", "true", "yes"}
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    has_openai_key = _has_real_openai_key(openai_key)
+
+    if has_openai_key and not force_ollama:
+        model_name = os.getenv("MODEL_NAME") or os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
+        embedding_model = (
+            os.getenv("EMBEDDING_MODEL")
+            or os.getenv("OPENAI_EMBEDDING_MODEL")
+            or "text-embedding-3-small"
+        )
+        profile_llm = ChatOpenAI(model=model_name, temperature=0).with_structured_output(
+            ProfileUpdate,
+            method="function_calling",
+        )
+        return {
+            "provider": "openai",
+            "generation_model": model_name,
+            "embedding_provider": "openai",
+            "embedding_model": embedding_model,
+            "llm": ChatOpenAI(model=model_name, temperature=0.2),
+            "profile_llm": profile_llm,
+            "embeddings": OpenAIEmbeddings(model=embedding_model),
+        }
+
+    if not has_openai_key:
+        print("OpenAI API key not found. Demo circuit breaker: OPEN -> routing to Ollama.")
+    elif force_ollama:
+        print("DEMO_FORCE_OLLAMA=true. Routing demo generation to Ollama.")
+
+    return _select_ollama_backend(reason="forced_or_missing_openai")
+
+
+def _select_ollama_backend(reason: str) -> dict[str, Any]:
+    del reason
+
+    ollama_model = os.getenv("OLLAMA_MODEL", "gemma3:4b")
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    _preflight_ollama(ollama_base_url, ollama_model)
+    llm = ChatOllama(model=ollama_model, base_url=ollama_base_url, temperature=0.2)
+    return {
+        "provider": "ollama",
+        "generation_model": ollama_model,
+        "embedding_provider": "local",
+        "embedding_model": LOCAL_EMBEDDING_MODEL,
+        "llm": llm,
+        "profile_llm": llm,
+        "embeddings": HuggingFaceEmbeddings(
+            model_name=LOCAL_EMBEDDING_MODEL,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
+        ),
+    }
+
+
+def _run_demo_with_backend(backend: dict[str, Any]) -> None:
+    persist_dir = DEMO_CHROMA_DIR / backend["provider"]
+    vectorstore = _build_demo_vectorstore(backend["embeddings"], persist_dir)
     llm = backend["llm"]
     profile_llm = backend["profile_llm"]
 
@@ -103,59 +177,34 @@ def run_demo() -> None:
         )
 
 
-def _select_backend() -> dict[str, Any]:
-    force_ollama = os.getenv("DEMO_FORCE_OLLAMA", "").lower() in {"1", "true", "yes"}
-    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+def _print_backend(backend: dict[str, Any]) -> None:
+    print(f"Generation provider: {backend['provider']}")
+    print(f"Generation model:    {backend['generation_model']}")
+    print(f"Embedding provider:  {backend['embedding_provider']}")
+    print(f"Embedding model:     {backend['embedding_model']}")
+    print("Flow: Chroma retrieval -> LLM generation -> profile update -> profile reuse")
 
-    if openai_key and not force_ollama:
-        model_name = os.getenv("MODEL_NAME") or os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
-        embedding_model = (
-            os.getenv("EMBEDDING_MODEL")
-            or os.getenv("OPENAI_EMBEDDING_MODEL")
-            or "text-embedding-3-small"
-        )
-        profile_llm = ChatOpenAI(model=model_name, temperature=0).with_structured_output(
-            ProfileUpdate,
-            method="function_calling",
-        )
-        return {
-            "provider": "openai",
-            "generation_model": model_name,
-            "embedding_provider": "openai",
-            "embedding_model": embedding_model,
-            "llm": ChatOpenAI(model=model_name, temperature=0.2),
-            "profile_llm": profile_llm,
-            "embeddings": OpenAIEmbeddings(model=embedding_model),
-        }
 
-    if not openai_key:
-        print("OpenAI API key not found. Demo circuit breaker: OPEN -> routing to Ollama.")
-    elif force_ollama:
-        print("DEMO_FORCE_OLLAMA=true. Routing demo generation to Ollama.")
+def _has_real_openai_key(value: str) -> bool:
+    """Return False for empty/default placeholder values from .env.example."""
 
-    ollama_model = os.getenv("OLLAMA_MODEL", "gemma3:4b")
-    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    llm = ChatOllama(model=ollama_model, base_url=ollama_base_url, temperature=0.2)
-    return {
-        "provider": "ollama",
-        "generation_model": ollama_model,
-        "embedding_provider": "local",
-        "embedding_model": LOCAL_EMBEDDING_MODEL,
-        "llm": llm,
-        "profile_llm": llm,
-        "embeddings": HuggingFaceEmbeddings(
-            model_name=LOCAL_EMBEDDING_MODEL,
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
-        ),
+    normalized = value.strip().lower()
+    if not normalized:
+        return False
+    placeholders = {
+        "your_openai_api_key_here",
+        "sk-...",
+        "sk-your-key-here",
+        "change-me",
     }
+    return normalized not in placeholders
 
 
-def _build_demo_vectorstore(embeddings: Embeddings) -> Chroma:
+def _build_demo_vectorstore(embeddings: Embeddings, persist_dir: Path) -> Chroma:
     """Create a fresh local Chroma collection from bundled sample docs."""
 
-    if DEMO_CHROMA_DIR.exists():
-        shutil.rmtree(DEMO_CHROMA_DIR)
+    if persist_dir.exists():
+        shutil.rmtree(persist_dir)
 
     raw_docs = _load_sample_documents()
     chunks = RecursiveCharacterTextSplitter(
@@ -168,7 +217,7 @@ def _build_demo_vectorstore(embeddings: Embeddings) -> Chroma:
         documents=chunks,
         embedding=embeddings,
         collection_name=COLLECTION_NAME,
-        persist_directory=str(DEMO_CHROMA_DIR),
+        persist_directory=str(persist_dir),
     )
 
 
@@ -186,6 +235,55 @@ def _load_sample_documents() -> list[Document]:
     if not docs:
         raise RuntimeError(f"No sample markdown files found in {SAMPLE_DOCS_DIR}")
     return docs
+
+
+def _preflight_ollama(base_url: str, model: str) -> None:
+    """Fail fast with setup guidance when the Ollama fallback cannot run."""
+
+    tags_url = base_url.rstrip("/") + "/api/tags"
+    try:
+        request = Request(tags_url, headers={"Accept": "application/json"})
+        with urlopen(request, timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise SystemExit(
+            "\n".join(
+                [
+                    "Ollama fallback selected, but the Ollama server is not reachable.",
+                    f"Base URL: {base_url}",
+                    f"Reason: {exc}",
+                    "",
+                    "How to fix:",
+                    "1. Install Ollama: https://ollama.com",
+                    "2. Start Ollama.",
+                    f"3. Pull the configured model: ollama pull {model}",
+                    "4. Re-run: python demo.py",
+                ]
+            )
+        ) from exc
+
+    models = payload.get("models", [])
+    available = sorted(
+        item.get("name", "")
+        for item in models
+        if isinstance(item, dict) and item.get("name")
+    )
+    if model not in available:
+        raise SystemExit(
+            "\n".join(
+                [
+                    "Ollama fallback selected, but the configured model is not pulled.",
+                    f"Required model: {model}",
+                    f"Available models: {', '.join(available) if available else 'none'}",
+                    "",
+                    "How to fix:",
+                    f"1. Run: ollama pull {model}",
+                    "2. Re-run: python demo.py",
+                    "",
+                    "Or set OLLAMA_MODEL to one of the available models in .env.",
+                ]
+            )
+        )
 
 
 def _generate_answer(
