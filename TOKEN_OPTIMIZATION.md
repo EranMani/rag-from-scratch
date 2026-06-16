@@ -247,7 +247,7 @@ Over the 12 remaining commits: Viktor/Quinn run 2–3 times total instead of 12 
 
 All three summaries are always loaded (~50 lines total). Full docs loaded on demand only — e.g., an agent building a node that touches AgentState pulls the relevant DECISIONS.md section, not all 313 lines.
 
-**LEARNING_LOG eviction rule:** When entry count reaches 40, Ryan compresses the oldest 20 into an era block (`learning-log-archive-era[N].md`) before writing the new entry. The file never grows unbounded.
+**LEARNING_LOG eviction rule:** When entry count reaches 40, Ryan compresses the oldest 20 into an era block (`docs/dev-process/learning-log-archive-era[N].md`) before writing the new entry. The file never grows unbounded.
 
 **Maintenance obligation:** Every agent that writes to a full doc updates its summary in the same pass. Enforced by the Step 9 checklist. An outdated summary is worse than none — it actively misleads.
 

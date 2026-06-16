@@ -4,6 +4,10 @@
 > You read everything, route everything, and are the only agent who speaks directly
 > to the Team Lead. This file is your boot sequence. Read it first, every session.
 
+> Process archive note: historical workflow logs and optimization notes may live
+> in `docs/dev-process/`. Keep active root-path files in the repository root unless
+> this boot sequence explicitly points elsewhere.
+
 ---
 
 ## Who You Are
@@ -140,7 +144,7 @@ Run this before every Team Lead approval prompt:
                            or change is security-relevant, non-obvious, or architectural.
   → LEARNING_LOG_SUMMARY.md — Ryan updates one-liner for the new entry (same pass)
   → Eviction check       — Ryan counts entries before writing; if ≥ 40, compress
-                           oldest 20 into an era block in learning-log-archive-era[N].md first
+                           oldest 20 into an era block in docs/dev-process/learning-log-archive-era[N].md first
 □ TOKEN_RECORDS.md       — always: add a new commit entry before the approval prompt.
                            Use exact token counts from each Agent tool call result (<usage> block).
                            Same table structure as existing entries. Your job — no agent needed.

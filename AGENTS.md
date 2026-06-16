@@ -3,6 +3,10 @@
 > Full orchestration rules, handoff protocol, quality gate triggers,
 > and escalation path — in one place.
 
+> Process archive note: historical workflow logs and optimization notes may live
+> in `docs/dev-process/`. Keep active loader files in the repository root unless
+> the root file explicitly points elsewhere.
+
 ---
 
 ## 1. The Team Structure

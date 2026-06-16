@@ -530,13 +530,13 @@ An outdated summary is worse than no summary — it actively misleads future age
 
 **LEARNING_LOG eviction rule:** Before Ryan writes a new entry, he counts the current
 entries in `LEARNING_LOG.md`. If the count is ≥ 40, he compresses the oldest 20 entries
-into a single era block and moves them to `learning-log-archive-era[N].md` first.
+into a single era block and moves them to `docs/dev-process/learning-log-archive-era[N].md` first.
 Era block format:
 
 ```markdown
 ## Era [N] — Commits [X]–[Y] (compressed [date])
 Key patterns: [comma-separated one-liners from compressed entries]
-Full entries: learning-log-archive-era[N].md
+Full entries: docs/dev-process/learning-log-archive-era[N].md
 ```
 
 ### Token budget by agent role

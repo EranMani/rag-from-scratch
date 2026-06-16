@@ -1,11 +1,11 @@
 # Learning Log Summary
 *Always-loaded companion to LEARNING_LOG.md. Updated by Ryan each commit — one line per entry.*
-*Full entries: LEARNING_LOG.md | Eviction archive: learning-log-archive-era*.md*
+*Full entries: LEARNING_LOG.md | Eviction archive: docs/dev-process/learning-log-archive-era*.md*
 
 ---
 
-- **[Era 2]** Commits 01–20 (compressed) → see learning-log-archive-era2.md
-- **[Era 3]** Commits 21–39 (compressed) → see learning-log-archive-era3.md
+- **[Era 2]** Commits 01-20 (compressed) -> see `docs/dev-process/learning-log-archive-era2.md`
+- **[Era 3]** Commits 21-39 (compressed) -> see `docs/dev-process/learning-log-archive-era3.md`
 - **C40** langchain-curriculum — `langchain_fundamentals` re-added as fifth Phase 2 bridging topic; `curriculum-map.md`, `gates.md`, `topic-slugs.json` updated; 5 MCQs + 8 open-ended questions added; Phase 2 gate now requires 5 topics (Nova wires in Commit 41)
 - **C41** gate-remediation — `langchain_fundamentals` wired through system (9th slug); intermediate Phase 1 remediation for users with residual Phase 1 gaps; `session_question_counts` field activates minimum-3-questions guard in scoring; proximity hint in `generate_node` reinforces near-passing topics (0.60–0.69) (*full entry*)
 - **C42** rag-specialist-persona — RAG Specialist agent persona created: practitioner-depth content author for `knowledge-base/curriculum/questions/`; Lara owns format/structure, Specialist fills depth; Nova `session_history` signals where to add harder questions; litmus test: targets the gap between abstract-RAG-knowledge and LangChain-docs-recall (*full entry*)

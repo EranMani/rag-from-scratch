@@ -98,7 +98,7 @@ apply, omit them when they don't. Depth scales with complexity.
 ---
 ## Entries
 
-> **Era 1 (C01–C20) archived:** [learning-log-archive-era1.md](learning-log-archive-era1.md) — Foundations: auth, profile service, LangGraph assembly, topic scoring, adaptive prompts, first UI panels (2026-05-08 to 2026-05-10).
+> **Era 1 (C01-C20) archived:** [learning-log-archive-era1.md](docs/dev-process/learning-log-archive-era1.md) — Foundations: auth, profile service, LangGraph assembly, topic scoring, adaptive prompts, first UI panels (2026-05-08 to 2026-05-10).
 
 ---
 
