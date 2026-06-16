@@ -16,14 +16,18 @@ ENV PATH="/root/.local/bin:$PATH"
 # Tell Python to look inside src/ for packages (src layout)
 ENV PYTHONPATH=/app/src
 
-# Copy dependency file first (layer caching)
-COPY pyproject.toml .
+# Copy dependency and package metadata first (layer caching)
+COPY pyproject.toml uv.lock ./
 
-# Install python dependencies using uv
-RUN uv sync --no-dev
+# Install third-party dependencies without installing this project yet.
+# This keeps the expensive dependency layer cached when application code changes.
+RUN uv sync --no-group dev --no-install-project
 
-# Copy source code
+# Copy the rest of the project, including src/
 COPY . .
+
+# Install the local src-layout package after code is present.
+RUN uv sync --no-group dev
 
 # Expose FASTAPI port
 EXPOSE 8000

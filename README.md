@@ -1,10 +1,32 @@
 # RAG From Scratch
 
-Production-oriented RAG demo with a LangGraph agent, Chroma retrieval, realtime
-knowledge-profile updates, local/cloud model fallback, and Dockerized service
-infrastructure.
+I built this project because I wanted to understand RAG beyond the happy-path
+tutorial version.
 
-## Quickstart
+Not just "embed a document and ask a question," but the parts that make an AI
+system feel real: retrieval quality, session state, user adaptation, fallback
+behavior, service health, caching, and the discipline of making each step
+observable.
+
+This repo is an adaptive RAG learning agent. It retrieves from a small knowledge
+base, answers with an LLM, updates a learner knowledge profile during the
+session, and then uses that updated profile on the next turn.
+
+The goal is simple: make the system readable, runnable, and honest about how the
+pieces fit together.
+
+## What It Demonstrates
+
+- Chroma vector retrieval over local markdown documents
+- OpenAI generation with Ollama fallback
+- local Hugging Face embeddings when OpenAI is unavailable
+- realtime learner-profile updates across a session
+- profile-aware answer generation
+- LangGraph-style stateful agent architecture
+- Redis caching, circuit breakers, health checks, and metrics
+- Dockerized local infrastructure for the full app stack
+
+## Run The Demo
 
 Install dependencies with `uv`:
 
@@ -12,7 +34,7 @@ Install dependencies with `uv`:
 uv sync
 ```
 
-Copy the environment template and set the values you need:
+Copy the environment template:
 
 ```bash
 cp .env.example .env
@@ -24,9 +46,11 @@ Run the standalone terminal demo:
 uv run rag-demo
 ```
 
-If `OPENAI_API_KEY` is configured, the demo uses OpenAI embeddings and OpenAI
-generation. If the key is missing or invalid, it routes to Ollama generation and
-local Hugging Face embeddings.
+The demo chooses a model path at startup:
+
+- with a valid `OPENAI_API_KEY`: OpenAI embeddings + OpenAI generation
+- with no key or an invalid key: local embeddings + Ollama generation
+- with `DEMO_FORCE_OLLAMA=true`: Ollama path no matter what
 
 To force the local fallback path:
 
@@ -39,6 +63,164 @@ For Ollama fallback, start Ollama and pull the configured model:
 ```bash
 ollama pull gemma3:4b
 ```
+
+## Run The Docker App
+
+The standalone demo is the fastest way to see the RAG/profile loop. The Docker
+stack runs the fuller application infrastructure: FastAPI/NiceGUI, Chroma,
+Redis, Ollama, and optional monitoring.
+
+Start from the environment template:
+
+```bash
+cp .env.example .env
+```
+
+For the **OpenAI-backed Docker path**, set these values in `.env`:
+
+```env
+OPENAI_API_KEY=your_real_key
+LLM_PROVIDER=openai
+EMBEDDING_PROVIDER=openai
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+```
+
+Then run:
+
+```bash
+docker compose up --build
+```
+
+Open the app:
+
+```text
+http://localhost:8000
+```
+
+For the **fully local Docker path**, use Ollama for generation and local
+embeddings:
+
+```env
+OPENAI_API_KEY=
+LLM_PROVIDER=ollama
+EMBEDDING_PROVIDER=local
+OLLAMA_BASE_URL=http://ollama:11434
+OLLAMA_MODEL=gemma3:4b
+```
+
+Start the stack, then pull the model into the Ollama container:
+
+```bash
+docker compose up --build
+docker compose exec ollama ollama pull gemma3:4b
+```
+
+If the app started before the model was pulled, restart it:
+
+```bash
+docker compose restart app
+```
+
+Useful checks:
+
+```bash
+curl http://localhost:8000/api/health
+curl http://localhost:8000/api/health/ready
+curl http://localhost:8000/api/health/circuit-breakers
+```
+
+Run the optional monitoring stack:
+
+```bash
+docker compose --profile monitoring up --build
+```
+
+## Demo Flow
+
+The terminal demo runs three turns:
+
+1. The user knows basic RAG and asks why LangGraph is useful.
+2. The assistant reuses the profile without inventing new profile changes.
+3. The user switches to LangChain and asks for a game-like explanation, causing
+   the profile to update.
+
+The transcript exposes the important internals:
+
+```text
+Retrieved context from Chroma:
+- LangGraph State Machines for RAG (...)
+
+Knowledge profile before update:
+- prior_knowledge: understands basic RAG
+- current_interest: LangGraph state machines
+- communication_style: prefers concise explanations
+
+Knowledge profile after update:
+- prior_knowledge: understands LangGraph state machines
+- current_interest: LangChain chains
+- communication_style: prefers game-like explanations
+```
+
+## Architecture
+
+```mermaid
+flowchart TD
+    A["User message"] --> B["Retrieve context from Chroma"]
+    B --> C["Generate answer with OpenAI or Ollama"]
+    C --> D["Extract profile updates"]
+    D --> E["Merge learner profile"]
+    E --> F["Store session history"]
+    F --> G["Next turn uses updated profile"]
+```
+
+The full app uses LangGraph for the agent workflow:
+
+```mermaid
+flowchart TD
+    START["START"] --> R["retrieve"]
+    R --> G["generate"]
+    G --> A["assess"]
+    A --> U["update_profile"]
+    U --> END["END"]
+```
+
+## State And Profile
+
+The production graph state lives in [src/agents/state.py](src/agents/state.py).
+The important idea is that the agent carries an explicit state object through
+the graph instead of hiding everything inside one prompt.
+
+Core state fields include:
+
+- `messages`: conversation messages managed by LangGraph
+- `question`: current user question
+- `docs`: retrieved documents
+- `answer`: generated answer
+- `topic_scores_delta`: per-turn mastery/profile signal
+- `identified_gaps`: topics where the user may need help
+- `session_question_counts`: per-topic session counters
+- `gate_just_passed`: progression event for the UI
+
+The demo mirrors this idea in a smaller form: retrieve context, answer, profile
+before update, profile updates, profile after update, and session history.
+
+## For Interviewers
+
+Start here:
+
+- [src/rag_from_scratch/demo.py](src/rag_from_scratch/demo.py) - runnable end-to-end demo
+- [src/agents/graph.py](src/agents/graph.py) - LangGraph state machine assembly
+- [src/agents/state.py](src/agents/state.py) - graph state schema
+- [src/agents/nodes/retrieve.py](src/agents/nodes/retrieve.py) - retrieval node contract
+- [src/agents/nodes/generate.py](src/agents/nodes/generate.py) - profile-aware generation node
+- [src/agents/nodes/update_profile.py](src/agents/nodes/update_profile.py) - profile persistence node
+- [src/rag/pipeline/retriever.py](src/rag/pipeline/retriever.py) - Chroma retrieval with BM25 fallback
+- [src/rag/resilience/circuit_breaker.py](src/rag/resilience/circuit_breaker.py) - circuit breaker state machine
+
+The highest-signal behavior is the demo's profile loop: the system retrieves,
+answers, updates profile state, and then changes the next answer based on that
+state.
 
 ## Infrastructure
 
@@ -196,3 +378,11 @@ data/
   knowledge_base/      app knowledge base loaded at startup
 monitoring/            Prometheus, Grafana, Logstash configuration
 ```
+
+## Next Improvements
+
+- persist LangGraph checkpoints outside process memory
+- add automated evals for retrieval quality and profile extraction
+- stream the demo transcript token-by-token
+- add a small browser UI for the standalone demo path
+- harden the production compose stack with TLS and secured Elasticsearch
