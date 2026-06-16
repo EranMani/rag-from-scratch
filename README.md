@@ -15,6 +15,19 @@ session, and then uses that updated profile on the next turn.
 The goal is simple: make the system readable, runnable, and honest about how the
 pieces fit together.
 
+## Table Of Contents
+
+- [What It Demonstrates](#what-it-demonstrates)
+- [Run The Demo](#run-the-demo)
+- [Run The Docker App](#run-the-docker-app)
+- [Demo Flow](#demo-flow)
+- [Architecture](#architecture)
+- [State And Profile](#state-and-profile)
+- [For Interviewers](#for-interviewers)
+- [Infrastructure](#infrastructure)
+- [Project Structure](#project-structure)
+- [Next Improvements](#next-improvements)
+
 ## What It Demonstrates
 
 - Chroma vector retrieval over local markdown documents
