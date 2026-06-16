@@ -79,6 +79,11 @@ For Ollama fallback, start Ollama and pull the configured model:
 ollama pull gemma3:4b
 ```
 
+If you do not want to run OpenAI or a local Ollama model, read the pasted
+transcript in [docs/demo-scenario.md](docs/demo-scenario.md#sample-transcript).
+It shows the same Chroma retrieval, generation, profile update, and profile
+reuse flow.
+
 ## Run The Docker App
 
 The standalone demo is the fastest way to see the RAG/profile loop. The Docker
@@ -399,5 +404,7 @@ monitoring/            Prometheus, Grafana, Logstash configuration
 - persist LangGraph checkpoints outside process memory
 - add automated evals for retrieval quality and profile extraction
 - stream the demo transcript token-by-token
+- add `DEMO_MOCK_LLM=true` for reviewers who want the full flow without OpenAI
+  or Ollama installed
 - add a small browser UI for the standalone demo path
 - harden the production-style compose stack with TLS and secured Elasticsearch
