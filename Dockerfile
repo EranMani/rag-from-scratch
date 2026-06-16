@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y \
     && curl -Ls https://astral.sh/uv/install.sh | sh
 
 # Add uv to PATH
-ENV PATH="/root/.local/bin:$PATH"
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="/app/.venv/bin:/root/.local/bin:$PATH"
 
 # Tell Python to look inside src/ for packages (src layout)
 ENV PYTHONPATH=/app/src
@@ -21,16 +22,18 @@ COPY pyproject.toml uv.lock ./
 
 # Install third-party dependencies without installing this project yet.
 # This keeps the expensive dependency layer cached when application code changes.
-RUN uv sync --no-group dev --no-install-project
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-group dev --no-install-project
 
 # Copy the rest of the project, including src/
 COPY . .
 
-# Install the local src-layout package after code is present.
-RUN uv sync --no-group dev
+# Install only the local src-layout package after code is present.
+# Source edits should invalidate only this cheap layer, not dependency install.
+RUN uv pip install --no-deps -e .
 
 # Expose FASTAPI port
 EXPOSE 8000
 
-# Run the app
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the app from the already-created virtualenv. Do not run uv sync at startup.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
