@@ -4,6 +4,7 @@ __pycache__/
 *.egg-info/
 .env
 data/chroma_db/
+data/demo_chroma_db/
 data/user_profiles/
 data/uploads/
 data/*.db
