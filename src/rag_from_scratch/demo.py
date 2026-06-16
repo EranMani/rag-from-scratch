@@ -450,13 +450,6 @@ def _print_turn(
     print("Knowledge profile after update:")
     _print_profile(profile)
     print()
-    print("Profile updates this turn:")
-    if profile_updates:
-        for key, value in profile_updates.items():
-            print(f"- {key}: {value}")
-    else:
-        print("- none")
-
 
 def _print_profile(profile: dict[str, str]) -> None:
     if profile:
