@@ -1,4 +1,4 @@
-"""Real Chroma + OpenAI demo for the canonical adaptive RAG flow.
+"""Real Chroma + OpenAI/Ollama demo for the canonical adaptive RAG flow.
 
 Run from a fresh checkout with:
     python demo.py
@@ -6,14 +6,16 @@ Run from a fresh checkout with:
 Or, after installing the package / setting PYTHONPATH=src:
     python -m rag_from_scratch.demo
 
-Required:
-    OPENAI_API_KEY in .env or the shell environment.
+If OPENAI_API_KEY is present, the demo uses OpenAI for embeddings and generation.
+If it is missing, the demo falls back to local embeddings and Ollama generation.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import os
+import re
 import shutil
 import textwrap
 from typing import Any
@@ -21,8 +23,12 @@ from typing import Any
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel, Field
 
@@ -31,6 +37,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SAMPLE_DOCS_DIR = PROJECT_ROOT / "data" / "sample_docs"
 DEMO_CHROMA_DIR = PROJECT_ROOT / "data" / "demo_chroma_db"
 COLLECTION_NAME = "rag_from_scratch_demo"
+LOCAL_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 class ProfileUpdate(BaseModel):
@@ -46,30 +53,23 @@ class ProfileUpdate(BaseModel):
 
 
 def run_demo() -> None:
-    """Run the full two-turn demo with real embeddings, Chroma, and OpenAI."""
+    """Run the demo with Chroma retrieval, LLM generation, and profile updates."""
 
     load_dotenv(PROJECT_ROOT / ".env")
-    _require_openai_key()
 
-    model_name = os.getenv("MODEL_NAME") or os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
-    embedding_model = (
-        os.getenv("EMBEDDING_MODEL")
-        or os.getenv("OPENAI_EMBEDDING_MODEL")
-        or "text-embedding-3-small"
-    )
+    backend = _select_backend()
 
-    print("RAG From Scratch - Real Chroma/OpenAI Demo")
+    print("RAG From Scratch - Real Chroma LLM Demo")
     print("=" * 44)
-    print(f"Generation model: {model_name}")
-    print(f"Embedding model:  {embedding_model}")
-    print("Flow: Chroma retrieval -> OpenAI generation -> profile update -> profile reuse")
+    print(f"Generation provider: {backend['provider']}")
+    print(f"Generation model:    {backend['generation_model']}")
+    print(f"Embedding provider:  {backend['embedding_provider']}")
+    print(f"Embedding model:     {backend['embedding_model']}")
+    print("Flow: Chroma retrieval -> LLM generation -> profile update -> profile reuse")
 
-    vectorstore = _build_demo_vectorstore(embedding_model)
-    llm = ChatOpenAI(model=model_name, temperature=0.2)
-    profile_llm = ChatOpenAI(model=model_name, temperature=0).with_structured_output(
-        ProfileUpdate,
-        method="function_calling",
-    )
+    vectorstore = _build_demo_vectorstore(backend["embeddings"])
+    llm = backend["llm"]
+    profile_llm = backend["profile_llm"]
 
     profile: dict[str, str] = {}
     history: list[dict[str, str]] = []
@@ -103,7 +103,55 @@ def run_demo() -> None:
         )
 
 
-def _build_demo_vectorstore(embedding_model: str) -> Chroma:
+def _select_backend() -> dict[str, Any]:
+    force_ollama = os.getenv("DEMO_FORCE_OLLAMA", "").lower() in {"1", "true", "yes"}
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+
+    if openai_key and not force_ollama:
+        model_name = os.getenv("MODEL_NAME") or os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
+        embedding_model = (
+            os.getenv("EMBEDDING_MODEL")
+            or os.getenv("OPENAI_EMBEDDING_MODEL")
+            or "text-embedding-3-small"
+        )
+        profile_llm = ChatOpenAI(model=model_name, temperature=0).with_structured_output(
+            ProfileUpdate,
+            method="function_calling",
+        )
+        return {
+            "provider": "openai",
+            "generation_model": model_name,
+            "embedding_provider": "openai",
+            "embedding_model": embedding_model,
+            "llm": ChatOpenAI(model=model_name, temperature=0.2),
+            "profile_llm": profile_llm,
+            "embeddings": OpenAIEmbeddings(model=embedding_model),
+        }
+
+    if not openai_key:
+        print("OpenAI API key not found. Demo circuit breaker: OPEN -> routing to Ollama.")
+    elif force_ollama:
+        print("DEMO_FORCE_OLLAMA=true. Routing demo generation to Ollama.")
+
+    ollama_model = os.getenv("OLLAMA_MODEL", "gemma3:4b")
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    llm = ChatOllama(model=ollama_model, base_url=ollama_base_url, temperature=0.2)
+    return {
+        "provider": "ollama",
+        "generation_model": ollama_model,
+        "embedding_provider": "local",
+        "embedding_model": LOCAL_EMBEDDING_MODEL,
+        "llm": llm,
+        "profile_llm": llm,
+        "embeddings": HuggingFaceEmbeddings(
+            model_name=LOCAL_EMBEDDING_MODEL,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
+        ),
+    }
+
+
+def _build_demo_vectorstore(embeddings: Embeddings) -> Chroma:
     """Create a fresh local Chroma collection from bundled sample docs."""
 
     if DEMO_CHROMA_DIR.exists():
@@ -116,7 +164,6 @@ def _build_demo_vectorstore(embedding_model: str) -> Chroma:
         separators=["\n\n", "\n", ". ", " ", ""],
     ).split_documents(raw_docs)
 
-    embeddings = OpenAIEmbeddings(model=embedding_model)
     return Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
@@ -143,7 +190,7 @@ def _load_sample_documents() -> list[Document]:
 
 def _generate_answer(
     *,
-    llm: ChatOpenAI,
+    llm: BaseChatModel,
     user_message: str,
     retrieved_docs: list[Document],
     profile: dict[str, str],
@@ -179,6 +226,19 @@ def _extract_profile_updates(
     answer: str,
     existing_profile: dict[str, str],
 ) -> dict[str, str]:
+    if isinstance(profile_llm, ChatOllama):
+        raw_updates = _extract_profile_updates_with_json_prompt(
+            profile_llm,
+            user_message,
+            answer,
+            existing_profile,
+        )
+        return {
+            key: value
+            for key, value in raw_updates.items()
+            if existing_profile.get(key) != value
+        }
+
     result = profile_llm.invoke(
         [
             SystemMessage(
@@ -217,6 +277,51 @@ def _extract_profile_updates(
     }
 
 
+def _extract_profile_updates_with_json_prompt(
+    profile_llm: BaseChatModel,
+    user_message: str,
+    answer: str,
+    existing_profile: dict[str, str],
+) -> dict[str, str]:
+    response = profile_llm.invoke(
+        [
+            SystemMessage(
+                content=(
+                    "Return only valid JSON. Do not include markdown. "
+                    "Schema: {\"updates\": {\"prior_knowledge\": \"...\", "
+                    "\"current_interest\": \"...\", \"communication_style\": \"...\"}}. "
+                    "Only include new or changed fields. Use these mappings: "
+                    "'I understand basic RAG' -> prior_knowledge='understands basic RAG'; "
+                    "'I know LangGraph state machines now' -> prior_knowledge='understands LangGraph state machines'; "
+                    "asking about LangGraph -> current_interest='LangGraph state machines'; "
+                    "switching to LangChain -> current_interest='LangChain chains'; "
+                    "'briefly' -> communication_style='prefers concise explanations'; "
+                    "'like a game with levels and mechanics' -> communication_style='prefers game-like explanations'."
+                )
+            ),
+            HumanMessage(
+                content=(
+                    f"Current learner profile:\n{_format_profile(existing_profile)}\n\n"
+                    f"User message:\n{user_message}\n\n"
+                    f"Assistant answer:\n{answer}"
+                )
+            ),
+        ]
+    )
+    text = str(response.content)
+    match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+    if not match:
+        return {}
+    try:
+        data = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return {}
+    updates = data.get("updates", {})
+    if not isinstance(updates, dict):
+        return {}
+    return {str(key): str(value) for key, value in updates.items()}
+
+
 def _print_turn(
     turn_number: int,
     user_message: str,
@@ -238,7 +343,7 @@ def _print_turn(
         title = doc.metadata.get("title", "Untitled")
         print(f"- {title} ({source}): {_wrap(_preview(doc.page_content), width=100)}")
     print()
-    print("Assistant generated by OpenAI:")
+    print("Assistant generated by LLM:")
     print(_wrap(answer))
     print()
     print("Knowledge profile before update:")
@@ -261,14 +366,6 @@ def _print_profile(profile: dict[str, str]) -> None:
             print(f"- {key}: {value}")
     else:
         print("- no profile signals yet")
-
-
-def _require_openai_key() -> None:
-    if not os.getenv("OPENAI_API_KEY"):
-        raise SystemExit(
-            "OPENAI_API_KEY is required for the real demo. Add it to .env or export it "
-            "in your shell, then run: python demo.py"
-        )
 
 
 def _title_for(content: str, path: Path) -> str:

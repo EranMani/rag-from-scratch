@@ -100,7 +100,12 @@ turn 1.
 ## Implementation Notes
 
 - The default demo should use bundled local sample documents.
-- The default path should be deterministic enough to read in a terminal.
-- OpenAI-backed generation can be supported, but the demo should still explain
-  itself clearly when credentials are not configured.
+- The primary path uses OpenAI embeddings and OpenAI generation when
+  `OPENAI_API_KEY` is configured.
+- If `OPENAI_API_KEY` is missing, the demo routes to the fallback path:
+  local Hugging Face embeddings for Chroma retrieval and Ollama for generation.
+- To intentionally show the fallback path even with an API key configured, set
+  `DEMO_FORCE_OLLAMA=true`.
+- The Ollama fallback requires a running local Ollama server and the configured
+  model to be pulled first, for example: `ollama pull gemma3:4b`.
 - The README, smoke tests, and demo entry point should all follow this scenario.
