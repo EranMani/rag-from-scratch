@@ -15,6 +15,8 @@ session, and then uses that updated profile on the next turn.
 The goal is simple: make the system readable, runnable, and honest about how the
 pieces fit together.
 
+![RAG Tutor application screenshot](assets/project-screenshot.jpg)
+
 ## Table Of Contents
 
 - [What It Demonstrates](#what-it-demonstrates)
