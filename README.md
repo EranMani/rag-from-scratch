@@ -202,7 +202,7 @@ flowchart TD
 
 ## State And Profile
 
-The production graph state lives in [src/agents/state.py](src/agents/state.py).
+The application graph state lives in [src/agents/state.py](src/agents/state.py).
 The important idea is that the agent carries an explicit state object through
 the graph instead of hiding everything inside one prompt.
 
@@ -284,7 +284,7 @@ The local compose file exposes:
 - Grafana: `http://localhost:3000` when monitoring is enabled
 - Kibana: `http://localhost:5601` when monitoring is enabled
 
-`docker-compose.prod.yml` tightens exposure for production-like deployment:
+`docker-compose.prod.yml` shows a production-style deployment shape:
 Chroma, Redis, Prometheus, Elasticsearch, Logstash, Kibana, and Ollama are
 internal-only with `expose`, while the app and Grafana are externally published.
 
@@ -400,4 +400,4 @@ monitoring/            Prometheus, Grafana, Logstash configuration
 - add automated evals for retrieval quality and profile extraction
 - stream the demo transcript token-by-token
 - add a small browser UI for the standalone demo path
-- harden the production compose stack with TLS and secured Elasticsearch
+- harden the production-style compose stack with TLS and secured Elasticsearch

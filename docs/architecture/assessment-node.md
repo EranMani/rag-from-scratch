@@ -2,7 +2,7 @@
 
 ## From Probabilistic Output to Deterministic Systems
 
-This module (`src/agents/nodes/assess.py`) implements core architectural principles for integrating LLMs into production-grade software (e.g., AgentCanvas). Unlike standard backend development, AI Engineering requires wrapping stochastic models in rigid software guardrails.
+This module (`src/agents/nodes/assess.py`) implements core architectural principles for integrating LLMs into production-oriented software (e.g., AgentCanvas). Unlike standard backend development, AI Engineering requires wrapping stochastic models in rigid software guardrails.
 
 ### Key Architectural Principles
 
