@@ -17,6 +17,7 @@ dependencies = [
     "langchain-community>=0.3.0",
     "langchain-chroma>=0.1.0",
     "langchain-huggingface>=0.1.0",
+    "langchain-ollama>=0.2.0",
     "langchain-text-splitters>=0.3.0",
     "langgraph>=0.2.0",
     # Embeddings (local)
@@ -42,8 +43,18 @@ dependencies = [
     "pydantic[email]>=2.13.3",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[project.scripts]
+rag-demo = "rag_from_scratch.demo:run_demo"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[dependency-groups]
+dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
 ]
